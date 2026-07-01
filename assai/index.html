@@ -879,9 +879,20 @@ async function doChangePassword(){
   setTimeout(()=>{ closeChangePassword(); }, 1400);
 }
 
+// Captura o tipo do link (invite/recovery) ANTES do Supabase processar e limpar a URL
+const _rawHash = window.location.hash || '';
+const _rawQuery = window.location.search || '';
+const _urlType = (() => {
+  try {
+    const hp = new URLSearchParams(_rawHash.replace(/^#/, ''));
+    const qp = new URLSearchParams(_rawQuery);
+    return hp.get('type') || qp.get('type') || null;
+  } catch(e){ return null; }
+})();
+
 async function initAuth(){
   supabaseClient.auth.onAuthStateChange((event, session) => {
-    if(event === 'PASSWORD_RECOVERY'){
+    if(event === 'PASSWORD_RECOVERY' || _urlType === 'recovery'){
       resetMode = 'reset';
       pendingResetEmail = session?.user?.email || null;
       document.getElementById('authWrap').style.display = 'block';
@@ -891,7 +902,7 @@ async function initAuth(){
       return;
     }
     if(session?.user && event === 'SIGNED_IN'){
-      if(isInviteLink()){
+      if(_urlType === 'invite'){
         resetMode = 'invite';
         pendingResetEmail = session.user.email;
         document.getElementById('authWrap').style.display = 'block';
@@ -907,11 +918,7 @@ async function initAuth(){
   const { data } = await supabaseClient.auth.getSession();
   const session = data?.session;
 
-  const hash = window.location.hash || '';
-  const query = window.location.search || '';
-  const isRecovery = hash.includes('type=recovery') || query.includes('type=recovery');
-
-  if(isRecovery && session?.user){
+  if(_urlType === 'recovery' && session?.user){
     resetMode = 'reset';
     pendingResetEmail = session.user.email;
     setupResetScreen();
@@ -919,7 +926,7 @@ async function initAuth(){
     return;
   }
 
-  if(isInviteLink() && session?.user){
+  if(_urlType === 'invite' && session?.user){
     resetMode = 'invite';
     pendingResetEmail = session.user.email;
     setupResetScreen();
@@ -935,9 +942,7 @@ async function initAuth(){
 }
 
 function isInviteLink(){
-  const hash = window.location.hash || '';
-  const query = window.location.search || '';
-  return hash.includes('type=invite') || query.includes('type=invite');
+  return _urlType === 'invite';
 }
 
 initAuth();
