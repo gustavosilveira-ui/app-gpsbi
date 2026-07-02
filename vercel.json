@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    { "source": "/assai", "destination": "/assai/index.html" },
+    { "source": "/assai/", "destination": "/assai/index.html" },
+    { "source": "/tangram", "destination": "/tangram/index.html" },
+    { "source": "/tangram/", "destination": "/tangram/index.html" }
+  ]
+}
