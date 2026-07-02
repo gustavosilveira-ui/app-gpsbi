@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -475,8 +474,8 @@ body{
 // ---- Supabase Auth ----
 const SUPABASE_URL = 'https://ikncdkgaefwzdveotvka.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlrbmNka2dhZWZ3emR2ZW90dmthIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3MTk4MzgsImV4cCI6MjA5ODI5NTgzOH0.S6v7h10oyqOnolbOTBKnkf2DO69f1tOn1C939SPd25g';
-const APP_URL = 'https://app.gpsbi.com.br/tangram';
-const PANEL_ABSOLUTE_URL = 'https://app.gpsbi.com.br/tangram/painel.html';
+const APP_URL = 'https://tangram.gpsbi.com.br';
+const PANEL_ABSOLUTE_URL = 'https://tangram.gpsbi.com.br/painel.html';
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // Domínios corporativos liberados pra autocadastro (validação client-side;
@@ -678,7 +677,7 @@ function enterApp(user){
 
 // Link do painel do cliente.
 // Quando tiver o link real do Power BI, substitua o # abaixo pela URL do relatório.
-const CLIENT_PANEL_URL = 'https://app.gpsbi.com.br/tangram/painel.html';
+const CLIENT_PANEL_URL = 'https://tangram.gpsbi.com.br/painel.html';
 
 function openMainPanel(){
   if(CLIENT_PANEL_URL && CLIENT_PANEL_URL !== '#'){
