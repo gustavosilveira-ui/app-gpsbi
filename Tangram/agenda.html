@@ -73,7 +73,7 @@ async function init(){
   userRole = isOwner(userEmail) ? 'owner' : 'vendor';
   userName = nameFromEmail(userEmail);
 
-  renderAppNav({ activePage:'agenda.html', userLabel:userName, userRole, onLogout: doLogout });
+  renderAppNav({ activePage:'agenda.html', userLabel:userName, userRole, onLogout: doLogout, sb, currentUser });
 
   el('loadingScreen').style.display='none';
   el('mainContent').style.display='block';

@@ -634,15 +634,17 @@ let currentUser=null, userRole='vendor', vendorName='';
 let captadaRows=[], faturadaRows=[], metasMap={}, allVendors=[], allCanais=[];
 let selectedMes='', selectedVendedor='', selectedCanal='', selectedProjeto='', selectedFamilia='', selectedProdutoFiltro='', selectedYears=['2025','2026'];
 let dateFrom='', dateTo='';
-let currentTheme = localStorage.getItem('gpsbi_tangram_theme_v3') || 'dark';
+let currentTheme = localStorage.getItem('gpsbi_tangram_theme_v3') || 'light';
 
-function applyTheme(t){
+function applyTheme(t, skipSync){
   currentTheme = t;
   document.documentElement.classList.toggle('light', t==='light');
   localStorage.setItem('gpsbi_tangram_theme_v3', t);
   document.getElementById('btnDark')?.classList.toggle('active', t==='dark');
   document.getElementById('btnLight')?.classList.toggle('active', t==='light');
   if (typeof render === 'function' && allVendors.length) render();
+  // guarda a preferência na própria conta, pra acompanhar o usuário em qualquer aparelho
+  if(!skipSync && currentUser){ sb.auth.updateUser({ data: { theme: t } }).catch(()=>{}); }
 }
 document.getElementById('btnDark')?.addEventListener?.('click', ()=>applyTheme('dark'));
 
@@ -839,7 +841,10 @@ async function initAuth(){
   const email = currentUser.email;
   userRole = isOwner(email) ? 'owner' : 'vendor';
   vendorName = userRole==='vendor' ? nameFromEmail(email) : '';
-  applyTheme(currentTheme);
+  // preferência de tema salva na CONTA tem prioridade (acompanha o usuário em qualquer aparelho);
+  // sem preferência salva ainda, mantém o padrão (claro) sem forçar nada.
+  const savedTheme = currentUser.user_metadata && currentUser.user_metadata.theme;
+  applyTheme(savedTheme || currentTheme, true);
   document.documentElement.style.visibility='visible';
   setupUI();
   await loadData();
@@ -1287,9 +1292,9 @@ function renderEvolution(){
   const labels = allMonths.map(m=>mesLabel(m).replace('/','/'));
   const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--border2').trim() || 'rgba(255,255,255,0.07)';
   const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text3').trim() || '#8d9ab3';
-  const blue = '#0B2545';
-  const navy3 = '#0B2545';
-  const cyan = '#36E2C9';
+  const blue = getComputedStyle(document.documentElement).getPropertyValue('--blue').trim() || '#2D70B8';
+  const navy3 = getComputedStyle(document.documentElement).getPropertyValue('--navy3').trim() || '#123C68';
+  const cyan = getComputedStyle(document.documentElement).getPropertyValue('--cyan').trim() || '#36E2C9';
   const indicacao = '#78F2E5';
   const red = getComputedStyle(document.documentElement).getPropertyValue('--red').trim() || '#ef6a6a';
   const green = getComputedStyle(document.documentElement).getPropertyValue('--green').trim() || '#2fd6b8';
@@ -1328,9 +1333,9 @@ function renderEvolution(){
       const [yy,mm]=m.split('-').map(Number);
       const monthEnd = m+'-'+String(new Date(yy,mm,0).getDate()).padStart(2,'0');
       const overlaps = (!dateFrom || monthEnd>=dateFrom) && (!dateTo || monthStart<=dateTo);
-      return overlaps ? cyan : navy3;
+      return overlaps ? cyan : blue;
     }
-    return m===selectedMes ? cyan : navy3;
+    return m===selectedMes ? cyan : blue;
   });
   const data={labels,datasets:[
     {label:'Receita Captada',data:capByMes,backgroundColor:barColors,borderRadius:5,maxBarThickness:32,yAxisID:'y',order:2},
@@ -1478,8 +1483,8 @@ function renderDailyWeekly(rows){
 
   const textColor=getComputedStyle(document.documentElement).getPropertyValue('--text3').trim();
   const gridColor=getComputedStyle(document.documentElement).getPropertyValue('--border2').trim();
-  const blue='#0B2545';
-  const cyan='#36E2C9';
+  const blue=getComputedStyle(document.documentElement).getPropertyValue('--blue').trim() || '#2D70B8';
+  const cyan=getComputedStyle(document.documentElement).getPropertyValue('--cyan').trim() || '#36E2C9';
 
   const dLabels = dayDates.map(d=>{ const [y,m,dd]=d.split('-'); return dd+'/'+m; });
   const dColors = dayDates.map(d=> (dateFrom===d && dateTo===d) ? cyan : blue);

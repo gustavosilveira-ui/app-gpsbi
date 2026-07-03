@@ -97,7 +97,7 @@ async function init(){
   userRole = isOwner(userEmail) ? 'owner' : 'vendor';
   userName = nameFromEmail(userEmail);
 
-  renderAppNav({ activePage:'aprovacoes.html', userLabel:userName, userRole, onLogout: doLogout });
+  renderAppNav({ activePage:'aprovacoes.html', userLabel:userName, userRole, onLogout: doLogout, sb, currentUser });
 
   if(userRole==='owner'){
     el('newReqCard').style.display='none';

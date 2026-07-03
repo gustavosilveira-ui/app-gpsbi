@@ -82,7 +82,7 @@ async function init(){
   userRole = isOwner(userEmail) ? 'owner' : 'vendor';
   userName = nameFromEmail(userEmail);
 
-  renderAppNav({ activePage:'mural.html', userLabel:userName, userRole, onLogout: doLogout });
+  renderAppNav({ activePage:'mural.html', userLabel:userName, userRole, onLogout: doLogout, sb, currentUser });
   if(userRole==='owner') el('newPostCard').style.display='block';
 
   el('loadingScreen').style.display='none';

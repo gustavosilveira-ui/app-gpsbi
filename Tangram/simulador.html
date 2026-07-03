@@ -182,7 +182,7 @@ async function init(){
   userName = nameFromEmail(userEmail);
   vendorName = userRole==='vendor' ? userName : '';
 
-  renderAppNav({ activePage:'simulador.html', userLabel:userName, userRole, onLogout: doLogout });
+  renderAppNav({ activePage:'simulador.html', userLabel:userName, userRole, onLogout: doLogout, sb, currentUser });
 
   el('simMesLabel').textContent = new Date().toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
 
