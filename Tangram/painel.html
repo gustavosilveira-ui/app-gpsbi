@@ -173,7 +173,8 @@ html.light .topbar{background:rgba(255,255,255,.92);backdrop-filter:blur(16px)}
 .content{max-width:1880px;padding:18px 24px}.filters-bar{border-radius:18px;background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.025)),var(--navy2)}html.light .filters-bar{background:#fff}.year-filter{display:flex;gap:7px;align-items:center;flex-wrap:wrap}.year-pill{display:flex;align-items:center;gap:5px;padding:7px 10px;border-radius:8px;background:var(--navy3);border:1px solid var(--border2);font-size:12px;color:var(--text);cursor:pointer}.year-pill input{accent-color:var(--cyan)}
 .kpi-grid{grid-template-columns:repeat(6,minmax(0,1fr));gap:14px}.kpi-card{display:flex;align-items:center;gap:16px;padding:18px;border-radius:16px;background:linear-gradient(145deg,rgba(255,255,255,.06),rgba(255,255,255,.025)),var(--navy2);min-height:105px}.kpi-icon{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none;font-weight:900;background:linear-gradient(135deg,var(--blue),#145CEB);color:#fff;box-shadow:0 0 30px rgba(54,226,201,.12)}.kpi-faturado .kpi-icon{background:linear-gradient(135deg,#1a9c7c,var(--cyan))}.kpi-icon.neutral{background:rgba(45,112,184,.25)}.kpi-icon.gold-i{background:linear-gradient(135deg,#7E5711,var(--gold))}.kpi-icon.purple-i{background:linear-gradient(135deg,#6040c0,var(--purple))}.kpi-value{font-size:23px}.kpi-label{color:var(--text2)}
 .charts-grid.hero-charts{grid-template-columns:minmax(0,1.75fr) minmax(430px,.9fr);gap:14px}.chart-card{border-radius:16px;background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.025)),var(--navy2)}html.light .chart-card,html.light .table-card{background:#fff}.chart-box.big{height:345px}.project-body{display:grid;grid-template-columns:230px 1fr;gap:18px;align-items:center}.project-donut{height:250px;position:relative}.project-table{width:100%;border-collapse:collapse}.project-table th{font-size:10px;color:var(--text3);text-align:left;padding:7px;border-bottom:1px solid var(--border2)}.project-table td{font-size:12px;padding:9px 7px;border-bottom:1px solid var(--border)}.project-table td:nth-child(2),.project-table td:nth-child(3){text-align:right;font-family:'DM Mono',monospace}.project-table .total-row td{font-weight:800;color:var(--text);border-top:1px solid var(--border2)}
-.project-body-full{display:flex;justify-content:center;grid-template-columns:none}.project-body-full .project-donut{width:min(100%,260px);height:260px;margin:0 auto}
+.project-body-full{display:flex;flex:1;flex-direction:column;align-items:center;justify-content:center;gap:8px;grid-template-columns:none}.project-body-full .project-donut{width:min(100%,140px);height:140px;margin:0 auto}
+.projeto-card{display:flex;flex-direction:column}
 .micro-grid{display:grid;grid-template-columns:minmax(0,.75fr) minmax(0,.75fr) minmax(420px,1.25fr);gap:14px;margin-bottom:14px}.chart-box.mini{height:205px}.ranking-card{padding-bottom:12px;max-height:272px;overflow:auto}.ranking-card .rank-head,.ranking-card .rank-item{grid-template-columns:34px 1.7fr .8fr .8fr .8fr .8fr}.ranking-card .rank-item{background:rgba(255,255,255,.025);margin-bottom:6px;padding:10px 12px}.ranking-card .rank-bar-wrap{height:5px;margin-top:4px}
 .history-map-grid{display:grid;grid-template-columns:minmax(0,1.85fr) minmax(430px,.9fr);gap:14px;margin-bottom:14px}.history-scroll{overflow:auto;max-height:295px;border-radius:12px}.history-table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:11px}.history-table th,.history-table td{padding:9px 11px;border-bottom:1px solid var(--border);white-space:nowrap}.history-table th{position:sticky;top:0;background:var(--navy2);z-index:2;color:var(--text3);text-align:right}.history-table th:first-child,.history-table td:first-child{position:sticky;left:0;background:var(--navy2);z-index:3;text-align:left;font-weight:700;color:var(--text)}html.light .history-table th,html.light .history-table td:first-child,html.light .history-table th:first-child{background:#fff}#mapaReceita{height:340px;border-radius:14px;overflow:hidden;background:var(--navy3)}.leaflet-container{font-family:'Sora',sans-serif}.map-legend{display:flex;justify-content:center;gap:8px;align-items:center;font-size:10px;color:var(--text3);margin-top:8px}.pulse-in{animation:pulseIn .45s ease both}@keyframes pulseIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @media(max-width:1300px){.kpi-grid{grid-template-columns:repeat(3,1fr)}.charts-grid.hero-charts,.history-map-grid,.micro-grid{grid-template-columns:1fr}.project-body{grid-template-columns:1fr}.project-donut{height:220px}.topbar{position:relative}.brand-premium{flex-wrap:wrap}.update-chip{display:none}}
@@ -748,7 +749,8 @@ function rowsUntilDay(rows, mes, vendedor, canal, dayLimit){
     return true;
   });
 }
-function calcMonthTotalSamePeriod(mes, vendedor, canal, referenceMes){
+function calcMonthTotalSamePeriod(mes, vendedor, canal, referenceMes, rows){
+  rows = rows || captadaRows;
   let dayLimit = null;
   // Para o mês corrente, compara somente a mesma quantidade de dias faturados até hoje.
   // Ex.: julho até dia 02 compara junho até dia 02.
@@ -756,7 +758,7 @@ function calcMonthTotalSamePeriod(mes, vendedor, canal, referenceMes){
     const today = new Date();
     dayLimit = today.getDate();
   }
-  return rowsUntilDay(captadaRows, mes, vendedor, canal, dayLimit).reduce((s,r)=>s+r.total,0);
+  return rowsUntilDay(rows, mes, vendedor, canal, dayLimit).reduce((s,r)=>s+r.total,0);
 }
 let evChart=null;
 function renderEvolution(){
@@ -772,11 +774,12 @@ function renderEvolution(){
   );
 
   const currentYm = `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`;
-  const capByMes = allMonths.map(m=>calcMonthTotalSamePeriod(m,vendFilter,canalFilter,currentYm));
+  const capByMes = allMonths.map(m=>calcMonthTotalSamePeriod(m,vendFilter,canalFilter,currentYm,captadaRows));
+  const fatByMes = allMonths.map(m=>calcMonthTotalSamePeriod(m,vendFilter,canalFilter,currentYm,faturadaRows));
   const pctVsPrev = allMonths.map((m,i)=>{
     const prevMes = monthAdd(m,-1);
     const atual = capByMes[i] || 0;
-    const prev = calcMonthTotalSamePeriod(prevMes,vendFilter,canalFilter, m===currentYm ? currentYm : null);
+    const prev = calcMonthTotalSamePeriod(prevMes,vendFilter,canalFilter, m===currentYm ? currentYm : null, captadaRows);
     if(!prev) return null;
     return (atual-prev)/prev*100;
   });
@@ -796,26 +799,34 @@ function renderEvolution(){
       const meta = chart.getDatasetMeta(0);
       if(!meta || meta.hidden) return;
       ctx.save();
-      ctx.font = '700 10px Sora, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'bottom';
-      pctVsPrev.forEach((v,i)=>{
-        if(v===null || v===undefined || !meta.data[i]) return;
+      capByMes.forEach((val,i)=>{
+        if(!meta.data[i]) return;
         const p = meta.data[i].getProps(['x','y'], true);
+        // Valor da Receita Captada, colado na barra
+        ctx.font = '700 10px "DM Mono", monospace';
+        ctx.fillStyle = textColor;
+        ctx.fillText(fmtBRL(val), p.x, p.y - 7);
+        // % de crescimento, acima do valor
+        const v = pctVsPrev[i];
+        if(v===null || v===undefined) return;
+        ctx.font = '700 10px Sora, sans-serif';
         ctx.fillStyle = v>=0 ? green : red;
         const arrow = v>=0 ? '↗' : '↘';
-        ctx.fillText(`${v>=0?'+':''}${v.toFixed(1).replace('.',',')}% ${arrow}`, p.x, p.y - 8);
+        ctx.fillText(`${v>=0?'+':''}${v.toFixed(1).replace('.',',')}% ${arrow}`, p.x, p.y - 19);
       });
       ctx.restore();
     }
   };
 
   const data={labels,datasets:[
-    {label:'Receita Captada',data:capByMes,backgroundColor:blue,borderRadius:5,maxBarThickness:32,yAxisID:'y'}
+    {label:'Receita Captada',data:capByMes,backgroundColor:blue,borderRadius:5,maxBarThickness:32,yAxisID:'y',order:2},
+    {label:'Receita Faturada',data:fatByMes,type:'line',borderColor:cyan,backgroundColor:cyan,borderWidth:2.5,pointRadius:3,pointBackgroundColor:cyan,tension:.3,yAxisID:'y',order:1}
   ]};
   const opts={responsive:true,maintainAspectRatio:false,animation:{duration:300},
-    layout:{padding:{top:26}},
-    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`Receita Captada: ${fmtBRLFull(c.parsed.y)}`}}},
+    layout:{padding:{top:36}},
+    plugins:{legend:{display:true,position:'top',align:'end',labels:{color:textColor,boxWidth:10,font:{size:11}}},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${fmtBRLFull(c.parsed.y)}`}}},
     scales:{
       x:{grid:{display:false},ticks:{color:textColor,font:{size:11},maxRotation:60,minRotation:0}},
       y:{position:'left',grid:{color:gridColor},ticks:{color:textColor,font:{size:11},callback:v=>fmtBRL(v)}}
@@ -835,7 +846,7 @@ function renderProjetoChart(rows){
   const COLORS=['#2D70B8','#36E2C9','#f5b942','#ef6a6a','#9b7fe8','#5bc8f5'];
   const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text3').trim();
   const data={labels:finalRows.map(e=>e[0]||'N/D'),datasets:[{data:finalRows.map(e=>e[1]),backgroundColor:COLORS,borderWidth:0,hoverOffset:8}]};
-  const opts={responsive:true,maintainAspectRatio:false,cutout:'62%',animation:{duration:350},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.label}: ${fmtBRLFull(c.parsed)}`}}}};
+  const opts={responsive:true,maintainAspectRatio:false,cutout:'62%',animation:{duration:350},plugins:{legend:{display:true,position:'bottom',labels:{color:textColor,boxWidth:8,font:{size:10},padding:8}},tooltip:{callbacks:{label:c=>`${c.label}: ${fmtBRLFull(c.parsed)}`}}}};
   if(projetoChart){ projetoChart.data=data; projetoChart.options=opts; projetoChart.update(); } else projetoChart = new Chart(el('projetoChart'),{type:'doughnut',data,options:opts});
 }
 
