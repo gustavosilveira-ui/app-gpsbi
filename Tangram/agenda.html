@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Minha Agenda · Hub GPSBI</title>
+<link rel="stylesheet" href="theme.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+.task-list{display:flex;flex-direction:column;gap:8px;}
+.task-item{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;background:var(--navy3);}
+.task-item.done{opacity:.5;}
+.task-item.done .task-title{text-decoration:line-through;}
+.task-check{width:20px;height:20px;flex:none;accent-color:var(--cyan);cursor:pointer;}
+.task-body{flex:1;min-width:0;}
+.task-title{font-size:13px;font-weight:600;}
+.task-date{font-size:11px;color:var(--text3);margin-top:2px;}
+.task-date.overdue{color:var(--red);font-weight:700;}
+.task-del{flex:none;width:28px;height:28px;border-radius:8px;background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:15px;}
+.task-del:hover{background:rgba(239,106,106,.12);color:var(--red);}
+.section-label{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);font-weight:700;margin:18px 0 8px;}
+.section-label:first-child{margin-top:0;}
+.new-task-row{display:flex;gap:10px;margin-bottom:6px;}
+.new-task-row input[type="text"]{flex:1;}
+.new-task-row input[type="date"]{width:160px;flex:none;}
+</style>
+</head>
+<body>
+
+<div class="loading-screen" id="loadingScreen">
+  <div class="spinner"></div>
+  <p>Carregando sua agenda...</p>
+</div>
+
+<div id="mainContent" style="display:none;">
+  <div class="content">
+    <div class="card">
+      <div class="card-title">🗓️ Minha Agenda</div>
+      <div class="card-sub">Suas tarefas pessoais — separado da agenda de contato com cliente.</div>
+      <div class="new-task-row">
+        <input type="text" id="newTaskTitle" placeholder="O que você precisa fazer?">
+        <input type="date" id="newTaskDate">
+        <button class="btn btn-primary" onclick="addTask()">Adicionar</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div id="taskListWrap"></div>
+    </div>
+  </div>
+</div>
+
+<script src="nav.js"></script>
+<script>
+const SUPABASE_URL = 'https://mczggrocmccvmyglnumv.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jemdncm9jbWNjdm15Z2xudW12Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMjM2NzcsImV4cCI6MjA5ODU5OTY3N30.XXzhDvxfNaUW61HvgE4xuqzSICoLEYjbJhd1X52Zp84';
+const LOGIN_URL = 'index.html';
+const OWNER_EMAILS = ['anderson@tangrampersonalizados.com.br'];
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+function isOwner(email){ return email.endsWith('@gpsbi.com.br') || OWNER_EMAILS.includes(email.toLowerCase()); }
+function nameFromEmail(email){ return email.split('@')[0].split('.').map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' '); }
+function el(id){ return document.getElementById(id); }
+
+let currentUser=null, userEmail='', userName='', userRole='vendor';
+let tasksCache = [];
+
+async function init(){
+  const { data } = await sb.auth.getSession();
+  if(!data.session){ window.location.replace(LOGIN_URL); return; }
+  currentUser = data.session.user;
+  userEmail = currentUser.email;
+  userRole = isOwner(userEmail) ? 'owner' : 'vendor';
+  userName = nameFromEmail(userEmail);
+
+  renderAppNav({ activePage:'agenda.html', userLabel:userName, userRole, onLogout: doLogout });
+
+  el('loadingScreen').style.display='none';
+  el('mainContent').style.display='block';
+  await loadTasks();
+}
+
+async function loadTasks(){
+  const { data, error } = await sb.from('tarefas_pessoais').select('*').eq('usuario_email', userEmail).order('data_tarefa',{ascending:true});
+  if(error){ el('taskListWrap').innerHTML = '<div class="empty-state">⚠️ Não consegui carregar sua agenda. Verifique se a tabela tarefas_pessoais existe no Supabase.</div>'; return; }
+  tasksCache = data || [];
+  renderTasks();
+}
+
+function renderTasks(){
+  const todayStr = new Date().toISOString().slice(0,10);
+  const pendentes = tasksCache.filter(t=>!t.feito).sort((a,b)=>a.data_tarefa.localeCompare(b.data_tarefa));
+  const feitas = tasksCache.filter(t=>t.feito);
+
+  if(!tasksCache.length){
+    el('taskListWrap').innerHTML = '<div class="empty-state"><div class="icon">🗓️</div>Nenhuma tarefa ainda. Adicione a primeira acima!</div>';
+    return;
+  }
+
+  const renderItem = (t)=>{
+    const overdue = !t.feito && t.data_tarefa < todayStr;
+    const dateLabel = new Date(t.data_tarefa+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'});
+    return `<div class="task-item ${t.feito?'done':''}">
+      <input type="checkbox" class="task-check" ${t.feito?'checked':''} onchange="toggleTask(${t.id}, this.checked)">
+      <div class="task-body">
+        <div class="task-title">${t.titulo}</div>
+        <div class="task-date ${overdue?'overdue':''}">${overdue?'Atrasada · ':''}${dateLabel}</div>
+      </div>
+      <button class="task-del" onclick="deleteTask(${t.id})" title="Excluir">✕</button>
+    </div>`;
+  };
+
+  let html = '';
+  if(pendentes.length){
+    html += '<div class="section-label">Pendentes</div><div class="task-list">' + pendentes.map(renderItem).join('') + '</div>';
+  }
+  if(feitas.length){
+    html += '<div class="section-label">Concluídas</div><div class="task-list">' + feitas.map(renderItem).join('') + '</div>';
+  }
+  el('taskListWrap').innerHTML = html;
+}
+
+async function addTask(){
+  const titulo = el('newTaskTitle').value.trim();
+  const data_tarefa = el('newTaskDate').value || new Date().toISOString().slice(0,10);
+  if(!titulo) return;
+  const { error } = await sb.from('tarefas_pessoais').insert({ usuario_email:userEmail, usuario_nome:userName, titulo, data_tarefa });
+  if(!error){ el('newTaskTitle').value=''; el('newTaskDate').value=''; await loadTasks(); }
+  else alert('Erro ao salvar: '+error.message);
+}
+async function toggleTask(id, feito){
+  await sb.from('tarefas_pessoais').update({feito}).eq('id', id);
+  await loadTasks();
+}
+async function deleteTask(id){
+  if(!confirm('Excluir essa tarefa?')) return;
+  await sb.from('tarefas_pessoais').delete().eq('id', id);
+  await loadTasks();
+}
+async function doLogout(){ await sb.auth.signOut(); window.location.href = LOGIN_URL; }
+
+init();
+</script>
+</body>
+</html>

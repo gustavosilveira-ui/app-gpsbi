@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aprovações · Hub GPSBI</title>
+<link rel="stylesheet" href="theme.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+.req-item{background:var(--navy3);border-radius:12px;padding:16px 18px;margin-bottom:12px;}
+.req-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;flex-wrap:wrap;}
+.req-cliente{font-size:14px;font-weight:800;}
+.req-meta{font-size:11.5px;color:var(--text3);margin-top:2px;}
+.req-numbers{display:flex;gap:18px;margin:10px 0;flex-wrap:wrap;}
+.req-num{font-family:'DM Mono',monospace;font-size:15px;font-weight:700;}
+.req-num-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;}
+.req-justificativa{font-size:12.5px;color:var(--text2);background:var(--navy4);padding:10px 12px;border-radius:8px;margin-bottom:10px;}
+.req-actions{display:flex;gap:8px;}
+.req-resposta{font-size:12px;color:var(--text2);margin-top:8px;padding-top:8px;border-top:1px solid var(--border);}
+.tabs{display:flex;gap:6px;margin-bottom:16px;}
+.tab-btn{padding:8px 16px;border-radius:999px;background:var(--navy3);border:1px solid var(--border2);color:var(--text2);font-size:12.5px;font-weight:700;cursor:pointer;}
+.tab-btn.active{background:linear-gradient(90deg,var(--blue),var(--cyan));color:#fff;border-color:transparent;}
+</style>
+</head>
+<body>
+
+<div class="loading-screen" id="loadingScreen">
+  <div class="spinner"></div>
+  <p>Carregando aprovações...</p>
+</div>
+
+<div id="mainContent" style="display:none;">
+  <div class="content">
+
+    <div class="card" id="newReqCard">
+      <div class="card-title">✅ Pedir aprovação de desconto</div>
+      <div class="card-sub">Registrado com data e resposta do gestor — sem ficar solto no WhatsApp.</div>
+      <div class="field-row">
+        <div class="field-group">
+          <label class="field-label">Cliente</label>
+          <input type="text" id="reqCliente" placeholder="Nome do cliente">
+        </div>
+        <div class="field-group">
+          <label class="field-label">% de desconto pedido</label>
+          <input type="number" id="reqPercentual" placeholder="Ex: 10" step="0.5" min="0" max="100">
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Valor do pedido (R$) — opcional</label>
+        <input type="number" id="reqValor" placeholder="Ex: 5000">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Justificativa</label>
+        <textarea id="reqJustificativa" placeholder="Por que esse desconto? Ex: cliente recorrente, pedido grande, concorrência..."></textarea>
+      </div>
+      <button class="btn btn-primary" onclick="submitRequest()">Enviar pedido</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title" id="listTitle">Meus pedidos</div>
+      <div class="tabs" id="tabsWrap" style="display:none;">
+        <button class="tab-btn active" data-tab="pendente" onclick="setTab('pendente')">Pendentes</button>
+        <button class="tab-btn" data-tab="todos" onclick="setTab('todos')">Todos</button>
+      </div>
+      <div id="reqListWrap"></div>
+    </div>
+
+  </div>
+</div>
+
+<script src="nav.js"></script>
+<script>
+const SUPABASE_URL = 'https://mczggrocmccvmyglnumv.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jemdncm9jbWNjdm15Z2xudW12Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMjM2NzcsImV4cCI6MjA5ODU5OTY3N30.XXzhDvxfNaUW61HvgE4xuqzSICoLEYjbJhd1X52Zp84';
+const LOGIN_URL = 'index.html';
+const OWNER_EMAILS = ['anderson@tangrampersonalizados.com.br'];
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+function isOwner(email){ return email.endsWith('@gpsbi.com.br') || OWNER_EMAILS.includes(email.toLowerCase()); }
+function nameFromEmail(email){ return email.split('@')[0].split('.').map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' '); }
+function el(id){ return document.getElementById(id); }
+function fmtBRL(n){ if(n===null||n===undefined||n==='') return '—'; return 'R$ '+Number(n).toLocaleString('pt-BR'); }
+
+let currentUser=null, userEmail='', userName='', userRole='vendor';
+let currentTab = 'pendente';
+let requestsCache = [];
+
+async function init(){
+  const { data } = await sb.auth.getSession();
+  if(!data.session){ window.location.replace(LOGIN_URL); return; }
+  currentUser = data.session.user;
+  userEmail = currentUser.email;
+  userRole = isOwner(userEmail) ? 'owner' : 'vendor';
+  userName = nameFromEmail(userEmail);
+
+  renderAppNav({ activePage:'aprovacoes.html', userLabel:userName, userRole, onLogout: doLogout });
+
+  if(userRole==='owner'){
+    el('newReqCard').style.display='none';
+    el('listTitle').textContent = 'Pedidos da equipe';
+    el('tabsWrap').style.display='flex';
+  } else {
+    el('listTitle').textContent = 'Meus pedidos';
+  }
+
+  el('loadingScreen').style.display='none';
+  el('mainContent').style.display='block';
+  await loadRequests();
+}
+
+function setTab(t){
+  currentTab = t;
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.tab===t));
+  renderRequests();
+}
+
+async function loadRequests(){
+  let query = sb.from('aprovacoes_desconto').select('*').order('criado_em',{ascending:false});
+  if(userRole!=='owner') query = query.eq('vendedor_email', userEmail);
+  const { data, error } = await query;
+  if(error){ el('reqListWrap').innerHTML = '<div class="empty-state">⚠️ Não consegui carregar. Verifique se a tabela aprovacoes_desconto existe no Supabase.</div>'; return; }
+  requestsCache = data || [];
+  renderRequests();
+}
+
+function renderRequests(){
+  let list = requestsCache;
+  if(userRole==='owner' && currentTab==='pendente') list = list.filter(r=>r.status==='pendente');
+
+  if(!list.length){
+    el('reqListWrap').innerHTML = `<div class="empty-state"><div class="icon">✅</div>${userRole==='owner' && currentTab==='pendente' ? 'Nenhum pedido pendente. Tudo em dia!' : 'Nenhum pedido ainda.'}</div>`;
+    return;
+  }
+
+  el('reqListWrap').innerHTML = list.map(r=>{
+    const date = new Date(r.criado_em).toLocaleString('pt-BR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+    const badgeClass = r.status==='aprovado' ? 'badge-aprovado' : r.status==='recusado' ? 'badge-recusado' : 'badge-pendente';
+    const badgeLabel = r.status==='aprovado' ? '✓ Aprovado' : r.status==='recusado' ? '✕ Recusado' : '⏳ Pendente';
+    const actions = (userRole==='owner' && r.status==='pendente') ? `
+      <div class="req-actions">
+        <button class="btn btn-primary btn-sm" onclick="respondRequest(${r.id}, 'aprovado')">Aprovar</button>
+        <button class="btn btn-danger btn-sm" onclick="respondRequest(${r.id}, 'recusado')">Recusar</button>
+      </div>` : '';
+    const resposta = r.resposta_dono ? `<div class="req-resposta"><b>Resposta:</b> ${r.resposta_dono}</div>` : '';
+    return `<div class="req-item">
+      <div class="req-head">
+        <div><div class="req-cliente">${r.cliente}</div><div class="req-meta">${r.vendedor_nome||r.vendedor_email} · ${date}</div></div>
+        <span class="badge ${badgeClass}">${badgeLabel}</span>
+      </div>
+      <div class="req-numbers">
+        <div><div class="req-num">${r.percentual_desconto}%</div><div class="req-num-lbl">Desconto</div></div>
+        <div><div class="req-num">${fmtBRL(r.valor_pedido)}</div><div class="req-num-lbl">Valor do pedido</div></div>
+      </div>
+      ${r.justificativa ? `<div class="req-justificativa">${r.justificativa}</div>` : ''}
+      ${resposta}
+      ${actions}
+    </div>`;
+  }).join('');
+}
+
+async function submitRequest(){
+  const cliente = el('reqCliente').value.trim();
+  const percentual_desconto = parseFloat(el('reqPercentual').value);
+  const valor_pedido = el('reqValor').value ? parseFloat(el('reqValor').value) : null;
+  const justificativa = el('reqJustificativa').value.trim();
+  if(!cliente || !percentual_desconto){ alert('Preencha ao menos o cliente e o % de desconto.'); return; }
+  const { error } = await sb.from('aprovacoes_desconto').insert({
+    vendedor_email:userEmail, vendedor_nome:userName, cliente, percentual_desconto, valor_pedido, justificativa, status:'pendente'
+  });
+  if(!error){
+    el('reqCliente').value=''; el('reqPercentual').value=''; el('reqValor').value=''; el('reqJustificativa').value='';
+    await loadRequests();
+    alert('Pedido enviado! Você será avisado quando o gestor responder.');
+  } else alert('Erro ao enviar: '+error.message);
+}
+async function respondRequest(id, status){
+  const resposta_dono = prompt(status==='aprovado' ? 'Alguma observação sobre a aprovação? (opcional)' : 'Motivo da recusa (opcional):') || '';
+  const { error } = await sb.from('aprovacoes_desconto').update({ status, resposta_dono, respondido_em: new Date().toISOString() }).eq('id', id);
+  if(!error) await loadRequests();
+  else alert('Erro: '+error.message);
+}
+async function doLogout(){ await sb.auth.signOut(); window.location.href = LOGIN_URL; }
+
+init();
+</script>
+</body>
+</html>

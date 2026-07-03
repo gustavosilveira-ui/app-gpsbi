@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulador de Meta · Hub GPSBI</title>
+<link rel="stylesheet" href="theme.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+.sim-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px;}
+.sim-kpi{background:var(--navy3);border-radius:12px;padding:16px;}
+.sim-kpi-val{font-family:'DM Mono',monospace;font-size:20px;font-weight:800;}
+.sim-kpi-lbl{font-size:11px;color:var(--text3);margin-top:4px;}
+.slider-row{display:flex;align-items:center;gap:16px;margin:20px 0 8px;}
+.slider-row input[type="range"]{flex:1;accent-color:var(--cyan);height:6px;}
+.slider-val{font-family:'DM Mono',monospace;font-size:18px;font-weight:800;min-width:130px;text-align:right;}
+.result-banner{border-radius:12px;padding:18px 20px;margin-top:16px;display:flex;align-items:center;gap:16px;}
+.result-banner.hit{background:rgba(47,214,184,.12);border:1px solid rgba(47,214,184,.3);}
+.result-banner.miss{background:rgba(239,106,106,.1);border:1px solid rgba(239,106,106,.25);}
+.result-icon{font-size:32px;}
+.result-text b{display:block;font-size:15px;margin-bottom:2px;}
+.result-text span{font-size:12.5px;color:var(--text2);}
+@media(max-width:760px){.sim-grid{grid-template-columns:1fr 1fr;}}
+</style>
+</head>
+<body>
+
+<div class="loading-screen" id="loadingScreen">
+  <div class="spinner"></div>
+  <p id="loadingMsg">Carregando seus números...</p>
+</div>
+
+<div id="mainContent" style="display:none;">
+  <div class="content">
+
+    <div class="card" id="vendorPickerCard" style="display:none;">
+      <label class="field-label">Simular para</label>
+      <select id="vendorPicker"></select>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🎯 Simulador de Meta — <span id="simMesLabel"></span></div>
+      <div class="card-sub">Veja se o seu ritmo atual bate a meta, e simule quanto precisa vender por dia até o fim do mês.</div>
+
+      <div class="sim-grid">
+        <div class="sim-kpi"><div class="sim-kpi-val" id="kpiMeta">--</div><div class="sim-kpi-lbl">Meta do mês</div></div>
+        <div class="sim-kpi"><div class="sim-kpi-val" id="kpiCaptado">--</div><div class="sim-kpi-lbl">Captado até hoje</div></div>
+        <div class="sim-kpi"><div class="sim-kpi-val" id="kpiFalta">--</div><div class="sim-kpi-lbl">Falta pra meta</div></div>
+        <div class="sim-kpi"><div class="sim-kpi-val" id="kpiDiasUteis">--</div><div class="sim-kpi-lbl">Dias úteis restantes</div></div>
+      </div>
+
+      <div class="card-title" style="font-size:13px;">Quanto você pretende vender por dia daqui pra frente?</div>
+      <div class="slider-row">
+        <input type="range" id="simSlider" min="0" max="1" step="1" value="0">
+        <div class="slider-val" id="simSliderVal">R$ 0</div>
+      </div>
+
+      <div class="result-banner" id="resultBanner">
+        <div class="result-icon" id="resultIcon">🤔</div>
+        <div class="result-text">
+          <b id="resultTitle">--</b>
+          <span id="resultSub">--</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📈 Seu ritmo atual</div>
+      <div class="card-sub" id="ritmoSub">--</div>
+    </div>
+
+  </div>
+</div>
+
+<script src="nav.js"></script>
+<script>
+/* ---- Config (mesma base de dados do painel principal) ---- */
+const SUPABASE_URL = 'https://mczggrocmccvmyglnumv.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jemdncm9jbWNjdm15Z2xudW12Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMjM2NzcsImV4cCI6MjA5ODU5OTY3N30.XXzhDvxfNaUW61HvgE4xuqzSICoLEYjbJhd1X52Zp84';
+const SHEET_ID = '1-EXmSsigKK3VP7C5BGoa2AYaPHCIgGmF8VJUwGBeGKg';
+const GID_CAPTADA = '0';
+const LOGIN_URL = 'index.html';
+const OWNER_EMAILS = ['anderson@tangrampersonalizados.com.br'];
+const SITUACOES_CAPTADA = ['faturado','pedido de venda pendente','previsto para hoje','aguardando faturamento'];
+const PEDIDOS_EXCLUIDOS_CAPTADA = new Set(['12669','14171','14353','14543','14669','14730','15504','15507','15508','15510','15512','15513','15514','15749','15888','15961','16000','16040','16043','16100','16119','16178','16230','16323','16324','16337','16349','16583','16821','16999','17000','17169','17650','17851','17884','18072','18081','18120','18157','18165','18175','18214','18335','18422','18497','18576','20206']);
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+function isOwner(email){ return email.endsWith('@gpsbi.com.br') || OWNER_EMAILS.includes(email.toLowerCase()); }
+function nameFromEmail(email){ return email.split('@')[0].split('.').map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' '); }
+function cleanVendorName(raw){
+  let s = (raw||'').toString().trim();
+  s = s.replace(/_\s*\d[\d\-]*/g, ' ');
+  s = s.replace(/\b\d{4,}-?\d*\b/g, ' ');
+  s = s.trim().replace(/\s{2,}/g, ' ');
+  s = s.split(' ').filter(Boolean).map(w=>{
+    const lw = w.toLowerCase();
+    if(lw==='(inativo)'||lw==='inativo)'||lw==='(inativo') return '(Inativo)';
+    return w.charAt(0).toUpperCase()+w.slice(1).toLowerCase();
+  }).join(' ').trim();
+  return s;
+}
+function el(id){ return document.getElementById(id); }
+function fmtBRL(n){ if(!n && n!==0) return '—'; const sign=n<0?'-':''; return sign+'R$ '+Math.round(Math.abs(n)).toLocaleString('pt-BR'); }
+
+async function fetchGviz(gid){
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&gid=${gid}&headers=1`;
+  const res = await fetch(url);
+  const text = await res.text();
+  const clean = text.replace(/^[^{]*/, '').replace(/\s*\)\s*;?\s*$/, '');
+  return JSON.parse(clean).table;
+}
+function parseGvizRows(table){
+  if(!table || !table.rows) return [];
+  const cols = table.cols.map(c=>c.label);
+  return table.rows.map(row=>{
+    const obj={};
+    cols.forEach((col,i)=>{ const cell=row.c[i]; obj[col]= cell ? (cell.v!==null?cell.v:(cell.f||null)) : null; });
+    return obj;
+  });
+}
+function parseDate(v){
+  if(!v) return null;
+  if(typeof v==='string'){
+    if(v.includes('/')){ const [d,m,y]=v.split('/'); return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`; }
+    const dm = v.match(/Date\((\d+),(\d+),(\d+)\)/);
+    if(dm){ const y=dm[1], m=String(parseInt(dm[2])+1).padStart(2,'0'), d=dm[3].padStart(2,'0'); return `${y}-${m}-${d}`; }
+  }
+  return null;
+}
+function parseMoney(v){
+  if(v===null||v===undefined||v==='') return 0;
+  if(typeof v==='number') return v;
+  return parseFloat(String(v).replace(/\./g,'').replace(',','.')) || 0;
+}
+function rowToRecord(row){
+  const dateRaw = row['Data de Emissão (completa)'];
+  const dateStr = parseDate(typeof dateRaw==='object' && dateRaw!==null ? (dateRaw.v||dateRaw) : dateRaw);
+  if(!dateStr) return null;
+  const mes = dateStr.slice(0,7);
+  const vendedor = cleanVendorName(row['Vendedor']);
+  if(!vendedor) return null;
+  const situacao = (row['Situação']||'').trim();
+  const totalRaw = row['Total da Nota Fiscal'];
+  const total = parseMoney(typeof totalRaw==='object' && totalRaw!==null ? totalRaw.v : totalRaw);
+  const pedido = row['Pedido'] || '';
+  return { mes, date:dateStr, vendedor, situacao, total, pedido };
+}
+
+let currentUser=null, userEmail='', userName='', userRole='vendor', vendorName='';
+let captadaRows = [], metasMap = {}, allVendors = [];
+let simVendedor = '';
+const mesAtual = `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`;
+
+async function init(){
+  const { data } = await sb.auth.getSession();
+  if(!data.session){ window.location.replace(LOGIN_URL); return; }
+  currentUser = data.session.user;
+  userEmail = currentUser.email;
+  userRole = isOwner(userEmail) ? 'owner' : 'vendor';
+  userName = nameFromEmail(userEmail);
+  vendorName = userRole==='vendor' ? userName : '';
+
+  renderAppNav({ activePage:'simulador.html', userLabel:userName, userRole, onLogout: doLogout });
+
+  el('simMesLabel').textContent = new Date().toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+
+  await loadData();
+}
+
+async function loadData(){
+  try{
+    const tableCap = await fetchGviz(GID_CAPTADA);
+    captadaRows = parseGvizRows(tableCap).map(rowToRecord).filter(Boolean)
+      .filter(r=>SITUACOES_CAPTADA.includes((r.situacao||'').toLowerCase()))
+      .filter(r=>!PEDIDOS_EXCLUIDOS_CAPTADA.has(String(r.pedido).trim()));
+
+    const { data: metas } = await sb.from('metas_tangram').select('*');
+    metasMap = {};
+    (metas||[]).forEach(m=>{ if(!metasMap[m.mes_ano]) metasMap[m.mes_ano]={}; metasMap[m.mes_ano][m.vendedor]=m.meta_captada||0; });
+
+    allVendors = Array.from(new Set(captadaRows.map(r=>r.vendedor))).sort();
+
+    if(userRole==='owner'){
+      el('vendorPickerCard').style.display='block';
+      const sel = el('vendorPicker');
+      sel.innerHTML = allVendors.map(v=>`<option value="${v}">${v}</option>`).join('');
+      simVendedor = allVendors[0] || '';
+      sel.value = simVendedor;
+      sel.addEventListener('change', ()=>{ simVendedor = sel.value; renderSimulator(); });
+    } else {
+      simVendedor = vendorName;
+    }
+
+    el('loadingScreen').style.display='none';
+    el('mainContent').style.display='block';
+    renderSimulator();
+  }catch(e){
+    console.error(e);
+    el('loadingMsg').textContent = 'Erro ao carregar dados. Tente recarregar a página.';
+  }
+}
+
+function getMeta(mes, vendedor){ return (metasMap[mes] && metasMap[mes][vendedor]) || 0; }
+
+function countBusinessDaysRemaining(){
+  const today = new Date();
+  const year = today.getFullYear(), month = today.getMonth();
+  const lastDay = new Date(year, month+1, 0).getDate();
+  let count = 0;
+  for(let d=today.getDate(); d<=lastDay; d++){
+    const dow = new Date(year, month, d).getDay();
+    if(dow!==0 && dow!==6) count++;
+  }
+  return count;
+}
+
+function renderSimulator(){
+  const rows = captadaRows.filter(r=>r.mes===mesAtual && r.vendedor.toLowerCase()===simVendedor.toLowerCase());
+  const captado = rows.reduce((s,r)=>s+r.total,0);
+  const meta = getMeta(mesAtual, simVendedor);
+  const falta = Math.max(0, meta - captado);
+  const diasUteisRestantes = countBusinessDaysRemaining();
+
+  el('kpiMeta').textContent = meta>0 ? fmtBRL(meta) : 'Sem meta definida';
+  el('kpiCaptado').textContent = fmtBRL(captado);
+  el('kpiFalta').textContent = meta>0 ? fmtBRL(falta) : '—';
+  el('kpiDiasUteis').textContent = diasUteisRestantes + (diasUteisRestantes===1?' dia':' dias');
+
+  // ritmo atual: média diária captada nos dias já corridos do mês
+  const today = new Date();
+  const diaDeHoje = today.getDate();
+  const diasComVenda = new Set(rows.map(r=>r.date)).size;
+  const mediaDiariaAtual = diaDeHoje>0 ? captado/diaDeHoje : 0;
+  const projecaoRitmoAtual = captado + mediaDiariaAtual * diasUteisRestantes;
+
+  el('ritmoSub').textContent = meta>0
+    ? `No ritmo atual (média de ${fmtBRL(mediaDiariaAtual)}/dia), você projeta fechar o mês em ${fmtBRL(projecaoRitmoAtual)} — ${projecaoRitmoAtual>=meta ? 'no caminho de bater a meta! 🎉' : 'ainda abaixo da meta, mas dá pra ajustar no simulador acima.'}`
+    : 'Defina uma meta pra esse vendedor pra ver a projeção de ritmo.';
+
+  // slider: precisa por dia útil restante pra bater a meta, com folga até 3x isso
+  const necessarioPorDia = diasUteisRestantes>0 ? falta/diasUteisRestantes : falta;
+  const sliderMax = Math.max(Math.round(necessarioPorDia*2), 1000);
+  const slider = el('simSlider');
+  slider.min = 0;
+  slider.max = sliderMax;
+  slider.step = Math.max(Math.round(sliderMax/100), 1);
+  slider.value = Math.round(necessarioPorDia);
+  updateSimResult();
+  slider.oninput = updateSimResult;
+
+  function updateSimResult(){
+    const porDia = parseFloat(slider.value);
+    el('simSliderVal').textContent = fmtBRL(porDia) + ' / dia';
+    const projecao = captado + porDia * diasUteisRestantes;
+    const banner = el('resultBanner');
+    if(meta<=0){
+      banner.className = 'result-banner';
+      el('resultIcon').textContent = '📋';
+      el('resultTitle').textContent = 'Sem meta definida';
+      el('resultSub').textContent = 'Peça pro gestor definir a meta desse mês pra simular direito.';
+      return;
+    }
+    const bate = projecao >= meta;
+    banner.className = 'result-banner ' + (bate?'hit':'miss');
+    el('resultIcon').textContent = bate ? '🎉' : '📊';
+    el('resultTitle').textContent = bate ? 'Nesse ritmo, você bate a meta!' : 'Nesse ritmo, ainda não bate a meta';
+    el('resultSub').textContent = `Projeção de fechamento: ${fmtBRL(projecao)} (meta: ${fmtBRL(meta)}).` + (bate ? '' : ` Faltariam ${fmtBRL(meta-projecao)}.`);
+  }
+}
+
+async function doLogout(){ await sb.auth.signOut(); window.location.href = LOGIN_URL; }
+
+init();
+</script>
+</body>
+</html>
