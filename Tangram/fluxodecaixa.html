@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="theme.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
+.fc-page-content{max-width:100% !important;padding:16px 14px !important;}
 .fc-wrap{overflow:auto;max-height:80vh;border-radius:12px;border:1px solid var(--border2);}
 .fc-table{border-collapse:separate;border-spacing:0;font-size:11.5px;width:max-content;min-width:100%;}
 .fc-table th,.fc-table td{padding:7px 10px;white-space:nowrap;text-align:right;border-bottom:1px solid var(--border);}
@@ -14,7 +15,10 @@
 .fc-table th.fc-today,.fc-table td.fc-today{background:rgba(58,233,209,.14) !important;}
 .fc-table th:first-child,.fc-table td:first-child{position:sticky;left:0;background:var(--navy2);z-index:4;text-align:left;min-width:220px;}
 html.light .fc-table th,html.light .fc-table td:first-child,html.light .fc-table th:first-child{background:#fff;}
-.fc-toggle{display:inline-block;width:14px;cursor:pointer;user-select:none;color:var(--text3);}
+.fc-toggle{display:inline-block;width:18px;cursor:pointer;user-select:none;color:var(--text2);font-size:14px;font-weight:900;}
+.fc-row-label:hover .fc-toggle{color:var(--cyan);}
+.fc-col-toggle{cursor:pointer;color:var(--cyan);font-weight:900;font-size:15px;padding:2px 4px;}
+.fc-dow{font-size:9px;color:var(--text3);font-weight:700;letter-spacing:.03em;}
 .fc-row-label{cursor:pointer;user-select:none;}
 .fc-row-label:hover{color:var(--cyan);}
 .fc-lvl-0{font-weight:800;font-size:12.5px;}
@@ -22,9 +26,8 @@ html.light .fc-table th,html.light .fc-table td:first-child,html.light .fc-table
 html.light .fc-lvl-0 td{background:#eef1f6;}
 .fc-lvl-1{font-weight:700;padding-left:14px;}
 .fc-lvl-2{padding-left:28px;color:var(--text2);}
-.fc-saldo-pos{color:var(--green);font-weight:800;}
+.fc-saldo-pos{color:#22c55e;font-weight:800;}
 .fc-saldo-neg{color:var(--red);font-weight:800;background:rgba(239,106,106,.08);}
-.fc-col-toggle{cursor:pointer;color:var(--cyan);font-weight:900;}
 .fc-legend{display:flex;gap:18px;align-items:center;font-size:11.5px;color:var(--text3);margin-top:10px;flex-wrap:wrap;}
 .fc-legend span{display:flex;align-items:center;gap:6px;}
 .fc-dot{width:10px;height:10px;border-radius:3px;display:inline-block;}
@@ -48,13 +51,13 @@ html.light .fc-lvl-0 td{background:#eef1f6;}
 </div>
 
 <div id="mainContent" style="display:none;">
-  <div class="content wide">
+  <div class="content wide fc-page-content">
     <div class="card">
       <div class="card-title">💰 Fluxo de Caixa</div>
       <div class="card-sub">Clique nas setinhas pra abrir/fechar anos, meses e dias — e as categorias dentro de Recebimentos e Pagamentos. Saldo acumulado dia a dia.</div>
       <div class="fc-wrap"><table class="fc-table" id="fcTable"></table></div>
       <div class="fc-legend">
-        <span><span class="fc-dot" style="background:var(--green)"></span> Saldo positivo</span>
+        <span><span class="fc-dot" style="background:#22c55e"></span> Saldo positivo</span>
         <span><span class="fc-dot" style="background:var(--red)"></span> Saldo negativo</span>
         <span><span class="fc-dot" style="background:var(--cyan)"></span> Hoje</span>
       </div>
@@ -192,6 +195,7 @@ async function loadData(){
 const MESES_ABBR = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 let columnTree = [];
 
+const DOW_ABBR = ['DOM','SEG','TER','QUA','QUI','SEX','SÁB'];
 function buildColumnTree(){
   if(!rows.length) return [];
   const minYear = parseInt(rows[0].date.slice(0,4),10);
@@ -208,7 +212,8 @@ function buildColumnTree(){
       const days = [];
       for(let d=1; d<=lastDay; d++){
         const dstr = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-        days.push({ type:'day', key:'d'+dstr, label:String(d).padStart(2,'0'), start:dstr, end:dstr, isToday: dstr===todayStr, children:[], expanded:false });
+        const dow = DOW_ABBR[new Date(y,m-1,d).getDay()];
+        days.push({ type:'day', key:'d'+dstr, label:`<div class="fc-dow">${dow}</div><div>${String(d).padStart(2,'0')}</div>`, start:dstr, end:dstr, isToday: dstr===todayStr, children:[], expanded:false });
       }
       months.push({ type:'month', key:`m${y}-${m}`, label:MESES_ABBR[m-1]+'/'+String(y).slice(2),
         start:`${y}-${String(m).padStart(2,'0')}-01`, end:`${y}-${String(m).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`,
@@ -259,7 +264,7 @@ function buildRowTree(){
   const pagamentoSubgrupos = GRUPOS_PAGAMENTO.map(g=>{
     const cats = Array.from(catsByGrupo[g.key]||[]).sort();
     return {
-      type:'subgrupo', level:1, label:g.label, filter:isGrupo(g.key), expanded:(g.key==='DEDUCOES'),
+      type:'subgrupo', level:1, label:g.label, filter:isGrupo(g.key), expanded:false,
       children: cats.map(c=>({ type:'cat', level:2, label:c, filter:isCategoria(c), expanded:false, children:[] }))
     };
   }).filter(sg=>sg.children.length); // esconde grupo sem nenhuma categoria
@@ -286,6 +291,7 @@ function buildAndRenderTable(){
   columnTree = buildColumnTree();
   rowTree = buildRowTree();
   renderTable();
+  setTimeout(scrollToToday, 50);
 }
 
 function renderTable(){
@@ -323,6 +329,13 @@ function renderTable(){
   tbody += '</tbody>';
 
   el('fcTable').innerHTML = thead + tbody;
+}
+function scrollToToday(){
+  const todayTh = document.querySelector('.fc-table th.fc-today');
+  if(!todayTh) return;
+  const wrap = document.querySelector('.fc-wrap');
+  const firstColWidth = document.querySelector('.fc-table td:first-child')?.offsetWidth || 220;
+  wrap.scrollLeft = Math.max(0, todayTh.offsetLeft - firstColWidth - 8);
 }
 
 // localizar nó de coluna pela key (busca recursiva)
