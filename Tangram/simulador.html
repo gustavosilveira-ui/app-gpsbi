@@ -11,8 +11,15 @@
 .sim-kpi{background:var(--navy3);border-radius:12px;padding:16px;}
 .sim-kpi-val{font-family:'DM Mono',monospace;font-size:20px;font-weight:800;}
 .sim-kpi-lbl{font-size:11px;color:var(--text3);margin-top:4px;}
-.slider-row{display:flex;align-items:center;gap:16px;margin:20px 0 8px;}
-.slider-row input[type="range"]{flex:1;accent-color:var(--cyan);height:6px;}
+.new-order-row{display:grid;grid-template-columns:1fr 180px auto;gap:10px;margin-bottom:14px;align-items:end;}
+.order-list{display:flex;flex-direction:column;gap:8px;margin-bottom:16px;}
+.order-item{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;background:var(--navy3);}
+.order-item .order-cliente{flex:1;font-size:13px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.order-item .order-valor{font-family:'DM Mono',monospace;font-size:14px;font-weight:700;flex:none;}
+.order-item .order-del{flex:none;width:26px;height:26px;border-radius:8px;background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:14px;}
+.order-item .order-del:hover{background:rgba(239,106,106,.12);color:var(--red);}
+.sim-summary-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid var(--border);font-size:13px;}
+.sim-summary-row b{font-family:'DM Mono',monospace;font-size:15px;}
 .slider-val{font-family:'DM Mono',monospace;font-size:18px;font-weight:800;min-width:130px;text-align:right;}
 .result-banner{border-radius:12px;padding:18px 20px;margin-top:16px;display:flex;align-items:center;gap:16px;}
 .result-banner.hit{background:rgba(47,214,184,.12);border:1px solid rgba(47,214,184,.3);}
@@ -40,7 +47,7 @@
 
     <div class="card">
       <div class="card-title">🎯 Simulador de Meta — <span id="simMesLabel"></span></div>
-      <div class="card-sub">Veja se o seu ritmo atual bate a meta, e simule quanto precisa vender por dia até o fim do mês.</div>
+      <div class="card-sub">Veja se o seu ritmo atual bate a meta, e simule quais pedidos em negociação fariam você bater.</div>
 
       <div class="sim-grid">
         <div class="sim-kpi"><div class="sim-kpi-val" id="kpiMeta">--</div><div class="sim-kpi-lbl">Meta do mês</div></div>
@@ -49,11 +56,24 @@
         <div class="sim-kpi"><div class="sim-kpi-val" id="kpiDiasUteis">--</div><div class="sim-kpi-lbl">Dias úteis restantes</div></div>
       </div>
 
-      <div class="card-title" style="font-size:13px;">Quanto você pretende vender por dia daqui pra frente?</div>
-      <div class="slider-row">
-        <input type="range" id="simSlider" min="0" max="1" step="1" value="0">
-        <div class="slider-val" id="simSliderVal">R$ 0</div>
+      <div class="card-title" style="font-size:13px;">📝 Simule pedidos que ainda podem entrar</div>
+      <div class="card-sub" style="margin-bottom:10px;">Adicione os pedidos em negociação e veja na hora como fica o resultado do mês.</div>
+      <div class="new-order-row">
+        <div class="field-group" style="margin-bottom:0;">
+          <label class="field-label">Cliente / Pedido</label>
+          <input type="text" id="newOrderCliente" placeholder="Ex: Cliente X - pedido de mochilas">
+        </div>
+        <div class="field-group" style="margin-bottom:0;">
+          <label class="field-label">Valor (R$)</label>
+          <input type="number" id="newOrderValor" placeholder="Ex: 8000">
+        </div>
+        <button class="btn btn-primary" onclick="addSimOrder()">Adicionar</button>
       </div>
+
+      <div class="order-list" id="orderListWrap"></div>
+
+      <div class="sim-summary-row"><span>Total dos pedidos simulados</span><b id="simTotalPedidos">R$ 0</b></div>
+      <div class="sim-summary-row"><span>Captado até hoje + pedidos simulados</span><b id="simNovoTotal">R$ 0</b></div>
 
       <div class="result-banner" id="resultBanner">
         <div class="result-icon" id="resultIcon">🤔</div>
@@ -187,7 +207,7 @@ async function loadData(){
       sel.innerHTML = allVendors.map(v=>`<option value="${v}">${v}</option>`).join('');
       simVendedor = allVendors[0] || '';
       sel.value = simVendedor;
-      sel.addEventListener('change', ()=>{ simVendedor = sel.value; renderSimulator(); });
+      sel.addEventListener('change', ()=>{ simVendedor = sel.value; simOrders=[]; renderSimulator(); });
     } else {
       simVendedor = vendorName;
     }
@@ -235,38 +255,58 @@ function renderSimulator(){
   const projecaoRitmoAtual = captado + mediaDiariaAtual * diasUteisRestantes;
 
   el('ritmoSub').textContent = meta>0
-    ? `No ritmo atual (média de ${fmtBRL(mediaDiariaAtual)}/dia), você projeta fechar o mês em ${fmtBRL(projecaoRitmoAtual)} — ${projecaoRitmoAtual>=meta ? 'no caminho de bater a meta! 🎉' : 'ainda abaixo da meta, mas dá pra ajustar no simulador acima.'}`
+    ? `No ritmo atual (média de ${fmtBRL(mediaDiariaAtual)}/dia), você projeta fechar o mês em ${fmtBRL(projecaoRitmoAtual)} — ${projecaoRitmoAtual>=meta ? 'no caminho de bater a meta! 🎉' : 'ainda abaixo da meta, mas veja no simulador acima se algum pedido em negociação muda esse cenário.'}`
     : 'Defina uma meta pra esse vendedor pra ver a projeção de ritmo.';
 
-  // slider: precisa por dia útil restante pra bater a meta, com folga até 3x isso
-  const necessarioPorDia = diasUteisRestantes>0 ? falta/diasUteisRestantes : falta;
-  const sliderMax = Math.max(Math.round(necessarioPorDia*2), 1000);
-  const slider = el('simSlider');
-  slider.min = 0;
-  slider.max = sliderMax;
-  slider.step = Math.max(Math.round(sliderMax/100), 1);
-  slider.value = Math.round(necessarioPorDia);
-  updateSimResult();
-  slider.oninput = updateSimResult;
+  // guarda os números atuais pra usar quando o usuário adicionar/remover pedidos simulados
+  simState = { captado, meta };
+  renderSimOrders();
+}
 
-  function updateSimResult(){
-    const porDia = parseFloat(slider.value);
-    el('simSliderVal').textContent = fmtBRL(porDia) + ' / dia';
-    const projecao = captado + porDia * diasUteisRestantes;
-    const banner = el('resultBanner');
-    if(meta<=0){
-      banner.className = 'result-banner';
-      el('resultIcon').textContent = '📋';
-      el('resultTitle').textContent = 'Sem meta definida';
-      el('resultSub').textContent = 'Peça pro gestor definir a meta desse mês pra simular direito.';
-      return;
-    }
-    const bate = projecao >= meta;
-    banner.className = 'result-banner ' + (bate?'hit':'miss');
-    el('resultIcon').textContent = bate ? '🎉' : '📊';
-    el('resultTitle').textContent = bate ? 'Nesse ritmo, você bate a meta!' : 'Nesse ritmo, ainda não bate a meta';
-    el('resultSub').textContent = `Projeção de fechamento: ${fmtBRL(projecao)} (meta: ${fmtBRL(meta)}).` + (bate ? '' : ` Faltariam ${fmtBRL(meta-projecao)}.`);
+/* ---- Pedidos simulados (cenário "e se esses pedidos entrarem?") ---- */
+let simOrders = [];
+let simState = { captado:0, meta:0 };
+
+function addSimOrder(){
+  const cliente = el('newOrderCliente').value.trim();
+  const valor = parseFloat(el('newOrderValor').value);
+  if(!cliente || !valor){ alert('Preencha o cliente/pedido e o valor.'); return; }
+  simOrders.push({ cliente, valor });
+  el('newOrderCliente').value=''; el('newOrderValor').value='';
+  renderSimOrders();
+}
+function removeSimOrder(idx){
+  simOrders.splice(idx, 1);
+  renderSimOrders();
+}
+function renderSimOrders(){
+  const wrap = el('orderListWrap');
+  wrap.innerHTML = simOrders.length ? simOrders.map((o,i)=>`
+    <div class="order-item">
+      <span class="order-cliente">${o.cliente}</span>
+      <span class="order-valor">${fmtBRL(o.valor)}</span>
+      <button class="order-del" onclick="removeSimOrder(${i})" title="Remover">✕</button>
+    </div>`).join('') : '<div style="color:var(--text3);font-size:12.5px;padding:8px 0;">Nenhum pedido simulado ainda. Adicione acima os que estão em negociação.</div>';
+
+  const totalPedidos = simOrders.reduce((s,o)=>s+o.valor, 0);
+  const novoTotal = simState.captado + totalPedidos;
+  el('simTotalPedidos').textContent = fmtBRL(totalPedidos);
+  el('simNovoTotal').textContent = fmtBRL(novoTotal);
+
+  const banner = el('resultBanner');
+  const { meta } = simState;
+  if(meta<=0){
+    banner.className = 'result-banner';
+    el('resultIcon').textContent = '📋';
+    el('resultTitle').textContent = 'Sem meta definida';
+    el('resultSub').textContent = 'Peça pro gestor definir a meta desse mês pra simular direito.';
+    return;
   }
+  const bate = novoTotal >= meta;
+  banner.className = 'result-banner ' + (bate?'hit':'miss');
+  el('resultIcon').textContent = bate ? '🎉' : '📊';
+  el('resultTitle').textContent = bate ? 'Com esses pedidos, você bate a meta!' : 'Ainda não bate a meta com esses pedidos';
+  el('resultSub').textContent = `Captado + simulados: ${fmtBRL(novoTotal)} (meta: ${fmtBRL(meta)}).` + (bate ? '' : ` Faltariam ${fmtBRL(meta-novoTotal)}.`);
 }
 
 async function doLogout(){ await sb.auth.signOut(); window.location.href = LOGIN_URL; }
