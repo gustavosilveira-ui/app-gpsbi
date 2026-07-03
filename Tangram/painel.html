@@ -341,6 +341,11 @@ html.light .kpi-card{background:#fff}
       <select class="month-select" id="monthSelect"></select>
       <span class="filter-label">Anos</span>
       <div class="year-filter" id="yearFilter"></div>
+      <span class="filter-label">De</span>
+      <input type="date" class="date-range-input" id="dateFromInput">
+      <span class="filter-label">Até</span>
+      <input type="date" class="date-range-input" id="dateToInput">
+      <button class="search-clear" id="clearDateRangeBtn" title="Limpar intervalo">🧹</button>
       <span class="filter-label" id="vendedorLabel" style="display:none;">Vendedor</span>
       <select class="vendedor-select" id="vendedorSelect" style="display:none;"></select>
       <span class="filter-label">Canal</span>
@@ -830,8 +835,9 @@ async function loadData(){
     const months = Array.from(new Set(captadaRows.map(r=>r.mes))).sort().reverse();
     const sel = el('monthSelect'); sel.innerHTML='<option value="">Todos os meses</option>';
     months.forEach(m=>{ const o=document.createElement('option'); o.value=m; o.textContent=mesLabelFull(m); sel.appendChild(o); });
-    // Abre sem pré-filtro de mês. O usuário pode clicar numa barra ou escolher um mês.
-    selectedMes = '';
+    // Abre já filtrado no mês vigente (se houver dados dele), senão no mês mais recente disponível.
+    const currentYm = `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`;
+    selectedMes = months.includes(currentYm) ? currentYm : (months[0] || '');
     sel.value = selectedMes;
     sel.addEventListener('change', ()=>{ selectedMes=sel.value; clearDateRange(); render(); });
 
@@ -879,6 +885,9 @@ async function loadData(){
     el('clearProduto').addEventListener('click', ()=>{ el('searchProduto').value=''; searchProduto=''; render(); });
     el('clearCliente').addEventListener('click', ()=>{ el('searchCliente').value=''; searchCliente=''; render(); });
 
+    el('dateFromInput').addEventListener('change', e=>{ dateFrom = e.target.value; selectedMes=''; const sel=el('monthSelect'); if(sel) sel.value=''; render(); });
+    el('dateToInput').addEventListener('change', e=>{ dateTo = e.target.value; selectedMes=''; const sel=el('monthSelect'); if(sel) sel.value=''; render(); });
+    el('clearDateRangeBtn').addEventListener('click', ()=>{ clearDateRange(); render(); });
 
     el('loadingScreen').style.display='none';
     el('mainContent').style.display='block';
@@ -1137,7 +1146,7 @@ function renderEvolution(){
   });
   const data={labels,datasets:[
     {label:'Receita Captada',data:capByMes,backgroundColor:barColors,borderRadius:5,maxBarThickness:32,yAxisID:'y',order:2},
-    {label:'Receita Faturada',data:fatByMes,type:'line',borderColor:indicacao,backgroundColor:indicacao,borderWidth:2.5,pointRadius:3,pointBackgroundColor:indicacao,tension:.3,yAxisID:'y',order:1}
+    {label:'Receita Faturada',data:fatByMes,type:'line',borderColor:'#9CA3AF',backgroundColor:'#9CA3AF',borderWidth:2.5,pointRadius:3,pointBackgroundColor:'#9CA3AF',tension:.3,yAxisID:'y',order:1}
   ]};
   const opts={responsive:true,maintainAspectRatio:false,animation:{duration:300},
     layout:{padding:{top:40}},
