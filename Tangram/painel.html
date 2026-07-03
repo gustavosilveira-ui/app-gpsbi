@@ -341,11 +341,6 @@ html.light .kpi-card{background:#fff}
       <select class="month-select" id="monthSelect"></select>
       <span class="filter-label">Anos</span>
       <div class="year-filter" id="yearFilter"></div>
-      <span class="filter-label">De</span>
-      <input type="date" class="date-range-input" id="dateFromInput">
-      <span class="filter-label">Até</span>
-      <input type="date" class="date-range-input" id="dateToInput">
-      <button class="search-clear" id="clearDateRange" title="Limpar intervalo">🧹</button>
       <span class="filter-label" id="vendedorLabel" style="display:none;">Vendedor</span>
       <select class="vendedor-select" id="vendedorSelect" style="display:none;"></select>
       <span class="filter-label">Canal</span>
@@ -833,13 +828,12 @@ async function loadData(){
     allCanais = Array.from(new Set(captadaRows.map(r=>r.canal).filter(Boolean))).sort();
 
     const months = Array.from(new Set(captadaRows.map(r=>r.mes))).sort().reverse();
-    const sel = el('monthSelect'); sel.innerHTML='';
+    const sel = el('monthSelect'); sel.innerHTML='<option value="">Todos os meses</option>';
     months.forEach(m=>{ const o=document.createElement('option'); o.value=m; o.textContent=mesLabelFull(m); sel.appendChild(o); });
-    const now = new Date();
-    const curMes = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-    selectedMes = months.includes(curMes) ? curMes : months[0];
+    // Abre sem pré-filtro de mês. O usuário pode clicar numa barra ou escolher um mês.
+    selectedMes = '';
     sel.value = selectedMes;
-    sel.addEventListener('change', ()=>{ selectedMes=sel.value; render(); });
+    sel.addEventListener('change', ()=>{ selectedMes=sel.value; clearDateRange(); render(); });
 
     // Anos disponíveis: força 2025 e 2026 como padrão, mesmo que algum ano não apareça em uma das bases.
     const anosBase = [
@@ -885,12 +879,6 @@ async function loadData(){
     el('clearProduto').addEventListener('click', ()=>{ el('searchProduto').value=''; searchProduto=''; render(); });
     el('clearCliente').addEventListener('click', ()=>{ el('searchCliente').value=''; searchCliente=''; render(); });
 
-    el('dateFromInput').addEventListener('change', e=>{ dateFrom = e.target.value; render(); });
-    el('dateToInput').addEventListener('change', e=>{ dateTo = e.target.value; render(); });
-    el('clearDateRange').addEventListener('click', ()=>{
-      clearDateRange();
-      render();
-    });
 
     el('loadingScreen').style.display='none';
     el('mainContent').style.display='block';
@@ -934,16 +922,17 @@ function monthRange(ym){
 }
 function toggleMonthFilter(ym){
   if(!ym) return;
-  selectedMes = ym;
+  const wasSelected = selectedMes === ym && !dateFrom && !dateTo;
+  selectedMes = wasSelected ? '' : ym;
+  clearDateRange();
   const sel = el('monthSelect'); if(sel) sel.value = selectedMes;
-  const rg = monthRange(ym);
-  toggleDateRange(rg.from, rg.to);
   render();
 }
 function filterRows(rows, mes, vendedor, canal){
   return rows.filter(r=>{
     if(dateFrom || dateTo){ if(!inDateRange(r.date)) return false; }
     else if(mes && r.mes!==mes) return false;
+    else if(!mes && selectedYears.length && !selectedYears.includes(String(r.mes||'').slice(0,4))) return false;
     if(vendedor && r.vendedor.toLowerCase()!==vendedor.toLowerCase()) return false;
     if(canal && r.canal!==canal) return false;
     if(selectedProjeto && r.projeto!==selectedProjeto) return false;
@@ -1101,9 +1090,10 @@ function renderEvolution(){
   const labels = allMonths.map(m=>mesLabel(m).replace('/','/'));
   const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--border2').trim() || 'rgba(255,255,255,0.07)';
   const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text3').trim() || '#8d9ab3';
-  const blue = getComputedStyle(document.documentElement).getPropertyValue('--blue').trim() || '#2D70B8';
-  const navy3 = getComputedStyle(document.documentElement).getPropertyValue('--navy3').trim() || '#0B2545';
-  const cyan = getComputedStyle(document.documentElement).getPropertyValue('--cyan').trim() || '#36E2C9';
+  const blue = '#0B2545';
+  const navy3 = '#0B2545';
+  const cyan = '#36E2C9';
+  const indicacao = '#78F2E5';
   const red = getComputedStyle(document.documentElement).getPropertyValue('--red').trim() || '#ef6a6a';
   const green = getComputedStyle(document.documentElement).getPropertyValue('--green').trim() || '#2fd6b8';
 
@@ -1147,7 +1137,7 @@ function renderEvolution(){
   });
   const data={labels,datasets:[
     {label:'Receita Captada',data:capByMes,backgroundColor:barColors,borderRadius:5,maxBarThickness:32,yAxisID:'y',order:2},
-    {label:'Receita Faturada',data:fatByMes,type:'line',borderColor:cyan,backgroundColor:cyan,borderWidth:2.5,pointRadius:3,pointBackgroundColor:cyan,tension:.3,yAxisID:'y',order:1}
+    {label:'Receita Faturada',data:fatByMes,type:'line',borderColor:indicacao,backgroundColor:indicacao,borderWidth:2.5,pointRadius:3,pointBackgroundColor:indicacao,tension:.3,yAxisID:'y',order:1}
   ]};
   const opts={responsive:true,maintainAspectRatio:false,animation:{duration:300},
     layout:{padding:{top:40}},
@@ -1227,6 +1217,7 @@ function setupEvolutionDragSelect(){
     const from = `${sy}-${String(sm).padStart(2,'0')}-01`;
     const to = `${ey}-${String(em).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
     evSuppressNextClick = true;
+    selectedMes = ''; const sel=el('monthSelect'); if(sel) sel.value='';
     toggleDateRange(from, to);
     render();
   });
@@ -1290,8 +1281,8 @@ function renderDailyWeekly(rows){
 
   const textColor=getComputedStyle(document.documentElement).getPropertyValue('--text3').trim();
   const gridColor=getComputedStyle(document.documentElement).getPropertyValue('--border2').trim();
-  const blue=getComputedStyle(document.documentElement).getPropertyValue('--blue').trim();
-  const cyan=getComputedStyle(document.documentElement).getPropertyValue('--cyan').trim();
+  const blue='#0B2545';
+  const cyan='#36E2C9';
 
   const dLabels = dayDates.map(d=>{ const [y,m,dd]=d.split('-'); return dd+'/'+m; });
   const dColors = dayDates.map(d=> (dateFrom===d && dateTo===d) ? cyan : blue);
@@ -1429,11 +1420,13 @@ function clearOneFilter(kind){
   if(kind==='familia') selectedFamilia='';
   if(kind==='produto') selectedProdutoFiltro='';
   if(kind==='periodo') clearDateRange();
+  if(kind==='mes'){ selectedMes=''; const sel=el('monthSelect'); if(sel) sel.value=''; clearDateRange(); }
   render();
 }
 function renderActiveFilters(){
   const box = el('filterChips'); if(!box) return;
   const chips=[];
+  if(selectedMes) chips.push(['mes','Mês: '+mesLabelFull(selectedMes)]);
   if(selectedVendedor) chips.push(['vendedor','Vendedor: '+selectedVendedor]);
   if(selectedProjeto) chips.push(['projeto','Projeto: '+selectedProjeto]);
   if(selectedFamilia) chips.push(['familia','Família: '+selectedFamilia]);
