@@ -12,7 +12,7 @@
 .fc-table{border-collapse:separate;border-spacing:0;font-size:11.5px;width:max-content;min-width:100%;}
 .fc-table th,.fc-table td{padding:7px 10px;white-space:nowrap;text-align:right;border-bottom:1px solid var(--border);}
 .fc-table th{position:sticky;top:0;background:var(--navy2);z-index:3;color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.03em;}
-.fc-table th.fc-today,.fc-table td.fc-today{background:rgba(58,233,209,.14) !important;}
+.fc-table th.fc-today,.fc-table td.fc-today{background:rgba(45,112,184,.20) !important;}
 .fc-table th:first-child,.fc-table td:first-child{position:sticky;left:0;background:var(--navy2);z-index:4;text-align:left;min-width:220px;}
 html.light .fc-table th,html.light .fc-table td:first-child,html.light .fc-table th:first-child{background:#fff;}
 .fc-toggle{display:inline-block;width:18px;cursor:pointer;user-select:none;color:var(--text2);font-size:14px;font-weight:900;}
@@ -26,7 +26,7 @@ html.light .fc-table th,html.light .fc-table td:first-child,html.light .fc-table
 html.light .fc-lvl-0 td{background:#eef1f6;}
 .fc-lvl-1{font-weight:700;padding-left:14px;}
 .fc-lvl-2{padding-left:28px;color:var(--text2);}
-.fc-saldo-pos{color:#22c55e;font-weight:800;}
+.fc-saldo-pos{color:#98C47C;font-weight:800;}
 .fc-saldo-neg{color:var(--red);font-weight:800;background:rgba(239,106,106,.08);}
 .fc-legend{display:flex;gap:18px;align-items:center;font-size:11.5px;color:var(--text3);margin-top:10px;flex-wrap:wrap;}
 .fc-legend span{display:flex;align-items:center;gap:6px;}
@@ -57,9 +57,9 @@ html.light .fc-lvl-0 td{background:#eef1f6;}
       <div class="card-sub">Clique nas setinhas pra abrir/fechar anos, meses e dias — e as categorias dentro de Recebimentos e Pagamentos. Saldo acumulado dia a dia.</div>
       <div class="fc-wrap"><table class="fc-table" id="fcTable"></table></div>
       <div class="fc-legend">
-        <span><span class="fc-dot" style="background:#22c55e"></span> Saldo positivo</span>
+        <span><span class="fc-dot" style="background:#98C47C"></span> Saldo positivo</span>
         <span><span class="fc-dot" style="background:var(--red)"></span> Saldo negativo</span>
-        <span><span class="fc-dot" style="background:var(--cyan)"></span> Hoje</span>
+        <span><span class="fc-dot" style="background:#2D70B8"></span> Hoje</span>
       </div>
     </div>
   </div>
@@ -291,7 +291,11 @@ function buildAndRenderTable(){
   columnTree = buildColumnTree();
   rowTree = buildRowTree();
   renderTable();
-  setTimeout(scrollToToday, 50);
+  // espera o layout (e a fonte) estabilizar antes de rolar, senão a posição sai errada
+  const doScroll = ()=>scrollToToday();
+  if(document.fonts && document.fonts.ready){ document.fonts.ready.then(doScroll); }
+  requestAnimationFrame(()=>requestAnimationFrame(doScroll));
+  setTimeout(doScroll, 300);
 }
 
 function renderTable(){
@@ -335,7 +339,7 @@ function scrollToToday(){
   if(!todayTh) return;
   const wrap = document.querySelector('.fc-wrap');
   const firstColWidth = document.querySelector('.fc-table td:first-child')?.offsetWidth || 220;
-  wrap.scrollLeft = Math.max(0, todayTh.offsetLeft - firstColWidth - 8);
+  wrap.scrollLeft = Math.max(0, todayTh.offsetLeft - firstColWidth - 24);
 }
 
 // localizar nó de coluna pela key (busca recursiva)
