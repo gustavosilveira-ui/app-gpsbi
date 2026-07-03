@@ -65,10 +65,10 @@
 const SUPABASE_URL = 'https://mczggrocmccvmyglnumv.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jemdncm9jbWNjdm15Z2xudW12Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMjM2NzcsImV4cCI6MjA5ODU5OTY3N30.XXzhDvxfNaUW61HvgE4xuqzSICoLEYjbJhd1X52Zp84';
 const LOGIN_URL = 'index.html';
-const OWNER_EMAILS = ['anderson@tangrampersonalizados.com.br'];
+const OWNER_EMAILS = ['anderson@tangrampersonalizados.com.br', 'gustavosilveira@gpsbi.com.br'];
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-function isOwner(email){ return email.endsWith('@gpsbi.com.br') || OWNER_EMAILS.includes(email.toLowerCase()); }
+function isOwner(email){ return OWNER_EMAILS.includes((email||'').toLowerCase()); }
 function nameFromEmail(email){ return email.split('@')[0].split('.').map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' '); }
 function el(id){ return document.getElementById(id); }
 

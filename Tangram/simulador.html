@@ -101,13 +101,13 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const SHEET_ID = '1-EXmSsigKK3VP7C5BGoa2AYaPHCIgGmF8VJUwGBeGKg';
 const GID_CAPTADA = '0';
 const LOGIN_URL = 'index.html';
-const OWNER_EMAILS = ['anderson@tangrampersonalizados.com.br'];
+const OWNER_EMAILS = ['anderson@tangrampersonalizados.com.br', 'gustavosilveira@gpsbi.com.br'];
 const SITUACOES_CAPTADA = ['faturado','pedido de venda pendente','previsto para hoje','aguardando faturamento'];
 const PEDIDOS_EXCLUIDOS_CAPTADA = new Set(['12669','14171','14353','14543','14669','14730','15504','15507','15508','15510','15512','15513','15514','15749','15888','15961','16000','16040','16043','16100','16119','16178','16230','16323','16324','16337','16349','16583','16821','16999','17000','17169','17650','17851','17884','18072','18081','18120','18157','18165','18175','18214','18335','18422','18497','18576','20206']);
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-function isOwner(email){ return email.endsWith('@gpsbi.com.br') || OWNER_EMAILS.includes(email.toLowerCase()); }
+function isOwner(email){ return OWNER_EMAILS.includes((email||'').toLowerCase()); }
 function nameFromEmail(email){ return email.split('@')[0].split('.').map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' '); }
 function cleanVendorName(raw){
   let s = (raw||'').toString().trim();

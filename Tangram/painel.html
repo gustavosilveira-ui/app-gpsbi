@@ -616,7 +616,7 @@ const SHEET_ID = '1-EXmSsigKK3VP7C5BGoa2AYaPHCIgGmF8VJUwGBeGKg';
 const GID_CAPTADA = '0';
 const GID_FATURADA = '1703975608';
 const LOGIN_URL = 'index.html';
-const OWNER_EMAILS = ['anderson@tangrampersonalizados.com.br'];
+const OWNER_EMAILS = ['anderson@tangrampersonalizados.com.br', 'gustavosilveira@gpsbi.com.br'];
 
 // Filtros de Situação — espelhando exatamente o Power BI (PainelGerencialTangram.pbix)
 const SITUACOES_CAPTADA = ['faturado','pedido de venda pendente','previsto para hoje','aguardando faturamento'];
@@ -657,7 +657,7 @@ function pctClass(p){ return p>=100?'pct-good':p>=80?'pct-mid':'pct-bad'; }
 function pctColor(p){ return p>=100?'#2fd6b8':p>=80?'#f5b942':'#ef6a6a'; }
 function mesLabel(ym){ const [y,m]=ym.split('-'); const n=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']; return n[parseInt(m,10)-1]+'/'+y.slice(2); }
 function mesLabelFull(ym){ const [y,m]=ym.split('-'); const n=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']; return n[parseInt(m,10)-1]+' de '+y; }
-function isOwner(email){ return email.endsWith('@gpsbi.com.br') || OWNER_EMAILS.includes(email.toLowerCase()); }
+function isOwner(email){ return OWNER_EMAILS.includes((email||'').toLowerCase()); }
 function nameFromEmail(email){ return email.split('@')[0].split('.').map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' '); }
 function cleanVendorName(raw){
   let s = (raw||'').toString().trim();
