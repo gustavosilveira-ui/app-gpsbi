@@ -239,6 +239,26 @@ html.light .topbar{background:rgba(255,255,255,.92);backdrop-filter:blur(16px)}
 .date-range-input{background:var(--navy3);border:1px solid var(--border2);color:var(--text);border-radius:8px;padding:6px 10px;font-family:'Sora',sans-serif;font-size:12.5px}
 .history-map-grid{display:grid;grid-template-columns:minmax(0,1.85fr) minmax(430px,.9fr);gap:14px;margin-bottom:14px}.history-card{display:flex;flex-direction:column;height:440px}.map-card{display:flex;flex-direction:column;height:440px}
 .history-scroll{overflow:auto;flex:1;min-height:0;border-radius:12px}.history-table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:11px}.history-table th,.history-table td{padding:9px 11px;border-bottom:1px solid var(--border);white-space:nowrap}.history-table th{position:sticky;top:0;background:var(--navy2);z-index:2;color:var(--text3);text-align:right}.history-table th:first-child,.history-table td:first-child{position:sticky;left:0;background:var(--navy2);z-index:3;text-align:left;font-weight:700;color:var(--text)}html.light .history-table th,html.light .history-table td:first-child,html.light .history-table th:first-child{background:#fff}#mapaReceita{flex:1;min-height:0;border-radius:14px;overflow:hidden;background:var(--navy3)}.leaflet-container{font-family:'Sora',sans-serif}.map-legend{display:flex;justify-content:center;gap:8px;align-items:center;font-size:10px;color:var(--text3);margin-top:8px}.pulse-in{animation:pulseIn .45s ease both}@keyframes pulseIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.matrix-wrap{overflow-x:auto;max-height:420px;overflow-y:auto}
+.matrix-table{width:100%;border-collapse:collapse;min-width:1100px;font-size:12px}
+.matrix-table th{text-align:right;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;padding:9px 10px;border-bottom:1px solid var(--border2);white-space:nowrap;position:sticky;top:0;background:var(--navy2);z-index:2}
+.matrix-table th.shaded{background:var(--navy3)}
+html.light .matrix-table th{background:#fff}
+html.light .matrix-table th.shaded{background:#f2f2f2}
+.matrix-table th:first-child,.matrix-table td:first-child{text-align:left}
+.matrix-table td{text-align:right;padding:9px 10px;font-family:'DM Mono',monospace;border-bottom:1px solid var(--border);white-space:nowrap}
+.matrix-table td.shaded{background:rgba(120,130,150,.08)}
+.matrix-table tr.vendor-row{cursor:pointer;background:var(--navy3)}
+.matrix-table tr.vendor-row:hover{background:var(--navy4)}
+.matrix-table tr.vendor-row td:first-child{font-family:'Sora',sans-serif;font-weight:700;font-size:12.5px}
+.matrix-table tr.client-row{display:none}
+.matrix-table tr.client-row.show{display:table-row}
+.matrix-table tr.client-row td:first-child{font-family:'Sora',sans-serif;padding-left:28px;color:var(--text2);font-size:11.5px}
+.matrix-table tr.total-row td{font-weight:700;border-top:2px solid var(--border2);border-bottom:none;font-family:'DM Mono',monospace}
+.matrix-table tr.total-row td:first-child{font-family:'Sora',sans-serif}
+.matrix-expand-arrow{display:inline-block;width:14px;transition:transform .15s}
+.matrix-expand-arrow.open{transform:rotate(90deg)}
+.matrix-pos{color:var(--green)}.matrix-neg{color:var(--red)}
 @media(max-width:1300px){.kpi-grid{grid-template-columns:repeat(3,1fr)}.charts-grid.hero-charts,.history-map-grid,.micro-grid{grid-template-columns:1fr}.project-body{grid-template-columns:1fr}.project-donut{height:220px}.topbar{position:relative}.brand-premium{flex-wrap:wrap}.update-chip{display:none}}
 @media(max-width:760px){.kpi-grid{grid-template-columns:1fr}.content{padding:14px}.topbar{padding:12px}.client-logo{height:28px}.gpsbi-logo b{font-size:22px}}
 
@@ -452,6 +472,21 @@ html.light .kpi-card{background:#fff}
       </div>
     </div>
 
+    <div class="chart-card matrix-card" id="matrixCard" style="display:none;margin-bottom:14px;">
+      <div class="chart-title">Comparativo por Vendedor</div>
+      <div class="chart-sub">Clique no nome pra ver os clientes dele · comparativos vs mesmo período do mês e do ano anterior</div>
+      <div class="matrix-wrap">
+        <table class="matrix-table">
+          <thead><tr>
+            <th>Canal</th><th>Receita (Captada)</th><th>Receita (Faturada)</th><th>% Receita</th>
+            <th>Meta</th><th>% Meta</th><th>Receita M.A</th><th>Receita vs M.A</th><th class="shaded">% vs M.A</th>
+            <th>Receita A.A</th><th>Receita vs A.A</th><th class="shaded">% vs A.A</th><th>Ticket Médio</th>
+          </tr></thead>
+          <tbody id="matrixBody"></tbody>
+        </table>
+      </div>
+    </div>
+
     <div class="history-map-grid">
       <div class="chart-card history-card">
         <div class="chart-title">Histórico mensal por vendedor</div>
@@ -574,6 +609,12 @@ const OWNER_EMAILS = ['anderson@tangrampersonalizados.com.br'];
 // Filtros de Situação — espelhando exatamente o Power BI (PainelGerencialTangram.pbix)
 const SITUACOES_CAPTADA = ['faturado','pedido de venda pendente','previsto para hoje','aguardando faturamento'];
 const SITUACOES_FATURADA = ['autorizado','faturado','nfs-e autorizada'];
+
+// Pedidos excluídos manualmente nos filtros de página do Power BI (duplicados/erros/testes) —
+// extraídos diretamente do .pbix pra bater 100% com os números do relatório.
+const PEDIDOS_EXCLUIDOS_CAPTADA = new Set(['12669','14171','14353','14543','14669','14730','15504','15507','15508','15510','15512','15513','15514','15749','15888','15961','16000','16040','16043','16100','16119','16178','16230','16323','16324','16337','16349','16583','16821','16999','17000','17169','17650','17851','17884','18072','18081','18120','18157','18165','18175','18214','18335','18422','18497','18576','20206']);
+const PEDIDOS_EXCLUIDOS_FATURADA = new Set(['12669','14171','14353','14543','14669','14730','15504','15507','15508','15510','15512','15513','15514','15749','15888','15961','16000','16040','16043','16178','16230','16323','16324','16337','16349','16583','16821','16999','17000','17169','17650','17851','17884','18072','18081','18089','18120','18157','18165','18175','18214','18335','18422','18497','18576','20206']);
+const NF_EXCLUIDAS_FATURADA = new Set(['14024','17884','18081','18089']);
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -819,12 +860,14 @@ async function loadData(){
     setLoading('Buscando pedidos incluídos...');
     const tableCap = await fetchGviz(GID_CAPTADA);
     captadaRows = parseGvizRows(tableCap).map(r=>rowToRecord(r,'captada')).filter(Boolean)
-      .filter(r=>situacaoOk(r.situacao,'captada'));
+      .filter(r=>situacaoOk(r.situacao,'captada'))
+      .filter(r=>!PEDIDOS_EXCLUIDOS_CAPTADA.has(String(r.pedido).trim()));
 
     setLoading('Buscando pedidos faturados...');
     const tableFat = await fetchGviz(GID_FATURADA);
     faturadaRows = parseGvizRows(tableFat).map(r=>rowToRecord(r,'faturada')).filter(Boolean)
-      .filter(r=>situacaoOk(r.situacao,'faturada'));
+      .filter(r=>situacaoOk(r.situacao,'faturada'))
+      .filter(r=>!PEDIDOS_EXCLUIDOS_FATURADA.has(String(r.pedido).trim()) && !NF_EXCLUIDAS_FATURADA.has(String(r.nf).trim()));
 
     setLoading('Carregando metas...');
     await fetchMetas();
@@ -1010,7 +1053,7 @@ function render(){
   renderTopClientes(capPeriodo);
   renderTopFamilias(capPeriodo);
   renderTopProdutos(capPeriodo);
-  if(userRole==='owner') { renderRanking(); renderSuggestions(); }
+  if(userRole==='owner') { renderRanking(); renderSuggestions(); renderMatrix(); }
 }
 
 let gaugeChartInst=null;
@@ -1067,6 +1110,124 @@ function calcMonthTotalSamePeriod(mes, vendedor, canal, referenceMes, rows){
     dayLimit = today.getDate();
   }
   return rowsUntilDay(rows, mes, vendedor, canal, dayLimit).reduce((s,r)=>s+r.total,0);
+}
+
+/* ---- Comparativo por Vendedor (com clientes) — M.A / A.A com mesmo período ---- */
+function matrixRowsUntilDay(rows, mes, vendedor, canal, cliente, dayLimit){
+  return rows.filter(r=>{
+    if(r.mes!==mes) return false;
+    if(vendedor && r.vendedor.toLowerCase()!==vendedor.toLowerCase()) return false;
+    if(canal && r.canal!==canal) return false;
+    if(cliente && r.cliente!==cliente) return false;
+    if(selectedProjeto && r.projeto!==selectedProjeto) return false;
+    if(selectedFamilia && (r.familia||'Sem família')!==selectedFamilia) return false;
+    if(selectedProdutoFiltro && (r.produto||'Sem descrição')!==selectedProdutoFiltro) return false;
+    if(searchCliente && !(r.cliente||'').toLowerCase().includes(searchCliente)) return false;
+    if(searchProduto && !(r.produto||'').toLowerCase().includes(searchProduto)) return false;
+    if(dayLimit){ const d=parseInt(String(r.date||'').slice(8,10),10); if(d>dayLimit) return false; }
+    return true;
+  }).reduce((s,r)=>s+r.total,0);
+}
+function matrixComparativos(rows, mes, vendedor, canal, cliente){
+  const currentYm = `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`;
+  const dayLimit = (mes===currentYm) ? new Date().getDate() : null;
+  const prevMes = monthAdd(mes,-1);
+  const prevYearMes = monthAdd(mes,-12);
+  const atual = matrixRowsUntilDay(rows, mes, vendedor, canal, cliente, dayLimit);
+  const ma = matrixRowsUntilDay(rows, prevMes, vendedor, canal, cliente, dayLimit);
+  const aa = matrixRowsUntilDay(rows, prevYearMes, vendedor, canal, cliente, dayLimit);
+  return { atual, ma, aa, deltaMA: atual-ma, deltaAA: atual-aa,
+    pctMA: ma>0 ? (atual/ma-1) : null, pctAA: aa>0 ? (atual/aa-1) : null };
+}
+function fmtPctSigned(p){ if(p===null||p===undefined||!isFinite(p)) return '—'; return (p>=0?'+':'')+(p*100).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%'; }
+
+function renderMatrix(){
+  const box = el('matrixCard');
+  if(!box) return;
+  if(userRole!=='owner' || !selectedMes){ box.style.display='none'; return; }
+  box.style.display='block';
+
+  const canalFilter = selectedCanal;
+  const vendors = selectedVendedor ? [selectedVendedor] : allVendors;
+  const grandTotalCap = filterRows(captadaRows, selectedMes, selectedVendedor, canalFilter).reduce((s,r)=>s+r.total,0);
+
+  const body = el('matrixBody'); body.innerHTML = '';
+  let totCap=0, totFat=0, totMeta=0, totMA=0, totAA=0, totPedidosUnicos=0;
+
+  vendors.forEach((v, vi)=>{
+    const compCap = matrixComparativos(captadaRows, selectedMes, v, canalFilter, null);
+    const fatAtual = filterRows(faturadaRows, selectedMes, v, canalFilter).reduce((s,r)=>s+r.total,0);
+    const meta = getMeta(selectedMes, v);
+    const pctReceita = grandTotalCap>0 ? compCap.atual/grandTotalCap : 0;
+    const pctMeta = meta>0 ? compCap.atual/meta : 0;
+    const pedidosUnicos = new Set(filterRows(captadaRows, selectedMes, v, canalFilter).map(r=>r.pedido)).size;
+    const ticket = pedidosUnicos>0 ? compCap.atual/pedidosUnicos : 0;
+
+    totCap+=compCap.atual; totFat+=fatAtual; totMeta+=meta; totMA+=compCap.ma; totAA+=compCap.aa; totPedidosUnicos+=pedidosUnicos;
+
+    const rowId = 'mrow_'+vi;
+    const trV = document.createElement('tr'); trV.className='vendor-row';
+    trV.innerHTML = `
+      <td><span class="matrix-expand-arrow">▶</span> ${v}</td>
+      <td>${fmtBRL(compCap.atual)}</td>
+      <td>${fmtBRL(fatAtual)}</td>
+      <td>${(pctReceita*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}%</td>
+      <td>${meta>0?fmtBRL(meta):'—'}</td>
+      <td>${meta>0?(pctMeta*100).toLocaleString('pt-BR',{maximumFractionDigits:1})+'%':'—'}</td>
+      <td>${fmtBRL(compCap.ma)}</td>
+      <td class="${compCap.deltaMA>=0?'matrix-pos':'matrix-neg'}">${fmtBRL(compCap.deltaMA)}</td>
+      <td class="shaded ${(compCap.pctMA||0)>=0?'matrix-pos':'matrix-neg'}">${fmtPctSigned(compCap.pctMA)}</td>
+      <td>${fmtBRL(compCap.aa)}</td>
+      <td class="${compCap.deltaAA>=0?'matrix-pos':'matrix-neg'}">${fmtBRL(compCap.deltaAA)}</td>
+      <td class="shaded ${(compCap.pctAA||0)>=0?'matrix-pos':'matrix-neg'}">${fmtPctSigned(compCap.pctAA)}</td>
+      <td>${fmtBRL(ticket)}</td>`;
+    trV.addEventListener('click', ()=>{
+      const arrow = trV.querySelector('.matrix-expand-arrow');
+      arrow.classList.toggle('open');
+      body.querySelectorAll('.'+rowId).forEach(tr=>tr.classList.toggle('show'));
+    });
+    body.appendChild(trV);
+
+    const vendorRowsAtual = filterRows(captadaRows, selectedMes, v, canalFilter);
+    const clientes = Array.from(new Set(vendorRowsAtual.map(r=>r.cliente).filter(Boolean)));
+    const clientTotals = clientes.map(c=>{
+      const comp = matrixComparativos(captadaRows, selectedMes, v, canalFilter, c);
+      const fat = filterRows(faturadaRows, selectedMes, v, canalFilter).filter(r=>r.cliente===c).reduce((s,r)=>s+r.total,0);
+      const pedC = new Set(vendorRowsAtual.filter(r=>r.cliente===c).map(r=>r.pedido)).size;
+      const ticketC = pedC>0 ? comp.atual/pedC : 0;
+      return { c, comp, fat, ticketC };
+    }).sort((a,b)=>b.comp.atual-a.comp.atual);
+
+    clientTotals.forEach(ct=>{
+      const trC = document.createElement('tr'); trC.className='client-row '+rowId;
+      const pr = compCap.atual>0 ? ct.comp.atual/compCap.atual : 0;
+      trC.innerHTML = `
+        <td>${ct.c}</td>
+        <td>${fmtBRL(ct.comp.atual)}</td>
+        <td>${fmtBRL(ct.fat)}</td>
+        <td>${(pr*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}%</td>
+        <td>—</td><td>—</td>
+        <td>${fmtBRL(ct.comp.ma)}</td>
+        <td class="${ct.comp.deltaMA>=0?'matrix-pos':'matrix-neg'}">${fmtBRL(ct.comp.deltaMA)}</td>
+        <td class="shaded ${(ct.comp.pctMA||0)>=0?'matrix-pos':'matrix-neg'}">${fmtPctSigned(ct.comp.pctMA)}</td>
+        <td>${fmtBRL(ct.comp.aa)}</td>
+        <td class="${ct.comp.deltaAA>=0?'matrix-pos':'matrix-neg'}">${fmtBRL(ct.comp.deltaAA)}</td>
+        <td class="shaded ${(ct.comp.pctAA||0)>=0?'matrix-pos':'matrix-neg'}">${fmtPctSigned(ct.comp.pctAA)}</td>
+        <td>${fmtBRL(ct.ticketC)}</td>`;
+      body.appendChild(trC);
+    });
+  });
+
+  const totTicket = totPedidosUnicos>0 ? totCap/totPedidosUnicos : 0;
+  const trT = document.createElement('tr'); trT.className='total-row';
+  trT.innerHTML = `<td>Total</td><td>${fmtBRL(totCap)}</td><td>${fmtBRL(totFat)}</td><td>100%</td>
+    <td>${totMeta>0?fmtBRL(totMeta):'—'}</td><td>${totMeta>0?(totCap/totMeta*100).toLocaleString('pt-BR',{maximumFractionDigits:1})+'%':'—'}</td>
+    <td>${fmtBRL(totMA)}</td><td class="${(totCap-totMA)>=0?'matrix-pos':'matrix-neg'}">${fmtBRL(totCap-totMA)}</td>
+    <td class="shaded ${(totMA>0?(totCap/totMA-1):0)>=0?'matrix-pos':'matrix-neg'}">${fmtPctSigned(totMA>0?(totCap/totMA-1):null)}</td>
+    <td>${fmtBRL(totAA)}</td><td class="${(totCap-totAA)>=0?'matrix-pos':'matrix-neg'}">${fmtBRL(totCap-totAA)}</td>
+    <td class="shaded ${(totAA>0?(totCap/totAA-1):0)>=0?'matrix-pos':'matrix-neg'}">${fmtPctSigned(totAA>0?(totCap/totAA-1):null)}</td>
+    <td>${fmtBRL(totTicket)}</td>`;
+  body.appendChild(trT);
 }
 let evChart=null;
 let evSuppressNextClick = false;
