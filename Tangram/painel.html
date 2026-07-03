@@ -805,16 +805,16 @@ function renderEvolution(){
         if(!meta.data[i]) return;
         const p = meta.data[i].getProps(['x','y'], true);
         // Valor da Receita Captada, colado na barra
-        ctx.font = '700 10px "DM Mono", monospace';
+        ctx.font = '700 11px "DM Mono", monospace';
         ctx.fillStyle = textColor;
-        ctx.fillText(fmtBRL(val), p.x, p.y - 7);
+        ctx.fillText(fmtBRL(val), p.x, p.y - 8);
         // % de crescimento, acima do valor
         const v = pctVsPrev[i];
         if(v===null || v===undefined) return;
-        ctx.font = '700 10px Sora, sans-serif';
+        ctx.font = '700 11px Sora, sans-serif';
         ctx.fillStyle = v>=0 ? green : red;
         const arrow = v>=0 ? '↗' : '↘';
-        ctx.fillText(`${v>=0?'+':''}${v.toFixed(1).replace('.',',')}% ${arrow}`, p.x, p.y - 19);
+        ctx.fillText(`${v>=0?'+':''}${v.toFixed(1).replace('.',',')}% ${arrow}`, p.x, p.y - 21);
       });
       ctx.restore();
     }
@@ -825,7 +825,7 @@ function renderEvolution(){
     {label:'Receita Faturada',data:fatByMes,type:'line',borderColor:cyan,backgroundColor:cyan,borderWidth:2.5,pointRadius:3,pointBackgroundColor:cyan,tension:.3,yAxisID:'y',order:1}
   ]};
   const opts={responsive:true,maintainAspectRatio:false,animation:{duration:300},
-    layout:{padding:{top:36}},
+    layout:{padding:{top:40}},
     plugins:{legend:{display:true,position:'top',align:'end',labels:{color:textColor,boxWidth:10,font:{size:11}}},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${fmtBRLFull(c.parsed.y)}`}}},
     scales:{
       x:{grid:{display:false},ticks:{color:textColor,font:{size:11},maxRotation:60,minRotation:0}},
@@ -846,7 +846,7 @@ function renderProjetoChart(rows){
   const COLORS=['#2D70B8','#36E2C9','#f5b942','#ef6a6a','#9b7fe8','#5bc8f5'];
   const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text3').trim();
   const data={labels:finalRows.map(e=>e[0]||'N/D'),datasets:[{data:finalRows.map(e=>e[1]),backgroundColor:COLORS,borderWidth:0,hoverOffset:8}]};
-  const opts={responsive:true,maintainAspectRatio:false,cutout:'62%',animation:{duration:350},plugins:{legend:{display:true,position:'right',labels:{color:textColor,boxWidth:7,font:{size:9},padding:6}},tooltip:{callbacks:{label:c=>`${c.label}: ${fmtBRLFull(c.parsed)}`}}}};
+  const opts={responsive:true,maintainAspectRatio:false,cutout:'62%',animation:{duration:350},plugins:{legend:{display:true,position:'right',labels:{color:textColor,boxWidth:10,font:{size:12},padding:9}},tooltip:{callbacks:{label:c=>`${c.label}: ${fmtBRLFull(c.parsed)}`}}}};
   if(projetoChart){ projetoChart.data=data; projetoChart.options=opts; projetoChart.update(); } else projetoChart = new Chart(el('projetoChart'),{type:'doughnut',data,options:opts});
 }
 
