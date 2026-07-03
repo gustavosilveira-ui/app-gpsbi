@@ -9,16 +9,26 @@ const APP_PAGES = [
   { href:'aprovacoes.html', label:'✅ Aprovações' },
 ];
 
-function appApplyTheme(t){
+let _appNavSb = null, _appNavUser = null;
+
+function appApplyTheme(t, skipSync){
   document.documentElement.classList.toggle('light', t==='light');
   localStorage.setItem('tangram_theme', t);
   const bd = document.getElementById('appBtnDark'), bl = document.getElementById('appBtnLight');
   if(bd) bd.classList.toggle('active', t==='dark');
   if(bl) bl.classList.toggle('active', t==='light');
+  // guarda a preferência na própria conta, pra acompanhar o usuário em qualquer aparelho
+  if(!skipSync && _appNavSb && _appNavUser){ _appNavSb.auth.updateUser({ data: { theme: t } }).catch(()=>{}); }
 }
 
-function renderAppNav({ activePage, userLabel, userRole, onLogout }){
-  const theme = localStorage.getItem('tangram_theme') || 'dark';
+function renderAppNav({ activePage, userLabel, userRole, onLogout, sb, currentUser }){
+  _appNavSb = sb || null;
+  _appNavUser = currentUser || null;
+
+  // preferência salva na CONTA tem prioridade; sem isso, cai pro que já tinha no navegador;
+  // sem nenhum dos dois (primeiro acesso), o padrão é o tema CLARO.
+  const savedInAccount = currentUser && currentUser.user_metadata && currentUser.user_metadata.theme;
+  const theme = savedInAccount || localStorage.getItem('tangram_theme') || 'light';
   document.documentElement.classList.toggle('light', theme==='light');
 
   const navLinks = APP_PAGES.map(p=>{
@@ -43,7 +53,8 @@ function renderAppNav({ activePage, userLabel, userRole, onLogout }){
   </div>`;
   document.body.insertAdjacentHTML('afterbegin', html);
 
-  appApplyTheme(theme);
+  appApplyTheme(theme, true);
+  if(savedInAccount) localStorage.setItem('tangram_theme', theme); // mantém o cache local sincronizado
   document.getElementById('appBtnDark').addEventListener('click', ()=>appApplyTheme('dark'));
   document.getElementById('appBtnLight').addEventListener('click', ()=>appApplyTheme('light'));
   document.getElementById('appLogoutBtn').addEventListener('click', onLogout);
