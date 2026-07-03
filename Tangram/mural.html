@@ -22,6 +22,7 @@
 .like-btn.liked{background:rgba(58,233,209,.15);color:var(--cyan);border-color:rgba(58,233,209,.3);}
 .post-del{margin-left:auto;background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:12px;}
 .post-del:hover{color:var(--red);}
+.read-list{margin-top:10px;padding:10px 12px;background:var(--navy4);border-radius:8px;font-size:11.5px;color:var(--text2);line-height:1.6;}
 </style>
 </head>
 <body>
@@ -93,10 +94,11 @@ async function loadPosts(){
   const { data: posts, error } = await sb.from('comunicados').select('*').order('fixado',{ascending:false}).order('criado_em',{ascending:false});
   if(error){ el('postsWrap').innerHTML = '<div class="empty-state">⚠️ Não consegui carregar o mural. Verifique se a tabela comunicados existe no Supabase.</div>'; return; }
   const { data: reacoes } = await sb.from('comunicado_reacoes').select('*');
-  renderPosts(posts||[], reacoes||[]);
+  const { data: leituras } = await sb.from('comunicado_leituras').select('*');
+  renderPosts(posts||[], reacoes||[], leituras||[]);
 }
 
-function renderPosts(posts, reacoes){
+function renderPosts(posts, reacoes, leituras){
   if(!posts.length){
     el('postsWrap').innerHTML = '<div class="empty-state"><div class="icon">📣</div>Nenhum comunicado ainda.</div>';
     return;
@@ -104,8 +106,11 @@ function renderPosts(posts, reacoes){
   el('postsWrap').innerHTML = posts.map(p=>{
     const likes = reacoes.filter(r=>r.comunicado_id===p.id);
     const liked = likes.some(r=>r.usuario_email===userEmail);
+    const leiturasPost = leituras.filter(l=>l.comunicado_id===p.id);
+    const jaLeu = leiturasPost.some(l=>l.usuario_email===userEmail);
     const initials = (p.autor_nome||'--').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
     const date = new Date(p.criado_em).toLocaleString('pt-BR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+    const listaLeitores = leiturasPost.map(l=>`${l.usuario_nome||l.usuario_email} · ${new Date(l.lido_em).toLocaleString('pt-BR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}`).join('<br>') || 'Ninguém confirmou leitura ainda.';
     return `<div class="post-item ${p.fixado?'pinned':''}">
       <div class="post-head">
         <div class="post-avatar">${initials}</div>
@@ -116,10 +121,23 @@ function renderPosts(posts, reacoes){
       <div class="post-msg">${(p.mensagem||'').replace(/</g,'&lt;')}</div>
       <div class="post-actions">
         <button class="like-btn ${liked?'liked':''}" onclick="toggleLike(${p.id}, ${liked})">👍 ${likes.length||''}</button>
+        <button class="like-btn ${jaLeu?'liked':''}" onclick="toggleRead(${p.id}, ${jaLeu})" ${jaLeu?'disabled':''}>${jaLeu?'✅ Lido, de acordo':'☑️ Marcar como lido'}</button>
+        ${userRole==='owner' ? `<button class="like-btn" onclick="toggleReadList(${p.id})" title="${listaLeitores.replace(/"/g,'&quot;')}">👀 ${leiturasPost.length} leram</button>` : ''}
         ${userRole==='owner' ? `<button class="post-del" onclick="deletePost(${p.id})">Excluir</button>` : ''}
       </div>
+      <div class="read-list" id="readList_${p.id}" style="display:none;">${listaLeitores}</div>
     </div>`;
   }).join('');
+}
+function toggleReadList(id){
+  const el2 = document.getElementById('readList_'+id);
+  if(el2) el2.style.display = el2.style.display==='none' ? 'block' : 'none';
+}
+async function toggleRead(comunicadoId, already){
+  if(already) return;
+  const { error } = await sb.from('comunicado_leituras').insert({ comunicado_id:comunicadoId, usuario_email:userEmail, usuario_nome:userName });
+  if(!error) await loadPosts();
+  else alert('Erro: '+error.message);
 }
 
 async function submitPost(){

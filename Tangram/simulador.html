@@ -42,7 +42,8 @@
 
     <div class="card" id="vendorPickerCard" style="display:none;">
       <label class="field-label">Simular para</label>
-      <select id="vendorPicker"></select>
+      <input type="text" id="vendorPicker" list="vendorDatalist" placeholder="Digite o nome do vendedor...">
+      <datalist id="vendorDatalist"></datalist>
     </div>
 
     <div class="card">
@@ -203,11 +204,14 @@ async function loadData(){
 
     if(userRole==='owner'){
       el('vendorPickerCard').style.display='block';
-      const sel = el('vendorPicker');
-      sel.innerHTML = allVendors.map(v=>`<option value="${v}">${v}</option>`).join('');
+      el('vendorDatalist').innerHTML = allVendors.map(v=>`<option value="${v}">`).join('');
+      const inp = el('vendorPicker');
       simVendedor = allVendors[0] || '';
-      sel.value = simVendedor;
-      sel.addEventListener('change', ()=>{ simVendedor = sel.value; simOrders=[]; renderSimulator(); });
+      inp.value = simVendedor;
+      inp.addEventListener('input', ()=>{
+        const match = allVendors.find(v=>v.toLowerCase()===inp.value.trim().toLowerCase());
+        if(match){ simVendedor = match; simOrders=[]; renderSimulator(); }
+      });
     } else {
       simVendedor = vendorName;
     }

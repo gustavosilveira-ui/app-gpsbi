@@ -141,6 +141,8 @@ function renderRequests(){
         <button class="btn btn-primary btn-sm" onclick="respondRequest(${r.id}, 'aprovado')">Aprovar</button>
         <button class="btn btn-danger btn-sm" onclick="respondRequest(${r.id}, 'recusado')">Recusar</button>
       </div>` : '';
+    const respondidoData = r.respondido_em ? new Date(r.respondido_em).toLocaleString('pt-BR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
+    const quemRespondeu = r.aprovado_por ? `<div class="req-resposta"><b>${r.status==='aprovado'?'Aprovado':'Recusado'} por:</b> ${r.aprovado_por} em ${respondidoData}</div>` : '';
     const resposta = r.resposta_dono ? `<div class="req-resposta"><b>Resposta:</b> ${r.resposta_dono}</div>` : '';
     return `<div class="req-item">
       <div class="req-head">
@@ -152,6 +154,7 @@ function renderRequests(){
         <div><div class="req-num">${fmtBRL(r.valor_pedido)}</div><div class="req-num-lbl">Valor do pedido</div></div>
       </div>
       ${r.justificativa ? `<div class="req-justificativa">${r.justificativa}</div>` : ''}
+      ${quemRespondeu}
       ${resposta}
       ${actions}
     </div>`;
@@ -170,12 +173,24 @@ async function submitRequest(){
   if(!error){
     el('reqCliente').value=''; el('reqPercentual').value=''; el('reqValor').value=''; el('reqJustificativa').value='';
     await loadRequests();
-    alert('Pedido enviado! Você será avisado quando o gestor responder.');
+    notifyOwnerByEmail(cliente, percentual_desconto, valor_pedido, justificativa);
   } else alert('Erro ao enviar: '+error.message);
+}
+function notifyOwnerByEmail(cliente, percentual_desconto, valor_pedido, justificativa){
+  const to = OWNER_EMAILS[0];
+  const subject = `Aprovação de desconto — ${cliente} (${percentual_desconto}%)`;
+  const body = `Olá!\n\n${userName} pediu aprovação de desconto:\n\nCliente: ${cliente}\nDesconto: ${percentual_desconto}%\nValor do pedido: ${valor_pedido ? fmtBRL(valor_pedido) : '—'}\nJustificativa: ${justificativa || '—'}\n\nAcesse o Hub GPSBI > Aprovações pra responder.`;
+  const mailto = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  if(confirm('Pedido enviado! Quer abrir seu e-mail agora pra avisar o gestor?')){
+    window.location.href = mailto;
+  }
 }
 async function respondRequest(id, status){
   const resposta_dono = prompt(status==='aprovado' ? 'Alguma observação sobre a aprovação? (opcional)' : 'Motivo da recusa (opcional):') || '';
-  const { error } = await sb.from('aprovacoes_desconto').update({ status, resposta_dono, respondido_em: new Date().toISOString() }).eq('id', id);
+  const { error } = await sb.from('aprovacoes_desconto').update({
+    status, resposta_dono, respondido_em: new Date().toISOString(),
+    aprovado_por: userName, aprovado_por_email: userEmail
+  }).eq('id', id);
   if(!error) await loadRequests();
   else alert('Erro: '+error.message);
 }
