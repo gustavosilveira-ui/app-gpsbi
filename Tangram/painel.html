@@ -181,7 +181,11 @@ html.light .topbar{background:rgba(255,255,255,.92);backdrop-filter:blur(16px)}
 .search-field input{flex:1;background:transparent;border:none;outline:none;color:var(--text);font-family:'Sora',sans-serif;font-size:13px;padding:8px 4px}
 .search-field input::placeholder{color:var(--text3)}
 .search-clear{flex:none;width:32px;height:32px;border-radius:8px;border:none;background:var(--navy3);color:var(--text2);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center}
-.search-clear:hover{background:var(--navy4)}.ranking-card{padding-bottom:12px;display:flex;flex-direction:column}.ranking-card .rank-head,.ranking-card .rank-item{grid-template-columns:34px 1.7fr .8fr .8fr .8fr .8fr}.ranking-card .rank-item{background:rgba(255,255,255,.025);margin-bottom:14px;padding:18px 16px;font-size:14px;flex:1}.ranking-card .rank-item:last-child{margin-bottom:0}.ranking-card .rank-bar-wrap{height:6px;margin-top:6px}.ranking-card #rankingList{display:flex;flex-direction:column;flex:1}
+.search-clear:hover{background:var(--navy4)}.ranking-card{padding-bottom:12px;display:flex;flex-direction:column}.ranking-card .rank-head,.ranking-card .rank-item{grid-template-columns:34px 1.7fr .8fr .8fr .8fr .8fr}.ranking-card .rank-item{background:rgba(255,255,255,.025);margin-bottom:10px;padding:16px 16px;font-size:14px;flex:none}.ranking-card .rank-item:last-child{margin-bottom:0}.ranking-card .rank-bar-wrap{height:6px;margin-top:6px}.ranking-card #rankingList{display:flex;flex-direction:column;flex:1;overflow-y:auto;min-height:0}
+.clickable-row{cursor:pointer;transition:background .15s,transform .1s}
+.clickable-row:hover{background:rgba(255,255,255,.06) !important}
+.clickable-row.active-filter{outline:2px solid var(--cyan)}
+.active-filter-chip{display:inline-flex;align-items:center;gap:6px;background:rgba(58,233,209,.14);color:var(--cyan);border:1px solid rgba(58,233,209,.3);border-radius:999px;padding:5px 10px 5px 12px;font-size:11.5px;font-weight:600;cursor:pointer}
 
 /* Sugestões de contato */
 .suggestion-item{display:flex;align-items:center;gap:16px;padding:14px 16px;border-radius:12px;background:var(--navy3);margin-bottom:8px}
@@ -223,6 +227,7 @@ html.light .topbar{background:rgba(255,255,255,.92);backdrop-filter:blur(16px)}
 .suggestions-badge{background:var(--red);color:#fff;font-size:10.5px;font-weight:700;border-radius:999px;padding:2px 8px;}
 .suggestions-chevron{margin-left:auto;font-size:12px;color:var(--text3);transition:transform .2s}
 .suggestions-chevron.open{transform:rotate(90deg)}
+.date-range-input{background:var(--navy3);border:1px solid var(--border2);color:var(--text);border-radius:8px;padding:6px 10px;font-family:'Sora',sans-serif;font-size:12.5px}
 .history-map-grid{display:grid;grid-template-columns:minmax(0,1.85fr) minmax(430px,.9fr);gap:14px;margin-bottom:14px}.history-card{display:flex;flex-direction:column;height:440px}.map-card{display:flex;flex-direction:column;height:440px}
 .history-scroll{overflow:auto;flex:1;min-height:0;border-radius:12px}.history-table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:11px}.history-table th,.history-table td{padding:9px 11px;border-bottom:1px solid var(--border);white-space:nowrap}.history-table th{position:sticky;top:0;background:var(--navy2);z-index:2;color:var(--text3);text-align:right}.history-table th:first-child,.history-table td:first-child{position:sticky;left:0;background:var(--navy2);z-index:3;text-align:left;font-weight:700;color:var(--text)}html.light .history-table th,html.light .history-table td:first-child,html.light .history-table th:first-child{background:#fff}#mapaReceita{flex:1;min-height:0;border-radius:14px;overflow:hidden;background:var(--navy3)}.leaflet-container{font-family:'Sora',sans-serif}.map-legend{display:flex;justify-content:center;gap:8px;align-items:center;font-size:10px;color:var(--text3);margin-top:8px}.pulse-in{animation:pulseIn .45s ease both}@keyframes pulseIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @media(max-width:1300px){.kpi-grid{grid-template-columns:repeat(3,1fr)}.charts-grid.hero-charts,.history-map-grid,.micro-grid{grid-template-columns:1fr}.project-body{grid-template-columns:1fr}.project-donut{height:220px}.topbar{position:relative}.brand-premium{flex-wrap:wrap}.update-chip{display:none}}
@@ -327,6 +332,11 @@ html.light .kpi-card{background:#fff}
       <select class="month-select" id="monthSelect"></select>
       <span class="filter-label">Anos</span>
       <div class="year-filter" id="yearFilter"></div>
+      <span class="filter-label">De</span>
+      <input type="date" class="date-range-input" id="dateFromInput">
+      <span class="filter-label">Até</span>
+      <input type="date" class="date-range-input" id="dateToInput">
+      <button class="search-clear" id="clearDateRange" title="Limpar intervalo">🧹</button>
       <span class="filter-label" id="vendedorLabel" style="display:none;">Vendedor</span>
       <select class="vendedor-select" id="vendedorSelect" style="display:none;"></select>
       <span class="filter-label">Canal</span>
@@ -416,13 +426,13 @@ html.light .kpi-card{background:#fff}
 
     <div class="micro-grid">
       <div class="chart-card">
-        <div class="chart-title">Receita diária do mês</div>
-        <div class="chart-sub">Captado por dia no mês selecionado</div>
+        <div class="chart-title">Receita diária</div>
+        <div class="chart-sub">Captado por dia · clique num ponto pra filtrar aquele dia</div>
         <div class="chart-box mini"><canvas id="dailyChart"></canvas></div>
       </div>
       <div class="chart-card">
-        <div class="chart-title">Receita semanal do mês</div>
-        <div class="chart-sub">Captado por semana do mês selecionado</div>
+        <div class="chart-title">Receita semanal</div>
+        <div class="chart-sub">Captado por semana · clique num ponto pra filtrar aquela semana</div>
         <div class="chart-box mini"><canvas id="weeklyChart"></canvas></div>
       </div>
       <div id="rankingSection" class="chart-card ranking-card" style="display:none;">
@@ -560,6 +570,7 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let currentUser=null, userRole='vendor', vendorName='';
 let captadaRows=[], faturadaRows=[], metasMap={}, allVendors=[], allCanais=[];
 let selectedMes='', selectedVendedor='', selectedCanal='', selectedYears=['2025','2026'];
+let dateFrom='', dateTo='';
 let currentTheme = localStorage.getItem('gpsbi_tangram_theme_v3') || 'dark';
 
 function applyTheme(t){
@@ -859,6 +870,14 @@ async function loadData(){
     el('clearProduto').addEventListener('click', ()=>{ el('searchProduto').value=''; searchProduto=''; render(); });
     el('clearCliente').addEventListener('click', ()=>{ el('searchCliente').value=''; searchCliente=''; render(); });
 
+    el('dateFromInput').addEventListener('change', e=>{ dateFrom = e.target.value; render(); });
+    el('dateToInput').addEventListener('change', e=>{ dateTo = e.target.value; render(); });
+    el('clearDateRange').addEventListener('click', ()=>{
+      dateFrom=''; dateTo='';
+      el('dateFromInput').value=''; el('dateToInput').value='';
+      render();
+    });
+
     el('loadingScreen').style.display='none';
     el('mainContent').style.display='block';
     render();
@@ -869,9 +888,15 @@ async function loadData(){
 }
 
 let searchCliente = '', searchProduto = '';
+function inDateRange(dateStr){
+  if(dateFrom && dateStr < dateFrom) return false;
+  if(dateTo && dateStr > dateTo) return false;
+  return true;
+}
 function filterRows(rows, mes, vendedor, canal){
   return rows.filter(r=>{
-    if(mes && r.mes!==mes) return false;
+    if(dateFrom || dateTo){ if(!inDateRange(r.date)) return false; }
+    else if(mes && r.mes!==mes) return false;
     if(vendedor && r.vendedor.toLowerCase()!==vendedor.toLowerCase()) return false;
     if(canal && r.canal!==canal) return false;
     if(searchCliente && !(r.cliente||'').toLowerCase().includes(searchCliente)) return false;
@@ -881,7 +906,8 @@ function filterRows(rows, mes, vendedor, canal){
 }
 function filterRowsYears(rows, vendedor, canal){
   return rows.filter(r=>{
-    if(selectedYears.length && !selectedYears.includes(String(r.mes||'').slice(0,4))) return false;
+    if(dateFrom || dateTo){ if(!inDateRange(r.date)) return false; }
+    else if(selectedYears.length && !selectedYears.includes(String(r.mes||'').slice(0,4))) return false;
     if(vendedor && r.vendedor.toLowerCase()!==vendedor.toLowerCase()) return false;
     if(canal && r.canal!==canal) return false;
     if(searchCliente && !(r.cliente||'').toLowerCase().includes(searchCliente)) return false;
@@ -926,7 +952,7 @@ function render(){
 
   renderEvolution();
   renderProjetoChart(capPeriodo);
-  renderDailyWeekly(capMes);
+  renderDailyWeekly(capPeriodo);
   renderMonthlyHistory();
   renderMap(capPeriodo);
   renderTopClientes(capPeriodo);
@@ -1050,12 +1076,23 @@ function renderEvolution(){
     }
   };
 
+  const barColors = allMonths.map(m=> m===selectedMes ? cyan : blue);
   const data={labels,datasets:[
-    {label:'Receita Captada',data:capByMes,backgroundColor:blue,borderRadius:5,maxBarThickness:32,yAxisID:'y',order:2},
+    {label:'Receita Captada',data:capByMes,backgroundColor:barColors,borderRadius:5,maxBarThickness:32,yAxisID:'y',order:2},
     {label:'Receita Faturada',data:fatByMes,type:'line',borderColor:cyan,backgroundColor:cyan,borderWidth:2.5,pointRadius:3,pointBackgroundColor:cyan,tension:.3,yAxisID:'y',order:1}
   ]};
   const opts={responsive:true,maintainAspectRatio:false,animation:{duration:300},
     layout:{padding:{top:40}},
+    onClick:(evt, elements)=>{
+      if(!elements.length) return;
+      const idx = elements[0].index;
+      const clickedMonth = allMonths[idx];
+      if(!clickedMonth) return;
+      selectedMes = clickedMonth;
+      const sel = el('monthSelect'); if(sel) sel.value = selectedMes;
+      render();
+    },
+    onHover:(evt, elements)=>{ evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; },
     plugins:{legend:{display:true,position:'top',align:'end',labels:{color:textColor,boxWidth:10,font:{size:11}}},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${fmtBRLFull(c.parsed.y)}`}}},
     scales:{
       x:{grid:{display:false},ticks:{color:textColor,font:{size:11},maxRotation:60,minRotation:0}},
@@ -1081,21 +1118,74 @@ function renderProjetoChart(rows){
 }
 
 let dailyChart=null, weeklyChart=null;
+function isoWeekInfo(dateObj){
+  const d = new Date(Date.UTC(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate()));
+  const dayNum = (d.getUTCDay()+6)%7;
+  d.setUTCDate(d.getUTCDate()-dayNum+3);
+  const firstThursday = new Date(Date.UTC(d.getUTCFullYear(),0,4));
+  const week = 1 + Math.round(((d-firstThursday)/86400000 - 3 + ((firstThursday.getUTCDay()+6)%7))/7);
+  // início (segunda) e fim (domingo) da semana original
+  const monday = new Date(dateObj); monday.setDate(monday.getDate() - ((dateObj.getDay()+6)%7));
+  const sunday = new Date(monday); sunday.setDate(monday.getDate()+6);
+  return { year: d.getUTCFullYear(), week, start: monday.toISOString().slice(0,10), end: sunday.toISOString().slice(0,10) };
+}
 function renderDailyWeekly(rows){
-  const [y,m]=selectedMes.split('-').map(Number);
-  const lastDay=new Date(y,m,0).getDate();
-  const dayVals=Array.from({length:lastDay},()=>0);
-  rows.forEach(r=>{ const d=parseInt(r.date.slice(8,10),10); if(d>=1&&d<=lastDay) dayVals[d-1]+=r.total; });
-  const weekVals=[0,0,0,0,0,0];
-  rows.forEach(r=>{ const d=parseInt(r.date.slice(8,10),10); const w=Math.min(5,Math.floor((d-1)/7)); weekVals[w]+=r.total; });
+  const dayMap = {};
+  rows.forEach(r=>{ dayMap[r.date] = (dayMap[r.date]||0)+r.total; });
+  const dayDates = Object.keys(dayMap).sort();
+
+  const weekMap = {};
+  rows.forEach(r=>{
+    const info = isoWeekInfo(new Date(r.date+'T00:00:00'));
+    const key = info.year+'-W'+String(info.week).padStart(2,'0');
+    if(!weekMap[key]) weekMap[key] = { total:0, start:info.start, end:info.end };
+    weekMap[key].total += r.total;
+  });
+  const weekKeys = Object.keys(weekMap).sort();
+
   const textColor=getComputedStyle(document.documentElement).getPropertyValue('--text3').trim();
   const gridColor=getComputedStyle(document.documentElement).getPropertyValue('--border2').trim();
   const blue=getComputedStyle(document.documentElement).getPropertyValue('--blue').trim();
-  const baseOpts={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmtBRLFull(c.parsed.y)}}},elements:{line:{tension:.4},point:{radius:3,hoverRadius:5}},scales:{x:{grid:{display:false},ticks:{color:textColor,font:{size:10}}},y:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10},callback:v=>fmtBRL(v)}}}};
-  const dData={labels:dayVals.map((_,i)=>String(i+1)),datasets:[{data:dayVals,borderColor:blue,backgroundColor:blue+'22',fill:true,pointBackgroundColor:blue}]};
-  const wData={labels:weekVals.map((_,i)=>'Sem. '+(i+1)),datasets:[{data:weekVals,borderColor:blue,backgroundColor:blue+'22',fill:true,pointBackgroundColor:blue}]};
-  if(dailyChart){dailyChart.data=dData;dailyChart.options=baseOpts;dailyChart.update();} else dailyChart=new Chart(el('dailyChart'),{type:'line',data:dData,options:baseOpts});
-  if(weeklyChart){weeklyChart.data=wData;weeklyChart.options=baseOpts;weeklyChart.update();} else weeklyChart=new Chart(el('weeklyChart'),{type:'line',data:wData,options:baseOpts});
+  const cyan=getComputedStyle(document.documentElement).getPropertyValue('--cyan').trim();
+
+  const dLabels = dayDates.map(d=>{ const [y,m,dd]=d.split('-'); return dd+'/'+m; });
+  const dColors = dayDates.map(d=> (dateFrom===d && dateTo===d) ? cyan : blue);
+  const dData = { labels:dLabels, datasets:[{ data: dayDates.map(d=>dayMap[d]), borderColor:blue, backgroundColor:blue+'22', fill:true, pointBackgroundColor:dColors, pointRadius:dayDates.map(d=>(dateFrom===d&&dateTo===d)?5:3) }] };
+  const dOpts = {
+    responsive:true, maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmtBRLFull(c.parsed.y)}}},
+    elements:{line:{tension:.35},point:{hoverRadius:6}},
+    onClick:(evt, elements)=>{
+      if(!elements.length) return;
+      const d = dayDates[elements[0].index];
+      dateFrom = d; dateTo = d;
+      el('dateFromInput').value = d; el('dateToInput').value = d;
+      render();
+    },
+    onHover:(evt, elements)=>{ evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; },
+    scales:{ x:{grid:{display:false},ticks:{color:textColor,font:{size:9},maxTicksLimit:14,autoSkip:true}}, y:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10},callback:v=>fmtBRL(v)}} }
+  };
+
+  const wLabels = weekKeys.map(k=>{ const [y,w]=k.split('-W'); return 'S'+w+'/'+y.slice(2); });
+  const wColors = weekKeys.map(k=> (dateFrom===weekMap[k].start && dateTo===weekMap[k].end) ? cyan : blue);
+  const wData = { labels:wLabels, datasets:[{ data: weekKeys.map(k=>weekMap[k].total), borderColor:blue, backgroundColor:blue+'22', fill:true, pointBackgroundColor:wColors, pointRadius:weekKeys.map(k=>(dateFrom===weekMap[k].start&&dateTo===weekMap[k].end)?5:3) }] };
+  const wOpts = {
+    responsive:true, maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmtBRLFull(c.parsed.y)}}},
+    elements:{line:{tension:.35},point:{hoverRadius:6}},
+    onClick:(evt, elements)=>{
+      if(!elements.length) return;
+      const k = weekKeys[elements[0].index];
+      dateFrom = weekMap[k].start; dateTo = weekMap[k].end;
+      el('dateFromInput').value = dateFrom; el('dateToInput').value = dateTo;
+      render();
+    },
+    onHover:(evt, elements)=>{ evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; },
+    scales:{ x:{grid:{display:false},ticks:{color:textColor,font:{size:9},maxTicksLimit:14,autoSkip:true}}, y:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10},callback:v=>fmtBRL(v)}} }
+  };
+
+  if(dailyChart){dailyChart.data=dData;dailyChart.options=dOpts;dailyChart.update();} else dailyChart=new Chart(el('dailyChart'),{type:'line',data:dData,options:dOpts});
+  if(weeklyChart){weeklyChart.data=wData;weeklyChart.options=wOpts;weeklyChart.update();} else weeklyChart=new Chart(el('weeklyChart'),{type:'line',data:wData,options:wOpts});
 }
 
 function renderMonthlyHistory(){
@@ -1155,17 +1245,18 @@ function renderRanking(){
   const vendFilter=selectedVendedor;
   const vendors = vendFilter ? [vendFilter] : allVendors;
   const rows = vendors.map(v=>{
-    const cap=filterRowsYears(captadaRows,v,selectedCanal).reduce((s,r)=>s+r.total,0);
-    const fat=filterRowsYears(faturadaRows,v,selectedCanal).reduce((s,r)=>s+r.total,0);
-    const meta=totalMetaYears(v);
+    const cap=filterRows(captadaRows,selectedMes,v,selectedCanal).reduce((s,r)=>s+r.total,0);
+    const fat=filterRows(faturadaRows,selectedMes,v,selectedCanal).reduce((s,r)=>s+r.total,0);
+    const meta=getMeta(selectedMes, v);
     const pct = meta>0?Math.round(cap/meta*100):0;
     return {v,cap,fat,meta,pct};
-  }).sort((a,b)=>b.cap-a.cap).slice(0,3);
+  }).sort((a,b)=>b.cap-a.cap);
   const list = el('rankingList'); list.innerHTML='';
   rows.forEach((r,i)=>{
     const posClass = i===0?'top1':i===1?'top2':i===2?'top3':'';
     const barColor = pctColor(r.pct);
-    const div = document.createElement('div'); div.className='rank-item';
+    const div = document.createElement('div'); div.className='rank-item clickable-row' + (selectedVendedor===r.v ? ' active-filter' : '');
+    div.title = 'Clique pra filtrar o painel por ' + r.v;
     div.innerHTML = `
       <span class="rank-pos ${posClass}">${i===0?'🥇':i===1?'🥈':i===2?'🥉':String(i+1).padStart(2,'0')}</span>
       <span class="rank-name">${r.v}</span>
@@ -1173,8 +1264,15 @@ function renderRanking(){
       <span class="rank-fat">${fmtBRL(r.fat)}</span>
       <span class="rank-meta">${r.meta>0?fmtBRL(r.meta):'—'}</span>
       <span><span class="rank-pct" style="color:${barColor}">${r.meta>0?r.pct+'%':'—'}</span><div class="rank-bar-wrap"><div class="rank-bar-fill" style="width:${Math.min(r.pct,100)}%;background:${barColor}"></div></div></span>`;
+    div.addEventListener('click', ()=> setCrossFilterVendedor(r.v));
     list.appendChild(div);
   });
+}
+function setCrossFilterVendedor(v){
+  selectedVendedor = (selectedVendedor===v) ? '' : v; // clica de novo no mesmo pra limpar
+  const vSel = el('vendedorSelect');
+  if(vSel) vSel.value = selectedVendedor;
+  render();
 }
 
 function renderTopClientes(rows){
