@@ -11,8 +11,8 @@
 <style>
 html{visibility:hidden;}
 :root{
-  --navy:#0b1220; --navy2:#0f1928; --navy3:#152238; --navy4:#1c2c47;
-  --cyan:#3ae9d1; --blue:#4281bf;
+  --navy:#06172D; --navy2:#0B2545; --navy3:#123C68; --navy4:#17395B;
+  --cyan:#36E2C9; --blue:#2D70B8;
   --green:#2fd6b8; --red:#ef6a6a; --gold:#f5b942; --purple:#9b7fe8;
   --text:#eef2f8; --text2:#8d9ab3; --text3:#586a89;
   --border:rgba(255,255,255,0.07); --border2:rgba(255,255,255,0.12);
@@ -73,7 +73,7 @@ body{padding-bottom:40px;}
 .btn-metas svg{width:14px;height:14px;}
 
 /* KPI */
-.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:20px;}
+.kpi-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;margin-bottom:20px;}
 .kpi-card{background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow);position:relative;overflow:hidden;}
 .kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--cyan),var(--blue));}
 .kpi-card.gold::before{background:linear-gradient(90deg,var(--gold),#c08020);}
@@ -144,6 +144,16 @@ body{padding-bottom:40px;}
 .save-feedback{display:none;text-align:center;font-size:12px;color:var(--green);margin-top:12px;}
 .save-feedback.show{display:block;}
 
+
+/* GPSBI BI Tangram premium */
+.content{max-width:1680px;}
+.tangram-hero{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:18px;padding:20px 22px;background:linear-gradient(135deg,rgba(54,226,201,.12),rgba(45,112,184,.10));border:1px solid var(--border2);border-radius:18px;box-shadow:var(--shadow)}
+.tangram-hero h2{font-size:22px;letter-spacing:-.04em;margin-bottom:4px}.tangram-hero p{font-size:12.5px;color:var(--text2)}.hero-pill{font-size:11px;color:var(--cyan);text-transform:uppercase;letter-spacing:.16em;font-weight:800}.hero-brand{font-size:11px;color:var(--text3)}
+.chart-card.wide{grid-column:1/-1}.main-grid{display:grid;grid-template-columns:1.45fr .9fr;gap:14px;margin-bottom:20px}.month-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px}.rank-side{display:flex;flex-direction:column;gap:8px;max-height:330px;overflow:auto;padding-right:4px}.seller-card{display:grid;grid-template-columns:34px 1fr auto;gap:10px;align-items:center;background:var(--navy2);border:1px solid var(--border2);border-radius:12px;padding:11px 12px}.seller-medal{font-size:22px}.seller-name{font-size:13px;font-weight:700}.seller-val{font-family:'DM Mono';font-size:12px;color:var(--text2)}.seller-pct{font-family:'DM Mono';font-weight:800;font-size:12px}.progress{height:8px;background:var(--navy3);border-radius:99px;overflow:hidden;margin-top:6px}.progress span{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--blue),var(--cyan))}
+.compare-card{background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius);padding:18px 20px;margin-bottom:20px;box-shadow:var(--shadow);overflow:auto}.compare-table{width:100%;border-collapse:collapse;min-width:980px}.compare-table th{font-size:10px;color:var(--text3);text-align:right;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--border2);padding:8px}.compare-table th:first-child{text-align:left}.compare-table td{font-size:12px;border-bottom:1px solid var(--border);padding:8px;text-align:right}.compare-table td:first-child{text-align:left}.compare-table .parent{font-weight:800;background:rgba(255,255,255,.025);cursor:pointer}.compare-table .child td:first-child{padding-left:28px;color:var(--text2)}.toggle{display:inline-flex;width:18px;height:18px;align-items:center;justify-content:center;border-radius:5px;background:var(--navy3);margin-right:7px;color:var(--cyan)}
+.history-map{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px}.history-box,.map-box{background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow);overflow:hidden}.history-scroll{overflow:auto;max-height:360px}.history-table{width:100%;border-collapse:collapse;min-width:720px}.history-table th,.history-table td{font-size:11.5px;border-bottom:1px solid var(--border);padding:7px;text-align:right}.history-table th:first-child,.history-table td:first-child{text-align:left;font-weight:700}.brazil-map{height:360px;position:relative;border-radius:14px;background:radial-gradient(circle at 60% 60%,rgba(54,226,201,.18),transparent 34%),linear-gradient(135deg,#071B33,#123C68);overflow:hidden}.brazil-map:before{content:'';position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.04) 1px,transparent 1px);background-size:38px 38px}.map-dot{position:absolute;border-radius:50%;background:var(--cyan);box-shadow:0 0 0 5px rgba(54,226,201,.14);transform:translate(-50%,-50%);cursor:pointer}.map-label{position:absolute;transform:translate(-50%,-50%);font-size:10px;color:#fff;background:rgba(7,27,51,.75);border:1px solid rgba(255,255,255,.14);padding:3px 6px;border-radius:8px;pointer-events:none;white-space:nowrap}.map-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:12px}.search-row{margin-bottom:10px}.search-input{width:100%;background:var(--field-bg);border:1px solid var(--border2);border-radius:9px;padding:10px 12px;color:var(--text);font-family:'Sora';font-size:12px}
+@media(max-width:1200px){.kpi-grid{grid-template-columns:repeat(2,1fr)}.main-grid,.month-grid,.history-map{grid-template-columns:1fr}.tables-grid{grid-template-columns:1fr}}
+
 @media(max-width:1200px){
   .kpi-grid{grid-template-columns:repeat(2,1fr);}
   .charts-grid{grid-template-columns:1fr;}
@@ -193,6 +203,7 @@ body{padding-bottom:40px;}
   </div>
 
   <div class="content">
+    <div class="tangram-hero"><div><div class="hero-pill">GPSBI Insights</div><h2>Tangram Comercial</h2><p>Visão executiva de vendas com comparativos, metas, ranking, produto, cliente e território.</p></div><div class="hero-brand">Decisão com precisão</div></div>
     <div class="filters-bar">
       <span class="filter-label">Mês</span>
       <select class="month-select" id="monthSelect"></select>
@@ -208,31 +219,12 @@ body{padding-bottom:40px;}
     </div>
 
     <div class="kpi-grid">
-      <div class="kpi-card">
-        <div class="kpi-value" id="kpiCaptado">--</div>
-        <div class="kpi-label">Receita Captada</div>
-        <div class="kpi-sub" id="kpiCaptadoSub"></div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-value" id="kpiFaturado">--</div>
-        <div class="kpi-label">Receita Faturada</div>
-        <div class="kpi-sub" id="kpiFaturadoSub"></div>
-      </div>
-      <div class="kpi-card gold">
-        <div class="kpi-value" id="kpiMeta">--</div>
-        <div class="kpi-label">Meta do período</div>
-        <div class="kpi-sub" id="kpiMetaSub"></div>
-      </div>
-      <div class="kpi-card purple">
-        <div class="kpi-value" id="kpiAtingimento">--</div>
-        <div class="kpi-label">Atingimento</div>
-        <div class="kpi-sub" id="kpiAtingimentoSub"></div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-value" id="kpiTicket">--</div>
-        <div class="kpi-label">Ticket Médio</div>
-        <div class="kpi-sub" id="kpiTicketSub"></div>
-      </div>
+      <div class="kpi-card"><div class="kpi-value" id="kpiCaptado">--</div><div class="kpi-label">Receita Captada</div><div class="kpi-sub" id="kpiCaptadoSub"></div></div>
+      <div class="kpi-card"><div class="kpi-value" id="kpiFaturado">--</div><div class="kpi-label">Receita Faturada</div><div class="kpi-sub" id="kpiFaturadoSub"></div></div>
+      <div class="kpi-card"><div class="kpi-value" id="kpiClientes">--</div><div class="kpi-label">Clientes</div><div class="kpi-sub">Clientes únicos no período</div></div>
+      <div class="kpi-card"><div class="kpi-value" id="kpiItens">--</div><div class="kpi-label">Itens Vendidos</div><div class="kpi-sub">Quantidade / linhas vendidas</div></div>
+      <div class="kpi-card gold"><div class="kpi-value" id="kpiPedidos">--</div><div class="kpi-label">Pedidos Captados</div><div class="kpi-sub" id="kpiPedidosSub"></div></div>
+      <div class="kpi-card purple"><div class="kpi-value" id="kpiTicket">--</div><div class="kpi-label">Ticket Médio</div><div class="kpi-sub" id="kpiTicketSub"></div></div>
     </div>
 
     <div class="gauge-section" id="gaugeSection" style="display:none;">
@@ -257,38 +249,53 @@ body{padding-bottom:40px;}
       </div>
     </div>
 
-    <div class="charts-grid">
+    <div class="main-grid">
       <div class="chart-card">
         <div class="chart-title">Evolução do faturamento</div>
-        <div class="chart-sub">Captado vs Faturado vs Meta, últimos meses</div>
+        <div class="chart-sub">Desde 2025 · variação % contra o mesmo período do mês anterior</div>
         <div class="chart-box"><canvas id="evolutionChart"></canvas></div>
       </div>
       <div class="chart-card">
-        <div class="chart-title">Mix por Família de Produto</div>
-        <div class="chart-sub">Receita captada no período selecionado</div>
-        <div class="chart-box"><canvas id="familiaChart"></canvas></div>
+        <div class="chart-title">Receita Captada por Projeto</div>
+        <div class="chart-sub">Coluna Projeto da base</div>
+        <div class="chart-box"><canvas id="projetoChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="month-grid">
+      <div class="chart-card">
+        <div class="chart-title">Receita diária do mês</div>
+        <div class="chart-sub">Captado por dia no mês selecionado</div>
+        <div class="chart-box small"><canvas id="dailyChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Receita semanal do mês</div>
+        <div class="chart-sub">Captado por semana do mês selecionado</div>
+        <div class="chart-box small"><canvas id="weeklyChart"></canvas></div>
       </div>
     </div>
 
     <div id="rankingSection" style="display:none;margin-bottom:20px;">
-      <div class="section-title">Ranking de vendedores</div>
-      <div class="rank-head"><span></span><span>Vendedor</span><span>Captado</span><span>Meta</span><span>% Meta</span><span></span><span>Faturado</span></div>
-      <div id="rankingList"></div>
+      <div class="chart-card">
+        <div class="section-title">🏅 Ranking de vendedores</div>
+        <div class="rank-side" id="rankingList"></div>
+      </div>
+    </div>
+
+    <div class="compare-card">
+      <div class="section-title">Tabela comparativa · vendedor / cliente</div>
+      <table class="compare-table"><thead><tr><th>Canal / Cliente</th><th>Receita Captada</th><th>Receita Faturada</th><th>% Receita</th><th>Meta</th><th>% Meta</th><th>Receita M.A</th><th>Var. M.A</th><th>% vs M.A</th><th>Receita A.A</th><th>Var. A.A</th><th>% vs A.A</th></tr></thead><tbody id="compareBody"></tbody></table>
     </div>
 
     <div class="tables-grid">
-      <div class="table-card">
-        <div class="section-title">Top Clientes</div>
-        <table><thead><tr><th>Cliente</th><th style="text-align:right">Receita</th><th>Pedidos</th></tr></thead><tbody id="topClientes"></tbody></table>
-      </div>
-      <div class="table-card">
-        <div class="section-title">Top Famílias</div>
-        <table><thead><tr><th>Família</th><th style="text-align:right">Receita</th><th>Pedidos</th></tr></thead><tbody id="topFamilias"></tbody></table>
-      </div>
-      <div class="table-card">
-        <div class="section-title">Top Produtos</div>
-        <table><thead><tr><th>Produto</th><th style="text-align:right">Receita</th><th>Qtd</th></tr></thead><tbody id="topProdutos"></tbody></table>
-      </div>
+      <div class="table-card"><div class="section-title">Ranking Clientes</div><table><thead><tr><th>Cliente</th><th style="text-align:right">Receita</th><th>Pedidos</th></tr></thead><tbody id="topClientes"></tbody></table></div>
+      <div class="table-card"><div class="section-title">Ranking Família</div><table><thead><tr><th>Família</th><th style="text-align:right">Receita</th><th>Pedidos</th></tr></thead><tbody id="topFamilias"></tbody></table></div>
+      <div class="table-card"><div class="section-title">Ranking Produtos</div><table><thead><tr><th>Produto</th><th style="text-align:right">Receita</th><th>Qtd</th></tr></thead><tbody id="topProdutos"></tbody></table></div>
+    </div>
+
+    <div class="history-map">
+      <div class="history-box"><div class="section-title">Histórico mensal por vendedor</div><div class="history-scroll"><table class="history-table" id="historyTable"></table></div></div>
+      <div class="map-box"><div class="section-title">Mapa de receita por Estado</div><div class="brazil-map" id="brazilMap"></div></div>
     </div>
   </div>
 </div>
@@ -391,6 +398,11 @@ function parseMoney(v){
   if(typeof v==='number') return v;
   return parseFloat(String(v).replace(/\./g,'').replace(',','.')) || 0;
 }
+function firstVal(row,names){ for(const n of names){ if(row[n]!==undefined && row[n]!==null && String(row[n]).trim()!=='') return row[n]; } return ''; }
+function prevMes(ym){ const [y,m]=ym.split('-').map(Number); const d=new Date(y,m-2,1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
+function sameMesAA(ym){ const [y,m]=ym.split('-').map(Number); return `${y-1}-${String(m).padStart(2,'0')}`; }
+function daysLimitForMes(rows, mes){ const ds=rows.filter(r=>r.mes===mes && r.total>0).map(r=>Number(r.date.slice(8,10))); return ds.length?Math.max(...ds):31; }
+function dayOfDate(ds){ return Number(String(ds).slice(8,10)); }
 
 function rowToRecord(row, tipo){
   const dateRaw = row['Data de Emissão (completa)'];
@@ -404,11 +416,15 @@ function rowToRecord(row, tipo){
   const produto = (row['Descrição do Produto (completa)']||'').trim();
   const situacao = (row['Situação']||'').trim();
   const canal = (row['Canal']||'').trim();
+  const projeto = String(firstVal(row,['Projeto','Projeto/Obra','Nome do Projeto','Categoria do Projeto'])||'N/D').trim();
+  const estado = String(firstVal(row,['Estado','UF','UF Cliente','Estado Cliente','Cliente Estado'])||'').trim().toUpperCase();
+  const qtdRaw = firstVal(row,['Quantidade','Qtde','Qtd','Itens','Quantidade do Item']);
+  const qtd = parseMoney(typeof qtdRaw==='object' && qtdRaw!==null ? qtdRaw.v : qtdRaw) || 1;
   const totalRaw = row['Total da Nota Fiscal'];
   const total = parseMoney(typeof totalRaw==='object' && totalRaw!==null ? totalRaw.v : totalRaw);
   const pedido = row['Pedido'] || '';
   const nf = row['Nota Fiscal'] || '';
-  return { mes, date:dateStr, vendedor, cliente, familia, produto, situacao, canal, total, pedido, nf, tipo };
+  return { mes, date:dateStr, vendedor, cliente, familia, produto, projeto, estado, qtd, situacao, canal, total, pedido, nf, tipo };
 }
 
 function situacaoOk(situacao, tipo){
@@ -533,30 +549,34 @@ function render(){
   else allVendors.forEach(v=>{ totalMeta += getMeta(selectedMes, v); });
 
   const pct = totalMeta>0 ? Math.round(totalCap/totalMeta*100) : 0;
-  const pedidosUnicos = new Set(capMes.map(r=>r.pedido)).size;
+  const pedidosUnicos = new Set(capMes.map(r=>r.pedido || r.nf || `${r.cliente}-${r.date}`)).size;
+  const clientesUnicos = new Set(capMes.map(r=>r.cliente).filter(Boolean)).size;
+  const itens = capMes.reduce((s,r)=>s+(Number(r.qtd)||1),0);
   const ticketMedio = pedidosUnicos>0 ? totalCap/pedidosUnicos : 0;
 
   el('kpiCaptado').textContent = fmtBRL(totalCap);
-  el('kpiCaptadoSub').textContent = pedidosUnicos + ' pedidos no período';
+  el('kpiCaptadoSub').textContent = totalMeta>0 ? `${pct}% da meta` : 'Receita captada no período';
   el('kpiFaturado').textContent = fmtBRL(totalFat);
-  el('kpiFaturadoSub').textContent = new Set(fatMes.map(r=>r.pedido)).size + ' pedidos faturados';
-  el('kpiMeta').textContent = totalMeta>0 ? fmtBRL(totalMeta) : 'Sem meta';
-  el('kpiMetaSub').textContent = totalMeta>0 ? 'Definida para '+mesLabel(selectedMes) : 'Defina a meta acima';
-  el('kpiAtingimento').textContent = totalMeta>0 ? pct+'%' : '—';
-  const atEl = el('kpiAtingimentoSub');
-  if(totalMeta>0 && totalCap<totalMeta){ atEl.textContent = 'Faltam '+fmtBRL(totalMeta-totalCap); atEl.style.color = pct>=80?'var(--gold)':'var(--red)'; }
-  else if(totalMeta>0){ atEl.textContent = '🎉 Superado em '+fmtBRL(totalCap-totalMeta); atEl.style.color='var(--green)'; }
-  else atEl.textContent='';
+  el('kpiFaturadoSub').textContent = new Set(fatMes.map(r=>r.pedido || r.nf)).size + ' pedidos faturados';
+  el('kpiClientes').textContent = clientesUnicos.toLocaleString('pt-BR');
+  el('kpiItens').textContent = Math.round(itens).toLocaleString('pt-BR');
+  el('kpiPedidos').textContent = pedidosUnicos.toLocaleString('pt-BR');
+  el('kpiPedidosSub').textContent = totalMeta>0 ? `Meta: ${fmtBRL(totalMeta)}` : 'Pedidos únicos';
   el('kpiTicket').textContent = fmtBRL(ticketMedio);
-  el('kpiTicketSub').textContent = 'Sobre receita captada';
+  el('kpiTicketSub').textContent = 'Receita captada / pedidos';
 
   if(userRole==='vendor'){ renderGauge(pct,totalCap,totalMeta); renderRankPos(totalCap); }
 
   renderEvolution();
-  renderFamiliaChart(capMes);
+  renderProjetoChart(capMes);
+  renderDailyChart(capMes);
+  renderWeeklyChart(capMes);
+  renderCompareTable();
   renderTopClientes(capMes);
   renderTopFamilias(capMes);
   renderTopProdutos(capMes);
+  renderHistory();
+  renderBrazilMap(capMes);
   if(userRole==='owner') renderRanking();
 }
 
@@ -587,44 +607,60 @@ function renderRankPos(myTotal){
   el('rankPosMsg').textContent = pos===1 ? `🥇 Você está na liderança em ${mesLabel(selectedMes)}! Parabéns!` : pos>0 ? `de ${total} vendedores no ranking de ${mesLabel(selectedMes)}.` : `Sem pedidos em ${mesLabel(selectedMes)}.`;
 }
 
-let evChart=null;
+let evChart=null, projetoChart=null, dailyChart=null, weeklyChart=null;
+function chartColors(){
+  const cs=getComputedStyle(document.documentElement);
+  return {grid:cs.getPropertyValue('--border2').trim()||'rgba(255,255,255,.07)',text:cs.getPropertyValue('--text3').trim()||'#8d9ab3',cyan:cs.getPropertyValue('--cyan').trim(),blue:cs.getPropertyValue('--blue').trim(),gold:cs.getPropertyValue('--gold').trim(),red:cs.getPropertyValue('--red').trim(),green:cs.getPropertyValue('--green').trim()};
+}
 function renderEvolution(){
-  const allMonths = Array.from(new Set(captadaRows.map(r=>r.mes))).sort().slice(-8);
+  const allMonths = Array.from(new Set(captadaRows.map(r=>r.mes))).filter(m=>m>='2025-01').sort();
   const vendFilter = selectedVendedor, canalFilter = selectedCanal;
-  const capByMes = allMonths.map(m=>filterRows(captadaRows,m,vendFilter,canalFilter).reduce((s,r)=>s+r.total,0));
-  const fatByMes = allMonths.map(m=>filterRows(faturadaRows,m,vendFilter,canalFilter).reduce((s,r)=>s+r.total,0));
-  const metaByMes = allMonths.map(m=>{ if(vendFilter) return getMeta(m,vendFilter); return allVendors.reduce((s,v)=>s+getMeta(m,v),0); });
   const labels = allMonths.map(mesLabel);
-  const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--border2').trim() || 'rgba(255,255,255,0.07)';
-  const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text3').trim() || '#8d9ab3';
-  const cyan = getComputedStyle(document.documentElement).getPropertyValue('--cyan').trim();
-  const blue = getComputedStyle(document.documentElement).getPropertyValue('--blue').trim();
-  const gold = getComputedStyle(document.documentElement).getPropertyValue('--gold').trim();
-  const data={labels,datasets:[
-    {label:'Captado',data:capByMes,backgroundColor:cyan,borderRadius:5,maxBarThickness:36,order:2},
-    {label:'Faturado',data:fatByMes,backgroundColor:blue,borderRadius:5,maxBarThickness:36,order:2},
-    {label:'Meta',data:metaByMes,type:'line',borderColor:gold,backgroundColor:'transparent',borderWidth:2.5,pointRadius:3,pointBackgroundColor:gold,tension:.3,order:1}
-  ]};
-  const opts={responsive:true,maintainAspectRatio:false,animation:{duration:300},
-    plugins:{legend:{display:true,position:'top',align:'end',labels:{color:textColor,boxWidth:10,font:{size:11}}},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${fmtBRLFull(c.parsed.y)}`}}},
-    scales:{x:{grid:{display:false},ticks:{color:textColor,font:{size:11}}},y:{grid:{color:gridColor},ticks:{color:textColor,font:{size:11},callback:v=>fmtBRL(v)}}}};
-  if(evChart){ evChart.data=data; evChart.options=opts; evChart.update(); return; }
-  evChart = new Chart(el('evolutionChart'),{type:'bar',data,options:opts});
+  const vals = allMonths.map(m=>filterRows(captadaRows,m,vendFilter,canalFilter).reduce((s,r)=>s+r.total,0));
+  const comps = allMonths.map(m=>{
+    const pm=prevMes(m); const lim=daysLimitForMes(filterRows(captadaRows,m,vendFilter,canalFilter),m);
+    const atual=filterRows(captadaRows,m,vendFilter,canalFilter).filter(r=>dayOfDate(r.date)<=lim).reduce((s,r)=>s+r.total,0);
+    const ant=filterRows(captadaRows,pm,vendFilter,canalFilter).filter(r=>dayOfDate(r.date)<=lim).reduce((s,r)=>s+r.total,0);
+    return ant>0?((atual-ant)/ant*100):null;
+  });
+  const c=chartColors();
+  const data={labels,datasets:[{label:'Receita Captada',data:vals,backgroundColor:c.blue,borderRadius:5,maxBarThickness:28},{label:'% vs mês anterior mesmo período',data:comps,type:'line',yAxisID:'pct',borderColor:c.cyan,backgroundColor:c.cyan,pointRadius:3,tension:.25}]};
+  const opts={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,position:'top',align:'end',labels:{color:c.text,boxWidth:10,font:{size:11}}},tooltip:{callbacks:{label:x=>x.dataset.yAxisID==='pct'?`${x.dataset.label}: ${x.parsed.y?.toFixed(1)}%`:`${x.dataset.label}: ${fmtBRLFull(x.parsed.y)}`}}},scales:{x:{grid:{display:false},ticks:{color:c.text,font:{size:10},maxRotation:0,autoSkip:true}},y:{grid:{color:c.grid},ticks:{color:c.text,callback:v=>fmtBRL(v)}},pct:{position:'right',grid:{display:false},ticks:{color:c.text,callback:v=>v+'%'}}}};
+  if(evChart){evChart.data=data;evChart.options=opts;evChart.update();return;} evChart=new Chart(el('evolutionChart'),{type:'bar',data,options:opts});
 }
-
-let famChart=null;
-function renderFamiliaChart(rows){
-  const map={}; rows.forEach(r=>{ if(r.familia) map[r.familia]=(map[r.familia]||0)+r.total; });
-  const sorted = Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,6);
-  const COLORS=['#3ae9d1','#4281bf','#f5b942','#ef6a6a','#9b7fe8','#5bc8f5'];
-  const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text3').trim();
-  const data={labels:sorted.map(e=>e[0]||'Outros'),datasets:[{data:sorted.map(e=>e[1]),backgroundColor:COLORS,borderWidth:0,hoverOffset:6}]};
-  const opts={responsive:true,maintainAspectRatio:false,cutout:'65%',animation:{duration:300},
-    plugins:{legend:{display:true,position:'right',labels:{color:textColor,font:{size:11},boxWidth:10}},tooltip:{callbacks:{label:c=>`${c.label}: ${fmtBRLFull(c.parsed)}`}}}};
-  if(famChart){ famChart.data=data; famChart.options=opts; famChart.update(); return; }
-  famChart = new Chart(el('familiaChart'),{type:'doughnut',data,options:opts});
+function renderProjetoChart(rows){
+  const map={}; rows.forEach(r=>{ const k=r.projeto||'N/D'; map[k]=(map[k]||0)+r.total; });
+  const sorted=Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,8); const c=chartColors();
+  const data={labels:sorted.map(x=>x[0]),datasets:[{label:'Receita',data:sorted.map(x=>x[1]),backgroundColor:[c.cyan,c.blue,c.gold,c.green,c.red,'#9b7fe8','#5bc8f5','#8d9ab3'],borderWidth:0}]};
+  const opts={responsive:true,maintainAspectRatio:false,cutout:'62%',plugins:{legend:{position:'right',labels:{color:c.text,boxWidth:10,font:{size:10}}},tooltip:{callbacks:{label:x=>`${x.label}: ${fmtBRLFull(x.parsed)}`}}}};
+  if(projetoChart){projetoChart.data=data;projetoChart.options=opts;projetoChart.update();return;} projetoChart=new Chart(el('projetoChart'),{type:'doughnut',data,options:opts});
 }
-
+function renderDailyChart(rows){
+  const days=Array.from({length:31},(_,i)=>i+1); const vals=days.map(d=>rows.filter(r=>dayOfDate(r.date)===d).reduce((s,r)=>s+r.total,0)); const c=chartColors();
+  const data={labels:days.map(String),datasets:[{label:'Receita diária',data:vals,borderColor:c.cyan,backgroundColor:'transparent',pointRadius:2,tension:.25}]};
+  const opts={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>fmtBRLFull(x.parsed.y)}}},scales:{x:{grid:{display:false},ticks:{color:c.text,font:{size:10}}},y:{grid:{color:c.grid},ticks:{color:c.text,callback:v=>fmtBRL(v)}}}};
+  if(dailyChart){dailyChart.data=data;dailyChart.options=opts;dailyChart.update();return;} dailyChart=new Chart(el('dailyChart'),{type:'line',data,options:opts});
+}
+function renderWeeklyChart(rows){
+  const vals=[1,2,3,4,5,6].map(w=>rows.filter(r=>Math.ceil(dayOfDate(r.date)/7)===w).reduce((s,r)=>s+r.total,0)); const c=chartColors();
+  const data={labels:['Sem. 1','Sem. 2','Sem. 3','Sem. 4','Sem. 5','Sem. 6'],datasets:[{label:'Receita semanal',data:vals,borderColor:c.blue,backgroundColor:c.blue,borderRadius:5}]};
+  const opts={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:x=>fmtBRLFull(x.parsed.y)}}},scales:{x:{grid:{display:false},ticks:{color:c.text}},y:{grid:{color:c.grid},ticks:{color:c.text,callback:v=>fmtBRL(v)}}}};
+  if(weeklyChart){weeklyChart.data=data;weeklyChart.options=opts;weeklyChart.update();return;} weeklyChart=new Chart(el('weeklyChart'),{type:'bar',data,options:opts});
+}
+function sumRows(rows,mes,vendedor,canal,cliente){ return rows.filter(r=>(!mes||r.mes===mes)&&(!vendedor||r.vendedor===vendedor)&&(!canal||r.canal===canal)&&(!cliente||r.cliente===cliente)).reduce((s,r)=>s+r.total,0); }
+function renderCompareTable(){
+  const tbody=el('compareBody'); const vendFilter=selectedVendedor; const vendors=(vendFilter?[vendFilter]:allVendors);
+  const totalAll=sumRows(captadaRows,selectedMes,vendFilter,selectedCanal); let html='';
+  vendors.forEach((v,idx)=>{
+    const cap=sumRows(captadaRows,selectedMes,v,selectedCanal); if(cap===0 && !vendFilter) return;
+    const fat=sumRows(faturadaRows,selectedMes,v,selectedCanal); const meta=getMeta(selectedMes,v); const ma=sumRows(captadaRows,prevMes(selectedMes),v,selectedCanal); const aa=sumRows(captadaRows,sameMesAA(selectedMes),v,selectedCanal); const varMA=cap-ma, varAA=cap-aa;
+    html+=`<tr class="parent" data-parent="v${idx}"><td><span class="toggle">+</span>${v}</td><td>${fmtBRL(cap)}</td><td>${fmtBRL(fat)}</td><td>${totalAll?((cap/totalAll)*100).toFixed(1):'0'}%</td><td>${meta?fmtBRL(meta):'—'}</td><td>${meta?((cap/meta)*100).toFixed(1)+'%':'—'}</td><td>${fmtBRL(ma)}</td><td>${fmtBRL(varMA)}</td><td>${ma?((varMA/ma)*100).toFixed(1)+'%':'—'}</td><td>${fmtBRL(aa)}</td><td>${fmtBRL(varAA)}</td><td>${aa?((varAA/aa)*100).toFixed(1)+'%':'—'}</td></tr>`;
+    const clients=Array.from(new Set(filterRows(captadaRows,selectedMes,v,selectedCanal).map(r=>r.cliente).filter(Boolean))).sort((a,b)=>sumRows(captadaRows,selectedMes,v,selectedCanal,b)-sumRows(captadaRows,selectedMes,v,selectedCanal,a)).slice(0,20);
+    clients.forEach(cli=>{ const ccap=sumRows(captadaRows,selectedMes,v,selectedCanal,cli); const cfat=sumRows(faturadaRows,selectedMes,v,selectedCanal,cli); const cma=sumRows(captadaRows,prevMes(selectedMes),v,selectedCanal,cli); const caa=sumRows(captadaRows,sameMesAA(selectedMes),v,selectedCanal,cli); html+=`<tr class="child child-v${idx}" style="display:none"><td>${cli}</td><td>${fmtBRL(ccap)}</td><td>${fmtBRL(cfat)}</td><td>${cap?((ccap/cap)*100).toFixed(1):'0'}%</td><td>—</td><td>—</td><td>${fmtBRL(cma)}</td><td>${fmtBRL(ccap-cma)}</td><td>${cma?(((ccap-cma)/cma)*100).toFixed(1)+'%':'—'}</td><td>${fmtBRL(caa)}</td><td>${fmtBRL(ccap-caa)}</td><td>${caa?(((ccap-caa)/caa)*100).toFixed(1)+'%':'—'}</td></tr>`; });
+  });
+  tbody.innerHTML=html || '<tr><td colspan="12" class="empty">Sem dados</td></tr>';
+  tbody.querySelectorAll('.parent').forEach(tr=>tr.onclick=()=>{ const id=tr.dataset.parent; const childs=tbody.querySelectorAll('.child-'+id); const open=tr.querySelector('.toggle').textContent==='−'; tr.querySelector('.toggle').textContent=open?'+':'−'; childs.forEach(c=>c.style.display=open?'none':'table-row'); });
+}
 function renderRanking(){
   const vendFilter=selectedVendedor;
   const vendors = vendFilter ? [vendFilter] : allVendors;
@@ -637,17 +673,9 @@ function renderRanking(){
   }).sort((a,b)=>b.cap-a.cap);
   const list = el('rankingList'); list.innerHTML='';
   rows.forEach((r,i)=>{
-    const posClass = i===0?'top1':i===1?'top2':i===2?'top3':'';
-    const barColor = pctColor(r.pct);
-    const div = document.createElement('div'); div.className='rank-item';
-    div.innerHTML = `
-      <span class="rank-pos ${posClass}">${i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1}</span>
-      <span class="rank-name">${r.v}</span>
-      <span class="rank-val">${fmtBRL(r.cap)}</span>
-      <span class="rank-meta">${r.meta>0?fmtBRL(r.meta):'Sem meta'}</span>
-      <div><div class="rank-bar-wrap"><div class="rank-bar-fill" style="width:${Math.min(r.pct,100)}%;background:${barColor}"></div></div>
-      <span class="rank-pct" style="color:${barColor}">${r.meta>0?r.pct+'%':'—'}</span></div>
-      <span class="rank-fat">${fmtBRL(r.fat)}</span>`;
+    const medal = i===0?'🥇':i===1?'🥈':i===2?'🥉':String(i+1).padStart(2,'0');
+    const div=document.createElement('div'); div.className='seller-card';
+    div.innerHTML=`<div class="seller-medal">${medal}</div><div><div class="seller-name">${r.v}</div><div class="seller-val">${fmtBRL(r.cap)} · Faturado ${fmtBRL(r.fat)} · Meta ${r.meta?fmtBRL(r.meta):'—'}</div><div class="progress"><span style="width:${Math.min(r.pct,100)}%"></span></div></div><div class="seller-pct ${pctClass(r.pct)}">${r.meta?r.pct+'%':'—'}</div>`;
     list.appendChild(div);
   });
 }
@@ -669,6 +697,21 @@ function renderTopProdutos(rows){
   rows.forEach(r=>{ const p=r.produto||'Sem descrição'; map[p]=(map[p]||0)+r.total; cnt[p]=(cnt[p]||0)+1; });
   const sorted = Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,10);
   el('topProdutos').innerHTML = sorted.length ? sorted.map(([k,v])=>`<tr><td>${k}</td><td class="val">${fmtBRL(v)}</td><td class="val num">${cnt[k]}</td></tr>`).join('') : '<tr><td colspan="3" class="empty">Sem dados</td></tr>';
+}
+
+
+function renderHistory(){
+  const table=el('historyTable'); const months=Array.from(new Set(captadaRows.map(r=>r.mes))).filter(m=>m>='2025-01').sort(); const vendFilter=selectedVendedor; const vendors=(vendFilter?[vendFilter]:allVendors).filter(v=>months.some(m=>sumRows(captadaRows,m,v,selectedCanal)>0));
+  let html='<thead><tr><th>Canal</th>'+months.map(m=>`<th>${mesLabel(m)}</th>`).join('')+'</tr></thead><tbody>';
+  vendors.forEach(v=>{ html+=`<tr><td>${v}</td>`+months.map(m=>`<td>${fmtBRL(sumRows(captadaRows,m,v,selectedCanal))}</td>`).join('')+'</tr>'; });
+  html+='<tr><td>Total</td>'+months.map(m=>`<td>${fmtBRL(sumRows(captadaRows,m,vendFilter,selectedCanal))}</td>`).join('')+'</tr></tbody>'; table.innerHTML=html;
+}
+const UF_POS={AC:[18,54],AM:[29,39],RR:[32,22],RO:[31,56],PA:[48,37],AP:[52,24],TO:[53,52],MA:[62,45],PI:[66,52],CE:[73,49],RN:[79,50],PB:[79,54],PE:[77,58],AL:[76,62],SE:[74,65],BA:[66,68],MT:[45,62],MS:[46,76],GO:[56,66],DF:[59,64],MG:[63,77],ES:[70,79],RJ:[67,84],SP:[59,83],PR:[55,89],SC:[57,94],RS:[53,98]};
+function renderBrazilMap(rows){
+  const box=el('brazilMap'); const map={}; rows.forEach(r=>{ const uf=(r.estado||'').replace(/[^A-Z]/g,'').slice(0,2); if(UF_POS[uf]) map[uf]=(map[uf]||0)+r.total; });
+  const max=Math.max(...Object.values(map),0); box.innerHTML='';
+  if(!max){ box.innerHTML='<div class="map-empty">Sem UF/Estado identificado na base para o período.</div>'; return; }
+  Object.entries(map).forEach(([uf,val])=>{ const [x,y]=UF_POS[uf]; const size=8+(val/max)*28; const dot=document.createElement('div'); dot.className='map-dot'; dot.style.left=x+'%'; dot.style.top=y+'%'; dot.style.width=size+'px'; dot.style.height=size+'px'; dot.title=`${uf}: ${fmtBRLFull(val)}`; box.appendChild(dot); const lab=document.createElement('div'); lab.className='map-label'; lab.style.left=x+'%'; lab.style.top=(y-5)+'%'; lab.textContent=`${uf} ${fmtBRL(val)}`; box.appendChild(lab); });
 }
 
 function openModal(){
