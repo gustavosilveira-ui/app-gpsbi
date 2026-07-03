@@ -219,6 +219,10 @@ html.light .topbar{background:rgba(255,255,255,.92);backdrop-filter:blur(16px)}
 .followup-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:var(--navy3);margin-bottom:6px;font-size:12px}
 .followup-item.done{opacity:.5;text-decoration:line-through}
 .crm-unavailable{font-size:11.5px;color:var(--gold);background:rgba(245,185,66,.12);padding:8px 10px;border-radius:8px;margin-top:6px}
+.suggestions-header{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.suggestions-badge{background:var(--red);color:#fff;font-size:10.5px;font-weight:700;border-radius:999px;padding:2px 8px;}
+.suggestions-chevron{margin-left:auto;font-size:12px;color:var(--text3);transition:transform .2s}
+.suggestions-chevron.open{transform:rotate(90deg)}
 .history-map-grid{display:grid;grid-template-columns:minmax(0,1.85fr) minmax(430px,.9fr);gap:14px;margin-bottom:14px}.history-card{display:flex;flex-direction:column;height:440px}.map-card{display:flex;flex-direction:column;height:440px}
 .history-scroll{overflow:auto;flex:1;min-height:0;border-radius:12px}.history-table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:11px}.history-table th,.history-table td{padding:9px 11px;border-bottom:1px solid var(--border);white-space:nowrap}.history-table th{position:sticky;top:0;background:var(--navy2);z-index:2;color:var(--text3);text-align:right}.history-table th:first-child,.history-table td:first-child{position:sticky;left:0;background:var(--navy2);z-index:3;text-align:left;font-weight:700;color:var(--text)}html.light .history-table th,html.light .history-table td:first-child,html.light .history-table th:first-child{background:#fff}#mapaReceita{flex:1;min-height:0;border-radius:14px;overflow:hidden;background:var(--navy3)}.leaflet-container{font-family:'Sora',sans-serif}.map-legend{display:flex;justify-content:center;gap:8px;align-items:center;font-size:10px;color:var(--text3);margin-top:8px}.pulse-in{animation:pulseIn .45s ease both}@keyframes pulseIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @media(max-width:1300px){.kpi-grid{grid-template-columns:repeat(3,1fr)}.charts-grid.hero-charts,.history-map-grid,.micro-grid{grid-template-columns:1fr}.project-body{grid-template-columns:1fr}.project-donut{height:220px}.topbar{position:relative}.brand-premium{flex-wrap:wrap}.update-chip{display:none}}
@@ -384,9 +388,15 @@ html.light .kpi-card{background:#fff}
     </div>
 
     <div class="chart-card" id="suggestionsCard" style="display:none;margin-bottom:20px;">
-      <div class="section-title">🎯 Sugestões de contato pra bater a meta</div>
+      <div class="section-title suggestions-header" onclick="toggleSuggestions()" style="cursor:pointer;user-select:none;">
+        🎯 Sugestões de contato pra bater a meta
+        <span id="suggestionsCount" class="suggestions-badge"></span>
+        <span id="suggestionsChevron" class="suggestions-chevron">▸</span>
+      </div>
       <div class="chart-sub">Clientes com histórico de recompra que já passaram do ciclo médio deles — ordenado pelo maior ticket médio</div>
-      <div id="suggestionsList"></div>
+      <div id="suggestionsBody" style="display:none;">
+        <div id="suggestionsList"></div>
+      </div>
     </div>
 
     <div class="charts-grid hero-charts">
@@ -723,6 +733,7 @@ function renderSuggestions(){
   const el2 = el('suggestionsList');
   if(!el2) return;
   const list = computeReorderSuggestions();
+  el('suggestionsCount').textContent = list.length ? list.length : '';
   if(!list.length){ el2.innerHTML = '<div style="color:var(--text3);font-size:12.5px;padding:12px;">Nenhum cliente atrasado identificado no ciclo de compra dele. 🎉</div>'; return; }
   el2.innerHTML = list.map(s=>`
     <div class="suggestion-item">
@@ -733,6 +744,13 @@ function renderSuggestions(){
       <div class="suggestion-val">${fmtBRL(s.avgTicket)}<span>ticket médio</span></div>
       <button class="btn-cancel suggestion-btn" onclick="openClientModal('${s.cliente.replace(/'/g,"\\'")}')">Ver ficha</button>
     </div>`).join('');
+}
+function toggleSuggestions(){
+  const body = el('suggestionsBody');
+  const chevron = el('suggestionsChevron');
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  chevron.classList.toggle('open', !isOpen);
 }
 
 async function initAuth(){
