@@ -8,6 +8,11 @@ const APP_PAGES = [
   { href:'mural.html', label:'📣 Mural' },
   { href:'aprovacoes.html', label:'✅ Aprovações' },
 ];
+const APP_PAGE_FLUXO = { href:'fluxodecaixa.html', label:'💰 Fluxo de Caixa' };
+function _navCanSeeFluxo(email){
+  email = (email||'').toLowerCase();
+  return email.endsWith('@gpsbi.com.br') || email === 'anderson@tangrampersonalizados.com.br';
+}
 
 let _appNavSb = null, _appNavUser = null;
 
@@ -31,7 +36,8 @@ function renderAppNav({ activePage, userLabel, userRole, onLogout, sb, currentUs
   const theme = savedInAccount || localStorage.getItem('tangram_theme') || 'light';
   document.documentElement.classList.toggle('light', theme==='light');
 
-  const navLinks = APP_PAGES.map(p=>{
+  const pages = _navCanSeeFluxo(currentUser && currentUser.email) ? [...APP_PAGES, APP_PAGE_FLUXO] : APP_PAGES;
+  const navLinks = pages.map(p=>{
     const cls = p.href===activePage ? 'active' : '';
     return `<a class="${cls}" href="${p.href}">${p.label}</a>`;
   }).join('');

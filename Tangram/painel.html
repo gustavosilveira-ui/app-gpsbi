@@ -365,6 +365,7 @@ html.light .kpi-card{background:#fff}
     <a href="agenda.html">🗓️ Minha Agenda</a>
     <a href="mural.html">📣 Mural</a>
     <a href="aprovacoes.html">✅ Aprovações</a>
+    <a href="fluxodecaixa.html" id="navFluxoCaixa" style="display:none;">💰 Fluxo de Caixa</a>
   </div>
 
   <div class="content">
@@ -845,6 +846,11 @@ async function initAuth(){
   // sem preferência salva ainda, mantém o padrão (claro) sem forçar nada.
   const savedTheme = currentUser.user_metadata && currentUser.user_metadata.theme;
   applyTheme(savedTheme || currentTheme, true);
+  const fcLink = document.getElementById('navFluxoCaixa');
+  if(fcLink){
+    const canFluxo = email.toLowerCase().endsWith('@gpsbi.com.br') || email.toLowerCase()==='anderson@tangrampersonalizados.com.br';
+    fcLink.style.display = canFluxo ? '' : 'none';
+  }
   document.documentElement.style.visibility='visible';
   setupUI();
   await loadData();

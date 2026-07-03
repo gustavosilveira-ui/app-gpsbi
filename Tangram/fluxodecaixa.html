@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fluxo de Caixa · Hub GPSBI</title>
+<link rel="stylesheet" href="theme.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+.fc-wrap{overflow:auto;max-height:80vh;border-radius:12px;border:1px solid var(--border2);}
+.fc-table{border-collapse:separate;border-spacing:0;font-size:11.5px;width:max-content;min-width:100%;}
+.fc-table th,.fc-table td{padding:7px 10px;white-space:nowrap;text-align:right;border-bottom:1px solid var(--border);}
+.fc-table th{position:sticky;top:0;background:var(--navy2);z-index:3;color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.03em;}
+.fc-table th.fc-today,.fc-table td.fc-today{background:rgba(58,233,209,.14) !important;}
+.fc-table th:first-child,.fc-table td:first-child{position:sticky;left:0;background:var(--navy2);z-index:4;text-align:left;min-width:220px;}
+html.light .fc-table th,html.light .fc-table td:first-child,html.light .fc-table th:first-child{background:#fff;}
+.fc-toggle{display:inline-block;width:14px;cursor:pointer;user-select:none;color:var(--text3);}
+.fc-row-label{cursor:pointer;user-select:none;}
+.fc-row-label:hover{color:var(--cyan);}
+.fc-lvl-0{font-weight:800;font-size:12.5px;}
+.fc-lvl-0 td{background:var(--navy3);}
+html.light .fc-lvl-0 td{background:#eef1f6;}
+.fc-lvl-1{font-weight:700;padding-left:14px;}
+.fc-lvl-2{padding-left:28px;color:var(--text2);}
+.fc-saldo-pos{color:var(--green);font-weight:800;}
+.fc-saldo-neg{color:var(--red);font-weight:800;background:rgba(239,106,106,.08);}
+.fc-col-toggle{cursor:pointer;color:var(--cyan);font-weight:900;}
+.fc-legend{display:flex;gap:18px;align-items:center;font-size:11.5px;color:var(--text3);margin-top:10px;flex-wrap:wrap;}
+.fc-legend span{display:flex;align-items:center;gap:6px;}
+.fc-dot{width:10px;height:10px;border-radius:3px;display:inline-block;}
+.fc-denied{max-width:520px;margin:80px auto;text-align:center;}
+</style>
+</head>
+<body>
+
+<div class="loading-screen" id="loadingScreen">
+  <div class="spinner"></div>
+  <p id="loadingMsg">Carregando fluxo de caixa...</p>
+</div>
+
+<div id="deniedScreen" style="display:none;">
+  <div class="content">
+    <div class="card fc-denied">
+      <div class="card-title">🔒 Acesso restrito</div>
+      <div class="card-sub">Essa página é exclusiva pra administração financeira. Fala com o Gustavo ou o Anderson se precisar de acesso.</div>
+    </div>
+  </div>
+</div>
+
+<div id="mainContent" style="display:none;">
+  <div class="content wide">
+    <div class="card">
+      <div class="card-title">💰 Fluxo de Caixa</div>
+      <div class="card-sub">Clique nas setinhas pra abrir/fechar anos, meses e dias — e as categorias dentro de Recebimentos e Pagamentos. Saldo acumulado dia a dia.</div>
+      <div class="fc-wrap"><table class="fc-table" id="fcTable"></table></div>
+      <div class="fc-legend">
+        <span><span class="fc-dot" style="background:var(--green)"></span> Saldo positivo</span>
+        <span><span class="fc-dot" style="background:var(--red)"></span> Saldo negativo</span>
+        <span><span class="fc-dot" style="background:var(--cyan)"></span> Hoje</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="nav.js"></script>
+<script>
+const SUPABASE_URL = 'https://mczggrocmccvmyglnumv.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jemdncm9jbWNjdm15Z2xudW12Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMjM2NzcsImV4cCI6MjA5ODU5OTY3N30.XXzhDvxfNaUW61HvgE4xuqzSICoLEYjbJhd1X52Zp84';
+const SHEET_ID = '1PMqK9MkeaDQOOoIOPXIof6wNrcSXa_JR1ktQnFiIS7s';
+const GID_MOVIMENTACAO = '0';
+const LOGIN_URL = 'index.html';
+
+// Acesso a essa página é diferente do "admin" geral do Hub:
+// aqui é qualquer e-mail @gpsbi.com.br + o Anderson (definido junto com o Gustavo).
+function canAccessFluxo(email){
+  email = (email||'').toLowerCase();
+  return email.endsWith('@gpsbi.com.br') || email === 'anderson@tangrampersonalizados.com.br';
+}
+function isOwner(email){
+  const OWNER_EMAILS = ['anderson@tangrampersonalizados.com.br', 'gustavosilveira@gpsbi.com.br'];
+  return OWNER_EMAILS.includes((email||'').toLowerCase());
+}
+function nameFromEmail(email){ return email.split('@')[0].split('.').map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' '); }
+function el(id){ return document.getElementById(id); }
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ---- Categoria -> Grupo (revisado com o Gustavo) ----
+const CATEGORIA_GRUPO = {"Clientes - Revenda de Mercadoria": "RECEBIMENTOS", "Empréstimos Bancários": "RECEBIMENTOS", "Adiantamento de Clientes": "RECEBIMENTOS", "Rendimentos de Aplicações": "RECEBIMENTOS", "Devoluções de Compra de Mercadoria de Revenda": "RECEBIMENTOS", "Vendas de Mercadoria - Online": "RECEBIMENTOS", "Eventos": "RECEBIMENTOS", "Recebimentos sem identificação": "RECEBIMENTOS", "Estorno desconto duplicata": "RECEBIMENTOS", "Aporte - Investimento": "RECEBIMENTOS", "Devoluções de Compra de Serviços": "RECEBIMENTOS", "Clientes - Serviços Prestados": "RECEBIMENTOS", "Clientes - Venda de Mercadoria Fabricadas": "RECEBIMENTOS", "amostra": "RECEBIMENTOS", "Reembolso de Despesas": "RECEBIMENTOS", "REEMBOLSO EMPRESTIMO FUNCIONARIO": "RECEBIMENTOS", "Devoluções de Vendas de Mercadoria": "RECEBIMENTOS", "ICMS": "DEDUCOES", "COFINS": "DEDUCOES", "PIS": "DEDUCOES", "DARF": "DEDUCOES", "GNRE DIFAL": "DEDUCOES", "ISS": "DEDUCOES", "Simples Nacional (DAS)": "DEDUCOES", "COMISSÕES": "DEDUCOES", "IRPJ": "DEDUCOES", "CSLL": "DEDUCOES", "Taxas Prefeitura": "DEDUCOES", "Bonificações": "DEDUCOES", "ESTORNO DE CREDITO EM DUPLICIDADE": "DEDUCOES", "Compras de Mercadorias para Revenda": "FORNECEDORES", "Compras de Materia Prima": "FORNECEDORES", "Compra de Serviços": "FORNECEDORES", "Adiantamento ao Fornecedor": "FORNECEDORES", "XBZ": "FORNECEDORES", "Tarifas Bancárias": "FINANCEIRAS", "Juros sobre Empréstimos": "FINANCEIRAS", "IOF": "FINANCEIRAS", "Desconto duplicata": "FINANCEIRAS", "Cheque Devolvido": "FINANCEIRAS", "Pagamento de Empréstimos": "FINANCEIRAS", "PAGAMENTO DE EMPRÉSTIMOS": "FINANCEIRAS", "Cartão de crédito - Prieto": "FINANCEIRAS", "Cartão de crédito - Anju": "FINANCEIRAS", "Cartão coorporativo": "FINANCEIRAS", "CARTÃO DE CRÉDITO COMPRAS": "FINANCEIRAS", "SERASA": "FINANCEIRAS", "APLICAÇÃO CDB": "FINANCEIRAS", "Salários": "PESSOAL", "Rescisões": "PESSOAL", "Assistência Médica": "PESSOAL", "Vale Refeição": "PESSOAL", "RECRUTAMENTO E SELEÇÃO": "PESSOAL", "EXAME ADMISSIONAL": "PESSOAL", "TREINAMENTO": "PESSOAL", "Motorista extra": "PESSOAL", "FUNCIONÁRIOS EXTRAS": "PESSOAL", "Alimentação": "PESSOAL", "CONTABILIDADE": "ADMIN", "Advogados": "ADMIN", "CONSULTORIA (GPS)": "ADMIN", "CONSULTORIA (DOMINIO)": "ADMIN", "Consultoria": "ADMIN", "Mentoria": "ADMIN", "Material de Escritório": "ADMIN", "LIMPEZA": "ADMIN", "Água e Esgoto": "ADMIN", "Energia Elétrica": "ADMIN", "Aluguel": "ADMIN", "Aluguel Pluris": "ADMIN", "Sociedade da Pluris": "ADMIN", "Adiantamento Pluris": "ADMIN", "Seguros": "ADMIN", "Móveis e Utensílios": "ADMIN", "MÓVEIS E UTENCÍLIOS": "ADMIN", "Maquinas e Equipamentos": "ADMIN", "Manutenção de Imobilizado": "ADMIN", "Telefonia": "ADMIN", "INTERNET": "ADMIN", "Frete": "LOGISTICA", "Combustivel": "LOGISTICA", "Veículos": "LOGISTICA", "Sem Parar": "LOGISTICA", "Aluguel de equipamento (Impressora)": "LOGISTICA", "ALUGUEL DE EQUIPAMENTOS": "LOGISTICA", "IPVA,LICENCIAMENTO E MULTAS": "LOGISTICA", "MARKETING": "MARKETING_TI", "Feiras e Eventos": "MARKETING_TI", "Eventos - Repasse": "MARKETING_TI", "WORKSHOP": "MARKETING_TI", "CAMPANHAS COMEMORATIVAS": "MARKETING_TI", "CAMPANHAS COMEMORATIVAS - ENDOMARKETING": "MARKETING_TI", "SITE TANGRAM": "MARKETING_TI", "SISTEMA ERP": "MARKETING_TI", "Sistema ERP": "MARKETING_TI", "CONSULTORIA (T.I EDSON)": "MARKETING_TI", "Transferência entre contas": "TRANSFERENCIAS", "RETIRADA": "RETIRADA", "Adiantamento": "OUTROS", "Despesas Viagem China": "OUTROS", "REEMBOLSO DE DESPESAS": "OUTROS", "Amostra": "OUTROS"};
+
+const GRUPOS_PAGAMENTO = [
+  {key:'DEDUCOES', label:'1.2 Deduções'},
+  {key:'FORNECEDORES', label:'Fornecedores'},
+  {key:'FINANCEIRAS', label:'Despesas Financeiras'},
+  {key:'PESSOAL', label:'Despesas Com Pessoal'},
+  {key:'ADMIN', label:'Despesas Administrativas'},
+  {key:'LOGISTICA', label:'Despesa Logística'},
+  {key:'MARKETING_TI', label:'Despesas Com Marketing / TI'},
+  {key:'RETIRADA', label:'Retiradas de Sócios'},
+  {key:'TRANSFERENCIAS', label:'Transferências Entre Contas'},
+  {key:'OUTROS', label:'Outros'},
+];
+
+let rows = []; // { date, categoria, grupo, valor }
+let currentUser = null;
+
+function fmtBRL(n){
+  if(n===null||n===undefined||isNaN(n)) return 'R$ 0';
+  const sign = n<0 ? '-' : '';
+  return sign+'R$ '+Math.round(Math.abs(n)).toLocaleString('pt-BR');
+}
+function parseMoneyBR(v){
+  if(v===null||v===undefined||v==='') return 0;
+  if(typeof v==='number') return v;
+  return parseFloat(String(v).replace(/\./g,'').replace(',','.')) || 0;
+}
+
+async function fetchGviz(gid){
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&gid=${gid}&headers=1`;
+  const res = await fetch(url);
+  const text = await res.text();
+  const clean = text.replace(/^[^{]*/, '').replace(/\s*\)\s*;?\s*$/, '');
+  return JSON.parse(clean).table;
+}
+function parseGvizRows(table){
+  if(!table || !table.rows) return [];
+  const cols = table.cols.map(c=>c.label);
+  return table.rows.map(row=>{
+    const obj={};
+    cols.forEach((col,i)=>{ const cell=row.c[i]; obj[col]= cell ? (cell.v!==null?cell.v:(cell.f||null)) : null; });
+    return obj;
+  });
+}
+function parseDateCell(v){
+  if(!v) return null;
+  if(typeof v==='string'){
+    if(/^\d{4}-\d{2}-\d{2}/.test(v)) return v.slice(0,10);
+    if(v.includes('/')){ const [d,m,y]=v.split('/'); return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`; }
+    const dm = v.match(/Date\((\d+),(\d+),(\d+)\)/);
+    if(dm){ const y=dm[1], m=String(parseInt(dm[2])+1).padStart(2,'0'), d=dm[3].padStart(2,'0'); return `${y}-${m}-${d}`; }
+  }
+  return null;
+}
+
+async function init(){
+  const { data } = await sb.auth.getSession();
+  if(!data.session){ window.location.replace(LOGIN_URL); return; }
+  currentUser = data.session.user;
+  const email = currentUser.email;
+
+  if(!canAccessFluxo(email)){
+    el('loadingScreen').style.display='none';
+    el('deniedScreen').style.display='block';
+    document.documentElement.style.visibility='visible';
+    return;
+  }
+
+  renderAppNav({ activePage:'fluxodecaixa.html', userLabel: nameFromEmail(email), userRole: isOwner(email)?'owner':'vendor', onLogout: doLogout, sb, currentUser });
+
+  await loadData();
+}
+
+async function loadData(){
+  try{
+    const table = await fetchGviz(GID_MOVIMENTACAO);
+    const raw = parseGvizRows(table);
+    rows = raw.map(r=>{
+      const clienteFornecedor = (r['Cliente ou Fornecedor']||'').toString().trim();
+      if(clienteFornecedor==='SALDO' || clienteFornecedor==='SALDO ANTERIOR') return null; // linhas marcadoras, não lançamentos
+      const dateRaw = r['Data'];
+      const date = parseDateCell(typeof dateRaw==='object' && dateRaw!==null ? (dateRaw.v||dateRaw) : dateRaw);
+      if(!date) return null;
+      const categoria = (r['Categoria']||'').toString().trim();
+      const valorRaw = r['Valor (R$)'];
+      const valor = parseMoneyBR(typeof valorRaw==='object' && valorRaw!==null ? valorRaw.v : valorRaw);
+      const grupo = CATEGORIA_GRUPO[categoria] || 'OUTROS';
+      return { date, categoria: categoria||'Sem categoria', grupo, valor };
+    }).filter(Boolean);
+    rows.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+
+    buildAndRenderTable();
+    el('loadingScreen').style.display='none';
+    el('mainContent').style.display='block';
+    document.documentElement.style.visibility='visible';
+  }catch(e){
+    console.error(e);
+    el('loadingMsg').textContent = 'Erro ao carregar a base. Verifique o acesso à planilha.';
+  }
+}
+
+/* ================== ÁRVORE DE COLUNAS (Ano > Mês > Dia) ================== */
+const MESES_ABBR = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+let columnTree = [];
+
+function buildColumnTree(){
+  if(!rows.length) return [];
+  const minYear = parseInt(rows[0].date.slice(0,4),10);
+  const maxYear = parseInt(rows[rows.length-1].date.slice(0,4),10);
+  const today = new Date();
+  const todayStr = today.toISOString().slice(0,10);
+  const curYear = today.getFullYear(), curMonth = today.getMonth()+1;
+
+  const years = [];
+  for(let y=minYear; y<=maxYear; y++){
+    const months = [];
+    for(let m=1; m<=12; m++){
+      const lastDay = new Date(y,m,0).getDate();
+      const days = [];
+      for(let d=1; d<=lastDay; d++){
+        const dstr = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        days.push({ type:'day', key:'d'+dstr, label:String(d).padStart(2,'0'), start:dstr, end:dstr, isToday: dstr===todayStr, children:[], expanded:false });
+      }
+      months.push({ type:'month', key:`m${y}-${m}`, label:MESES_ABBR[m-1]+'/'+String(y).slice(2),
+        start:`${y}-${String(m).padStart(2,'0')}-01`, end:`${y}-${String(m).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`,
+        isToday:false, children:days, expanded:(y===curYear && m===curMonth) });
+    }
+    years.push({ type:'year', key:'y'+y, label:String(y), start:`${y}-01-01`, end:`${y}-12-31`,
+      isToday:false, children:months, expanded:(y===curYear) });
+  }
+  return years;
+}
+function flattenColumns(nodes){
+  let out = [];
+  for(const n of nodes){
+    out.push(n);
+    if(n.expanded && n.children.length) out = out.concat(flattenColumns(n.children));
+  }
+  return out;
+}
+
+/* ================== CÁLCULO DE VALORES ================== */
+function sumInRange(catFilterFn, start, end){
+  let s = 0;
+  for(const r of rows){ if(r.date>=start && r.date<=end && catFilterFn(r)) s += r.valor; }
+  return s;
+}
+function runningBalance(uptoDate){
+  let s = 0;
+  for(const r of rows){ if(r.date<=uptoDate) s += r.valor; else break; }
+  return s;
+}
+const isRecebimento = r => r.grupo==='RECEBIMENTOS';
+const isPagamento = r => r.grupo!=='RECEBIMENTOS';
+const isGrupo = g => r => r.grupo===g;
+const isCategoria = c => r => r.categoria===c;
+
+/* ================== ÁRVORE DE LINHAS ================== */
+let rowTree = [];
+function buildRowTree(){
+  const catsByGrupo = {};
+  rows.forEach(r=>{ if(!catsByGrupo[r.grupo]) catsByGrupo[r.grupo]=new Set(); catsByGrupo[r.grupo].add(r.categoria); });
+
+  const recebimentoCats = Array.from(catsByGrupo['RECEBIMENTOS']||[]).sort();
+  const recebimentosNode = {
+    type:'recebimentos', level:0, label:'RECEBIMENTOS', filter:isRecebimento, expanded:false,
+    children: recebimentoCats.map(c=>({ type:'cat', level:2, label:c, filter:isCategoria(c), expanded:false, children:[] }))
+  };
+
+  const pagamentoSubgrupos = GRUPOS_PAGAMENTO.map(g=>{
+    const cats = Array.from(catsByGrupo[g.key]||[]).sort();
+    return {
+      type:'subgrupo', level:1, label:g.label, filter:isGrupo(g.key), expanded:(g.key==='DEDUCOES'),
+      children: cats.map(c=>({ type:'cat', level:2, label:c, filter:isCategoria(c), expanded:false, children:[] }))
+    };
+  }).filter(sg=>sg.children.length); // esconde grupo sem nenhuma categoria
+
+  const pagamentosNode = { type:'pagamentos', level:0, label:'PAGAMENTOS', filter:isPagamento, expanded:true, children: pagamentoSubgrupos };
+
+  return [
+    { type:'saldo', level:0, label:'SALDO ACUMULADO', special:'saldo', expanded:false, children:[] },
+    recebimentosNode,
+    pagamentosNode,
+  ];
+}
+function flattenRows(nodes){
+  let out = [];
+  for(const n of nodes){
+    out.push(n);
+    if(n.expanded && n.children && n.children.length) out = out.concat(flattenRows(n.children));
+  }
+  return out;
+}
+
+/* ================== RENDER ================== */
+function buildAndRenderTable(){
+  columnTree = buildColumnTree();
+  rowTree = buildRowTree();
+  renderTable();
+}
+
+function renderTable(){
+  const cols = flattenColumns(columnTree);
+  const visibleRows = flattenRows(rowTree);
+
+  // cabeçalho
+  let thead = '<thead><tr><th></th>' + cols.map(c=>{
+    const hasChildren = c.children && c.children.length;
+    const arrow = hasChildren ? `<span class="fc-col-toggle" onclick="toggleColumn('${c.key}')">${c.expanded?'−':'+'}</span> ` : '';
+    return `<th class="${c.isToday?'fc-today':''}">${arrow}${c.label}</th>`;
+  }).join('') + '</tr></thead>';
+
+  // corpo
+  let tbody = '<tbody>';
+  visibleRows.forEach(rNode=>{
+    const cls = `fc-lvl-${rNode.level}`;
+    const hasChildren = rNode.children && rNode.children.length;
+    const arrow = hasChildren ? `<span class="fc-toggle">${rNode.expanded?'▾':'▸'}</span> ` : (rNode.level>0 ? '<span class="fc-toggle"></span> ' : '');
+    tbody += `<tr class="${cls}" data-key="${rNode._key||''}">`;
+    tbody += `<td class="fc-row-label" onclick="${hasChildren?`toggleRowNode('${rNode.label.replace(/'/g,"\\'")}', ${rNode.level})`:''}">${arrow}${rNode.label}</td>`;
+    cols.forEach(c=>{
+      let val;
+      if(rNode.special==='saldo'){
+        val = runningBalance(c.end);
+        const cellCls = (val>=0?'fc-saldo-pos':'fc-saldo-neg') + (c.isToday?' fc-today':'');
+        tbody += `<td class="${cellCls}">${fmtBRL(val)}</td>`;
+      } else {
+        val = sumInRange(rNode.filter, c.start, c.end);
+        tbody += `<td class="${c.isToday?'fc-today':''}">${fmtBRL(val)}</td>`;
+      }
+    });
+    tbody += '</tr>';
+  });
+  tbody += '</tbody>';
+
+  el('fcTable').innerHTML = thead + tbody;
+}
+
+// localizar nó de coluna pela key (busca recursiva)
+function findColumnNode(nodes, key){
+  for(const n of nodes){
+    if(n.key===key) return n;
+    if(n.children.length){ const f = findColumnNode(n.children, key); if(f) return f; }
+  }
+  return null;
+}
+function toggleColumn(key){
+  const node = findColumnNode(columnTree, key);
+  if(node){ node.expanded = !node.expanded; renderTable(); }
+}
+
+// localizar nó de linha por label+level (simplificação: como não há duplicidade de label no mesmo nível, funciona)
+function findRowNode(nodes, label, level){
+  for(const n of nodes){
+    if(n.label===label && n.level===level) return n;
+    if(n.children && n.children.length){ const f = findRowNode(n.children, label, level); if(f) return f; }
+  }
+  return null;
+}
+function toggleRowNode(label, level){
+  const node = findRowNode(rowTree, label, level);
+  if(node){ node.expanded = !node.expanded; renderTable(); }
+}
+
+async function doLogout(){ await sb.auth.signOut(); window.location.href = LOGIN_URL; }
+
+init();
+</script>
+</body>
+</html>
