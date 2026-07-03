@@ -175,8 +175,15 @@ html.light .topbar{background:rgba(255,255,255,.92);backdrop-filter:blur(16px)}
 .charts-grid.hero-charts{grid-template-columns:minmax(0,2.4fr) minmax(260px,.62fr);gap:14px}.chart-card{border-radius:16px;background:linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.025)),var(--navy2)}html.light .chart-card,html.light .table-card{background:#fff}.chart-box.big{height:345px}.project-body{display:grid;grid-template-columns:230px 1fr;gap:18px;align-items:center}.project-donut{height:250px;position:relative}.project-table{width:100%;border-collapse:collapse}.project-table th{font-size:10px;color:var(--text3);text-align:left;padding:7px;border-bottom:1px solid var(--border2)}.project-table td{font-size:12px;padding:9px 7px;border-bottom:1px solid var(--border)}.project-table td:nth-child(2),.project-table td:nth-child(3){text-align:right;font-family:'DM Mono',monospace}.project-table .total-row td{font-weight:800;color:var(--text);border-top:1px solid var(--border2)}
 .project-body-full{display:flex;flex:1;flex-direction:row;align-items:center;justify-content:center;grid-template-columns:none}.project-body-full .project-donut{width:100%;max-width:420px;height:280px;flex:none;margin:0}
 .projeto-card{display:flex;flex-direction:column;height:100%;padding:18px 10px}
-.micro-grid{display:grid;grid-template-columns:minmax(0,.75fr) minmax(0,.75fr) minmax(420px,1.25fr);gap:14px;margin-bottom:14px}.chart-box.mini{height:205px}.ranking-card{padding-bottom:12px;max-height:272px;overflow:auto}.ranking-card .rank-head,.ranking-card .rank-item{grid-template-columns:34px 1.7fr .8fr .8fr .8fr .8fr}.ranking-card .rank-item{background:rgba(255,255,255,.025);margin-bottom:6px;padding:10px 12px}.ranking-card .rank-bar-wrap{height:5px;margin-top:4px}
-.history-map-grid{display:grid;grid-template-columns:minmax(0,1.85fr) minmax(430px,.9fr);gap:14px;margin-bottom:14px}.history-scroll{overflow:auto;max-height:295px;border-radius:12px}.history-table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:11px}.history-table th,.history-table td{padding:9px 11px;border-bottom:1px solid var(--border);white-space:nowrap}.history-table th{position:sticky;top:0;background:var(--navy2);z-index:2;color:var(--text3);text-align:right}.history-table th:first-child,.history-table td:first-child{position:sticky;left:0;background:var(--navy2);z-index:3;text-align:left;font-weight:700;color:var(--text)}html.light .history-table th,html.light .history-table td:first-child,html.light .history-table th:first-child{background:#fff}#mapaReceita{height:340px;border-radius:14px;overflow:hidden;background:var(--navy3)}.leaflet-container{font-family:'Sora',sans-serif}.map-legend{display:flex;justify-content:center;gap:8px;align-items:center;font-size:10px;color:var(--text3);margin-top:8px}.pulse-in{animation:pulseIn .45s ease both}@keyframes pulseIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.micro-grid{display:grid;grid-template-columns:minmax(0,.75fr) minmax(0,.75fr) minmax(420px,1.25fr);gap:14px;margin-bottom:14px}.chart-box.mini{height:205px}
+.search-bar-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.search-field{position:relative;display:flex;align-items:center;background:var(--navy2);border:1px solid var(--border2);border-radius:10px;padding:4px 4px 4px 14px;box-shadow:var(--shadow)}
+.search-field input{flex:1;background:transparent;border:none;outline:none;color:var(--text);font-family:'Sora',sans-serif;font-size:13px;padding:8px 4px}
+.search-field input::placeholder{color:var(--text3)}
+.search-clear{flex:none;width:32px;height:32px;border-radius:8px;border:none;background:var(--navy3);color:var(--text2);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center}
+.search-clear:hover{background:var(--navy4)}.ranking-card{padding-bottom:12px;height:100%;overflow-y:auto}.ranking-card .rank-head,.ranking-card .rank-item{grid-template-columns:34px 1.7fr .8fr .8fr .8fr .8fr}.ranking-card .rank-item{background:rgba(255,255,255,.025);margin-bottom:6px;padding:10px 12px}.ranking-card .rank-bar-wrap{height:5px;margin-top:4px}
+.history-map-grid{display:grid;grid-template-columns:minmax(0,1.85fr) minmax(430px,.9fr);gap:14px;margin-bottom:14px}.history-card{display:flex;flex-direction:column}
+.history-scroll{overflow:auto;flex:1;border-radius:12px}.history-table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:11px}.history-table th,.history-table td{padding:9px 11px;border-bottom:1px solid var(--border);white-space:nowrap}.history-table th{position:sticky;top:0;background:var(--navy2);z-index:2;color:var(--text3);text-align:right}.history-table th:first-child,.history-table td:first-child{position:sticky;left:0;background:var(--navy2);z-index:3;text-align:left;font-weight:700;color:var(--text)}html.light .history-table th,html.light .history-table td:first-child,html.light .history-table th:first-child{background:#fff}#mapaReceita{height:340px;border-radius:14px;overflow:hidden;background:var(--navy3)}.leaflet-container{font-family:'Sora',sans-serif}.map-legend{display:flex;justify-content:center;gap:8px;align-items:center;font-size:10px;color:var(--text3);margin-top:8px}.pulse-in{animation:pulseIn .45s ease both}@keyframes pulseIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @media(max-width:1300px){.kpi-grid{grid-template-columns:repeat(3,1fr)}.charts-grid.hero-charts,.history-map-grid,.micro-grid{grid-template-columns:1fr}.project-body{grid-template-columns:1fr}.project-donut{height:220px}.topbar{position:relative}.brand-premium{flex-wrap:wrap}.update-chip{display:none}}
 @media(max-width:760px){.kpi-grid{grid-template-columns:1fr}.content{padding:14px}.topbar{padding:12px}.client-logo{height:28px}.gpsbi-logo b{font-size:22px}}
 
@@ -193,7 +200,7 @@ html.light .kpi-card{background:#fff}
 .kpi-grid{grid-template-columns:repeat(6,1fr)}
 .charts-grid.hero-charts{grid-template-columns:minmax(0,2.35fr) minmax(280px,.65fr)}
 .chart-box.big{height:330px}.project-donut{height:260px}.project-body{grid-template-columns:250px 1fr}.micro-grid{grid-template-columns:minmax(250px,.75fr) minmax(250px,.75fr) minmax(450px,1.25fr)}
-.history-map-grid{grid-template-columns:minmax(0,1.72fr) minmax(470px,.92fr)}#mapaReceita{height:390px}.history-scroll{max-height:300px}
+.history-map-grid{grid-template-columns:minmax(0,1.72fr) minmax(470px,.92fr)}#mapaReceita{height:390px}
 .chart-card,.table-card{backdrop-filter:blur(14px)}
 @media(max-width:1450px){.kpi-grid{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:1100px){.kpi-grid,.charts-grid.hero-charts,.micro-grid,.history-map-grid,.tables-grid{grid-template-columns:1fr}.project-body{grid-template-columns:1fr}.topbar{position:relative}}
@@ -385,6 +392,17 @@ html.light .kpi-card{background:#fff}
       </div>
     </div>
 
+    <div class="search-bar-row">
+      <div class="search-field">
+        <input type="text" id="searchProduto" placeholder="Buscar por Descrição do Produto...">
+        <button class="search-clear" id="clearProduto" title="Limpar">🧹</button>
+      </div>
+      <div class="search-field">
+        <input type="text" id="searchCliente" placeholder="Buscar por Cliente (Razão Social)...">
+        <button class="search-clear" id="clearCliente" title="Limpar">🧹</button>
+      </div>
+    </div>
+
     <div class="tables-grid">
       <div class="table-card">
         <div class="section-title">Top Clientes</div>
@@ -467,6 +485,17 @@ function mesLabel(ym){ const [y,m]=ym.split('-'); const n=['Jan','Fev','Mar','Ab
 function mesLabelFull(ym){ const [y,m]=ym.split('-'); const n=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']; return n[parseInt(m,10)-1]+' de '+y; }
 function isOwner(email){ return email.endsWith('@gpsbi.com.br') || OWNER_EMAILS.includes(email.toLowerCase()); }
 function nameFromEmail(email){ return email.split('@')[0].split('.').map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' '); }
+function cleanVendorName(raw){
+  let s = (raw||'').toString().trim();
+  s = s.replace(/_\s*\d[\d\-]*/g, ' ').trim();   // remove "_ 98716-2696" / "_ 11" etc, onde quer que esteja
+  s = s.replace(/\s{2,}/g, ' ');
+  s = s.split(' ').filter(Boolean).map(w=>{
+    const lw = w.toLowerCase();
+    if(lw==='(inativo)'||lw==='inativo)'||lw==='(inativo') return '(Inativo)';
+    return w.charAt(0).toUpperCase()+w.slice(1).toLowerCase();
+  }).join(' ').trim();
+  return s;
+}
 function setLoading(msg){ document.getElementById('loadingMsg').textContent = msg || 'Carregando...'; }
 function el(id){ return document.getElementById(id); }
 
@@ -506,7 +535,7 @@ function rowToRecord(row, tipo){
   const dateStr = parseDate(typeof dateRaw==='object' && dateRaw!==null ? (dateRaw.v||dateRaw) : dateRaw);
   if(!dateStr) return null;
   const mes = dateStr.slice(0,7);
-  const vendedor = (row['Vendedor']||'').trim();
+  const vendedor = cleanVendorName(row['Vendedor']);
   if(!vendedor) return null;
   const cliente = (row['Cliente (Razão Social)']||'').trim();
   const familia = (row['Família de Produto']||'').trim();
@@ -634,6 +663,13 @@ async function loadData(){
       selectedVendedor = vendorName;
     }
 
+    let searchDebounce;
+    const debounceRender = ()=>{ clearTimeout(searchDebounce); searchDebounce = setTimeout(render, 250); };
+    el('searchProduto').addEventListener('input', e=>{ searchProduto = e.target.value.trim().toLowerCase(); debounceRender(); });
+    el('searchCliente').addEventListener('input', e=>{ searchCliente = e.target.value.trim().toLowerCase(); debounceRender(); });
+    el('clearProduto').addEventListener('click', ()=>{ el('searchProduto').value=''; searchProduto=''; render(); });
+    el('clearCliente').addEventListener('click', ()=>{ el('searchCliente').value=''; searchCliente=''; render(); });
+
     el('loadingScreen').style.display='none';
     el('mainContent').style.display='block';
     render();
@@ -643,11 +679,14 @@ async function loadData(){
   }
 }
 
+let searchCliente = '', searchProduto = '';
 function filterRows(rows, mes, vendedor, canal){
   return rows.filter(r=>{
     if(mes && r.mes!==mes) return false;
     if(vendedor && r.vendedor.toLowerCase()!==vendedor.toLowerCase()) return false;
     if(canal && r.canal!==canal) return false;
+    if(searchCliente && !(r.cliente||'').toLowerCase().includes(searchCliente)) return false;
+    if(searchProduto && !(r.produto||'').toLowerCase().includes(searchProduto)) return false;
     return true;
   });
 }
@@ -656,6 +695,8 @@ function filterRowsYears(rows, vendedor, canal){
     if(selectedYears.length && !selectedYears.includes(String(r.mes||'').slice(0,4))) return false;
     if(vendedor && r.vendedor.toLowerCase()!==vendedor.toLowerCase()) return false;
     if(canal && r.canal!==canal) return false;
+    if(searchCliente && !(r.cliente||'').toLowerCase().includes(searchCliente)) return false;
+    if(searchProduto && !(r.produto||'').toLowerCase().includes(searchProduto)) return false;
     return true;
   });
 }
@@ -869,14 +910,36 @@ function renderDailyWeekly(rows){
 }
 
 function renderMonthlyHistory(){
-  const months=selectedYears.slice().sort().flatMap(y=>Array.from({length:12},(_,i)=>`${y}-${String(i+1).padStart(2,'0')}`)).filter(m=>captadaRows.some(r=>r.mes===m));
-  const vendors=(selectedVendedor?[selectedVendedor]:allVendors).slice(0,18);
-  let html='<table class="history-table"><thead><tr><th>Vendedor</th>'+months.map(m=>`<th>${mesLabel(m)}</th>`).join('')+'</tr></thead><tbody>';
-  vendors.forEach(v=>{
-    html+=`<tr><td>${v}</td>`+months.map(m=>`<td>${fmtBRL(filterRows(captadaRows,m,v,selectedCanal).reduce((s,r)=>s+r.total,0))}</td>`).join('')+'</tr>';
+  const years = selectedYears.slice().sort();
+  const monthsByYear = years.map(y=>Array.from({length:12},(_,i)=>`${y}-${String(i+1).padStart(2,'0')}`).filter(m=>captadaRows.some(r=>r.mes===m)));
+
+  const vendors = selectedVendedor ? [selectedVendedor] : allVendors;
+
+  // calcula total por vendedor/mês uma vez e o total geral (todos os anos exibidos) pra filtrar e ordenar
+  const rowsData = vendors.map(v=>{
+    const byMonth = monthsByYear.map(ms=>ms.map(m=>filterRows(captadaRows,m,v,selectedCanal).reduce((s,r)=>s+r.total,0)));
+    const yearTotals = byMonth.map(vals=>vals.reduce((s,x)=>s+x,0));
+    const grandTotal = yearTotals.reduce((s,x)=>s+x,0);
+    return { v, byMonth, yearTotals, grandTotal };
+  }).filter(r=>r.grandTotal>0).sort((a,b)=>b.grandTotal-a.grandTotal);
+
+  let headHtml = '<th>Vendedor</th>';
+  years.forEach((y,yi)=>{
+    monthsByYear[yi].forEach(m=>{ headHtml += `<th>${mesLabel(m)}</th>`; });
+    headHtml += `<th style="background:var(--field-bg,rgba(45,112,184,.08))">Total ${y}</th>`;
   });
-  html+='</tbody></table>';
-  el('historyTableWrap').innerHTML=html;
+
+  let bodyHtml = '';
+  rowsData.forEach(r=>{
+    bodyHtml += `<tr><td>${r.v}</td>`;
+    years.forEach((y,yi)=>{
+      r.byMonth[yi].forEach(val=>{ bodyHtml += `<td>${fmtBRL(val)}</td>`; });
+      bodyHtml += `<td style="font-weight:700">${fmtBRL(r.yearTotals[yi])}</td>`;
+    });
+    bodyHtml += '</tr>';
+  });
+
+  el('historyTableWrap').innerHTML = `<table class="history-table"><thead><tr>${headHtml}</tr></thead><tbody>${bodyHtml}</tbody></table>`;
 }
 
 let leafletMap=null, leafletLayer=null;
