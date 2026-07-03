@@ -242,12 +242,12 @@ html.light .topbar{background:rgba(255,255,255,.92);backdrop-filter:blur(16px)}
 .matrix-wrap{overflow-x:auto;max-height:420px;overflow-y:auto}
 .matrix-table{width:100%;border-collapse:collapse;min-width:1100px;font-size:12px}
 .matrix-table th{text-align:right;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;padding:9px 10px;border-bottom:1px solid var(--border2);white-space:nowrap;position:sticky;top:0;background:var(--navy2);z-index:2}
-.matrix-table th.shaded{background:var(--navy3)}
+.matrix-table th.shaded{background:rgba(245,185,66,.10)}
 html.light .matrix-table th{background:#fff}
-html.light .matrix-table th.shaded{background:#f2f2f2}
+html.light .matrix-table th.shaded{background:rgba(201,135,31,.10)}
 .matrix-table th:first-child,.matrix-table td:first-child{text-align:left}
 .matrix-table td{text-align:right;padding:9px 10px;font-family:'DM Mono',monospace;border-bottom:1px solid var(--border);white-space:nowrap}
-.matrix-table td.shaded{background:rgba(120,130,150,.08)}
+.matrix-table td.shaded{background:rgba(245,185,66,.06)}
 .matrix-table tr.vendor-row{cursor:pointer;background:var(--navy3)}
 .matrix-table tr.vendor-row:hover{background:var(--navy4)}
 .matrix-table tr.vendor-row td:first-child{font-family:'Sora',sans-serif;font-weight:700;font-size:12.5px}
@@ -1140,6 +1140,11 @@ function matrixComparativos(rows, mes, vendedor, canal, cliente){
     pctMA: ma>0 ? (atual/ma-1) : null, pctAA: aa>0 ? (atual/aa-1) : null };
 }
 function fmtPctSigned(p){ if(p===null||p===undefined||!isFinite(p)) return '—'; return (p>=0?'+':'')+(p*100).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%'; }
+function fmtBRLMatrix(n){
+  if(!n && n!==0) return '—';
+  const sign = n<0 ? '-' : '';
+  return sign + 'R$ ' + Math.round(Math.abs(n)).toLocaleString('pt-BR');
+}
 
 function renderMatrix(){
   const box = el('matrixCard');
@@ -1148,15 +1153,25 @@ function renderMatrix(){
   box.style.display='block';
 
   const canalFilter = selectedCanal;
-  const vendors = selectedVendedor ? [selectedVendedor] : allVendors;
+  const vendorsBase = selectedVendedor ? [selectedVendedor] : allVendors;
   const grandTotalCap = filterRows(captadaRows, selectedMes, selectedVendedor, canalFilter).reduce((s,r)=>s+r.total,0);
+
+  // Pré-calcula pra poder filtrar (sem receita) e ordenar (maior pro menor) antes de desenhar
+  const vendorsCalc = vendorsBase.map(v=>{
+    const compCap = matrixComparativos(captadaRows, selectedMes, v, canalFilter, null);
+    const fatAtual = filterRows(faturadaRows, selectedMes, v, canalFilter).reduce((s,r)=>s+r.total,0);
+    return { v, compCap, fatAtual };
+  }).filter(x=>x.compCap.atual>0 || x.fatAtual>0)
+    .sort((a,b)=>b.compCap.atual-a.compCap.atual);
+  const vendors = vendorsCalc.map(x=>x.v);
 
   const body = el('matrixBody'); body.innerHTML = '';
   let totCap=0, totFat=0, totMeta=0, totMA=0, totAA=0, totPedidosUnicos=0;
 
-  vendors.forEach((v, vi)=>{
-    const compCap = matrixComparativos(captadaRows, selectedMes, v, canalFilter, null);
-    const fatAtual = filterRows(faturadaRows, selectedMes, v, canalFilter).reduce((s,r)=>s+r.total,0);
+  vendorsCalc.forEach((pre, vi)=>{
+    const v = pre.v;
+    const compCap = pre.compCap;
+    const fatAtual = pre.fatAtual;
     const meta = getMeta(selectedMes, v);
     const pctReceita = grandTotalCap>0 ? compCap.atual/grandTotalCap : 0;
     const pctMeta = meta>0 ? compCap.atual/meta : 0;
@@ -1169,18 +1184,18 @@ function renderMatrix(){
     const trV = document.createElement('tr'); trV.className='vendor-row';
     trV.innerHTML = `
       <td><span class="matrix-expand-arrow">▶</span> ${v}</td>
-      <td>${fmtBRL(compCap.atual)}</td>
-      <td>${fmtBRL(fatAtual)}</td>
+      <td>${fmtBRLMatrix(compCap.atual)}</td>
+      <td>${fmtBRLMatrix(fatAtual)}</td>
       <td>${(pctReceita*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}%</td>
-      <td>${meta>0?fmtBRL(meta):'—'}</td>
+      <td>${meta>0?fmtBRLMatrix(meta):'—'}</td>
       <td>${meta>0?(pctMeta*100).toLocaleString('pt-BR',{maximumFractionDigits:1})+'%':'—'}</td>
-      <td>${fmtBRL(compCap.ma)}</td>
-      <td class="${compCap.deltaMA>=0?'matrix-pos':'matrix-neg'}">${fmtBRL(compCap.deltaMA)}</td>
+      <td>${fmtBRLMatrix(compCap.ma)}</td>
+      <td class="${compCap.deltaMA>=0?'matrix-pos':'matrix-neg'}">${fmtBRLMatrix(compCap.deltaMA)}</td>
       <td class="shaded ${(compCap.pctMA||0)>=0?'matrix-pos':'matrix-neg'}">${fmtPctSigned(compCap.pctMA)}</td>
-      <td>${fmtBRL(compCap.aa)}</td>
-      <td class="${compCap.deltaAA>=0?'matrix-pos':'matrix-neg'}">${fmtBRL(compCap.deltaAA)}</td>
+      <td>${fmtBRLMatrix(compCap.aa)}</td>
+      <td class="${compCap.deltaAA>=0?'matrix-pos':'matrix-neg'}">${fmtBRLMatrix(compCap.deltaAA)}</td>
       <td class="shaded ${(compCap.pctAA||0)>=0?'matrix-pos':'matrix-neg'}">${fmtPctSigned(compCap.pctAA)}</td>
-      <td>${fmtBRL(ticket)}</td>`;
+      <td>${fmtBRLMatrix(ticket)}</td>`;
     trV.addEventListener('click', ()=>{
       const arrow = trV.querySelector('.matrix-expand-arrow');
       arrow.classList.toggle('open');
@@ -1203,30 +1218,30 @@ function renderMatrix(){
       const pr = compCap.atual>0 ? ct.comp.atual/compCap.atual : 0;
       trC.innerHTML = `
         <td>${ct.c}</td>
-        <td>${fmtBRL(ct.comp.atual)}</td>
-        <td>${fmtBRL(ct.fat)}</td>
+        <td>${fmtBRLMatrix(ct.comp.atual)}</td>
+        <td>${fmtBRLMatrix(ct.fat)}</td>
         <td>${(pr*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}%</td>
         <td>—</td><td>—</td>
-        <td>${fmtBRL(ct.comp.ma)}</td>
-        <td class="${ct.comp.deltaMA>=0?'matrix-pos':'matrix-neg'}">${fmtBRL(ct.comp.deltaMA)}</td>
+        <td>${fmtBRLMatrix(ct.comp.ma)}</td>
+        <td class="${ct.comp.deltaMA>=0?'matrix-pos':'matrix-neg'}">${fmtBRLMatrix(ct.comp.deltaMA)}</td>
         <td class="shaded ${(ct.comp.pctMA||0)>=0?'matrix-pos':'matrix-neg'}">${fmtPctSigned(ct.comp.pctMA)}</td>
-        <td>${fmtBRL(ct.comp.aa)}</td>
-        <td class="${ct.comp.deltaAA>=0?'matrix-pos':'matrix-neg'}">${fmtBRL(ct.comp.deltaAA)}</td>
+        <td>${fmtBRLMatrix(ct.comp.aa)}</td>
+        <td class="${ct.comp.deltaAA>=0?'matrix-pos':'matrix-neg'}">${fmtBRLMatrix(ct.comp.deltaAA)}</td>
         <td class="shaded ${(ct.comp.pctAA||0)>=0?'matrix-pos':'matrix-neg'}">${fmtPctSigned(ct.comp.pctAA)}</td>
-        <td>${fmtBRL(ct.ticketC)}</td>`;
+        <td>${fmtBRLMatrix(ct.ticketC)}</td>`;
       body.appendChild(trC);
     });
   });
 
   const totTicket = totPedidosUnicos>0 ? totCap/totPedidosUnicos : 0;
   const trT = document.createElement('tr'); trT.className='total-row';
-  trT.innerHTML = `<td>Total</td><td>${fmtBRL(totCap)}</td><td>${fmtBRL(totFat)}</td><td>100%</td>
-    <td>${totMeta>0?fmtBRL(totMeta):'—'}</td><td>${totMeta>0?(totCap/totMeta*100).toLocaleString('pt-BR',{maximumFractionDigits:1})+'%':'—'}</td>
-    <td>${fmtBRL(totMA)}</td><td class="${(totCap-totMA)>=0?'matrix-pos':'matrix-neg'}">${fmtBRL(totCap-totMA)}</td>
+  trT.innerHTML = `<td>Total</td><td>${fmtBRLMatrix(totCap)}</td><td>${fmtBRLMatrix(totFat)}</td><td>100%</td>
+    <td>${totMeta>0?fmtBRLMatrix(totMeta):'—'}</td><td>${totMeta>0?(totCap/totMeta*100).toLocaleString('pt-BR',{maximumFractionDigits:1})+'%':'—'}</td>
+    <td>${fmtBRLMatrix(totMA)}</td><td class="${(totCap-totMA)>=0?'matrix-pos':'matrix-neg'}">${fmtBRLMatrix(totCap-totMA)}</td>
     <td class="shaded ${(totMA>0?(totCap/totMA-1):0)>=0?'matrix-pos':'matrix-neg'}">${fmtPctSigned(totMA>0?(totCap/totMA-1):null)}</td>
-    <td>${fmtBRL(totAA)}</td><td class="${(totCap-totAA)>=0?'matrix-pos':'matrix-neg'}">${fmtBRL(totCap-totAA)}</td>
+    <td>${fmtBRLMatrix(totAA)}</td><td class="${(totCap-totAA)>=0?'matrix-pos':'matrix-neg'}">${fmtBRLMatrix(totCap-totAA)}</td>
     <td class="shaded ${(totAA>0?(totCap/totAA-1):0)>=0?'matrix-pos':'matrix-neg'}">${fmtPctSigned(totAA>0?(totCap/totAA-1):null)}</td>
-    <td>${fmtBRL(totTicket)}</td>`;
+    <td>${fmtBRLMatrix(totTicket)}</td>`;
   body.appendChild(trT);
 }
 let evChart=null;
