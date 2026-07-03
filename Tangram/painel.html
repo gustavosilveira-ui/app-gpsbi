@@ -198,7 +198,7 @@ html.light .kpi-card{background:#fff}
 
 
 
-/* GPSBI V4 ajustes solicitados: topo branco fixo + filtro de anos padrão 2025/2026 */
+/* GPSBI V6 ajustes solicitados: topo branco fixo + filtro de anos padrão 2025/2026 */
 .topbar{
   background:#FFFFFF !important;
   color:#071B33 !important;
@@ -603,7 +603,8 @@ async function loadData(){
       '2025','2026'
     ].filter(Boolean);
     const anos = Array.from(new Set(anosBase)).sort();
-    selectedYears = ['2025','2026'].filter(a=>anos.includes(a));
+    // Padrão Power BI/original: sempre abrir com 2025 e 2026 marcados.
+    selectedYears = ['2025','2026'];
     const yearBox = el('yearFilter');
     yearBox.innerHTML = anos.map(a=>`<label class="year-pill"><input type="checkbox" value="${a}" ${selectedYears.includes(a)?'checked':''}><span>${a}</span></label>`).join('');
     yearBox.querySelectorAll('input').forEach(chk=>chk.addEventListener('change',()=>{
@@ -729,29 +730,98 @@ function renderRankPos(myTotal){
   el('rankPosMsg').textContent = pos===1 ? `🥇 Você está na liderança nos anos ${periodYearsLabel()}! Parabéns!` : pos>0 ? `de ${total} vendedores no ranking dos anos ${periodYearsLabel()}.` : `Sem pedidos nos anos ${periodYearsLabel()}.`;
 }
 
+function monthAdd(ym, offset){
+  const [y,m]=ym.split('-').map(Number);
+  const d=new Date(y, m-1+offset, 1);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+function rowsUntilDay(rows, mes, vendedor, canal, dayLimit){
+  return rows.filter(r=>{
+    if(r.mes!==mes) return false;
+    if(vendedor && r.vendedor.toLowerCase()!==vendedor.toLowerCase()) return false;
+    if(canal && r.canal!==canal) return false;
+    if(dayLimit){
+      const d=parseInt(String(r.date||'').slice(8,10),10);
+      if(d>dayLimit) return false;
+    }
+    return true;
+  });
+}
+function calcMonthTotalSamePeriod(mes, vendedor, canal, referenceMes){
+  let dayLimit = null;
+  // Para o mês corrente, compara somente a mesma quantidade de dias faturados até hoje.
+  // Ex.: julho até dia 02 compara junho até dia 02.
+  if(referenceMes && mes===referenceMes){
+    const today = new Date();
+    dayLimit = today.getDate();
+  }
+  return rowsUntilDay(captadaRows, mes, vendedor, canal, dayLimit).reduce((s,r)=>s+r.total,0);
+}
 let evChart=null;
 function renderEvolution(){
-  const allMonths = selectedYears.slice().sort().flatMap(y=>Array.from({length:12},(_,i)=>`${y}-${String(i+1).padStart(2,'0')}`)).filter(m=>captadaRows.some(r=>r.mes===m) || faturadaRows.some(r=>r.mes===m) || Object.prototype.hasOwnProperty.call(metasMap,m));
   const vendFilter = selectedVendedor, canalFilter = selectedCanal;
-  const capByMes = allMonths.map(m=>filterRows(captadaRows,m,vendFilter,canalFilter).reduce((s,r)=>s+r.total,0));
-  const fatByMes = allMonths.map(m=>filterRows(faturadaRows,m,vendFilter,canalFilter).reduce((s,r)=>s+r.total,0));
-  const metaByMes = allMonths.map(m=>{ if(vendFilter) return getMeta(m,vendFilter); return allVendors.reduce((s,v)=>s+getMeta(m,v),0); });
-  const labels = allMonths.map(mesLabel);
+
+  // Mantém exatamente a ideia do Power BI: eixo mensal dos anos escolhidos.
+  // Por padrão o painel abre com 2025 e 2026.
+  const baseMonths = selectedYears.slice().sort().flatMap(y=>
+    Array.from({length:12},(_,i)=>`${y}-${String(i+1).padStart(2,'0')}`)
+  );
+  const allMonths = baseMonths.filter(m=>
+    captadaRows.some(r=>r.mes===m) || faturadaRows.some(r=>r.mes===m) || Object.prototype.hasOwnProperty.call(metasMap,m)
+  );
+
+  const currentYm = `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`;
+  const capByMes = allMonths.map(m=>calcMonthTotalSamePeriod(m,vendFilter,canalFilter,currentYm));
+  const pctVsPrev = allMonths.map((m,i)=>{
+    const prevMes = monthAdd(m,-1);
+    const atual = capByMes[i] || 0;
+    const prev = calcMonthTotalSamePeriod(prevMes,vendFilter,canalFilter, m===currentYm ? currentYm : null);
+    if(!prev) return null;
+    return (atual-prev)/prev*100;
+  });
+
+  const labels = allMonths.map(m=>mesLabel(m).replace('/','/'));
   const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--border2').trim() || 'rgba(255,255,255,0.07)';
   const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text3').trim() || '#8d9ab3';
-  const cyan = getComputedStyle(document.documentElement).getPropertyValue('--cyan').trim();
-  const blue = getComputedStyle(document.documentElement).getPropertyValue('--blue').trim();
-  const gold = getComputedStyle(document.documentElement).getPropertyValue('--gold').trim();
+  const blue = getComputedStyle(document.documentElement).getPropertyValue('--blue').trim() || '#2D70B8';
+  const cyan = getComputedStyle(document.documentElement).getPropertyValue('--cyan').trim() || '#36E2C9';
+  const red = getComputedStyle(document.documentElement).getPropertyValue('--red').trim() || '#ef6a6a';
+  const green = getComputedStyle(document.documentElement).getPropertyValue('--green').trim() || '#2fd6b8';
+
+  const pctLabelPlugin = {
+    id:'pctLabelPlugin',
+    afterDatasetsDraw(chart){
+      const {ctx} = chart;
+      const meta = chart.getDatasetMeta(1);
+      if(!meta || meta.hidden) return;
+      ctx.save();
+      ctx.font = '700 10px Sora, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      chart.data.datasets[1].data.forEach((v,i)=>{
+        if(v===null || v===undefined || !meta.data[i]) return;
+        const p = meta.data[i].getProps(['x','y'], true);
+        ctx.fillStyle = v>=0 ? green : red;
+        const arrow = v>=0 ? '↗' : '↘';
+        ctx.fillText(`${v>=0?'+':''}${v.toFixed(1).replace('.',',')}% ${arrow}`, p.x, p.y - 8);
+      });
+      ctx.restore();
+    }
+  };
+
   const data={labels,datasets:[
-    {label:'Captado',data:capByMes,backgroundColor:cyan,borderRadius:5,maxBarThickness:36,order:2},
-    {label:'Faturado',data:fatByMes,backgroundColor:blue,borderRadius:5,maxBarThickness:36,order:2},
-    {label:'Meta',data:metaByMes,type:'line',borderColor:gold,backgroundColor:'transparent',borderWidth:2.5,pointRadius:3,pointBackgroundColor:gold,tension:.3,order:1}
+    {label:'Receita Captada',data:capByMes,backgroundColor:blue,borderRadius:5,maxBarThickness:32,yAxisID:'y',order:2},
+    {label:'% vs mês anterior mesmo período',data:pctVsPrev,type:'line',borderColor:cyan,backgroundColor:cyan,borderWidth:2.5,pointRadius:4,pointBackgroundColor:cyan,tension:.35,yAxisID:'y1',order:1}
   ]};
   const opts={responsive:true,maintainAspectRatio:false,animation:{duration:300},
-    plugins:{legend:{display:true,position:'top',align:'end',labels:{color:textColor,boxWidth:10,font:{size:11}}},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${fmtBRLFull(c.parsed.y)}`}}},
-    scales:{x:{grid:{display:false},ticks:{color:textColor,font:{size:11}}},y:{grid:{color:gridColor},ticks:{color:textColor,font:{size:11},callback:v=>fmtBRL(v)}}}};
+    plugins:{legend:{display:true,position:'top',align:'end',labels:{color:textColor,boxWidth:10,font:{size:11}}},tooltip:{callbacks:{label:c=> c.datasetIndex===0 ? `Receita Captada: ${fmtBRLFull(c.parsed.y)}` : `% vs mês anterior: ${c.parsed.y===null?'—':c.parsed.y.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%'}`}}},
+    scales:{
+      x:{grid:{display:false},ticks:{color:textColor,font:{size:11},maxRotation:60,minRotation:0}},
+      y:{position:'left',grid:{color:gridColor},ticks:{color:textColor,font:{size:11},callback:v=>fmtBRL(v)}},
+      y1:{position:'right',grid:{display:false},min:-100,max:100,ticks:{color:textColor,font:{size:11},callback:v=>v+'%'}}
+    }};
   if(evChart){ evChart.data=data; evChart.options=opts; evChart.update(); return; }
-  evChart = new Chart(el('evolutionChart'),{type:'bar',data,options:opts});
+  evChart = new Chart(el('evolutionChart'),{type:'bar',data,options:opts,plugins:[pctLabelPlugin]});
 }
 
 let projetoChart=null;
