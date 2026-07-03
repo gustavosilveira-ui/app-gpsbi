@@ -888,8 +888,7 @@ async function loadData(){
     el('dateFromInput').addEventListener('change', e=>{ dateFrom = e.target.value; render(); });
     el('dateToInput').addEventListener('change', e=>{ dateTo = e.target.value; render(); });
     el('clearDateRange').addEventListener('click', ()=>{
-      dateFrom=''; dateTo='';
-      el('dateFromInput').value=''; el('dateToInput').value='';
+      clearDateRange();
       render();
     });
 
@@ -907,6 +906,39 @@ function inDateRange(dateStr){
   if(dateFrom && dateStr < dateFrom) return false;
   if(dateTo && dateStr > dateTo) return false;
   return true;
+}
+function syncDateInputs(){
+  const df = el('dateFromInput'), dt = el('dateToInput');
+  if(df) df.value = dateFrom || '';
+  if(dt) dt.value = dateTo || '';
+}
+function setDateRange(from, to){
+  dateFrom = from || '';
+  dateTo = to || '';
+  syncDateInputs();
+}
+function clearDateRange(){
+  setDateRange('', '');
+}
+function sameDateRange(from, to){
+  return (dateFrom || '') === (from || '') && (dateTo || '') === (to || '');
+}
+function toggleDateRange(from, to){
+  if(sameDateRange(from, to)) clearDateRange();
+  else setDateRange(from, to);
+}
+function monthRange(ym){
+  const [yy, mm] = ym.split('-').map(Number);
+  const lastDay = new Date(yy, mm, 0).getDate();
+  return { from: `${yy}-${String(mm).padStart(2,'0')}-01`, to: `${yy}-${String(mm).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}` };
+}
+function toggleMonthFilter(ym){
+  if(!ym) return;
+  selectedMes = ym;
+  const sel = el('monthSelect'); if(sel) sel.value = selectedMes;
+  const rg = monthRange(ym);
+  toggleDateRange(rg.from, rg.to);
+  render();
 }
 function filterRows(rows, mes, vendedor, canal){
   return rows.filter(r=>{
@@ -1039,6 +1071,7 @@ function calcMonthTotalSamePeriod(mes, vendedor, canal, referenceMes, rows){
   return rowsUntilDay(rows, mes, vendedor, canal, dayLimit).reduce((s,r)=>s+r.total,0);
 }
 let evChart=null;
+let evSuppressNextClick = false;
 let evolutionMonths = [];
 let evDragBound = false, evDragStartIdx = null, evDragging = false;
 function renderEvolution(){
@@ -1069,6 +1102,7 @@ function renderEvolution(){
   const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--border2').trim() || 'rgba(255,255,255,0.07)';
   const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text3').trim() || '#8d9ab3';
   const blue = getComputedStyle(document.documentElement).getPropertyValue('--blue').trim() || '#2D70B8';
+  const navy3 = getComputedStyle(document.documentElement).getPropertyValue('--navy3').trim() || '#0B2545';
   const cyan = getComputedStyle(document.documentElement).getPropertyValue('--cyan').trim() || '#36E2C9';
   const red = getComputedStyle(document.documentElement).getPropertyValue('--red').trim() || '#ef6a6a';
   const green = getComputedStyle(document.documentElement).getPropertyValue('--green').trim() || '#2fd6b8';
@@ -1107,9 +1141,9 @@ function renderEvolution(){
       const [yy,mm]=m.split('-').map(Number);
       const monthEnd = m+'-'+String(new Date(yy,mm,0).getDate()).padStart(2,'0');
       const overlaps = (!dateFrom || monthEnd>=dateFrom) && (!dateTo || monthStart<=dateTo);
-      return overlaps ? cyan : blue;
+      return overlaps ? cyan : navy3;
     }
-    return m===selectedMes ? cyan : blue;
+    return m===selectedMes ? cyan : navy3;
   });
   const data={labels,datasets:[
     {label:'Receita Captada',data:capByMes,backgroundColor:barColors,borderRadius:5,maxBarThickness:32,yAxisID:'y',order:2},
@@ -1119,13 +1153,12 @@ function renderEvolution(){
     layout:{padding:{top:40}},
     interaction:{mode:'index', intersect:false},
     onClick:(evt, elements)=>{
+      if(evSuppressNextClick){ evSuppressNextClick = false; return; }
       if(!elements.length) return;
       const idx = elements[0].index;
       const clickedMonth = allMonths[idx];
       if(!clickedMonth) return;
-      selectedMes = clickedMonth;
-      const sel = el('monthSelect'); if(sel) sel.value = selectedMes;
-      render();
+      toggleMonthFilter(clickedMonth);
     },
     onHover:(evt, elements)=>{ evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; },
     plugins:{legend:{display:true,position:'top',align:'end',labels:{color:textColor,boxWidth:10,font:{size:11}}},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${fmtBRLFull(c.parsed.y)}`}}},
@@ -1170,8 +1203,8 @@ function setupEvolutionDragSelect(){
     if(idx===null) return;
     const lo = Math.min(evDragStartIdx, idx), hi = Math.max(evDragStartIdx, idx);
     const cyan = getComputedStyle(document.documentElement).getPropertyValue('--cyan').trim();
-    const blue = getComputedStyle(document.documentElement).getPropertyValue('--blue').trim();
-    evChart.data.datasets[0].backgroundColor = evolutionMonths.map((m,i)=> (i>=lo && i<=hi) ? cyan : blue);
+    const navy3 = getComputedStyle(document.documentElement).getPropertyValue('--navy3').trim();
+    evChart.data.datasets[0].backgroundColor = evolutionMonths.map((m,i)=> (i>=lo && i<=hi) ? cyan : navy3);
     evChart.update('none');
   });
   window.addEventListener('mouseup', e=>{
@@ -1191,9 +1224,10 @@ function setupEvolutionDragSelect(){
     const [sy,sm] = startMonth.split('-').map(Number);
     const [ey,em] = endMonth.split('-').map(Number);
     const lastDay = new Date(ey, em, 0).getDate();
-    dateFrom = `${sy}-${String(sm).padStart(2,'0')}-01`;
-    dateTo = `${ey}-${String(em).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
-    el('dateFromInput').value = dateFrom; el('dateToInput').value = dateTo;
+    const from = `${sy}-${String(sm).padStart(2,'0')}-01`;
+    const to = `${ey}-${String(em).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+    evSuppressNextClick = true;
+    toggleDateRange(from, to);
     render();
   });
 }
@@ -1206,7 +1240,7 @@ function renderProjetoChart(rows){
   const outros = entries.slice(5).reduce((s,e)=>s+e[1],0);
   const finalRows = outros>0 ? [...top, ['OUTROS', outros]] : top;
   const total = finalRows.reduce((s,e)=>s+e[1],0) || 1;
-  const BASE_COLORS=['#2D70B8','#36E2C9','#f5b942','#ef6a6a','#9b7fe8','#5bc8f5'];
+  const BASE_COLORS=['#0B2545','#2D70B8','#36E2C9','#78F2E5','#123C68','#9FD8E6'];
   const outrosIdx = outros>0 ? finalRows.length-1 : -1;
   const colors = finalRows.map((e,i)=>{
     const base = BASE_COLORS[i%BASE_COLORS.length];
@@ -1270,8 +1304,7 @@ function renderDailyWeekly(rows){
     onClick:(evt, elements)=>{
       if(!elements.length) return;
       const d = dayDates[elements[0].index];
-      dateFrom = d; dateTo = d;
-      el('dateFromInput').value = d; el('dateToInput').value = d;
+      toggleDateRange(d, d);
       render();
     },
     onHover:(evt, elements)=>{ evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; },
@@ -1289,8 +1322,7 @@ function renderDailyWeekly(rows){
     onClick:(evt, elements)=>{
       if(!elements.length) return;
       const k = weekKeys[elements[0].index];
-      dateFrom = weekMap[k].start; dateTo = weekMap[k].end;
-      el('dateFromInput').value = dateFrom; el('dateToInput').value = dateTo;
+      toggleDateRange(weekMap[k].start, weekMap[k].end);
       render();
     },
     onHover:(evt, elements)=>{ evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; },
@@ -1348,7 +1380,7 @@ function renderMap(rows){
   const vals=Object.values(map); const max=Math.max(...vals,1);
   Object.entries(map).forEach(([uf,val])=>{
     const [lat,lng]=UF_COORDS[uf]; const radius=6+(val/max)*22;
-    L.circleMarker([lat,lng],{radius,fillColor:'#145CEB',color:'#36E2C9',weight:1,opacity:.85,fillOpacity:.70}).bindTooltip(`${uf}: ${fmtBRLFull(val)}`).bindPopup(`<b>${uf}</b><br>Receita captada: ${fmtBRLFull(val)}`).addTo(leafletLayer);
+    L.circleMarker([lat,lng],{radius,fillColor:'#2D70B8',color:'#36E2C9',weight:1,opacity:.85,fillOpacity:.70}).bindTooltip(`${uf}: ${fmtBRLFull(val)}`).bindPopup(`<b>${uf}</b><br>Receita captada: ${fmtBRLFull(val)}`).addTo(leafletLayer);
   });
   setTimeout(()=>leafletMap.invalidateSize(),100);
 }
@@ -1396,6 +1428,7 @@ function clearOneFilter(kind){
   if(kind==='projeto') selectedProjeto='';
   if(kind==='familia') selectedFamilia='';
   if(kind==='produto') selectedProdutoFiltro='';
+  if(kind==='periodo') clearDateRange();
   render();
 }
 function renderActiveFilters(){
@@ -1405,6 +1438,7 @@ function renderActiveFilters(){
   if(selectedProjeto) chips.push(['projeto','Projeto: '+selectedProjeto]);
   if(selectedFamilia) chips.push(['familia','Família: '+selectedFamilia]);
   if(selectedProdutoFiltro) chips.push(['produto','Produto: '+selectedProdutoFiltro]);
+  if(dateFrom || dateTo) chips.push(['periodo','Período: '+(dateFrom||'início')+' até '+(dateTo||'fim')]);
   box.innerHTML = chips.map(([k,t])=>`<span class="active-filter-chip">${t}<button onclick="clearOneFilter('${k}')" title="Limpar filtro">×</button></span>`).join('');
 }
 
