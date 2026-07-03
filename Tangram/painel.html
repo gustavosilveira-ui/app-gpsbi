@@ -182,8 +182,8 @@ html.light .topbar{background:rgba(255,255,255,.92);backdrop-filter:blur(16px)}
 .search-field input::placeholder{color:var(--text3)}
 .search-clear{flex:none;width:32px;height:32px;border-radius:8px;border:none;background:var(--navy3);color:var(--text2);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center}
 .search-clear:hover{background:var(--navy4)}.ranking-card{padding-bottom:12px;height:100%;overflow-y:auto}.ranking-card .rank-head,.ranking-card .rank-item{grid-template-columns:34px 1.7fr .8fr .8fr .8fr .8fr}.ranking-card .rank-item{background:rgba(255,255,255,.025);margin-bottom:6px;padding:10px 12px}.ranking-card .rank-bar-wrap{height:5px;margin-top:4px}
-.history-map-grid{display:grid;grid-template-columns:minmax(0,1.85fr) minmax(430px,.9fr);gap:14px;margin-bottom:14px}.history-card{display:flex;flex-direction:column}
-.history-scroll{overflow:auto;flex:1;border-radius:12px}.history-table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:11px}.history-table th,.history-table td{padding:9px 11px;border-bottom:1px solid var(--border);white-space:nowrap}.history-table th{position:sticky;top:0;background:var(--navy2);z-index:2;color:var(--text3);text-align:right}.history-table th:first-child,.history-table td:first-child{position:sticky;left:0;background:var(--navy2);z-index:3;text-align:left;font-weight:700;color:var(--text)}html.light .history-table th,html.light .history-table td:first-child,html.light .history-table th:first-child{background:#fff}#mapaReceita{height:340px;border-radius:14px;overflow:hidden;background:var(--navy3)}.leaflet-container{font-family:'Sora',sans-serif}.map-legend{display:flex;justify-content:center;gap:8px;align-items:center;font-size:10px;color:var(--text3);margin-top:8px}.pulse-in{animation:pulseIn .45s ease both}@keyframes pulseIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.history-map-grid{display:grid;grid-template-columns:minmax(0,1.85fr) minmax(430px,.9fr);gap:14px;margin-bottom:14px}.history-card{display:flex;flex-direction:column;height:440px}.map-card{display:flex;flex-direction:column;height:440px}
+.history-scroll{overflow:auto;flex:1;min-height:0;border-radius:12px}.history-table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:11px}.history-table th,.history-table td{padding:9px 11px;border-bottom:1px solid var(--border);white-space:nowrap}.history-table th{position:sticky;top:0;background:var(--navy2);z-index:2;color:var(--text3);text-align:right}.history-table th:first-child,.history-table td:first-child{position:sticky;left:0;background:var(--navy2);z-index:3;text-align:left;font-weight:700;color:var(--text)}html.light .history-table th,html.light .history-table td:first-child,html.light .history-table th:first-child{background:#fff}#mapaReceita{flex:1;min-height:0;border-radius:14px;overflow:hidden;background:var(--navy3)}.leaflet-container{font-family:'Sora',sans-serif}.map-legend{display:flex;justify-content:center;gap:8px;align-items:center;font-size:10px;color:var(--text3);margin-top:8px}.pulse-in{animation:pulseIn .45s ease both}@keyframes pulseIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @media(max-width:1300px){.kpi-grid{grid-template-columns:repeat(3,1fr)}.charts-grid.hero-charts,.history-map-grid,.micro-grid{grid-template-columns:1fr}.project-body{grid-template-columns:1fr}.project-donut{height:220px}.topbar{position:relative}.brand-premium{flex-wrap:wrap}.update-chip{display:none}}
 @media(max-width:760px){.kpi-grid{grid-template-columns:1fr}.content{padding:14px}.topbar{padding:12px}.client-logo{height:28px}.gpsbi-logo b{font-size:22px}}
 
@@ -200,7 +200,7 @@ html.light .kpi-card{background:#fff}
 .kpi-grid{grid-template-columns:repeat(6,1fr)}
 .charts-grid.hero-charts{grid-template-columns:minmax(0,2.35fr) minmax(280px,.65fr)}
 .chart-box.big{height:330px}.project-donut{height:260px}.project-body{grid-template-columns:250px 1fr}.micro-grid{grid-template-columns:minmax(250px,.75fr) minmax(250px,.75fr) minmax(450px,1.25fr)}
-.history-map-grid{grid-template-columns:minmax(0,1.72fr) minmax(470px,.92fr)}#mapaReceita{height:390px}
+.history-map-grid{grid-template-columns:minmax(0,1.72fr) minmax(470px,.92fr)}
 .chart-card,.table-card{backdrop-filter:blur(14px)}
 @media(max-width:1450px){.kpi-grid{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:1100px){.kpi-grid,.charts-grid.hero-charts,.micro-grid,.history-map-grid,.tables-grid{grid-template-columns:1fr}.project-body{grid-template-columns:1fr}.topbar{position:relative}}
@@ -487,8 +487,9 @@ function isOwner(email){ return email.endsWith('@gpsbi.com.br') || OWNER_EMAILS.
 function nameFromEmail(email){ return email.split('@')[0].split('.').map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' '); }
 function cleanVendorName(raw){
   let s = (raw||'').toString().trim();
-  s = s.replace(/_\s*\d[\d\-]*/g, ' ').trim();   // remove "_ 98716-2696" / "_ 11" etc, onde quer que esteja
-  s = s.replace(/\s{2,}/g, ' ');
+  s = s.replace(/_\s*\d[\d\-]*/g, ' ');            // remove "_ 98716-2696", "_ 11" etc (com underscore, qualquer tamanho)
+  s = s.replace(/\b\d{4,}-?\d*\b/g, ' ');           // remove número solto tipo "94266-0755", "91825-1046" (sem underscore)
+  s = s.trim().replace(/\s{2,}/g, ' ');
   s = s.split(' ').filter(Boolean).map(w=>{
     const lw = w.toLowerCase();
     if(lw==='(inativo)'||lw==='inativo)'||lw==='(inativo') return '(Inativo)';
