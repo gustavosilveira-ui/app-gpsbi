@@ -67,6 +67,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;background:ra
 html.light body::before{background:radial-gradient(circle at 80% 6%,rgba(54,226,201,.10),transparent 28%);}
 
 /* FILTERS */
+.page-nav{display:flex;align-items:center;gap:4px;padding:10px 24px;background:var(--navy);border-bottom:1px solid var(--border2);overflow-x:auto;}
+.page-nav a{padding:7px 14px;border-radius:999px;font-size:12px;font-weight:600;color:var(--text3);white-space:nowrap;transition:all .15s;text-decoration:none;}
+.page-nav a:hover{background:var(--navy3);color:var(--text);}
+.page-nav a.active{background:linear-gradient(90deg,var(--blue),var(--cyan));color:#fff;}
 .filters-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:20px;padding:14px 18px;background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius);}
 .filter-label{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;}
 .month-select,.vendedor-select,.canal-select{background:var(--navy3);border:1px solid var(--border2);color:var(--text);border-radius:8px;padding:7px 12px;font-family:'Sora',sans-serif;font-size:12.5px;cursor:pointer;}
@@ -353,6 +357,14 @@ html.light .kpi-card{background:#fff}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
       </div>
     </div>
+  </div>
+
+  <div class="page-nav">
+    <a href="painel.html" class="active">📊 Dashboard</a>
+    <a href="simulador.html">🎯 Simulador de Meta</a>
+    <a href="agenda.html">🗓️ Minha Agenda</a>
+    <a href="mural.html">📣 Mural</a>
+    <a href="aprovacoes.html">✅ Aprovações</a>
   </div>
 
   <div class="content">
