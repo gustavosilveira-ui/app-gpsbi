@@ -196,6 +196,37 @@ html.light .kpi-card{background:#fff}
 @media(max-width:1450px){.kpi-grid{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:1100px){.kpi-grid,.charts-grid.hero-charts,.micro-grid,.history-map-grid,.tables-grid{grid-template-columns:1fr}.project-body{grid-template-columns:1fr}.topbar{position:relative}}
 
+
+
+/* GPSBI V4 ajustes solicitados: topo branco fixo + filtro de anos padrão 2025/2026 */
+.topbar{
+  background:#FFFFFF !important;
+  color:#071B33 !important;
+  border-bottom:1px solid #E6EAF0 !important;
+  box-shadow:0 10px 30px rgba(7,27,51,.06) !important;
+}
+.topbar .client-title small,
+.topbar .update-chip span,
+.topbar .user-role{color:#667085 !important;}
+.topbar .client-title strong,
+.topbar .update-chip strong,
+.topbar .user-name{color:#071B33 !important;}
+.topbar .divider,
+.topbar .update-chip{border-color:#E6EAF0 !important;}
+.topbar .gpsbi-logo-img,
+.topbar .client-logo{filter:none !important;}
+.topbar .theme-toggle,
+.topbar .user-chip,
+.topbar .icon-btn{
+  background:#F6F9FC !important;
+  border-color:#E6EAF0 !important;
+  color:#071B33 !important;
+}
+.topbar .theme-toggle button{color:#667085 !important;}
+.topbar .theme-toggle button.active{color:#fff !important;}
+.year-pill{user-select:none;}
+.year-pill input:checked + span{font-weight:800;}
+
 </style>
 </head>
 <body>
@@ -568,7 +599,7 @@ async function loadData(){
     selectedYears = anos.filter(a=>['2025','2026'].includes(a));
     if(!selectedYears.length) selectedYears = anos.slice(-2);
     const yearBox = el('yearFilter');
-    yearBox.innerHTML = anos.map(a=>`<label class="year-pill"><input type="checkbox" value="${a}" ${selectedYears.includes(a)?'checked':''}> ${a}</label>`).join('');
+    yearBox.innerHTML = anos.map(a=>`<label class="year-pill"><input type="checkbox" value="${a}" ${selectedYears.includes(a)?'checked':''}><span>${a}</span></label>`).join('');
     yearBox.querySelectorAll('input').forEach(chk=>chk.addEventListener('change',()=>{
       selectedYears = Array.from(yearBox.querySelectorAll('input:checked')).map(i=>i.value);
       if(!selectedYears.length){ chk.checked=true; selectedYears=[chk.value]; }
