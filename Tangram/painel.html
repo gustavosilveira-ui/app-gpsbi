@@ -182,6 +182,43 @@ html.light .topbar{background:rgba(255,255,255,.92);backdrop-filter:blur(16px)}
 .search-field input::placeholder{color:var(--text3)}
 .search-clear{flex:none;width:32px;height:32px;border-radius:8px;border:none;background:var(--navy3);color:var(--text2);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center}
 .search-clear:hover{background:var(--navy4)}.ranking-card{padding-bottom:12px;display:flex;flex-direction:column}.ranking-card .rank-head,.ranking-card .rank-item{grid-template-columns:34px 1.7fr .8fr .8fr .8fr .8fr}.ranking-card .rank-item{background:rgba(255,255,255,.025);margin-bottom:14px;padding:18px 16px;font-size:14px;flex:1}.ranking-card .rank-item:last-child{margin-bottom:0}.ranking-card .rank-bar-wrap{height:6px;margin-top:6px}.ranking-card #rankingList{display:flex;flex-direction:column;flex:1}
+
+/* Sugestões de contato */
+.suggestion-item{display:flex;align-items:center;gap:16px;padding:14px 16px;border-radius:12px;background:var(--navy3);margin-bottom:8px}
+.suggestion-body{flex:1;min-width:0}
+.suggestion-name{font-weight:700;font-size:13px;margin-bottom:3px}
+.suggestion-meta{font-size:11.5px;color:var(--text3)}
+.suggestion-val{flex:none;text-align:right;font-family:'DM Mono',monospace;font-weight:700;font-size:14px}
+.suggestion-val span{display:block;font-family:'Sora',sans-serif;font-weight:400;font-size:10px;color:var(--text3)}
+.suggestion-btn{flex:none;white-space:nowrap}
+
+/* Nomes clicáveis (abrem ficha do cliente) */
+.clickable-name{cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-decoration-color:var(--border2)}
+.clickable-name:hover{color:var(--cyan)}
+
+/* Modal de Ficha do Cliente */
+.client-modal-box{background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius);padding:26px;width:720px;max-width:94vw;max-height:88vh;overflow-y:auto;box-shadow:0 30px 70px rgba(0,0,0,.5)}
+.client-modal-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px}
+.client-modal-head h2{font-size:19px;font-weight:800}
+.client-modal-head p{font-size:11.5px;color:var(--text3);margin-top:3px}
+.client-close-btn{width:34px;height:34px;border-radius:50%;background:var(--navy3);border:none;color:var(--text2);cursor:pointer;font-size:16px}
+.client-kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
+.client-kpi{background:var(--navy3);border-radius:10px;padding:12px 14px}
+.client-kpi-val{font-family:'DM Mono',monospace;font-weight:700;font-size:15px}
+.client-kpi-lbl{font-size:10.5px;color:var(--text3);margin-top:3px}
+.client-section-title{font-size:12.5px;font-weight:700;margin:18px 0 10px;color:var(--text2);text-transform:uppercase;letter-spacing:.04em}
+.client-chart-box{height:160px;margin-bottom:6px}
+.client-products-list{display:flex;flex-direction:column;gap:6px}
+.client-product-row{display:flex;justify-content:space-between;font-size:12px;padding:7px 10px;border-radius:8px;background:var(--navy3)}
+.client-note-input{width:100%;background:var(--field-bg);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;color:var(--text);font-family:'Sora',sans-serif;font-size:12.5px;resize:vertical;min-height:60px}
+.client-note-item{padding:9px 10px;border-radius:8px;background:var(--navy3);font-size:12px;margin-bottom:6px}
+.client-note-item .note-date{color:var(--text3);font-size:10.5px;margin-bottom:3px}
+.client-followup-row{display:flex;gap:8px;margin-bottom:10px}
+.client-followup-row input[type="date"]{background:var(--field-bg);border:1px solid var(--border2);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'Sora',sans-serif;font-size:12px}
+.client-followup-row input[type="text"]{flex:1;background:var(--field-bg);border:1px solid var(--border2);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'Sora',sans-serif;font-size:12px}
+.followup-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:var(--navy3);margin-bottom:6px;font-size:12px}
+.followup-item.done{opacity:.5;text-decoration:line-through}
+.crm-unavailable{font-size:11.5px;color:var(--gold);background:rgba(245,185,66,.12);padding:8px 10px;border-radius:8px;margin-top:6px}
 .history-map-grid{display:grid;grid-template-columns:minmax(0,1.85fr) minmax(430px,.9fr);gap:14px;margin-bottom:14px}.history-card{display:flex;flex-direction:column;height:440px}.map-card{display:flex;flex-direction:column;height:440px}
 .history-scroll{overflow:auto;flex:1;min-height:0;border-radius:12px}.history-table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:11px}.history-table th,.history-table td{padding:9px 11px;border-bottom:1px solid var(--border);white-space:nowrap}.history-table th{position:sticky;top:0;background:var(--navy2);z-index:2;color:var(--text3);text-align:right}.history-table th:first-child,.history-table td:first-child{position:sticky;left:0;background:var(--navy2);z-index:3;text-align:left;font-weight:700;color:var(--text)}html.light .history-table th,html.light .history-table td:first-child,html.light .history-table th:first-child{background:#fff}#mapaReceita{flex:1;min-height:0;border-radius:14px;overflow:hidden;background:var(--navy3)}.leaflet-container{font-family:'Sora',sans-serif}.map-legend{display:flex;justify-content:center;gap:8px;align-items:center;font-size:10px;color:var(--text3);margin-top:8px}.pulse-in{animation:pulseIn .45s ease both}@keyframes pulseIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @media(max-width:1300px){.kpi-grid{grid-template-columns:repeat(3,1fr)}.charts-grid.hero-charts,.history-map-grid,.micro-grid{grid-template-columns:1fr}.project-body{grid-template-columns:1fr}.project-donut{height:220px}.topbar{position:relative}.brand-premium{flex-wrap:wrap}.update-chip{display:none}}
@@ -346,6 +383,12 @@ html.light .kpi-card{background:#fff}
       </div>
     </div>
 
+    <div class="chart-card" id="suggestionsCard" style="display:none;margin-bottom:20px;">
+      <div class="section-title">🎯 Sugestões de contato pra bater a meta</div>
+      <div class="chart-sub">Clientes com histórico de recompra que já passaram do ciclo médio deles — ordenado pelo maior ticket médio</div>
+      <div id="suggestionsList"></div>
+    </div>
+
     <div class="charts-grid hero-charts">
       <div class="chart-card evolution-card">
         <div class="chart-title">Evolução do faturamento</div>
@@ -431,6 +474,53 @@ html.light .kpi-card{background:#fff}
       <button class="btn-save" onclick="saveMetas()">Salvar metas</button>
     </div>
     <div class="save-feedback" id="saveFeedback">✓ Metas salvas com sucesso!</div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="clientModal">
+  <div class="client-modal-box">
+    <div class="client-modal-head">
+      <div>
+        <h2 id="clientModalName">--</h2>
+        <p>Ficha do cliente</p>
+      </div>
+      <button class="client-close-btn" onclick="closeClientModal()">✕</button>
+    </div>
+
+    <div class="client-kpi-grid">
+      <div class="client-kpi"><div class="client-kpi-val" id="cliKpiCaptado">--</div><div class="client-kpi-lbl">Receita Captada</div></div>
+      <div class="client-kpi"><div class="client-kpi-val" id="cliKpiFaturado">--</div><div class="client-kpi-lbl">Receita Faturada</div></div>
+      <div class="client-kpi"><div class="client-kpi-val" id="cliKpiPedidos">--</div><div class="client-kpi-lbl">Pedidos</div></div>
+      <div class="client-kpi"><div class="client-kpi-val" id="cliKpiTicket">--</div><div class="client-kpi-lbl">Ticket Médio</div></div>
+    </div>
+    <div class="client-kpi-grid" style="grid-template-columns:1fr 1fr;">
+      <div class="client-kpi"><div class="client-kpi-val" id="cliKpiUltima">--</div><div class="client-kpi-lbl">Última compra</div></div>
+      <div class="client-kpi"><div class="client-kpi-val" id="cliKpiCiclo">--</div><div class="client-kpi-lbl">Ciclo médio entre compras</div></div>
+    </div>
+
+    <div class="client-section-title">Evolução de compras (mensal)</div>
+    <div class="client-chart-box"><canvas id="clientHistChart"></canvas></div>
+
+    <div class="client-section-title">Top produtos comprados</div>
+    <div class="client-products-list" id="clientProductsList"></div>
+
+    <div class="client-section-title">📅 Agenda de contato</div>
+    <div class="client-followup-row">
+      <input type="date" id="followupDate">
+      <input type="text" id="followupNote" placeholder="Ex: ligar oferecendo desconto na recompra...">
+      <button class="btn-save" onclick="submitFollowup()">Agendar</button>
+    </div>
+    <div id="followupList"></div>
+
+    <div class="client-section-title">📝 Anotações</div>
+    <textarea class="client-note-input" id="noteInput" placeholder="Escreva uma anotação sobre esse cliente..."></textarea>
+    <div style="display:flex;justify-content:flex-end;margin-top:8px;margin-bottom:14px;">
+      <button class="btn-save" onclick="submitNote()">Salvar anotação</button>
+    </div>
+    <div id="noteList"></div>
+    <div class="crm-unavailable" id="crmWarning" style="display:none;">
+      ⚠️ As tabelas de anotação/agenda ainda não existem no Supabase. Peça pro Gustavo criar (ele tem o SQL).
+    </div>
   </div>
 </div>
 
@@ -566,6 +656,85 @@ async function fetchMetas(){
 }
 function getMeta(mes,vendedor){ return (metasMap[mes] && metasMap[mes][vendedor]) || 0; }
 
+/* ---- CRM leve: notas e agenda de contato por cliente ---- */
+let crmAvailable = true;
+async function fetchClientNote(cliente){
+  try{
+    const { data, error } = await sb.from('client_notes').select('*').eq('cliente', cliente).order('criado_em',{ascending:false});
+    if(error) throw error;
+    return data||[];
+  }catch(e){ crmAvailable=false; return []; }
+}
+async function saveClientNote(cliente, vendedor, nota){
+  try{
+    const { error } = await sb.from('client_notes').insert({ cliente, vendedor, nota });
+    if(error) throw error;
+    return true;
+  }catch(e){ crmAvailable=false; return false; }
+}
+async function fetchFollowups(cliente){
+  try{
+    const { data, error } = await sb.from('client_followups').select('*').eq('cliente', cliente).order('data_contato',{ascending:true});
+    if(error) throw error;
+    return data||[];
+  }catch(e){ crmAvailable=false; return []; }
+}
+async function saveFollowup(cliente, vendedor, data_contato, observacao){
+  try{
+    const { error } = await sb.from('client_followups').insert({ cliente, vendedor, data_contato, observacao, feito:false });
+    if(error) throw error;
+    return true;
+  }catch(e){ crmAvailable=false; return false; }
+}
+async function toggleFollowupDone(id, feito){
+  try{ await sb.from('client_followups').update({feito}).eq('id', id); }catch(e){}
+}
+
+/* ---- Sugestão de recompra: clientes "atrasados" no ciclo de compra deles ---- */
+function computeReorderSuggestions(){
+  const byClient = {};
+  captadaRows.forEach(r=>{
+    if(!r.cliente) return;
+    if(!byClient[r.cliente]) byClient[r.cliente] = [];
+    byClient[r.cliente].push(r);
+  });
+  const today = new Date();
+  const suggestions = [];
+  Object.entries(byClient).forEach(([cliente, rows])=>{
+    const dates = Array.from(new Set(rows.map(r=>r.date))).sort();
+    if(dates.length < 3) return; // precisa de histórico mínimo pra ter um ciclo
+    const gaps = [];
+    for(let i=1;i<dates.length;i++){
+      gaps.push((new Date(dates[i]) - new Date(dates[i-1])) / 86400000);
+    }
+    const avgCycle = gaps.reduce((s,g)=>s+g,0)/gaps.length;
+    const lastDate = new Date(dates[dates.length-1]);
+    const daysSince = Math.round((today - lastDate) / 86400000);
+    if(daysSince > avgCycle * 1.25 && avgCycle >= 5){
+      const total = rows.reduce((s,r)=>s+r.total,0);
+      const avgTicket = total / dates.length;
+      const vendedor = rows[rows.length-1].vendedor;
+      suggestions.push({ cliente, vendedor, avgCycle: Math.round(avgCycle), daysSince, lastDate: dates[dates.length-1], avgTicket, total });
+    }
+  });
+  return suggestions.sort((a,b)=>b.avgTicket-a.avgTicket).slice(0,8);
+}
+function renderSuggestions(){
+  const el2 = el('suggestionsList');
+  if(!el2) return;
+  const list = computeReorderSuggestions();
+  if(!list.length){ el2.innerHTML = '<div style="color:var(--text3);font-size:12.5px;padding:12px;">Nenhum cliente atrasado identificado no ciclo de compra dele. 🎉</div>'; return; }
+  el2.innerHTML = list.map(s=>`
+    <div class="suggestion-item">
+      <div class="suggestion-body">
+        <div class="suggestion-name">${s.cliente}</div>
+        <div class="suggestion-meta">Última compra há <b>${s.daysSince}d</b> · ciclo médio de <b>${s.avgCycle}d</b> · vendedor: ${s.vendedor}</div>
+      </div>
+      <div class="suggestion-val">${fmtBRL(s.avgTicket)}<span>ticket médio</span></div>
+      <button class="btn-cancel suggestion-btn" onclick="openClientModal('${s.cliente.replace(/'/g,"\\'")}')">Ver ficha</button>
+    </div>`).join('');
+}
+
 async function initAuth(){
   const { data } = await sb.auth.getSession();
   if(!data.session){ window.location.replace(LOGIN_URL); return; }
@@ -593,6 +762,7 @@ function setupUI(){
     el('rankingSection').style.display='block';
     el('vendedorLabel').style.display='inline';
     el('vendedorSelect').style.display='inline';
+    el('suggestionsCard').style.display='block';
   } else {
     el('gaugeSection').style.display='flex';
     el('rankPosSection').style.display='block';
@@ -744,7 +914,7 @@ function render(){
   renderTopClientes(capPeriodo);
   renderTopFamilias(capPeriodo);
   renderTopProdutos(capPeriodo);
-  if(userRole==='owner') renderRanking();
+  if(userRole==='owner') { renderRanking(); renderSuggestions(); }
 }
 
 let gaugeChartInst=null;
@@ -993,7 +1163,7 @@ function renderTopClientes(rows){
   const map={}, cnt={};
   rows.forEach(r=>{ if(!r.cliente) return; map[r.cliente]=(map[r.cliente]||0)+r.total; cnt[r.cliente]=(cnt[r.cliente]||0)+1; });
   const sorted = Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,10);
-  el('topClientes').innerHTML = sorted.length ? sorted.map(([k,v])=>`<tr><td>${k}</td><td class="val">${fmtBRL(v)}</td><td class="val num">${cnt[k]}</td></tr>`).join('') : '<tr><td colspan="3" class="empty">Sem dados</td></tr>';
+  el('topClientes').innerHTML = sorted.length ? sorted.map(([k,v])=>`<tr><td class="clickable-name" onclick="openClientModal('${k.replace(/'/g,"\\'")}')">${k}</td><td class="val">${fmtBRL(v)}</td><td class="val num">${cnt[k]}</td></tr>`).join('') : '<tr><td colspan="3" class="empty">Sem dados</td></tr>';
 }
 function renderTopFamilias(rows){
   const map={}, cnt={};
@@ -1025,6 +1195,104 @@ async function saveMetas(){
   else alert('Erro ao salvar: '+error.message);
 }
 async function doLogout(){ await sb.auth.signOut(); window.location.href = LOGIN_URL; }
+
+/* ---- Ficha do Cliente ---- */
+let currentClientName = null;
+let clientHistChartInst = null;
+
+function openClientModal(cliente){
+  currentClientName = cliente;
+  el('clientModalName').textContent = cliente;
+  el('followupDate').value = new Date().toISOString().slice(0,10);
+  el('followupNote').value = '';
+  el('noteInput').value = '';
+  el('crmWarning').style.display = 'none';
+
+  const rows = captadaRows.filter(r=>r.cliente===cliente);
+  const fatRows = faturadaRows.filter(r=>r.cliente===cliente);
+  const totalCap = rows.reduce((s,r)=>s+r.total,0);
+  const totalFat = fatRows.reduce((s,r)=>s+r.total,0);
+  const dates = Array.from(new Set(rows.map(r=>r.date))).sort();
+  const pedidos = new Set(rows.map(r=>r.pedido)).size || dates.length;
+  const ticket = pedidos>0 ? totalCap/pedidos : 0;
+
+  el('cliKpiCaptado').textContent = fmtBRL(totalCap);
+  el('cliKpiFaturado').textContent = fmtBRL(totalFat);
+  el('cliKpiPedidos').textContent = pedidos.toLocaleString('pt-BR');
+  el('cliKpiTicket').textContent = fmtBRL(ticket);
+
+  if(dates.length){
+    const lastDate = dates[dates.length-1];
+    const daysSince = Math.round((new Date() - new Date(lastDate))/86400000);
+    el('cliKpiUltima').textContent = new Date(lastDate+'T00:00:00').toLocaleDateString('pt-BR') + ` (há ${daysSince}d)`;
+    if(dates.length>=3){
+      const gaps=[]; for(let i=1;i<dates.length;i++) gaps.push((new Date(dates[i])-new Date(dates[i-1]))/86400000);
+      const avgCycle = Math.round(gaps.reduce((s,g)=>s+g,0)/gaps.length);
+      el('cliKpiCiclo').textContent = avgCycle + ' dias';
+    } else el('cliKpiCiclo').textContent = '— (histórico curto)';
+  } else {
+    el('cliKpiUltima').textContent = '—'; el('cliKpiCiclo').textContent = '—';
+  }
+
+  // evolução mensal do cliente
+  const byMonth = {}; rows.forEach(r=>{ byMonth[r.mes] = (byMonth[r.mes]||0)+r.total; });
+  const months = Object.keys(byMonth).sort();
+  const textColor = cssVarClient('--text3'), gridColor = cssVarClient('--border2'), blue = cssVarClient('--blue');
+  const chartData = { labels: months.map(mesLabel), datasets:[{ data: months.map(m=>byMonth[m]), backgroundColor: blue, borderRadius:4, maxBarThickness:26 }] };
+  const chartOpts = { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmtBRLFull(c.parsed.y)}}}, scales:{ x:{grid:{display:false},ticks:{color:textColor,font:{size:10}}}, y:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10},callback:v=>fmtBRL(v)}} } };
+  if(clientHistChartInst){ clientHistChartInst.data=chartData; clientHistChartInst.options=chartOpts; clientHistChartInst.update(); }
+  else clientHistChartInst = new Chart(el('clientHistChart'), { type:'bar', data:chartData, options:chartOpts });
+
+  // top produtos do cliente
+  const prodMap={}; rows.forEach(r=>{ const p=r.produto||'Sem descrição'; prodMap[p]=(prodMap[p]||0)+r.total; });
+  const topProd = Object.entries(prodMap).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  el('clientProductsList').innerHTML = topProd.length ? topProd.map(([p,v])=>`<div class="client-product-row"><span>${p}</span><span>${fmtBRL(v)}</span></div>`).join('') : '<div style="color:var(--text3);font-size:12px;">Sem produtos no período.</div>';
+
+  loadClientCrmData(cliente);
+  el('clientModal').classList.add('show');
+}
+function closeClientModal(){ el('clientModal').classList.remove('show'); }
+function cssVarClient(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+async function loadClientCrmData(cliente){
+  const notes = await fetchClientNote(cliente);
+  const followups = await fetchFollowups(cliente);
+  if(!crmAvailable){ el('crmWarning').style.display='block'; }
+
+  el('noteList').innerHTML = notes.length ? notes.map(n=>`
+    <div class="client-note-item">
+      <div class="note-date">${new Date(n.criado_em).toLocaleString('pt-BR')} · ${n.vendedor||''}</div>
+      ${n.nota}
+    </div>`).join('') : '<div style="color:var(--text3);font-size:12px;">Nenhuma anotação ainda.</div>';
+
+  el('followupList').innerHTML = followups.length ? followups.map(f=>`
+    <div class="followup-item ${f.feito?'done':''}">
+      <input type="checkbox" ${f.feito?'checked':''} onchange="onToggleFollowup(${f.id}, this.checked)">
+      <span><b>${new Date(f.data_contato+'T00:00:00').toLocaleDateString('pt-BR')}</b> — ${f.observacao||''}</span>
+    </div>`).join('') : '<div style="color:var(--text3);font-size:12px;">Nenhum contato agendado.</div>';
+}
+async function onToggleFollowup(id, checked){
+  await toggleFollowupDone(id, checked);
+  loadClientCrmData(currentClientName);
+}
+async function submitNote(){
+  const txt = el('noteInput').value.trim();
+  if(!txt || !currentClientName) return;
+  const quemVendedor = userRole==='owner' ? (currentUser.email.split('@')[0]) : vendorName;
+  const ok = await saveClientNote(currentClientName, quemVendedor, txt);
+  if(ok){ el('noteInput').value=''; loadClientCrmData(currentClientName); }
+  else { el('crmWarning').style.display='block'; }
+}
+async function submitFollowup(){
+  const data_contato = el('followupDate').value;
+  const observacao = el('followupNote').value.trim();
+  if(!data_contato || !currentClientName) return;
+  const quemVendedor = userRole==='owner' ? (currentUser.email.split('@')[0]) : vendorName;
+  const ok = await saveFollowup(currentClientName, quemVendedor, data_contato, observacao);
+  if(ok){ el('followupNote').value=''; loadClientCrmData(currentClientName); }
+  else { el('crmWarning').style.display='block'; }
+}
+
 
 document.getElementById('btnDark').addEventListener('click', ()=>applyTheme('dark'));
 document.getElementById('btnLight').addEventListener('click', ()=>applyTheme('light'));
