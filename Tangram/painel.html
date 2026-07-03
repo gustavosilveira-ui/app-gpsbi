@@ -186,6 +186,15 @@ html.light .topbar{background:rgba(255,255,255,.92);backdrop-filter:blur(16px)}
 .clickable-row:hover{background:rgba(255,255,255,.06) !important}
 .clickable-row.active-filter{outline:2px solid var(--cyan)}
 .active-filter-chip{display:inline-flex;align-items:center;gap:6px;background:rgba(58,233,209,.14);color:var(--cyan);border:1px solid rgba(58,233,209,.3);border-radius:999px;padding:5px 10px 5px 12px;font-size:11.5px;font-weight:600;cursor:pointer}
+.filter-chips{display:flex;gap:8px;flex-wrap:wrap;margin:-10px 0 16px 0;}
+.active-filter-chip button{border:none;background:transparent;color:inherit;cursor:pointer;font-weight:900;font-size:13px;line-height:1;}
+.ranking-card #rankingList{max-height:204px;overflow-y:auto;padding-right:6px;scrollbar-width:thin;scrollbar-color:var(--cyan) transparent;}
+.ranking-card #rankingList::-webkit-scrollbar{width:7px;}
+.ranking-card #rankingList::-webkit-scrollbar-thumb{background:var(--cyan);border-radius:999px;}
+.ranking-card #rankingList::-webkit-scrollbar-track{background:transparent;}
+.table-card tbody tr.clickable-row td:first-child{font-weight:600;}
+.table-card tbody tr.clickable-row:hover td:first-child{color:var(--cyan);}
+
 
 /* Sugestões de contato */
 .suggestion-item{display:flex;align-items:center;gap:16px;padding:14px 16px;border-radius:12px;background:var(--navy3);margin-bottom:8px}
@@ -347,6 +356,7 @@ html.light .kpi-card{background:#fff}
       </button>
       <span class="badge-role" id="roleBadge"></span>
     </div>
+    <div class="filter-chips" id="filterChips"></div>
 
     <div class="kpi-grid">
       <div class="kpi-card kpi-captado">
@@ -569,7 +579,7 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let currentUser=null, userRole='vendor', vendorName='';
 let captadaRows=[], faturadaRows=[], metasMap={}, allVendors=[], allCanais=[];
-let selectedMes='', selectedVendedor='', selectedCanal='', selectedProjeto='', selectedYears=['2025','2026'];
+let selectedMes='', selectedVendedor='', selectedCanal='', selectedProjeto='', selectedFamilia='', selectedProdutoFiltro='', selectedYears=['2025','2026'];
 let dateFrom='', dateTo='';
 let currentTheme = localStorage.getItem('gpsbi_tangram_theme_v3') || 'dark';
 
@@ -905,6 +915,8 @@ function filterRows(rows, mes, vendedor, canal){
     if(vendedor && r.vendedor.toLowerCase()!==vendedor.toLowerCase()) return false;
     if(canal && r.canal!==canal) return false;
     if(selectedProjeto && r.projeto!==selectedProjeto) return false;
+    if(selectedFamilia && (r.familia||'Sem família')!==selectedFamilia) return false;
+    if(selectedProdutoFiltro && (r.produto||'Sem descrição')!==selectedProdutoFiltro) return false;
     if(searchCliente && !(r.cliente||'').toLowerCase().includes(searchCliente)) return false;
     if(searchProduto && !(r.produto||'').toLowerCase().includes(searchProduto)) return false;
     return true;
@@ -917,6 +929,8 @@ function filterRowsYears(rows, vendedor, canal, ignoreProjeto){
     if(vendedor && r.vendedor.toLowerCase()!==vendedor.toLowerCase()) return false;
     if(canal && r.canal!==canal) return false;
     if(!ignoreProjeto && selectedProjeto && r.projeto!==selectedProjeto) return false;
+    if(selectedFamilia && (r.familia||'Sem família')!==selectedFamilia) return false;
+    if(selectedProdutoFiltro && (r.produto||'Sem descrição')!==selectedProdutoFiltro) return false;
     if(searchCliente && !(r.cliente||'').toLowerCase().includes(searchCliente)) return false;
     if(searchProduto && !(r.produto||'').toLowerCase().includes(searchProduto)) return false;
     return true;
@@ -930,6 +944,7 @@ function totalMetaYears(vendedor){
 function periodYearsLabel(){ return selectedYears.slice().sort().join(', '); }
 
 function render(){
+  renderActiveFilters();
   const vendFilter = selectedVendedor, canalFilter = selectedCanal;
   // Visão principal do BI = anos selecionados. Por padrão: 2025 e 2026.
   const capPeriodo = filterRowsYears(captadaRows, vendFilter, canalFilter);
@@ -1206,8 +1221,7 @@ function renderProjetoChart(rows){
       const idx = elements[0].index;
       if(idx===outrosIdx) return; // "OUTROS" agrupa vários, não dá pra filtrar por um só
       const clicked = finalRows[idx][0];
-      selectedProjeto = (selectedProjeto===clicked) ? '' : clicked;
-      render();
+      setCrossFilterProjeto(clicked);
     },
     onHover:(evt, elements)=>{ evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; },
     plugins:{legend:{display:true,position:'right',labels:{color:textColor,boxWidth:10,font:{size:12},padding:9}},tooltip:{callbacks:{label:c=>`${c.label}: ${fmtBRLFull(c.parsed)}`}}}};
@@ -1373,6 +1387,26 @@ function setCrossFilterVendedor(v){
   if(vSel) vSel.value = selectedVendedor;
   render();
 }
+function jsAttr(v){ return String(v||'').split('\\').join('\\\\').split("'").join("\\'").replace(/\n/g,' '); }
+function setCrossFilterProjeto(v){ selectedProjeto = (selectedProjeto===v) ? '' : v; render(); }
+function setCrossFilterFamilia(v){ selectedFamilia = (selectedFamilia===v) ? '' : v; render(); }
+function setCrossFilterProduto(v){ selectedProdutoFiltro = (selectedProdutoFiltro===v) ? '' : v; render(); }
+function clearOneFilter(kind){
+  if(kind==='vendedor'){ selectedVendedor=''; const vSel=el('vendedorSelect'); if(vSel) vSel.value=''; }
+  if(kind==='projeto') selectedProjeto='';
+  if(kind==='familia') selectedFamilia='';
+  if(kind==='produto') selectedProdutoFiltro='';
+  render();
+}
+function renderActiveFilters(){
+  const box = el('filterChips'); if(!box) return;
+  const chips=[];
+  if(selectedVendedor) chips.push(['vendedor','Vendedor: '+selectedVendedor]);
+  if(selectedProjeto) chips.push(['projeto','Projeto: '+selectedProjeto]);
+  if(selectedFamilia) chips.push(['familia','Família: '+selectedFamilia]);
+  if(selectedProdutoFiltro) chips.push(['produto','Produto: '+selectedProdutoFiltro]);
+  box.innerHTML = chips.map(([k,t])=>`<span class="active-filter-chip">${t}<button onclick="clearOneFilter('${k}')" title="Limpar filtro">×</button></span>`).join('');
+}
 
 function renderTopClientes(rows){
   const map={}, cnt={};
@@ -1384,13 +1418,13 @@ function renderTopFamilias(rows){
   const map={}, cnt={};
   rows.forEach(r=>{ const f=r.familia||'Sem família'; map[f]=(map[f]||0)+r.total; cnt[f]=(cnt[f]||0)+1; });
   const sorted = Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,10);
-  el('topFamilias').innerHTML = sorted.length ? sorted.map(([k,v])=>`<tr><td>${k}</td><td class="val">${fmtBRL(v)}</td><td class="val num">${cnt[k]}</td></tr>`).join('') : '<tr><td colspan="3" class="empty">Sem dados</td></tr>';
+  el('topFamilias').innerHTML = sorted.length ? sorted.map(([k,v])=>`<tr class="clickable-row ${selectedFamilia===k?'active-filter':''}" onclick="setCrossFilterFamilia('${jsAttr(k)}')"><td>${k}</td><td class="val">${fmtBRL(v)}</td><td class="val num">${cnt[k]}</td></tr>`).join('') : '<tr><td colspan="3" class="empty">Sem dados</td></tr>';
 }
 function renderTopProdutos(rows){
   const map={}, cnt={};
   rows.forEach(r=>{ const p=r.produto||'Sem descrição'; map[p]=(map[p]||0)+r.total; cnt[p]=(cnt[p]||0)+1; });
   const sorted = Object.entries(map).sort((a,b)=>b[1]-a[1]).slice(0,10);
-  el('topProdutos').innerHTML = sorted.length ? sorted.map(([k,v])=>`<tr><td>${k}</td><td class="val">${fmtBRL(v)}</td><td class="val num">${cnt[k]}</td></tr>`).join('') : '<tr><td colspan="3" class="empty">Sem dados</td></tr>';
+  el('topProdutos').innerHTML = sorted.length ? sorted.map(([k,v])=>`<tr class="clickable-row ${selectedProdutoFiltro===k?'active-filter':''}" onclick="setCrossFilterProduto('${jsAttr(k)}')"><td>${k}</td><td class="val">${fmtBRL(v)}</td><td class="val num">${cnt[k]}</td></tr>`).join('') : '<tr><td colspan="3" class="empty">Sem dados</td></tr>';
 }
 
 function openModal(){
