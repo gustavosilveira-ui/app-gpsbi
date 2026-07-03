@@ -595,9 +595,15 @@ async function loadData(){
     sel.value = selectedMes;
     sel.addEventListener('change', ()=>{ selectedMes=sel.value; render(); });
 
-    const anos = Array.from(new Set(captadaRows.map(r=>r.mes.slice(0,4)).filter(Boolean))).sort();
-    selectedYears = anos.filter(a=>['2025','2026'].includes(a));
-    if(!selectedYears.length) selectedYears = anos.slice(-2);
+    // Anos disponíveis: força 2025 e 2026 como padrão, mesmo que algum ano não apareça em uma das bases.
+    const anosBase = [
+      ...captadaRows.map(r=>r.mes && r.mes.slice(0,4)),
+      ...faturadaRows.map(r=>r.mes && r.mes.slice(0,4)),
+      ...Object.keys(metasMap||{}).map(m=>m && m.slice(0,4)),
+      '2025','2026'
+    ].filter(Boolean);
+    const anos = Array.from(new Set(anosBase)).sort();
+    selectedYears = ['2025','2026'].filter(a=>anos.includes(a));
     const yearBox = el('yearFilter');
     yearBox.innerHTML = anos.map(a=>`<label class="year-pill"><input type="checkbox" value="${a}" ${selectedYears.includes(a)?'checked':''}><span>${a}</span></label>`).join('');
     yearBox.querySelectorAll('input').forEach(chk=>chk.addEventListener('change',()=>{
@@ -642,43 +648,57 @@ function filterRows(rows, mes, vendedor, canal){
     return true;
   });
 }
+function filterRowsYears(rows, vendedor, canal){
+  return rows.filter(r=>{
+    if(selectedYears.length && !selectedYears.includes(String(r.mes||'').slice(0,4))) return false;
+    if(vendedor && r.vendedor.toLowerCase()!==vendedor.toLowerCase()) return false;
+    if(canal && r.canal!==canal) return false;
+    return true;
+  });
+}
+function totalMetaYears(vendedor){
+  const mesesMeta = Object.keys(metasMap||{}).filter(m=>selectedYears.includes(String(m).slice(0,4)));
+  if(vendedor) return mesesMeta.reduce((s,m)=>s+getMeta(m,vendedor),0);
+  return mesesMeta.reduce((s,m)=>s+allVendors.reduce((sv,v)=>sv+getMeta(m,v),0),0);
+}
+function periodYearsLabel(){ return selectedYears.slice().sort().join(', '); }
 
 function render(){
   const vendFilter = selectedVendedor, canalFilter = selectedCanal;
+  // Visão principal do BI = anos selecionados. Por padrão: 2025 e 2026.
+  const capPeriodo = filterRowsYears(captadaRows, vendFilter, canalFilter);
+  const fatPeriodo = filterRowsYears(faturadaRows, vendFilter, canalFilter);
+  // Apenas gráficos diário/semanal usam o mês selecionado.
   const capMes = filterRows(captadaRows, selectedMes, vendFilter, canalFilter);
-  const fatMes = filterRows(faturadaRows, selectedMes, vendFilter, canalFilter);
-  const totalCap = capMes.reduce((s,r)=>s+r.total,0);
-  const totalFat = fatMes.reduce((s,r)=>s+r.total,0);
+  const totalCap = capPeriodo.reduce((s,r)=>s+r.total,0);
+  const totalFat = fatPeriodo.reduce((s,r)=>s+r.total,0);
 
-  let totalMeta=0;
-  if(vendFilter) totalMeta = getMeta(selectedMes, vendFilter);
-  else allVendors.forEach(v=>{ totalMeta += getMeta(selectedMes, v); });
-
+  const totalMeta = totalMetaYears(vendFilter);
   const pct = totalMeta>0 ? Math.round(totalCap/totalMeta*100) : 0;
-  const pedidosUnicos = new Set(capMes.map(r=>r.pedido)).size;
+  const pedidosUnicos = new Set(capPeriodo.map(r=>r.pedido)).size;
   const ticketMedio = pedidosUnicos>0 ? totalCap/pedidosUnicos : 0;
 
   el('kpiCaptado').textContent = fmtBRL(totalCap);
-  el('kpiCaptadoSub').textContent = pedidosUnicos + ' pedidos no período';
+  el('kpiCaptadoSub').textContent = pedidosUnicos + ' pedidos · anos ' + periodYearsLabel();
   el('kpiFaturado').textContent = fmtBRL(totalFat);
-  el('kpiFaturadoSub').textContent = new Set(fatMes.map(r=>r.pedido)).size + ' pedidos faturados';
-  el('kpiClientes').textContent = new Set(capMes.map(r=>r.cliente).filter(Boolean)).size.toLocaleString('pt-BR');
-  el('kpiItens').textContent = capMes.reduce((s,r)=>s+(r.qtd||1),0).toLocaleString('pt-BR',{maximumFractionDigits:0});
+  el('kpiFaturadoSub').textContent = new Set(fatPeriodo.map(r=>r.pedido)).size + ' pedidos faturados';
+  el('kpiClientes').textContent = new Set(capPeriodo.map(r=>r.cliente).filter(Boolean)).size.toLocaleString('pt-BR');
+  el('kpiItens').textContent = capPeriodo.reduce((s,r)=>s+(r.qtd||1),0).toLocaleString('pt-BR',{maximumFractionDigits:0});
   el('kpiPedidos').textContent = pedidosUnicos.toLocaleString('pt-BR');
   el('kpiPedidosSub').textContent = totalMeta>0 ? 'Meta: '+fmtBRL(totalMeta)+' · '+pct+'%' : 'Meta: —';
   el('kpiTicket').textContent = fmtBRL(ticketMedio);
-  el('kpiTicketSub').textContent = 'Sobre receita captada';
+  el('kpiTicketSub').textContent = 'Sobre anos ' + periodYearsLabel();
 
   if(userRole==='vendor'){ renderGauge(pct,totalCap,totalMeta); renderRankPos(totalCap); }
 
   renderEvolution();
-  renderProjetoChart(capMes);
+  renderProjetoChart(capPeriodo);
   renderDailyWeekly(capMes);
   renderMonthlyHistory();
-  renderMap(capMes);
-  renderTopClientes(capMes);
-  renderTopFamilias(capMes);
-  renderTopProdutos(capMes);
+  renderMap(capPeriodo);
+  renderTopClientes(capPeriodo);
+  renderTopFamilias(capPeriodo);
+  renderTopProdutos(capPeriodo);
   if(userRole==='owner') renderRanking();
 }
 
@@ -702,16 +722,16 @@ function renderGauge(pct,captado,meta){
 }
 
 function renderRankPos(myTotal){
-  const rankData = allVendors.map(v=>({v,total:filterRows(captadaRows,selectedMes,v,selectedCanal).reduce((s,r)=>s+r.total,0)})).sort((a,b)=>b.total-a.total);
+  const rankData = allVendors.map(v=>({v,total:filterRowsYears(captadaRows,v,selectedCanal).reduce((s,r)=>s+r.total,0)})).sort((a,b)=>b.total-a.total);
   const pos = rankData.findIndex(r=>r.v.toLowerCase()===vendorName.toLowerCase())+1;
   const total = rankData.length;
   el('rankPosTitle').textContent = pos>0 ? `Você está em ${pos}º lugar` : 'Sem posição no ranking';
-  el('rankPosMsg').textContent = pos===1 ? `🥇 Você está na liderança em ${mesLabel(selectedMes)}! Parabéns!` : pos>0 ? `de ${total} vendedores no ranking de ${mesLabel(selectedMes)}.` : `Sem pedidos em ${mesLabel(selectedMes)}.`;
+  el('rankPosMsg').textContent = pos===1 ? `🥇 Você está na liderança nos anos ${periodYearsLabel()}! Parabéns!` : pos>0 ? `de ${total} vendedores no ranking dos anos ${periodYearsLabel()}.` : `Sem pedidos nos anos ${periodYearsLabel()}.`;
 }
 
 let evChart=null;
 function renderEvolution(){
-  const allMonths = Array.from(new Set(captadaRows.map(r=>r.mes).filter(m=>selectedYears.includes(m.slice(0,4))))).sort();
+  const allMonths = selectedYears.slice().sort().flatMap(y=>Array.from({length:12},(_,i)=>`${y}-${String(i+1).padStart(2,'0')}`)).filter(m=>captadaRows.some(r=>r.mes===m) || faturadaRows.some(r=>r.mes===m) || Object.prototype.hasOwnProperty.call(metasMap,m));
   const vendFilter = selectedVendedor, canalFilter = selectedCanal;
   const capByMes = allMonths.map(m=>filterRows(captadaRows,m,vendFilter,canalFilter).reduce((s,r)=>s+r.total,0));
   const fatByMes = allMonths.map(m=>filterRows(faturadaRows,m,vendFilter,canalFilter).reduce((s,r)=>s+r.total,0));
@@ -769,7 +789,7 @@ function renderDailyWeekly(rows){
 }
 
 function renderMonthlyHistory(){
-  const months=Array.from(new Set(captadaRows.map(r=>r.mes).filter(m=>selectedYears.includes(m.slice(0,4))))).sort();
+  const months=selectedYears.slice().sort().flatMap(y=>Array.from({length:12},(_,i)=>`${y}-${String(i+1).padStart(2,'0')}`)).filter(m=>captadaRows.some(r=>r.mes===m));
   const vendors=(selectedVendedor?[selectedVendedor]:allVendors).slice(0,18);
   let html='<table class="history-table"><thead><tr><th>Vendedor</th>'+months.map(m=>`<th>${mesLabel(m)}</th>`).join('')+'</tr></thead><tbody>';
   vendors.forEach(v=>{
@@ -803,9 +823,9 @@ function renderRanking(){
   const vendFilter=selectedVendedor;
   const vendors = vendFilter ? [vendFilter] : allVendors;
   const rows = vendors.map(v=>{
-    const cap=filterRows(captadaRows,selectedMes,v,selectedCanal).reduce((s,r)=>s+r.total,0);
-    const fat=filterRows(faturadaRows,selectedMes,v,selectedCanal).reduce((s,r)=>s+r.total,0);
-    const meta=getMeta(selectedMes,v);
+    const cap=filterRowsYears(captadaRows,v,selectedCanal).reduce((s,r)=>s+r.total,0);
+    const fat=filterRowsYears(faturadaRows,v,selectedCanal).reduce((s,r)=>s+r.total,0);
+    const meta=totalMetaYears(v);
     const pct = meta>0?Math.round(cap/meta*100):0;
     return {v,cap,fat,meta,pct};
   }).sort((a,b)=>b.cap-a.cap);
