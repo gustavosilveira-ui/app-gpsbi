@@ -130,11 +130,14 @@ html.light body::before{background:radial-gradient(circle at 80% 6%,rgba(54,226,
 /* TABLES */
 .tables-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:20px;}
 .table-card{background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow);}
-.table-card table{width:100%;border-collapse:collapse;}
+.table-card table{width:100%;border-collapse:collapse;table-layout:fixed;}
+.table-card th:nth-child(1),.table-card td:nth-child(1){width:58%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.table-card th:nth-child(2),.table-card td:nth-child(2){width:27%;}
+.table-card th:nth-child(3),.table-card td:nth-child(3){width:15%;}
 .table-card th{text-align:left;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;padding-bottom:8px;border-bottom:1px solid var(--border2);}
-.table-card td{padding:8px 0;font-size:12.5px;border-bottom:1px solid var(--border);}
+.table-card td{padding:8px 6px 8px 0;font-size:12.5px;border-bottom:1px solid var(--border);white-space:nowrap;}
 .table-card td.val{text-align:right;font-family:'DM Mono',monospace;}
-.table-card td.num{color:var(--text3);width:40px;}
+.table-card td.num{color:var(--text3);}
 .table-card .empty{color:var(--text3);text-align:center;padding:16px 0;}
 
 /* MODAL */
@@ -545,15 +548,15 @@ html.light .kpi-card{background:#fff}
     <div class="tables-grid">
       <div class="table-card">
         <div class="section-title">Top Clientes</div>
-        <table><thead><tr><th>Cliente</th><th style="text-align:right">Receita</th><th>Pedidos</th></tr></thead><tbody id="topClientes"></tbody></table>
+        <table><thead><tr><th>Cliente</th><th style="text-align:right;padding-right:14px">Receita</th><th style="text-align:right">Pedidos</th></tr></thead><tbody id="topClientes"></tbody></table>
       </div>
       <div class="table-card">
         <div class="section-title">Top Famílias</div>
-        <table><thead><tr><th>Família</th><th style="text-align:right">Receita</th><th>Pedidos</th></tr></thead><tbody id="topFamilias"></tbody></table>
+        <table><thead><tr><th>Família</th><th style="text-align:right;padding-right:14px">Receita</th><th style="text-align:right">Pedidos</th></tr></thead><tbody id="topFamilias"></tbody></table>
       </div>
       <div class="table-card">
         <div class="section-title">Top Produtos</div>
-        <table><thead><tr><th>Produto</th><th style="text-align:right">Receita</th><th>Qtd</th></tr></thead><tbody id="topProdutos"></tbody></table>
+        <table><thead><tr><th>Produto</th><th style="text-align:right;padding-right:14px">Receita</th><th style="text-align:right">Qtd</th></tr></thead><tbody id="topProdutos"></tbody></table>
       </div>
     </div>
   </div>
