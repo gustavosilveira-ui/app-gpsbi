@@ -32,6 +32,37 @@ html.light .fc-lvl-0 td{background:#eef1f6;}
 .fc-legend span{display:flex;align-items:center;gap:6px;}
 .fc-dot{width:10px;height:10px;border-radius:3px;display:inline-block;}
 .fc-denied{max-width:520px;margin:80px auto;text-align:center;}
+
+/* Novas seções abaixo do fluxo de caixa (não afetam o layout da tabela principal) */
+.fc-sim-form{display:grid;grid-template-columns:1.4fr 1fr 160px auto;gap:10px;align-items:end;}
+.fc-sim-table-wrap{overflow-x:auto;}
+.fc-sim-table{width:100%;border-collapse:collapse;font-size:12px;}
+.fc-sim-table th{text-align:right;font-size:10px;color:var(--text3);text-transform:uppercase;padding:8px 10px;border-bottom:1px solid var(--border2);}
+.fc-sim-table th:first-child,.fc-sim-table td:first-child{text-align:left;}
+.fc-sim-table td{text-align:right;padding:8px 10px;font-family:'DM Mono',monospace;border-bottom:1px solid var(--border);white-space:nowrap;}
+.fc-sim-entry{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;background:var(--navy3);margin-bottom:8px;}
+.fc-sim-entry .desc{flex:1;font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
+.fc-sim-entry .valor{font-family:'DM Mono',monospace;font-weight:700;flex:none;}
+.fc-sim-entry .data{color:var(--text3);font-size:11.5px;flex:none;}
+.fc-sim-entry .del{flex:none;background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:14px;}
+.fc-sim-entry .del:hover{color:var(--red);}
+
+.fc-msg-form{display:grid;grid-template-columns:220px 1fr auto;gap:10px;align-items:start;}
+.fc-msg-item{background:var(--navy3);border-radius:12px;padding:14px 16px;margin-bottom:10px;}
+.fc-msg-head{display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:nowrap;}
+.fc-msg-autor{font-size:12.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1;}
+.fc-msg-date{font-size:10.5px;color:var(--text3);flex:none;white-space:nowrap;}
+.fc-msg-tipo{font-size:10px;font-weight:700;padding:3px 9px;border-radius:999px;flex:none;white-space:nowrap;}
+.fc-msg-tipo.observacao{background:rgba(45,112,184,.15);color:#2D70B8;}
+.fc-msg-tipo.aviso{background:rgba(245,185,66,.15);color:var(--gold);}
+.fc-msg-tipo.solicitacao{background:rgba(155,127,232,.15);color:var(--purple);}
+.fc-msg-text{font-size:13px;color:var(--text2);line-height:1.5;white-space:pre-wrap;margin-bottom:8px;}
+.fc-msg-status{display:inline-block;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;}
+.fc-msg-status.aberto{background:rgba(245,185,66,.15);color:var(--gold);}
+.fc-msg-status.resolvido,.fc-msg-status.aprovado{background:rgba(47,214,184,.15);color:#98C47C;}
+.fc-msg-status.recusado{background:rgba(239,106,106,.15);color:var(--red);}
+.fc-msg-resposta{margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:12px;color:var(--text2);}
+@media(max-width:900px){ .fc-sim-form,.fc-msg-form{grid-template-columns:1fr;} }
 </style>
 </head>
 <body>
@@ -61,6 +92,50 @@ html.light .fc-lvl-0 td{background:#eef1f6;}
         <span><span class="fc-dot" style="background:var(--red)"></span> Saldo negativo</span>
         <span><span class="fc-dot" style="background:#2D70B8"></span> Hoje</span>
       </div>
+    </div>
+
+    <!-- ============ NOVO: Simulador de impacto no saldo ============ -->
+    <div class="card">
+      <div class="card-title">🧪 Simulador de Impacto no Saldo</div>
+      <div class="card-sub">Simule a entrada de uma receita ou despesa e veja como o saldo dos próximos dias mudaria — sem alterar nada na base real.</div>
+      <div class="fc-sim-form">
+        <div class="field-group" style="margin-bottom:0;">
+          <label class="field-label">Descrição</label>
+          <input type="text" id="fcSimDesc" placeholder="Ex: Recebimento cliente X, Pagamento fornecedor Y...">
+        </div>
+        <div class="field-group" style="margin-bottom:0;">
+          <label class="field-label">Valor (R$) — negativo se for despesa</label>
+          <input type="number" id="fcSimValor" placeholder="Ex: 15000 ou -8000">
+        </div>
+        <div class="field-group" style="margin-bottom:0;">
+          <label class="field-label">Data</label>
+          <input type="date" id="fcSimData">
+        </div>
+        <button class="btn btn-primary" onclick="addFcSimEntry()">Adicionar</button>
+      </div>
+      <div id="fcSimList" style="margin:14px 0;"></div>
+      <div class="fc-sim-table-wrap" id="fcSimTableWrap" style="display:none;">
+        <table class="fc-sim-table">
+          <thead><tr><th>Data</th><th>Saldo Real</th><th>Saldo Simulado</th><th>Diferença</th></tr></thead>
+          <tbody id="fcSimTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ============ NOVO: Observações, avisos e solicitações ============ -->
+    <div class="card">
+      <div class="card-title">📋 Observações, Avisos e Solicitações</div>
+      <div class="card-sub">Espaço da GPS e do Anderson pra registrar observações, avisar algo importante ou pedir uma ação — tudo com histórico.</div>
+      <div class="fc-msg-form">
+        <select id="fcMsgTipo">
+          <option value="observacao">📝 Observação</option>
+          <option value="aviso">⚠️ Aviso</option>
+          <option value="solicitacao">🙋 Solicitação (precisa de resposta)</option>
+        </select>
+        <textarea id="fcMsgTexto" placeholder="Escreva aqui..."></textarea>
+        <button class="btn btn-primary" onclick="submitFcMsg()">Publicar</button>
+      </div>
+      <div id="fcMsgList" style="margin-top:16px;"></div>
     </div>
   </div>
 </div>
@@ -185,6 +260,8 @@ async function loadData(){
     el('loadingScreen').style.display='none';
     el('mainContent').style.display='block';
     document.documentElement.style.visibility='visible';
+    el('fcSimData').value = new Date().toISOString().slice(0,10);
+    await loadFcMsgs();
   }catch(e){
     console.error(e);
     el('loadingMsg').textContent = 'Erro ao carregar a base. Verifique o acesso à planilha.';
@@ -369,6 +446,101 @@ function toggleRowNode(label, level){
 }
 
 async function doLogout(){ await sb.auth.signOut(); window.location.href = LOGIN_URL; }
+
+/* ================== NOVO: Simulador de impacto no saldo ================== */
+let fcSimEntries = [];
+function addFcSimEntry(){
+  const descricao = el('fcSimDesc').value.trim();
+  const valor = parseFloat(el('fcSimValor').value);
+  const data = el('fcSimData').value;
+  if(!descricao || !valor || !data){ alert('Preencha descrição, valor e data.'); return; }
+  fcSimEntries.push({ descricao, valor, data });
+  el('fcSimDesc').value=''; el('fcSimValor').value=''; el('fcSimData').value='';
+  renderFcSim();
+}
+function removeFcSimEntry(idx){ fcSimEntries.splice(idx,1); renderFcSim(); }
+function renderFcSim(){
+  const wrap = el('fcSimList');
+  wrap.innerHTML = fcSimEntries.length ? fcSimEntries.map((e,i)=>`
+    <div class="fc-sim-entry">
+      <span class="desc">${e.descricao}</span>
+      <span class="data">${new Date(e.data+'T00:00:00').toLocaleDateString('pt-BR')}</span>
+      <span class="valor" style="color:${e.valor>=0?'#98C47C':'var(--red)'}">${fmtBRL(e.valor)}</span>
+      <button class="del" onclick="removeFcSimEntry(${i})">✕</button>
+    </div>`).join('') : '<div style="color:var(--text3);font-size:12.5px;">Nenhuma simulação adicionada ainda.</div>';
+
+  const tableWrap = el('fcSimTableWrap');
+  if(!fcSimEntries.length){ tableWrap.style.display='none'; return; }
+  tableWrap.style.display='block';
+
+  const minDate = fcSimEntries.map(e=>e.data).sort()[0];
+  const dias = [];
+  const start = new Date(minDate+'T00:00:00');
+  for(let i=0;i<15;i++){
+    const d = new Date(start); d.setDate(start.getDate()+i);
+    dias.push(d.toISOString().slice(0,10));
+  }
+  el('fcSimTableBody').innerHTML = dias.map(dstr=>{
+    const saldoReal = runningBalance(dstr);
+    const impacto = fcSimEntries.filter(e=>e.data<=dstr).reduce((s,e)=>s+e.valor,0);
+    const saldoSim = saldoReal + impacto;
+    const diffCls = impacto>=0 ? 'style="color:#98C47C"' : 'style="color:var(--red)"';
+    const dateLabel = new Date(dstr+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
+    return `<tr><td>${dateLabel}</td><td>${fmtBRL(saldoReal)}</td><td style="font-weight:700">${fmtBRL(saldoSim)}</td><td ${diffCls}>${impacto>=0?'+':''}${fmtBRL(impacto)}</td></tr>`;
+  }).join('');
+}
+
+/* ================== NOVO: Observações, avisos e solicitações ================== */
+async function loadFcMsgs(){
+  const { data, error } = await sb.from('fluxo_mensagens').select('*').order('criado_em',{ascending:false});
+  if(error){ el('fcMsgList').innerHTML = '<div style="color:var(--gold);font-size:12px;">⚠️ Não consegui carregar. Verifique se a tabela fluxo_mensagens existe no Supabase.</div>'; return; }
+  renderFcMsgs(data||[]);
+}
+function renderFcMsgs(msgs){
+  if(!msgs.length){ el('fcMsgList').innerHTML = '<div class="empty-state"><div class="icon">📋</div>Nenhum registro ainda.</div>'; return; }
+  const tipoLabel = { observacao:'📝 Observação', aviso:'⚠️ Aviso', solicitacao:'🙋 Solicitação' };
+  const statusLabel = { aberto:'⏳ Aberto', resolvido:'✓ Resolvido', aprovado:'✓ Aprovado', recusado:'✕ Recusado' };
+  el('fcMsgList').innerHTML = msgs.map(m=>{
+    const date = new Date(m.criado_em).toLocaleString('pt-BR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+    const podeResponder = m.tipo==='solicitacao' && m.status==='aberto';
+    const acoes = podeResponder ? `
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button class="btn btn-primary btn-sm" onclick="respondFcMsg(${m.id},'aprovado')">Aprovar</button>
+        <button class="btn btn-danger btn-sm" onclick="respondFcMsg(${m.id},'recusado')">Recusar</button>
+        <button class="btn btn-ghost btn-sm" onclick="respondFcMsg(${m.id},'resolvido')">Marcar resolvido</button>
+      </div>` : (m.status==='aberto' && m.tipo!=='solicitacao' ? `<button class="btn btn-ghost btn-sm" onclick="respondFcMsg(${m.id},'resolvido')" style="margin-top:8px;">Marcar resolvido</button>` : '');
+    const resposta = m.resposta ? `<div class="fc-msg-resposta"><b>${m.respondido_por||''}:</b> ${m.resposta}</div>` : '';
+    return `<div class="fc-msg-item">
+      <div class="fc-msg-head">
+        <span class="fc-msg-autor">${m.autor_nome||m.autor_email}</span>
+        <span class="fc-msg-tipo ${m.tipo}">${tipoLabel[m.tipo]||m.tipo}</span>
+        <span class="fc-msg-status ${m.status}">${statusLabel[m.status]||m.status}</span>
+        <span class="fc-msg-date">${date}</span>
+      </div>
+      <div class="fc-msg-text">${(m.mensagem||'').replace(/</g,'&lt;')}</div>
+      ${resposta}
+      ${acoes}
+    </div>`;
+  }).join('');
+}
+async function submitFcMsg(){
+  const tipo = el('fcMsgTipo').value;
+  const mensagem = el('fcMsgTexto').value.trim();
+  if(!mensagem) return;
+  const { error } = await sb.from('fluxo_mensagens').insert({
+    autor_email: currentUser.email, autor_nome: nameFromEmail(currentUser.email), tipo, mensagem, status:'aberto'
+  });
+  if(!error){ el('fcMsgTexto').value=''; await loadFcMsgs(); }
+  else alert('Erro ao publicar: '+error.message);
+}
+async function respondFcMsg(id, status){
+  const resposta = prompt('Quer deixar uma resposta? (opcional)') || '';
+  const { error } = await sb.from('fluxo_mensagens').update({
+    status, resposta, respondido_por: nameFromEmail(currentUser.email), respondido_em: new Date().toISOString()
+  }).eq('id', id);
+  if(!error) await loadFcMsgs();
+  else alert('Erro: '+error.message);
+}
 
 init();
 </script>
