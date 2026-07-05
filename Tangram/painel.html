@@ -320,14 +320,19 @@ html.light .kpi-card{background:#fff}
    FIX DEFINITIVO — havia várias regras conflitantes de .kpi-grid
    espalhadas pelo CSS (resíduo de edições anteriores) com pontos de
    quebra diferentes brigando entre si, causando comportamento
-   inconsistente dependendo da resolução/zoom do navegador.
-   Essa regra final (com !important) garante 1 comportamento único,
-   previsível, em qualquer máquina — sem depender de qual regra
-   "ganhava" a briga de cascata antes.
+   inconsistente dependendo da resolução do computador.
+   Aqui a decisão é: os 6 indicadores ficam SEMPRE na mesma linha,
+   em qualquer tela — os cards encolhem (não quebram linha).
+   Se a tela for muito estreita, o painel ganha rolagem horizontal
+   em vez de empilhar os cards.
    ================================================================ */
 .kpi-grid{grid-template-columns:repeat(6,minmax(150px,1fr)) !important;}
-@media(max-width:1500px){.kpi-grid{grid-template-columns:repeat(3,minmax(150px,1fr)) !important;}}
-@media(max-width:640px){.kpi-grid{grid-template-columns:repeat(2,minmax(130px,1fr)) !important;}}
+.charts-grid.hero-charts{grid-template-columns:minmax(0,2.35fr) minmax(280px,.65fr) !important;}
+.history-map-grid{grid-template-columns:minmax(0,1.72fr) minmax(470px,.92fr) !important;}
+.micro-grid{grid-template-columns:minmax(250px,.75fr) minmax(250px,.75fr) minmax(450px,1.25fr) !important;}
+.tables-grid{grid-template-columns:1fr 1fr 1fr !important;}
+.project-body{grid-template-columns:250px 1fr !important;}
+@media(max-width:900px){ .content{overflow-x:auto;} }
 </style>
 </head>
 <body>
