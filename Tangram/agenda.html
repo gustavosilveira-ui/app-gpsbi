@@ -23,6 +23,32 @@
 .new-task-row{display:flex;gap:10px;margin-bottom:6px;}
 .new-task-row input[type="text"]{flex:1;}
 .new-task-row input[type="date"]{width:160px;flex:none;}
+
+/* Seletor do gestor */
+.viewer-picker{display:flex;align-items:center;gap:10px;flex-wrap:nowrap;}
+.viewer-picker select{flex:1;max-width:320px;}
+.viewer-banner{background:rgba(245,185,66,.12);color:var(--gold);border:1px solid rgba(245,185,66,.25);padding:8px 12px;border-radius:8px;font-size:12px;margin-top:10px;display:none;}
+
+/* Calendário */
+.cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.cal-nav{display:flex;align-items:center;gap:10px;}
+.cal-nav button{width:30px;height:30px;border-radius:8px;background:var(--navy3);border:1px solid var(--border2);color:var(--text);cursor:pointer;font-size:14px;}
+.cal-month-label{font-size:14px;font-weight:800;min-width:150px;text-align:center;}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
+.cal-dow{font-size:10px;color:var(--text3);text-align:center;font-weight:700;text-transform:uppercase;padding-bottom:4px;}
+.cal-day{aspect-ratio:1;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;background:var(--navy3);border:2px solid transparent;font-size:12px;font-weight:700;position:relative;}
+.cal-day.empty{background:transparent;cursor:default;}
+.cal-day.status-done{background:rgba(152,196,124,.18);color:#98C47C;}
+.cal-day.status-pending{background:rgba(245,185,66,.18);color:var(--gold);}
+.cal-day.status-none{color:var(--text2);}
+.cal-day.is-today{border-color:#2D70B8;}
+.cal-day.selected{border-color:var(--cyan);}
+.cal-day .dot{width:5px;height:5px;border-radius:50%;background:currentColor;}
+.cal-legend{display:flex;gap:16px;margin-top:14px;font-size:11px;color:var(--text3);flex-wrap:wrap;}
+.cal-legend span{display:flex;align-items:center;gap:6px;}
+.cal-legend .sw{width:10px;height:10px;border-radius:3px;}
+.cal-day-detail{margin-top:16px;}
+@media(max-width:600px){.new-task-row{flex-direction:column;}.new-task-row input[type="date"]{width:100%;}}
 </style>
 </head>
 <body>
@@ -34,7 +60,17 @@
 
 <div id="mainContent" style="display:none;">
   <div class="content">
-    <div class="card">
+
+    <div class="card" id="viewerPickerCard" style="display:none;">
+      <div class="card-title">👁️ Visão do gestor</div>
+      <div class="card-sub">Veja o comportamento da agenda pessoal de qualquer usuário — só leitura, você não edita a tarefa de outra pessoa.</div>
+      <div class="viewer-picker">
+        <select id="viewerPicker"><option value="">Minha própria agenda</option></select>
+      </div>
+      <div class="viewer-banner" id="viewerBanner">👁️ Você está vendo a agenda de outra pessoa — modo somente leitura.</div>
+    </div>
+
+    <div class="card" id="newTaskCard">
       <div class="card-title">🗓️ Minha Agenda</div>
       <div class="card-sub">Suas tarefas pessoais — separado da agenda de contato com cliente.</div>
       <div class="new-task-row">
@@ -47,6 +83,27 @@
     <div class="card">
       <div id="taskListWrap"></div>
     </div>
+
+    <div class="card">
+      <div class="card-title">📅 Calendário</div>
+      <div class="card-sub">Verde = tudo concluído no dia · Amarelo = tem pendência · Cinza = sem tarefa.</div>
+      <div class="cal-head">
+        <div class="cal-nav">
+          <button onclick="calChangeMonth(-1)">◀</button>
+          <div class="cal-month-label" id="calMonthLabel">--</div>
+          <button onclick="calChangeMonth(1)">▶</button>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="calGoToday()">Hoje</button>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+      <div class="cal-legend">
+        <span><span class="sw" style="background:rgba(152,196,124,.5)"></span> Tudo concluído</span>
+        <span><span class="sw" style="background:rgba(245,185,66,.5)"></span> Tem pendência</span>
+        <span><span class="sw" style="background:var(--navy3)"></span> Sem tarefa</span>
+      </div>
+      <div class="cal-day-detail" id="calDayDetail"></div>
+    </div>
+
   </div>
 </div>
 
@@ -64,6 +121,9 @@ function el(id){ return document.getElementById(id); }
 
 let currentUser=null, userEmail='', userName='', userRole='vendor';
 let tasksCache = [];
+let viewingEmail = ''; // vazio = vendo a própria agenda
+let viewingName = '';
+let calYear, calMonth, calSelectedDay = null;
 
 async function init(){
   const { data } = await sb.auth.getSession();
@@ -73,27 +133,58 @@ async function init(){
   userRole = isOwner(userEmail) ? 'owner' : 'vendor';
   userName = nameFromEmail(userEmail);
 
+  const today = new Date();
+  calYear = today.getFullYear(); calMonth = today.getMonth();
+
   renderAppNav({ activePage:'agenda.html', userLabel:userName, userRole, onLogout: doLogout, sb, currentUser });
 
   el('loadingScreen').style.display='none';
   el('mainContent').style.display='block';
+
+  if(userRole==='owner'){
+    el('viewerPickerCard').style.display='block';
+    await loadUserList();
+  }
   await loadTasks();
 }
 
+async function loadUserList(){
+  const { data, error } = await sb.from('tarefas_pessoais').select('usuario_email, usuario_nome');
+  if(error || !data) return;
+  const seen = {};
+  data.forEach(r=>{ if(r.usuario_email && r.usuario_email!==userEmail) seen[r.usuario_email] = r.usuario_nome || nameFromEmail(r.usuario_email); });
+  const sel = el('viewerPicker');
+  Object.entries(seen).sort((a,b)=>a[1].localeCompare(b[1])).forEach(([email,nome])=>{
+    const o = document.createElement('option'); o.value = email; o.textContent = nome; sel.appendChild(o);
+  });
+  sel.addEventListener('change', async ()=>{
+    viewingEmail = sel.value;
+    viewingName = sel.value ? sel.options[sel.selectedIndex].textContent : '';
+    el('viewerBanner').style.display = viewingEmail ? 'block' : 'none';
+    el('newTaskCard').style.display = viewingEmail ? 'none' : 'block';
+    await loadTasks();
+  });
+}
+
 async function loadTasks(){
-  const { data, error } = await sb.from('tarefas_pessoais').select('*').eq('usuario_email', userEmail).order('data_tarefa',{ascending:true});
-  if(error){ el('taskListWrap').innerHTML = '<div class="empty-state">⚠️ Não consegui carregar sua agenda. Verifique se a tabela tarefas_pessoais existe no Supabase.</div>'; return; }
+  const targetEmail = viewingEmail || userEmail;
+  const { data, error } = await sb.from('tarefas_pessoais').select('*').eq('usuario_email', targetEmail).order('data_tarefa',{ascending:true});
+  if(error){ el('taskListWrap').innerHTML = '<div class="empty-state">⚠️ Não consegui carregar a agenda. Verifique se a tabela tarefas_pessoais existe no Supabase.</div>'; return; }
   tasksCache = data || [];
   renderTasks();
+  renderCalendar();
 }
 
 function renderTasks(){
+  const readOnly = !!viewingEmail;
   const todayStr = new Date().toISOString().slice(0,10);
-  const pendentes = tasksCache.filter(t=>!t.feito).sort((a,b)=>a.data_tarefa.localeCompare(b.data_tarefa));
-  const feitas = tasksCache.filter(t=>t.feito);
+  let list = tasksCache;
+  if(calSelectedDay) list = list.filter(t=>t.data_tarefa===calSelectedDay);
+  const pendentes = list.filter(t=>!t.feito).sort((a,b)=>a.data_tarefa.localeCompare(b.data_tarefa));
+  const feitas = list.filter(t=>t.feito);
 
-  if(!tasksCache.length){
-    el('taskListWrap').innerHTML = '<div class="empty-state"><div class="icon">🗓️</div>Nenhuma tarefa ainda. Adicione a primeira acima!</div>';
+  if(!list.length){
+    el('taskListWrap').innerHTML = `<div class="empty-state"><div class="icon">🗓️</div>${calSelectedDay ? 'Nenhuma tarefa nesse dia.' : (readOnly ? 'Essa pessoa ainda não tem tarefas.' : 'Nenhuma tarefa ainda. Adicione a primeira acima!')}</div>`;
     return;
   }
 
@@ -101,12 +192,12 @@ function renderTasks(){
     const overdue = !t.feito && t.data_tarefa < todayStr;
     const dateLabel = new Date(t.data_tarefa+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'});
     return `<div class="task-item ${t.feito?'done':''}">
-      <input type="checkbox" class="task-check" ${t.feito?'checked':''} onchange="toggleTask(${t.id}, this.checked)">
+      <input type="checkbox" class="task-check" ${t.feito?'checked':''} ${readOnly?'disabled':''} onchange="toggleTask(${t.id}, this.checked)">
       <div class="task-body">
         <div class="task-title">${t.titulo}</div>
         <div class="task-date ${overdue?'overdue':''}">${overdue?'Atrasada · ':''}${dateLabel}</div>
       </div>
-      <button class="task-del" onclick="deleteTask(${t.id})" title="Excluir">✕</button>
+      ${readOnly ? '' : `<button class="task-del" onclick="deleteTask(${t.id})" title="Excluir">✕</button>`}
     </div>`;
   };
 
@@ -129,15 +220,68 @@ async function addTask(){
   else alert('Erro ao salvar: '+error.message);
 }
 async function toggleTask(id, feito){
+  if(viewingEmail) return; // somente leitura
   await sb.from('tarefas_pessoais').update({feito}).eq('id', id);
   await loadTasks();
 }
 async function deleteTask(id){
+  if(viewingEmail) return;
   if(!confirm('Excluir essa tarefa?')) return;
   await sb.from('tarefas_pessoais').delete().eq('id', id);
   await loadTasks();
 }
 async function doLogout(){ await sb.auth.signOut(); window.location.href = LOGIN_URL; }
+
+/* ================== CALENDÁRIO ================== */
+const DOW_ABBR = ['DOM','SEG','TER','QUA','QUI','SEX','SÁB'];
+const MES_NOMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+function calChangeMonth(delta){
+  calMonth += delta;
+  if(calMonth<0){ calMonth=11; calYear--; }
+  if(calMonth>11){ calMonth=0; calYear++; }
+  calSelectedDay = null;
+  renderCalendar();
+  renderTasks();
+}
+function calGoToday(){
+  const today = new Date();
+  calYear = today.getFullYear(); calMonth = today.getMonth();
+  calSelectedDay = null;
+  renderCalendar();
+  renderTasks();
+}
+function renderCalendar(){
+  el('calMonthLabel').textContent = `${MES_NOMES[calMonth]} de ${calYear}`;
+  const todayStr = new Date().toISOString().slice(0,10);
+  const firstDow = new Date(calYear, calMonth, 1).getDay();
+  const lastDay = new Date(calYear, calMonth+1, 0).getDate();
+
+  const byDay = {};
+  tasksCache.forEach(t=>{
+    if(t.data_tarefa.slice(0,7) !== `${calYear}-${String(calMonth+1).padStart(2,'0')}`) return;
+    if(!byDay[t.data_tarefa]) byDay[t.data_tarefa] = { total:0, done:0 };
+    byDay[t.data_tarefa].total++;
+    if(t.feito) byDay[t.data_tarefa].done++;
+  });
+
+  let html = DOW_ABBR.map(d=>`<div class="cal-dow">${d}</div>`).join('');
+  for(let i=0;i<firstDow;i++) html += '<div class="cal-day empty"></div>';
+  for(let d=1; d<=lastDay; d++){
+    const dstr = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const info = byDay[dstr];
+    let statusCls = 'status-none';
+    if(info){ statusCls = info.done===info.total ? 'status-done' : 'status-pending'; }
+    const cls = ['cal-day', statusCls, dstr===todayStr?'is-today':'', dstr===calSelectedDay?'selected':''].filter(Boolean).join(' ');
+    html += `<div class="${cls}" onclick="calSelectDay('${dstr}')">${d}${info?'<span class="dot"></span>':''}</div>`;
+  }
+  el('calGrid').innerHTML = html;
+}
+function calSelectDay(dstr){
+  calSelectedDay = calSelectedDay===dstr ? null : dstr;
+  renderCalendar();
+  renderTasks();
+}
 
 init();
 </script>
