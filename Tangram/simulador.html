@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="theme.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-.sim-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px;}
+.sim-grid{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:12px;margin-bottom:18px;overflow-x:auto;}
 .sim-kpi{background:var(--navy3);border-radius:12px;padding:16px;}
 .sim-kpi-val{font-family:'DM Mono',monospace;font-size:20px;font-weight:800;}
 .sim-kpi-lbl{font-size:11px;color:var(--text3);margin-top:4px;}
@@ -27,7 +27,7 @@
 .result-icon{font-size:32px;}
 .result-text b{display:block;font-size:15px;margin-bottom:2px;}
 .result-text span{font-size:12.5px;color:var(--text2);}
-@media(max-width:760px){.sim-grid{grid-template-columns:1fr 1fr;}}
+@media(max-width:760px){.new-order-row{grid-template-columns:1fr;}}
 </style>
 </head>
 <body>
