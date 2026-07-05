@@ -248,6 +248,8 @@ html.light .topbar{background:rgba(255,255,255,.92);backdrop-filter:blur(16px)}
 .date-range-input{background:var(--navy3);border:1px solid var(--border2);color:var(--text);border-radius:8px;padding:6px 10px;font-family:'Sora',sans-serif;font-size:12.5px;flex:none;}
 .history-map-grid{display:grid;grid-template-columns:minmax(0,1.85fr) minmax(430px,.9fr);gap:14px;margin-bottom:14px}.history-card{display:flex;flex-direction:column;height:440px}.map-card{display:flex;flex-direction:column;height:440px}
 .history-scroll{overflow:auto;flex:1;min-height:0;border-radius:12px}.history-table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:11px}.history-table th,.history-table td{padding:9px 11px;border-bottom:1px solid var(--border);white-space:nowrap}.history-table th{position:sticky;top:0;background:var(--navy2);z-index:2;color:var(--text3);text-align:right}.history-table th:first-child,.history-table td:first-child{position:sticky;left:0;background:var(--navy2);z-index:3;text-align:left;font-weight:700;color:var(--text)}html.light .history-table th,html.light .history-table td:first-child,html.light .history-table th:first-child{background:#fff}#mapaReceita{flex:1;min-height:0;border-radius:14px;overflow:hidden;background:var(--navy3)}.leaflet-container{font-family:'Sora',sans-serif}.map-legend{display:flex;justify-content:center;gap:8px;align-items:center;font-size:10px;color:var(--text3);margin-top:8px}.pulse-in{animation:pulseIn .45s ease both}@keyframes pulseIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.pulse-glow{animation:mapPulseGlow 1.8s ease-in-out infinite;}
+@keyframes mapPulseGlow{0%,100%{filter:drop-shadow(0 0 2px #36E2C9);}50%{filter:drop-shadow(0 0 10px #36E2C9) drop-shadow(0 0 18px #36E2C9);}}
 .matrix-wrap{overflow-x:auto;max-height:420px;overflow-y:auto}
 .matrix-table{width:100%;border-collapse:collapse;min-width:1100px;font-size:12px}
 .matrix-table th{text-align:right;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;padding:9px 10px;border-bottom:1px solid var(--border2);white-space:nowrap;position:sticky;top:0;background:var(--navy2);z-index:2}
@@ -1600,15 +1602,21 @@ function renderMap(rows){
   if(!window.L || !el('mapaReceita')) return;
   if(!leafletMap){
     leafletMap=L.map('mapaReceita',{zoomControl:true,scrollWheelZoom:true}).setView([-14.2,-51.9],4);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribution:'© OpenStreetMap'}).addTo(leafletMap);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:18,subdomains:'abcd',attribution:'© OpenStreetMap © CARTO'}).addTo(leafletMap);
     leafletLayer=L.layerGroup().addTo(leafletMap);
   }
   leafletLayer.clearLayers();
   const map={}; rows.forEach(r=>{ if(UF_COORDS[r.uf]) map[r.uf]=(map[r.uf]||0)+r.total; });
+  const ranked = Object.entries(map).sort((a,b)=>b[1]-a[1]);
   const vals=Object.values(map); const max=Math.max(...vals,1);
-  Object.entries(map).forEach(([uf,val])=>{
+  const topUFs = new Set(ranked.slice(0,3).map(e=>e[0]));
+  ranked.forEach(([uf,val])=>{
     const [lat,lng]=UF_COORDS[uf]; const radius=6+(val/max)*22;
-    L.circleMarker([lat,lng],{radius,fillColor:'#2D70B8',color:'#36E2C9',weight:1,opacity:.85,fillOpacity:.70}).bindTooltip(`${uf}: ${fmtBRLFull(val)}`).bindPopup(`<b>${uf}</b><br>Receita captada: ${fmtBRLFull(val)}`).addTo(leafletLayer);
+    const isTop = topUFs.has(uf);
+    L.circleMarker([lat,lng],{
+      radius,fillColor:isTop?'#36E2C9':'#2D70B8',color:isTop?'#98F2E5':'#5BA8E0',weight:isTop?2:1,opacity:.9,fillOpacity:isTop?.75:.55,
+      className: isTop ? 'state-marker pulse-glow' : 'state-marker'
+    }).bindTooltip(`${uf}: ${fmtBRLFull(val)}`).bindPopup(`<b>${uf}</b><br>Receita captada: ${fmtBRLFull(val)}`).addTo(leafletLayer);
   });
   setTimeout(()=>leafletMap.invalidateSize(),100);
 }
