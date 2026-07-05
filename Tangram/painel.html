@@ -76,6 +76,7 @@ html.light body::before{background:radial-gradient(circle at 80% 6%,rgba(54,226,
 .month-select,.vendedor-select,.canal-select{background:var(--navy3);border:1px solid var(--border2);color:var(--text);border-radius:8px;padding:7px 12px;font-family:'Sora',sans-serif;font-size:12.5px;cursor:pointer;}
 .badge-role{margin-left:auto;padding:5px 12px;border-radius:999px;font-size:11px;font-weight:600;}
 .badge-owner{background:rgba(58,233,209,0.14);color:var(--cyan);border:1px solid rgba(58,233,209,0.25);}
+.badge-viewer{background:rgba(245,185,66,0.14);color:var(--gold);border:1px solid rgba(245,185,66,0.25);}
 .badge-vendor{background:rgba(66,129,191,0.14);color:var(--blue);border:1px solid rgba(66,129,191,0.25);}
 .btn-metas{display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;background:linear-gradient(90deg,var(--blue),var(--cyan));border:none;color:#fff;font-family:'Sora',sans-serif;font-size:12px;font-weight:700;cursor:pointer;}
 .btn-metas svg{width:14px;height:14px;}
@@ -315,6 +316,18 @@ html.light .kpi-card{background:#fff}
 .year-pill{user-select:none;}
 .year-pill input:checked + span{font-weight:800;}
 
+/* ================================================================
+   FIX DEFINITIVO — havia várias regras conflitantes de .kpi-grid
+   espalhadas pelo CSS (resíduo de edições anteriores) com pontos de
+   quebra diferentes brigando entre si, causando comportamento
+   inconsistente dependendo da resolução/zoom do navegador.
+   Essa regra final (com !important) garante 1 comportamento único,
+   previsível, em qualquer máquina — sem depender de qual regra
+   "ganhava" a briga de cascata antes.
+   ================================================================ */
+.kpi-grid{grid-template-columns:repeat(6,minmax(150px,1fr)) !important;}
+@media(max-width:1500px){.kpi-grid{grid-template-columns:repeat(3,minmax(150px,1fr)) !important;}}
+@media(max-width:640px){.kpi-grid{grid-template-columns:repeat(2,minmax(130px,1fr)) !important;}}
 </style>
 </head>
 <body>
@@ -840,8 +853,17 @@ async function initAuth(){
   if(!data.session){ window.location.replace(LOGIN_URL); return; }
   currentUser = data.session.user;
   const email = currentUser.email;
-  userRole = isOwner(email) ? 'owner' : 'vendor';
-  vendorName = userRole==='vendor' ? nameFromEmail(email) : '';
+  // Três níveis de acesso:
+  // 'owner'  -> admin de verdade (define metas, aprova desconto, publica mural) — lista fechada
+  // 'viewer' -> qualquer @gpsbi.com.br que não seja admin: vê os números de TODOS os vendedores,
+  //             mas sem poder de ação (não aparece "Definir metas" etc). Ex: time de suporte da GPS testando o Hub.
+  // 'vendor' -> vendedor de verdade: só vê os próprios números.
+  // Dois papéis, só:
+  // 'owner' -> admin de verdade (lista fechada: define metas, aprova desconto, publica mural)
+  // 'viewer' -> qualquer outro usuário logado — vê o painel completo (todos os vendedores),
+  //             já que nunca dá pra saber com certeza quem é vendedor de fato só pelo e-mail/nome.
+  userRole = isOwner(email) ? 'owner' : 'viewer';
+  vendorName = '';
   // preferência de tema salva na CONTA tem prioridade (acompanha o usuário em qualquer aparelho);
   // sem preferência salva ainda, mantém o padrão (claro) sem forçar nada.
   const savedTheme = currentUser.user_metadata && currentUser.user_metadata.theme;
@@ -858,23 +880,20 @@ async function initAuth(){
 
 function setupUI(){
   const email = currentUser.email;
-  const initials = (userRole==='owner'?email.split('@')[0]:vendorName).split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  const displayName = email.split('@')[0];
+  const initials = displayName.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
   el('userAvatar').textContent = initials;
-  el('userName').textContent = userRole==='owner' ? email.split('@')[0] : vendorName;
-  el('userRole').textContent = userRole==='owner' ? 'Acesso total' : 'Vendedor';
+  el('userName').textContent = displayName;
+  el('userRole').textContent = userRole==='owner' ? 'Acesso total' : 'Visualização';
   const badge = el('roleBadge');
-  badge.textContent = userRole==='owner' ? '👑 Administrador' : '👤 Vendedor';
-  badge.className = 'badge-role ' + (userRole==='owner'?'badge-owner':'badge-vendor');
-  if(userRole==='owner'){
-    el('btnMetas').style.display='flex';
-    el('rankingSection').style.display='block';
-    el('vendedorLabel').style.display='inline';
-    el('vendedorSelect').style.display='inline';
-    el('suggestionsCard').style.display='block';
-  } else {
-    el('gaugeSection').style.display='flex';
-    el('rankPosSection').style.display='block';
-  }
+  badge.textContent = userRole==='owner' ? '👑 Administrador' : '👁️ Visualização';
+  badge.className = 'badge-role ' + (userRole==='owner'?'badge-owner':'badge-viewer');
+  // Todo mundo vê o painel completo (todos os vendedores, ranking, comparativo, sugestões).
+  el('rankingSection').style.display='block';
+  el('vendedorLabel').style.display='inline';
+  el('vendedorSelect').style.display='inline';
+  el('suggestionsCard').style.display='block';
+  if(userRole==='owner') el('btnMetas').style.display='flex';
   document.getElementById('logoutBtn').addEventListener('click', doLogout);
 }
 
@@ -934,14 +953,12 @@ async function loadData(){
     allCanais.forEach(c=>{ const o=document.createElement('option'); o.value=c; o.textContent=c; canalSel.appendChild(o); });
     canalSel.addEventListener('change', ()=>{ selectedCanal=canalSel.value; render(); });
 
-    if(userRole==='owner'){
+    {
       const vSel = el('vendedorSelect');
       vSel.innerHTML='<option value="">Todos os vendedores</option>';
       allVendors.forEach(v=>{ const o=document.createElement('option'); o.value=v; o.textContent=v; vSel.appendChild(o); });
       selectedVendedor='';
       vSel.addEventListener('change', ()=>{ selectedVendedor=vSel.value; render(); });
-    } else {
-      selectedVendedor = vendorName;
     }
 
     let searchDebounce;
@@ -1066,7 +1083,7 @@ function render(){
   el('kpiTicket').textContent = fmtBRL(ticketMedio);
   el('kpiTicketSub').textContent = 'Sobre anos ' + periodYearsLabel();
 
-  if(userRole==='vendor'){ renderGauge(pct,totalCap,totalMeta); renderRankPos(totalCap); }
+
 
   renderEvolution();
   renderProjetoChart(filterRowsYears(captadaRows, vendFilter, canalFilter, true));
@@ -1076,7 +1093,7 @@ function render(){
   renderTopClientes(capPeriodo);
   renderTopFamilias(capPeriodo);
   renderTopProdutos(capPeriodo);
-  if(userRole==='owner') { renderRanking(); renderSuggestions(); renderMatrix(); }
+  if(userRole==='owner' || userRole==='viewer') { renderRanking(); renderSuggestions(); renderMatrix(); }
 }
 
 let gaugeChartInst=null;
@@ -1172,7 +1189,7 @@ function fmtBRLMatrix(n){
 function renderMatrix(){
   const box = el('matrixCard');
   if(!box) return;
-  if(userRole!=='owner' || !selectedMes){ box.style.display='none'; return; }
+  if((userRole!=='owner' && userRole!=='viewer') || !selectedMes){ box.style.display='none'; return; }
   box.style.display='block';
 
   const canalFilter = selectedCanal;
@@ -1762,7 +1779,7 @@ async function onToggleFollowup(id, checked){
 async function submitNote(){
   const txt = el('noteInput').value.trim();
   if(!txt || !currentClientName) return;
-  const quemVendedor = userRole==='owner' ? (currentUser.email.split('@')[0]) : vendorName;
+  const quemVendedor = userRole!=='vendor' ? (currentUser.email.split('@')[0]) : vendorName;
   const ok = await saveClientNote(currentClientName, quemVendedor, txt);
   if(ok){ el('noteInput').value=''; loadClientCrmData(currentClientName); }
   else { el('crmWarning').style.display='block'; }
@@ -1771,7 +1788,7 @@ async function submitFollowup(){
   const data_contato = el('followupDate').value;
   const observacao = el('followupNote').value.trim();
   if(!data_contato || !currentClientName) return;
-  const quemVendedor = userRole==='owner' ? (currentUser.email.split('@')[0]) : vendorName;
+  const quemVendedor = userRole!=='vendor' ? (currentUser.email.split('@')[0]) : vendorName;
   const ok = await saveFollowup(currentClientName, quemVendedor, data_contato, observacao);
   if(ok){ el('followupNote').value=''; loadClientCrmData(currentClientName); }
   else { el('crmWarning').style.display='block'; }

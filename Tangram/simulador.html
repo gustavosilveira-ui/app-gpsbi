@@ -178,9 +178,9 @@ async function init(){
   if(!data.session){ window.location.replace(LOGIN_URL); return; }
   currentUser = data.session.user;
   userEmail = currentUser.email;
-  userRole = isOwner(userEmail) ? 'owner' : 'vendor';
+  userRole = isOwner(userEmail) ? 'owner' : 'viewer';
   userName = nameFromEmail(userEmail);
-  vendorName = userRole==='vendor' ? userName : '';
+  vendorName = '';
 
   renderAppNav({ activePage:'simulador.html', userLabel:userName, userRole, onLogout: doLogout, sb, currentUser });
 
@@ -202,7 +202,7 @@ async function loadData(){
 
     allVendors = Array.from(new Set(captadaRows.map(r=>r.vendedor))).sort();
 
-    if(userRole==='owner'){
+    {
       el('vendorPickerCard').style.display='block';
       el('vendorDatalist').innerHTML = allVendors.map(v=>`<option value="${v}">`).join('');
       const inp = el('vendorPicker');
@@ -212,8 +212,6 @@ async function loadData(){
         const match = allVendors.find(v=>v.toLowerCase()===inp.value.trim().toLowerCase());
         if(match){ simVendedor = match; simOrders=[]; renderSimulator(); }
       });
-    } else {
-      simVendedor = vendorName;
     }
 
     el('loadingScreen').style.display='none';
