@@ -71,7 +71,8 @@ html.light body::before{background:radial-gradient(circle at 80% 6%,rgba(54,226,
 .page-nav a{padding:7px 14px;border-radius:999px;font-size:12px;font-weight:600;color:var(--text3);white-space:nowrap;transition:all .15s;text-decoration:none;}
 .page-nav a:hover{background:var(--navy3);color:var(--text);}
 .page-nav a.active{background:linear-gradient(90deg,var(--blue),var(--cyan));color:#fff;}
-.filters-bar{display:flex;align-items:center;gap:12px;flex-wrap:nowrap;overflow-x:auto;margin-bottom:20px;padding:14px 18px;background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius);}
+.filters-bar-outer{overflow:hidden;margin-bottom:20px;}
+.filters-bar{display:flex;align-items:center;gap:12px;flex-wrap:nowrap;margin-bottom:0;padding:14px 18px;background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius);transform-origin:left center;width:max-content;}
 .filter-label{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;flex:none;white-space:nowrap;}
 .month-select,.vendedor-select,.canal-select{background:var(--navy3);border:1px solid var(--border2);color:var(--text);border-radius:8px;padding:7px 12px;font-family:'Sora',sans-serif;font-size:12.5px;cursor:pointer;flex:none;}
 .badge-role{margin-left:auto;padding:5px 12px;border-radius:999px;font-size:11px;font-weight:600;flex:none;white-space:nowrap;}
@@ -390,7 +391,8 @@ html.light .kpi-card{background:#fff}
   </div>
 
   <div class="content">
-    <div class="filters-bar">
+    <div class="filters-bar-outer">
+    <div class="filters-bar" id="filtersBar">
       <span class="filter-label">Mês</span>
       <select class="month-select" id="monthSelect"></select>
       <span class="filter-label">Anos</span>
@@ -409,6 +411,7 @@ html.light .kpi-card{background:#fff}
         Definir metas
       </button>
       <span class="badge-role" id="roleBadge"></span>
+    </div>
     </div>
     <div class="filter-chips" id="filterChips"></div>
 
@@ -932,7 +935,7 @@ async function loadData(){
     const currentYm = `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`;
     selectedMes = months.includes(currentYm) ? currentYm : (months[0] || '');
     sel.value = selectedMes;
-    sel.addEventListener('change', ()=>{ selectedMes=sel.value; clearDateRange(); render(); });
+    sel.addEventListener('change', ()=>{ selectedMes=sel.value; clearDateRange(); render(); setTimeout(fitFiltersBar,30); });
 
     // Anos disponíveis: força 2025 e 2026 como padrão, mesmo que algum ano não apareça em uma das bases.
     const anosBase = [
@@ -959,14 +962,14 @@ async function loadData(){
 
     const canalSel = el('canalSelect');
     allCanais.forEach(c=>{ const o=document.createElement('option'); o.value=c; o.textContent=c; canalSel.appendChild(o); });
-    canalSel.addEventListener('change', ()=>{ selectedCanal=canalSel.value; render(); });
+    canalSel.addEventListener('change', ()=>{ selectedCanal=canalSel.value; render(); setTimeout(fitFiltersBar,30); });
 
     {
       const vSel = el('vendedorSelect');
       vSel.innerHTML='<option value="">Todos os vendedores</option>';
       allVendors.forEach(v=>{ const o=document.createElement('option'); o.value=v; o.textContent=v; vSel.appendChild(o); });
       selectedVendedor='';
-      vSel.addEventListener('change', ()=>{ selectedVendedor=vSel.value; render(); });
+      vSel.addEventListener('change', ()=>{ selectedVendedor=vSel.value; render(); setTimeout(fitFiltersBar,30); });
     }
 
     let searchDebounce;
@@ -983,6 +986,7 @@ async function loadData(){
     el('loadingScreen').style.display='none';
     el('mainContent').style.display='block';
     render();
+    setTimeout(fitFiltersBar, 60);
   }catch(e){
     console.error(e);
     setLoading('Erro ao carregar dados. Verifique sua conexão.');
@@ -1805,6 +1809,20 @@ async function submitFollowup(){
 
 document.getElementById('btnDark').addEventListener('click', ()=>applyTheme('dark'));
 document.getElementById('btnLight').addEventListener('click', ()=>applyTheme('light'));
+
+function fitFiltersBar(){
+  const outer = document.querySelector('.filters-bar-outer');
+  const bar = el('filtersBar');
+  if(!outer || !bar) return;
+  bar.style.transform = 'scale(1)';
+  const naturalWidth = bar.scrollWidth;
+  const availableWidth = outer.clientWidth;
+  const scale = naturalWidth > availableWidth ? Math.max(0.5, availableWidth / naturalWidth) : 1;
+  bar.style.transform = `scale(${scale})`;
+  outer.style.height = (bar.offsetHeight * scale) + 'px';
+}
+let _fitFiltersBarTimer = null;
+window.addEventListener('resize', ()=>{ clearTimeout(_fitFiltersBarTimer); _fitFiltersBarTimer = setTimeout(fitFiltersBar, 120); });
 
 initAuth();
 </script>
