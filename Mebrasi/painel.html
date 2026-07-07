@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hub GPSBI · Grupo Mebrasi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+:root{
+  --navy:#06172D; --navy2:#071B33; --navy3:#0B2545; --navy4:#123C68;
+  --cyan:#36E2C9; --blue:#2D70B8;
+  --green:#2fd6b8; --red:#ef6a6a; --gold:#f5b942; --purple:#9b7fe8;
+  --text:#FFFFFF; --text2:#D8E6F3; --text3:#9FD8E6;
+  --border:rgba(255,255,255,0.07); --border2:rgba(255,255,255,0.12);
+  --field-bg:rgba(255,255,255,0.045);
+  --shadow:0 18px 42px rgba(0,0,0,0.28);
+  --radius:14px; --radius-sm:10px;
+}
+html.light{
+  --navy:#F6F9FC; --navy2:#FFFFFF; --navy3:#EEF4FA; --navy4:#E6EAF0;
+  --cyan:#008D90; --blue:#0B2545;
+  --text:#071B33; --text2:#344054; --text3:#667085;
+  --border:rgba(7,27,51,.06); --border2:#E6EAF0;
+  --field-bg:#FFFFFF;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{visibility:hidden;}
+html,body{background:var(--navy);color:var(--text);font-family:'Sora',sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh;}
+.mono{font-family:'DM Mono',monospace;}
+body{padding-bottom:40px;}
+
+.loading-screen{position:fixed;inset:0;background:var(--navy);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:200;}
+.spinner{width:36px;height:36px;border-radius:50%;border:3px solid var(--border2);border-top-color:var(--cyan);animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.loading-screen p{margin-top:16px;font-size:12px;color:var(--text3);}
+
+.topbar{display:flex;align-items:center;gap:18px;padding:14px 24px;background:var(--navy2);border-bottom:1px solid var(--border2);position:sticky;top:0;z-index:100;}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:15px;flex:none;white-space:nowrap;}
+.brand .dot{width:9px;height:9px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),var(--blue));}
+.topbar-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex:none;}
+.icon-btn{width:34px;height:34px;border-radius:50%;background:var(--navy3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text2);}
+.user-chip{display:flex;align-items:center;gap:7px;padding:5px 10px 5px 5px;border-radius:999px;background:var(--navy3);border:1px solid var(--border2);font-size:11.5px;font-weight:600;white-space:nowrap;}
+.user-avatar{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),var(--blue));display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;}
+
+.content{max-width:1880px;margin:0 auto;padding:20px 24px;}
+
+.filters-bar{display:flex;align-items:center;gap:12px;flex-wrap:nowrap;overflow-x:auto;margin-bottom:18px;padding:14px 18px;background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius);}
+.filter-label{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;flex:none;white-space:nowrap;}
+.filter-select{background:var(--navy3);border:1px solid var(--border2);color:var(--text);border-radius:8px;padding:7px 12px;font-family:'Sora',sans-serif;font-size:12.5px;cursor:pointer;flex:none;}
+.date-input{background:var(--navy3);border:1px solid var(--border2);color:var(--text);border-radius:8px;padding:6px 10px;font-family:'Sora',sans-serif;font-size:12.5px;flex:none;}
+
+.kpi-grid{display:grid;grid-template-columns:repeat(6,minmax(150px,1fr));gap:14px;margin-bottom:18px;}
+.kpi-card{background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow);position:relative;overflow:hidden;}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--cyan),var(--blue));}
+.kpi-icon{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;margin-bottom:8px;background:linear-gradient(135deg,var(--blue),var(--cyan));color:#fff;}
+.kpi-value{font-size:19px;font-weight:800;font-family:'DM Mono',monospace;line-height:1.1;white-space:nowrap;}
+.kpi-label{font-size:11px;color:var(--text3);margin-top:4px;}
+.kpi-sub{font-size:10.5px;color:var(--text3);margin-top:4px;}
+
+.charts-grid{display:grid;grid-template-columns:minmax(0,2.3fr) minmax(280px,.7fr);gap:14px;margin-bottom:18px;}
+.chart-card{background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);}
+.chart-title{font-size:13.5px;font-weight:700;margin-bottom:2px;}
+.chart-sub{font-size:11px;color:var(--text3);margin-bottom:14px;}
+.chart-box{position:relative;height:280px;}
+
+.table-wrap{overflow-x:auto;}
+.emp-table{width:100%;border-collapse:collapse;font-size:12px;min-width:900px;}
+.emp-table th{text-align:right;font-size:10px;color:var(--text3);text-transform:uppercase;padding:9px 10px;border-bottom:1px solid var(--border2);white-space:nowrap;}
+.emp-table th:first-child,.emp-table td:first-child{text-align:left;}
+.emp-table td{text-align:right;padding:9px 10px;font-family:'DM Mono',monospace;border-bottom:1px solid var(--border);white-space:nowrap;}
+.emp-table tr.total-row td{font-weight:700;border-top:2px solid var(--border2);}
+.pos-val{color:var(--green);} .neg-val{color:var(--red);}
+
+.empty-state{text-align:center;padding:40px 20px;color:var(--text3);font-size:13px;}
+</style>
+</head>
+<body>
+
+<div class="loading-screen" id="loadingScreen">
+  <div class="spinner"></div>
+  <p id="loadingMsg">Carregando o Hub Mebrasi...</p>
+</div>
+
+<div id="mainContent" style="display:none;">
+  <div class="topbar">
+    <div class="brand"><span class="dot"></span> Hub GPSBI · Grupo Mebrasi</div>
+    <div class="topbar-right">
+      <div class="user-chip"><div class="user-avatar" id="userAvatar">--</div><span id="userName">--</span></div>
+      <div class="icon-btn" id="logoutBtn" title="Sair">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+      </div>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="filters-bar">
+      <span class="filter-label">Empresa</span>
+      <select class="filter-select" id="empresaSelect"><option value="">Todos</option></select>
+      <span class="filter-label">Ano</span>
+      <select class="filter-select" id="anoSelect"></select>
+      <span class="filter-label">De</span>
+      <input type="date" class="date-input" id="dateFrom">
+      <span class="filter-label">Até</span>
+      <input type="date" class="date-input" id="dateTo">
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="kpi-icon">$</div><div class="kpi-value" id="kpiFaturamento">--</div><div class="kpi-label">Faturamento (Sem Multicopos)</div></div>
+      <div class="kpi-card"><div class="kpi-icon">👥</div><div class="kpi-value" id="kpiClientes">--</div><div class="kpi-label">Clientes</div><div class="kpi-sub" id="kpiClientesSub">--</div></div>
+      <div class="kpi-card"><div class="kpi-icon">📦</div><div class="kpi-value" id="kpiItens">--</div><div class="kpi-label">Qtd. Faturada (itens)</div></div>
+      <div class="kpi-card"><div class="kpi-icon">📋</div><div class="kpi-value" id="kpiPedidos">--</div><div class="kpi-label">Pedidos (Sem Multicopos)</div></div>
+      <div class="kpi-card"><div class="kpi-icon">🎯</div><div class="kpi-value" id="kpiTicket">--</div><div class="kpi-label">Ticket Médio</div></div>
+      <div class="kpi-card"><div class="kpi-icon">🏷️</div><div class="kpi-value" id="kpiPrecoMedio">--</div><div class="kpi-label">Preço Médio (Item)</div></div>
+    </div>
+
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-title">Evolução do Faturamento</div>
+        <div class="chart-sub">Variação referente ao mês anterior (Sem Multicopos)</div>
+        <div class="chart-box"><canvas id="evolutionChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Share por Empresa</div>
+        <div class="chart-sub">Faturamento Sem Multicopos no período</div>
+        <div class="chart-box"><canvas id="shareChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="chart-card" style="margin-bottom:18px;">
+      <div class="chart-title">Comparativo por Empresa</div>
+      <div class="chart-sub">Faturamento, % do total, mês anterior (mesmo período), YTD vs ano anterior, ticket médio e preço médio</div>
+      <div class="table-wrap">
+        <table class="emp-table">
+          <thead><tr>
+            <th>Empresa</th><th>Faturamento</th><th>% Faturamento</th><th>M-1 (mesmo período)</th>
+            <th>MTD vs M-1</th><th>MTD vs M-1 %</th><th>YTD</th><th>YTD vs Y-1</th><th>YTD vs Y-1 %</th>
+            <th>Ticket Médio</th><th>Preço Médio (Item)</th><th>Itens</th>
+          </tr></thead>
+          <tbody id="empTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ================================================================
+   Hub GPSBI · Grupo Mebrasi — Painel Principal (v1)
+   Fórmulas replicadas fielmente do BiGrupoMebrasi.pbix (56 medidas
+   extraídas via pbixray). Ver HUB_GPSBI_COMPLETO.md pro racional geral.
+   ================================================================ */
+
+const SUPABASE_URL = 'https://hobpwhhpvwlwhmhairnp.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhvYnB3aGhwdndsd2htaGFpcm5wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0NDkzNDksImV4cCI6MjA5OTAyNTM0OX0.j67wDzIZU755bcmanydd_E3TllYN5Ps2QcPH4A4rFUY';
+const LOGIN_URL = 'index.html';
+
+// Configuração das 5 planilhas (Google Sheets, lidas via gviz)
+const SHEETS = {
+  Gymis:      { sheetId: '1Z1cD8WGwRA4rtNa52MMR281Tr577lI2s8xSS86BoLfE', gid: '468585251', codEmpresa: 2, tipo: 'padrao' },
+  Especial:   { sheetId: '1u0Ibjzud3ulbYJ1kuGL0qU8IwPD6YOOqkDXTcG-Z2-8', gid: '0',         codEmpresa: 5, tipo: 'padrao' },
+  Multicopos: { sheetId: '1ULqyRMjupNuI18xE77UKArq8FnrNRIopfkmfotUSxDI', gid: '0',         codEmpresa: 4, tipo: 'padrao' },
+  Ryngavi:    { sheetId: '1ZaorGW2L2P3eBz2teJWvyGnuLg0Bd8U92ULGH0G5gaU', gid: '0',         codEmpresa: 3, tipo: 'padrao' },
+  Online:     { sheetId: '1hxSu4STLMdtj5WgvrzAdLm7aKRQNFF7LggorIR8ly5I', gid: '0',         codEmpresa: 1, tipo: 'online' },
+};
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+function el(id){ return document.getElementById(id); }
+function fmtBRL(n){
+  if(n===null||n===undefined||isNaN(n)) return 'R$ 0';
+  const sign = n<0 ? '-' : '';
+  n = Math.abs(n);
+  if(n>=1e6) return sign+'R$ '+(n/1e6).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+'M';
+  if(n>=1e3) return sign+'R$ '+(n/1e3).toLocaleString('pt-BR',{maximumFractionDigits:0})+'K';
+  return sign+'R$ '+n.toLocaleString('pt-BR',{maximumFractionDigits:0});
+}
+function fmtBRLFull(n){ return 'R$ '+(n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtNum(n){ return (n||0).toLocaleString('pt-BR'); }
+function fmtPct(p){ if(p===null||p===undefined||!isFinite(p)) return '—'; return (p>=0?'+':'')+(p*100).toLocaleString('pt-BR',{maximumFractionDigits:1})+'%'; }
+
+/* ---- Leitura das planilhas via gviz ---- */
+async function fetchGviz(sheetId, gid){
+  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&gid=${gid}&headers=1`;
+  const res = await fetch(url);
+  const text = await res.text();
+  const clean = text.replace(/^[^{]*/, '').replace(/\s*\)\s*;?\s*$/, '');
+  return JSON.parse(clean).table;
+}
+function parseGvizRows(table){
+  if(!table || !table.rows) return [];
+  const cols = table.cols.map(c=>c.label);
+  return table.rows.map(row=>{
+    const obj={};
+    cols.forEach((col,i)=>{ const cell=row.c[i]; obj[col]= cell ? (cell.v!==null?cell.v:(cell.f||null)) : null; });
+    return obj;
+  });
+}
+function parseDateCell(v){
+  if(!v) return null;
+  if(typeof v==='string'){
+    if(/^\d{4}-\d{2}-\d{2}/.test(v)) return v.slice(0,10);
+    if(v.includes('/')){ const [d,m,y]=v.split('/'); return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`; }
+    const dm = v.match(/Date\((\d+),(\d+),(\d+)\)/);
+    if(dm){ const y=dm[1], m=String(parseInt(dm[2])+1).padStart(2,'0'), d=dm[3].padStart(2,'0'); return `${y}-${m}-${d}`; }
+  }
+  return null;
+}
+function parseMoneyBR(v){
+  if(v===null||v===undefined||v==='') return 0;
+  if(typeof v==='number') return v;
+  return parseFloat(String(v).replace(/\./g,'').replace(',','.')) || 0;
+}
+function cellVal(row, col){ const v = row[col]; return (typeof v==='object' && v!==null) ? (v.v!==undefined?v.v:v) : v; }
+
+/* ---- Normalização: cada linha vira um "registro" comum, independente da empresa ---- */
+function rowToRecordPadrao(row, empresaNome, codEmpresaCfg){
+  const dtFatRaw = cellVal(row, 'Dt Faturamento');
+  const dtFat = parseDateCell(dtFatRaw);
+  const situacao = (row['Situação']||'').toString().trim();
+  const situacaoNF = (row['Situação NF']||'').toString().trim();
+  const nomeCliente = (row['Nome do Cliente.']||row['Nome do Cliente']||'').toString().trim();
+  const codProduto = (row['Cod Produto']||'').toString().trim();
+  const tipoContribuinte = (row['Tipo de Contribuinte']||'').toString().trim();
+  const valorFaturado = parseMoneyBR(cellVal(row,'Valor Faturado'));
+  const icmsST = parseMoneyBR(cellVal(row,'ICMS ST'));
+  const valorLiquido = parseMoneyBR(cellVal(row,'Valor Líquido R$'));
+  const totalSemIPI = parseMoneyBR(cellVal(row,'Total sem IPI'));
+  const qtdFaturada = parseMoneyBR(cellVal(row,'Qtd Faturada'));
+  const codPedido = (row['Cod Pedido']||'').toString().trim();
+  const dtEntregaSolicitada = parseDateCell(cellVal(row,'Dt Entrega Solicitada'));
+  if(!dtFat && !dtEntregaSolicitada) return null;
+  return {
+    empresa: empresaNome, codEmpresa: codEmpresaCfg, codPedido, situacao, situacaoNF, nomeCliente,
+    codProduto, tipoContribuinte, valorFaturado, icmsST, valorLiquido, totalSemIPI, qtdFaturada,
+    dtFat, dtEntregaSolicitada,
+  };
+}
+function rowToRecordOnline(row, codEmpresaCfg){
+  const dt = parseDateCell(cellVal(row,'Data'));
+  if(!dt) return null;
+  const status = (row['Status pedido']||'').toString().trim();
+  const total = parseMoneyBR(cellVal(row,'Total'));
+  const nomeCliente = (row['Nome do Cliente']||'').toString().trim();
+  // No modelo de referência, pedidos de marketplace contam como "Faturado" quando finalizados/enviados
+  const situacaoEquivalente = (status==='FINALIZADO'||status==='ENVIADO') ? 'Faturado' : status;
+  return {
+    empresa:'Online', codEmpresa: codEmpresaCfg, codPedido:(row['Pedido']||'').toString().trim(),
+    situacao: situacaoEquivalente, situacaoNF:'', nomeCliente, codProduto:'', tipoContribuinte:'Online',
+    valorFaturado: total, icmsST:0, valorLiquido: total, totalSemIPI: total, qtdFaturada:1,
+    dtFat: dt, dtEntregaSolicitada: dt,
+  };
+}
+
+let allRows = [];
+let currentUser = null;
+let selectedEmpresa = '', selectedAno = '', dateFrom='', dateTo='';
+
+async function init(){
+  const { data } = await sb.auth.getSession();
+  if(!data.session){ window.location.replace(LOGIN_URL); return; }
+  currentUser = data.session.user;
+  el('userAvatar').textContent = currentUser.email.slice(0,2).toUpperCase();
+  el('userName').textContent = currentUser.email.split('@')[0];
+  el('logoutBtn').addEventListener('click', async ()=>{ await sb.auth.signOut(); window.location.href = LOGIN_URL; });
+  document.documentElement.style.visibility='visible';
+  await loadData();
+}
+
+async function loadData(){
+  try{
+    const empresas = Object.keys(SHEETS);
+    let combined = [];
+    for(const nome of empresas){
+      el('loadingMsg').textContent = `Carregando ${nome}...`;
+      const cfg = SHEETS[nome];
+      const table = await fetchGviz(cfg.sheetId, cfg.gid);
+      const raw = parseGvizRows(table);
+      const recs = raw.map(r => cfg.tipo==='online' ? rowToRecordOnline(r, cfg.codEmpresa) : rowToRecordPadrao(r, nome, cfg.codEmpresa)).filter(Boolean);
+      combined = combined.concat(recs);
+    }
+    allRows = combined;
+
+    // filtros: Empresa e Ano
+    const empSel = el('empresaSelect');
+    empresas.forEach(nome=>{ const o=document.createElement('option'); o.value=nome; o.textContent=nome; empSel.appendChild(o); });
+    empSel.addEventListener('change', ()=>{ selectedEmpresa = empSel.value; render(); });
+
+    const anos = Array.from(new Set(allRows.map(r=>r.dtFat.slice(0,4)))).sort().reverse();
+    const anoSel = el('anoSelect');
+    anos.forEach(a=>{ const o=document.createElement('option'); o.value=a; o.textContent=a; anoSel.appendChild(o); });
+    selectedAno = anos[0] || '';
+    anoSel.value = selectedAno;
+    anoSel.addEventListener('change', ()=>{ selectedAno = anoSel.value; render(); });
+
+    el('dateFrom').addEventListener('change', e=>{ dateFrom = e.target.value; render(); });
+    el('dateTo').addEventListener('change', e=>{ dateTo = e.target.value; render(); });
+
+    el('loadingScreen').style.display='none';
+    el('mainContent').style.display='block';
+    render();
+  }catch(e){
+    console.error(e);
+    el('loadingMsg').textContent = 'Erro ao carregar as bases. Verifique o acesso às planilhas.';
+  }
+}
+
+/* ================== MOTOR DE CÁLCULO (fórmulas do .pbix) ================== */
+function isMulticoposCliente(r){ return (r.nomeCliente||'').toUpperCase().includes('MULTICOPOS'); }
+function isGSLProduto(r){ return (r.codProduto||'').toUpperCase().includes('GSL'); }
+function valorFaturamento(r){
+  return r.tipoContribuinte==='Suframa' ? r.valorLiquido : (r.valorFaturado + r.icmsST);
+}
+function inScope(r){
+  if(selectedEmpresa && r.empresa!==selectedEmpresa) return false;
+  if(dateFrom && r.dtFat < dateFrom) return false;
+  if(dateTo && r.dtFat > dateTo) return false;
+  if(!dateFrom && !dateTo && selectedAno && r.dtFat.slice(0,4)!==selectedAno) return false;
+  return true;
+}
+// Faturamento/Icms/Suframa (Sem Multicopos)
+function faturamentoSemMulticopos(rows){
+  return rows.filter(r=>!isMulticoposCliente(r)).reduce((s,r)=>s+valorFaturamento(r),0);
+}
+// Faturamento/Icms/Suframa (Com Multicopos)
+function faturamentoComMulticopos(rows){
+  return rows.reduce((s,r)=>s+valorFaturamento(r),0);
+}
+// Faturamento Triangular
+function faturamentoTriangular(rows){
+  return rows.filter(isMulticoposCliente).reduce((s,r)=>s+valorFaturamento(r),0);
+}
+// Faturamento Fidelidade
+function faturamentoFidelidade(rows){
+  return rows.filter(r=>!isMulticoposCliente(r) && r.situacaoNF==='No Impressa').reduce((s,r)=>s+valorFaturamento(r),0);
+}
+function pedidosSemMulticopos(rows){
+  return new Set(rows.filter(r=>!isMulticoposCliente(r)).map(r=>r.codPedido)).size;
+}
+function itensSemMulticoposSemGSL(rows){
+  return rows.filter(r=>!isMulticoposCliente(r) && !isGSLProduto(r)).reduce((s,r)=>s+r.qtdFaturada,0);
+}
+function clientesSemOnline(rows){
+  return new Set(rows.filter(r=>r.empresa!=='Online' && !isMulticoposCliente(r)).map(r=>r.nomeCliente)).size;
+}
+function clientesOnline(rows){
+  return new Set(rows.filter(r=>r.empresa==='Online' && !isMulticoposCliente(r)).map(r=>r.nomeCliente)).size;
+}
+function monthAdd(ym, delta){
+  let [y,m] = ym.split('-').map(Number);
+  const total = y*12+(m-1)+delta;
+  const ny = Math.floor(total/12), nm = (total%12)+1;
+  return `${ny}-${String(nm).padStart(2,'0')}`;
+}
+// M-1 (mesmo período): mesmos dias-do-mês do mês anterior — ver faturamentoMesmoPeriodo() abaixo
+function faturamentoMesmoPeriodo(rows, ym, dayLimit, monthsBack){
+  const targetMonth = monthAdd(ym, monthsBack);
+  return rows.filter(r=>{
+    if(isMulticoposCliente(r)) return false;
+    if(r.dtFat.slice(0,7)!==targetMonth) return false;
+    if(dayLimit){ const d=parseInt(r.dtFat.slice(8,10),10); if(d>dayLimit) return false; }
+    return true;
+  }).reduce((s,r)=>s+valorFaturamento(r),0);
+}
+
+function renderTable(rows){
+  const empresas = Object.keys(SHEETS);
+  const today = new Date();
+  const curYm = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
+  const dayLimit = today.getDate();
+
+  let totCap=0, totM1=0, totYTD=0, totYm1=0, totItens=0;
+  const linhas = empresas.map(nomeEmp=>{
+    const rowsEmp = rows.filter(r=>r.empresa===nomeEmp);
+    const fat = faturamentoSemMulticopos(rowsEmp) + faturamentoTriangular(rowsEmp) + faturamentoFidelidade(rowsEmp);
+    const m1 = faturamentoMesmoPeriodo(allRows.filter(r=>r.empresa===nomeEmp), selectedAno? `${selectedAno}-${curYm.slice(5)}` : curYm, dayLimit, -1);
+    const ytdRows = allRows.filter(r=>r.empresa===nomeEmp && r.dtFat.slice(0,4)===(selectedAno||curYm.slice(0,4)));
+    const ytd = faturamentoSemMulticopos(ytdRows);
+    const ytdY1Rows = allRows.filter(r=>r.empresa===nomeEmp && r.dtFat.slice(0,4)===String(Number(selectedAno||curYm.slice(0,4))-1));
+    const ytdY1 = faturamentoSemMulticopos(ytdY1Rows);
+    const itens = itensSemMulticoposSemGSL(rowsEmp);
+    const pedidosUnicos = pedidosSemMulticopos(rowsEmp);
+    const ticket = pedidosUnicos>0 ? fat/pedidosUnicos : 0;
+    const precoMedio = itens>0 ? fat/itens : 0;
+    totCap+=fat; totM1+=m1; totYTD+=ytd; totYm1+=ytdY1; totItens+=itens;
+    return { nomeEmp, fat, m1, ytd, ytdY1, itens, ticket, precoMedio };
+  });
+
+  const body = el('empTableBody'); body.innerHTML='';
+  linhas.forEach(l=>{
+    const pctFat = totCap>0 ? l.fat/totCap : 0;
+    const deltaM1 = l.fat - l.m1;
+    const pctM1 = l.m1>0 ? deltaM1/l.m1 : null;
+    const deltaY1 = l.ytd - l.ytdY1;
+    const pctY1 = l.ytdY1>0 ? deltaY1/l.ytdY1 : null;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${l.nomeEmp}</td><td>${fmtBRLFull(l.fat)}</td><td>${(pctFat*100).toLocaleString('pt-BR',{maximumFractionDigits:2})}%</td>
+      <td>${fmtBRLFull(l.m1)}</td><td class="${deltaM1>=0?'pos-val':'neg-val'}">${fmtBRLFull(deltaM1)}</td><td class="${(pctM1||0)>=0?'pos-val':'neg-val'}">${fmtPct(pctM1)}</td>
+      <td>${fmtBRLFull(l.ytd)}</td><td class="${deltaY1>=0?'pos-val':'neg-val'}">${fmtBRLFull(deltaY1)}</td><td class="${(pctY1||0)>=0?'pos-val':'neg-val'}">${fmtPct(pctY1)}</td>
+      <td>${fmtBRLFull(l.ticket)}</td><td>${fmtBRLFull(l.precoMedio)}</td><td>${fmtNum(l.itens)}</td>`;
+    body.appendChild(tr);
+  });
+  const totTicket = 0; // total de ticket médio não é soma simples; deixado pro refinamento
+  const totDeltaM1 = totCap-totM1, totPctM1 = totM1>0?totDeltaM1/totM1:null;
+  const totDeltaY1 = totYTD-totYm1, totPctY1 = totYm1>0?totDeltaY1/totYm1:null;
+  const trT = document.createElement('tr'); trT.className='total-row';
+  trT.innerHTML = `<td>Total</td><td>${fmtBRLFull(totCap)}</td><td>100%</td>
+    <td>${fmtBRLFull(totM1)}</td><td class="${totDeltaM1>=0?'pos-val':'neg-val'}">${fmtBRLFull(totDeltaM1)}</td><td class="${(totPctM1||0)>=0?'pos-val':'neg-val'}">${fmtPct(totPctM1)}</td>
+    <td>${fmtBRLFull(totYTD)}</td><td class="${totDeltaY1>=0?'pos-val':'neg-val'}">${fmtBRLFull(totDeltaY1)}</td><td class="${(totPctY1||0)>=0?'pos-val':'neg-val'}">${fmtPct(totPctY1)}</td>
+    <td>—</td><td>—</td><td>${fmtNum(totItens)}</td>`;
+  body.appendChild(trT);
+
+  return { linhas, totCap };
+}
+
+let evChart=null, shareChart=null;
+function renderEvolutionChart(rows){
+  const anosRef = selectedAno ? [selectedAno] : Array.from(new Set(rows.map(r=>r.dtFat.slice(0,4)))).sort();
+  const meses = [];
+  anosRef.forEach(ano=>{ for(let m=1;m<=12;m++){ meses.push(`${ano}-${String(m).padStart(2,'0')}`); } });
+  const mesesComDado = meses.filter(ym=>allRows.some(r=>(!selectedEmpresa||r.empresa===selectedEmpresa) && r.dtFat.slice(0,7)===ym));
+  const valores = mesesComDado.map(ym=>faturamentoSemMulticopos(allRows.filter(r=>(!selectedEmpresa||r.empresa===selectedEmpresa) && r.dtFat.slice(0,7)===ym)));
+  const labels = mesesComDado.map(ym=>{ const [y,m]=ym.split('-'); const n=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez']; return n[parseInt(m,10)-1]+'/'+y.slice(2); });
+
+  const data = { labels, datasets:[{ label:'Faturamento', data:valores, backgroundColor:'#2D70B8', borderRadius:5, maxBarThickness:34 }] };
+  const opts = { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmtBRLFull(c.parsed.y)}}},
+    scales:{ x:{grid:{display:false},ticks:{color:'#9FD8E6',font:{size:11}}}, y:{grid:{color:'rgba(255,255,255,.08)'},ticks:{color:'#9FD8E6',font:{size:11},callback:v=>fmtBRL(v)}} } };
+  if(evChart){ evChart.data=data; evChart.options=opts; evChart.update(); } else evChart = new Chart(el('evolutionChart'),{type:'bar',data,options:opts});
+}
+function renderShareChart(rows){
+  const empresas = Object.keys(SHEETS);
+  const vals = empresas.map(nome=>faturamentoSemMulticopos(rows.filter(r=>r.empresa===nome)));
+  const COLORS=['#ef6a6a','#2D70B8','#9FD8E6','#123C68','#36E2C9'];
+  const data = { labels: empresas, datasets:[{ data: vals, backgroundColor: COLORS, borderWidth:0 }] };
+  const opts = { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:true,position:'right',labels:{color:'#9FD8E6',boxWidth:10,font:{size:11}}},tooltip:{callbacks:{label:c=>`${c.label}: ${fmtBRLFull(c.parsed)}`}}} };
+  if(shareChart){ shareChart.data=data; shareChart.options=opts; shareChart.update(); } else shareChart = new Chart(el('shareChart'),{type:'doughnut',data,options:opts});
+}
+
+function render(){
+  const rows = allRows.filter(inScope);
+
+  const fat = faturamentoSemMulticopos(rows) + faturamentoTriangular(rows) + faturamentoFidelidade(rows);
+  const itens = itensSemMulticoposSemGSL(rows);
+  const pedidos = pedidosSemMulticopos(rows);
+  const cliSemOnline = clientesSemOnline(rows);
+  const cliOnline = clientesOnline(rows);
+  const ticket = pedidos>0 ? fat/pedidos : 0;
+  const precoMedio = itens>0 ? fat/itens : 0;
+
+  el('kpiFaturamento').textContent = fmtBRL(fat);
+  el('kpiClientes').textContent = fmtNum(cliSemOnline) + ' → ' + fmtNum(cliOnline);
+  el('kpiClientesSub').textContent = 'Mebrasi → Online';
+  el('kpiItens').textContent = fmtNum(Math.round(itens));
+  el('kpiPedidos').textContent = fmtNum(pedidos);
+  el('kpiTicket').textContent = fmtBRL(ticket);
+  el('kpiPrecoMedio').textContent = fmtBRLFull(precoMedio);
+
+  renderTable(rows);
+  renderEvolutionChart(rows);
+  renderShareChart(rows);
+}
+
+init();
+</script>
+</body>
+</html>
