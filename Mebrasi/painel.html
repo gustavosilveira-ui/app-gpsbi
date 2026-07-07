@@ -213,6 +213,7 @@ function parseMoneyBR(v){
   return parseFloat(String(v).replace(/\./g,'').replace(',','.')) || 0;
 }
 function cellVal(row, col){ const v = row[col]; return (typeof v==='object' && v!==null) ? (v.v!==undefined?v.v:v) : v; }
+function dataBase(r){ return r.dtFat || r.dtEntregaSolicitada || null; }
 
 /* ---- Normalização: cada linha vira um "registro" comum, independente da empresa ---- */
 function rowToRecordPadrao(row, empresaNome, codEmpresaCfg){
@@ -287,7 +288,7 @@ async function loadData(){
     empresas.forEach(nome=>{ const o=document.createElement('option'); o.value=nome; o.textContent=nome; empSel.appendChild(o); });
     empSel.addEventListener('change', ()=>{ selectedEmpresa = empSel.value; render(); });
 
-    const anos = Array.from(new Set(allRows.map(r=>r.dtFat.slice(0,4)))).sort().reverse();
+    const anos = Array.from(new Set(allRows.map(r=>dataBase(r)).filter(Boolean).map(d=>d.slice(0,4)))).sort().reverse();
     const anoSel = el('anoSelect');
     anos.forEach(a=>{ const o=document.createElement('option'); o.value=a; o.textContent=a; anoSel.appendChild(o); });
     selectedAno = anos[0] || '';
@@ -303,6 +304,7 @@ async function loadData(){
   }catch(e){
     console.error(e);
     el('loadingMsg').textContent = 'Erro ao carregar as bases. Verifique o acesso às planilhas.';
+    alert('Erro no carregamento: '+(e.message||e));
   }
 }
 
@@ -314,9 +316,11 @@ function valorFaturamento(r){
 }
 function inScope(r){
   if(selectedEmpresa && r.empresa!==selectedEmpresa) return false;
-  if(dateFrom && r.dtFat < dateFrom) return false;
-  if(dateTo && r.dtFat > dateTo) return false;
-  if(!dateFrom && !dateTo && selectedAno && r.dtFat.slice(0,4)!==selectedAno) return false;
+  const d = dataBase(r);
+  if(!d) return false;
+  if(dateFrom && d < dateFrom) return false;
+  if(dateTo && d > dateTo) return false;
+  if(!dateFrom && !dateTo && selectedAno && d.slice(0,4)!==selectedAno) return false;
   return true;
 }
 // Faturamento/Icms/Suframa (Sem Multicopos)
@@ -358,8 +362,9 @@ function faturamentoMesmoPeriodo(rows, ym, dayLimit, monthsBack){
   const targetMonth = monthAdd(ym, monthsBack);
   return rows.filter(r=>{
     if(isMulticoposCliente(r)) return false;
-    if(r.dtFat.slice(0,7)!==targetMonth) return false;
-    if(dayLimit){ const d=parseInt(r.dtFat.slice(8,10),10); if(d>dayLimit) return false; }
+    const d = dataBase(r);
+    if(!d || d.slice(0,7)!==targetMonth) return false;
+    if(dayLimit){ const dia=parseInt(d.slice(8,10),10); if(dia>dayLimit) return false; }
     return true;
   }).reduce((s,r)=>s+valorFaturamento(r),0);
 }
@@ -375,9 +380,9 @@ function renderTable(rows){
     const rowsEmp = rows.filter(r=>r.empresa===nomeEmp);
     const fat = faturamentoSemMulticopos(rowsEmp) + faturamentoTriangular(rowsEmp) + faturamentoFidelidade(rowsEmp);
     const m1 = faturamentoMesmoPeriodo(allRows.filter(r=>r.empresa===nomeEmp), selectedAno? `${selectedAno}-${curYm.slice(5)}` : curYm, dayLimit, -1);
-    const ytdRows = allRows.filter(r=>r.empresa===nomeEmp && r.dtFat.slice(0,4)===(selectedAno||curYm.slice(0,4)));
+    const ytdRows = allRows.filter(r=>r.empresa===nomeEmp && dataBase(r) && dataBase(r).slice(0,4)===(selectedAno||curYm.slice(0,4)));
     const ytd = faturamentoSemMulticopos(ytdRows);
-    const ytdY1Rows = allRows.filter(r=>r.empresa===nomeEmp && r.dtFat.slice(0,4)===String(Number(selectedAno||curYm.slice(0,4))-1));
+    const ytdY1Rows = allRows.filter(r=>r.empresa===nomeEmp && dataBase(r) && dataBase(r).slice(0,4)===String(Number(selectedAno||curYm.slice(0,4))-1));
     const ytdY1 = faturamentoSemMulticopos(ytdY1Rows);
     const itens = itensSemMulticoposSemGSL(rowsEmp);
     const pedidosUnicos = pedidosSemMulticopos(rowsEmp);
@@ -416,11 +421,11 @@ function renderTable(rows){
 
 let evChart=null, shareChart=null;
 function renderEvolutionChart(rows){
-  const anosRef = selectedAno ? [selectedAno] : Array.from(new Set(rows.map(r=>r.dtFat.slice(0,4)))).sort();
+  const anosRef = selectedAno ? [selectedAno] : Array.from(new Set(rows.map(r=>dataBase(r)).filter(Boolean).map(d=>d.slice(0,4)))).sort();
   const meses = [];
   anosRef.forEach(ano=>{ for(let m=1;m<=12;m++){ meses.push(`${ano}-${String(m).padStart(2,'0')}`); } });
-  const mesesComDado = meses.filter(ym=>allRows.some(r=>(!selectedEmpresa||r.empresa===selectedEmpresa) && r.dtFat.slice(0,7)===ym));
-  const valores = mesesComDado.map(ym=>faturamentoSemMulticopos(allRows.filter(r=>(!selectedEmpresa||r.empresa===selectedEmpresa) && r.dtFat.slice(0,7)===ym)));
+  const mesesComDado = meses.filter(ym=>allRows.some(r=>(!selectedEmpresa||r.empresa===selectedEmpresa) && dataBase(r) && dataBase(r).slice(0,7)===ym));
+  const valores = mesesComDado.map(ym=>faturamentoSemMulticopos(allRows.filter(r=>(!selectedEmpresa||r.empresa===selectedEmpresa) && dataBase(r) && dataBase(r).slice(0,7)===ym)));
   const labels = mesesComDado.map(ym=>{ const [y,m]=ym.split('-'); const n=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez']; return n[parseInt(m,10)-1]+'/'+y.slice(2); });
 
   const data = { labels, datasets:[{ label:'Faturamento', data:valores, backgroundColor:'#2D70B8', borderRadius:5, maxBarThickness:34 }] };
