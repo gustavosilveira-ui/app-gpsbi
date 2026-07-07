@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulador de Meta · Hub GPSBI</title>
+<link rel="stylesheet" href="theme.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<div class="loading-screen" id="loadingScreen"><div class="spinner"></div><p>Carregando...</p></div>
+<div id="mainContent" style="display:none;">
+  <div class="content">
+    <div class="card">
+      <div class="card-title">🎯 Simulador de Meta</div>
+      <div class="card-sub">Módulo em preparação para o Grupo Mebrasi.</div>
+      <div class="empty-state"><div class="icon">🎯</div>Vamos ativar esta página depois que as bases específicas do Mebrasi estiverem validadas.</div>
+    </div>
+  </div>
+</div>
+<script src="nav.js"></script>
+<script>
+const SUPABASE_URL = 'https://hobpwhhpvwlwhmhairnp.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJob2Jwd2hocHZ3bHdobWhhaXJucCIsInJvbGUiOiJhbm9uIiwiaWF0IjoxNzgzNDQ5MzQ5LCJleHAiOjIwOTkwMjUzNDl9.j67wDzIZU755bcmanydd_E3TllYN5Ps2QcPH4A4rFUY';
+const LOGIN_URL = 'index.html';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+function nameFromEmail(email){ return email.split('@')[0].split('.').map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' '); }
+async function doLogout(){ await sb.auth.signOut(); window.location.href=LOGIN_URL; }
+async function init(){
+ const { data } = await sb.auth.getSession();
+ if(!data.session){ window.location.replace(LOGIN_URL); return; }
+ const user=data.session.user;
+ renderAppNav({ activePage:'simulador.html', userLabel:nameFromEmail(user.email), userRole:user.email.endsWith('@gpsbi.com.br')?'owner':'vendor', onLogout:doLogout, sb, currentUser:user });
+ document.getElementById('loadingScreen').style.display='none';
+ document.getElementById('mainContent').style.display='block';
+}
+init();
+</script>
+</body>
+</html>
