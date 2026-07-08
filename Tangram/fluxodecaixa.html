@@ -423,7 +423,17 @@ async function loadBoletosDescontados(){
     console.error('Erro ao carregar a aba Desconto duplicada:', e);
   }
 }
-function isDuplicataDescontadaRow(r, grupo, valor){
+function todayISO(){
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function isDuplicataDescontadaRow(r, grupo, valor, date){
+  // Regra solicitada: duplicatas descontadas passam a valer só de hoje pra frente.
+  // Datas anteriores ao dia vigente ficam zeradas nessa linha nova e seguem o histórico normal.
+  if(date < todayISO()) return false;
   if(grupo!=='RECEBIMENTOS' || valor<=0 || !boletosDescontados.size) return false;
   const nossoNumero = getColNormalized(r, 'nosso numero');
   const boleto = extractBoletoFromNossoNumero(nossoNumero);
@@ -451,7 +461,9 @@ function rowsFromGvizTable(table, contaLabel){
     if(date <= HISTORICO_CUTOFF) return null; // histórico até 30/06/2026 fica congelado pela planilha antiga
 
     const categoria = (getColNormalized(r, 'categoria')||'').toString().trim();
-    if(normalizeTxt(categoria)==='transferencia entre contas') return null; // não entra no fluxo
+    // Transferências não entram no fluxo de recebimentos/pagamentos.
+    // Além de "Transferência entre contas", qualquer categoria contendo "transferencia" é ignorada.
+    if(normalizeTxt(categoria).includes('transferencia')) return null;
 
     const origem = (getColNormalized(r, 'origem')||'').toString().trim();
     if(normalizeTxt(origem).includes('previsao')) return null; // linha de previsão, não é movimentação realizada
@@ -460,7 +472,7 @@ function rowsFromGvizTable(table, contaLabel){
     const valor = parseMoneyBR(typeof valorRaw==='object' && valorRaw!==null ? (valorRaw.v ?? valorRaw.f) : valorRaw);
 
     let grupo = resolveGrupoCategoria(categoria, valor);
-    const duplicataDescontada = isDuplicataDescontadaRow(r, grupo, valor);
+    const duplicataDescontada = isDuplicataDescontadaRow(r, grupo, valor, date);
     if(duplicataDescontada) grupo = 'DUPLICATAS_DESCONTADAS';
 
     const situacao = (getColNormalized(r, 'situacao')||'').toString().trim();
