@@ -36,6 +36,25 @@ html.light .fc-lvl-0 td{background:#eef1f6;}
 
 /* Novas seções abaixo do fluxo de caixa (não afetam o layout da tabela principal) */
 .fc-sim-form{display:grid;grid-template-columns:1.4fr 1fr 160px auto;gap:10px;align-items:end;}
+.fc-ajustes-row{display:grid;grid-template-columns:1fr 1px 1fr;gap:20px;align-items:start;}
+.fc-ajustes-col{min-width:0;}
+.fc-ajustes-divider{background:var(--border2);align-self:stretch;}
+.fc-mini-form{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;}
+.fc-mini-form-4{grid-template-columns:1fr 1fr 120px auto;}
+.fc-mini-form input{font-size:12px;padding:8px 10px;}
+.fc-mini-title{font-size:13.5px;font-weight:800;margin-bottom:3px;}
+.fc-mini-sub{font-size:11px;color:var(--text3);margin-bottom:12px;line-height:1.4;}
+@media(max-width:900px){
+  .fc-ajustes-row{grid-template-columns:1fr;}
+  .fc-ajustes-divider{display:none;}
+  .fc-mini-form,.fc-mini-form-4{grid-template-columns:1fr;}
+}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.55);display:none;align-items:center;justify-content:center;z-index:300;}
+.modal-overlay.show{display:flex;}
+.modal-box{background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius);padding:24px;width:460px;max-width:92vw;max-height:80vh;overflow-y:auto;box-shadow:0 30px 70px rgba(0,0,0,.5);}
+.modal-title{font-size:16px;font-weight:700;margin-bottom:4px;}
+.modal-sub{font-size:12px;color:var(--text3);margin-bottom:16px;}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;}
 .fc-saldo-form{display:grid;grid-template-columns:200px 200px auto;gap:10px;align-items:end;}
 .fc-saldo-status{font-size:12.5px;color:var(--text2);background:var(--navy3);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
 .fc-sim-table-wrap{overflow-x:auto;}
@@ -95,46 +114,55 @@ html.light .fc-lvl-0 td{background:#eef1f6;}
         <span><span class="fc-dot" style="background:var(--red)"></span> Saldo negativo</span>
         <span><span class="fc-dot" style="background:#2D70B8"></span> Hoje</span>
       </div>
+      <div id="fcDebugStats" style="font-size:11px;color:var(--text3);margin-top:8px;"></div>
     </div>
 
-    <!-- ============ NOVO: Saldo Inicial ============ -->
-    <div class="card" id="fcSaldoInicialCard">
-      <div class="card-title">🏁 Saldo Inicial</div>
-      <div class="card-sub">Defina o saldo em uma data específica — o Saldo Acumulado passa a respeitar esse valor a partir dali. Remova pra voltar ao cálculo padrão (soma de todo o histórico da planilha). Visível só pro time GPS.</div>
-      <div class="fc-saldo-form">
-        <div class="field-group" style="margin-bottom:0;">
-          <label class="field-label">Data</label>
-          <input type="date" id="fcSaldoInicialData">
+    <!-- ============ NOVO: Saldo Inicial + Lançamentos Manuais (compacto, lado a lado) ============ -->
+    <div class="card" id="fcAjustesGpsCard">
+      <div class="fc-ajustes-row">
+        <div class="fc-ajustes-col">
+          <div class="fc-mini-title">🏁 Saldo Inicial</div>
+          <div class="fc-mini-sub">Define o saldo numa data — o Acumulado passa a respeitar isso a partir dali. Visível só pro time GPS.</div>
+          <div class="fc-mini-form">
+            <input type="date" id="fcSaldoInicialData">
+            <input type="number" id="fcSaldoInicialValor" placeholder="Saldo (R$)">
+            <button class="btn btn-primary btn-sm" onclick="applySaldoInicial()">Aplicar</button>
+          </div>
+          <button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="openSaldoInicialModal()">Ver detalhes</button>
         </div>
-        <div class="field-group" style="margin-bottom:0;">
-          <label class="field-label">Saldo nessa data (R$)</label>
-          <input type="number" id="fcSaldoInicialValor" placeholder="Ex: 150000">
+        <div class="fc-ajustes-divider"></div>
+        <div class="fc-ajustes-col">
+          <div class="fc-mini-title">🖊️ Lançamentos Manuais</div>
+          <div class="fc-mini-sub">Valor lançado à mão (despesa sem categoria ainda, etc). Entra de verdade no Saldo Acumulado. Visível só pro time GPS.</div>
+          <div class="fc-mini-form fc-mini-form-4">
+            <input type="text" id="fcAjusteDesc" placeholder="Descrição">
+            <input type="number" id="fcAjusteValor" placeholder="Valor (R$)">
+            <input type="date" id="fcAjusteData">
+            <button class="btn btn-primary btn-sm" onclick="addAjusteManual()">Adicionar</button>
+          </div>
+          <button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="openAjustesManuaisModal()">Ver lançamentos <span id="fcAjusteCount"></span></button>
         </div>
-        <button class="btn btn-primary" onclick="applySaldoInicial()">Aplicar</button>
       </div>
-      <div class="fc-saldo-status" id="fcSaldoInicialStatus" style="margin-top:14px;"></div>
     </div>
 
-    <!-- ============ NOVO: Lançamentos Manuais ============ -->
-    <div class="card" id="fcAjustesManuaisCard">
-      <div class="card-title">🖊️ Lançamentos Manuais</div>
-      <div class="card-sub">Pra valores lançados à mão — despesa sem categoria definida ainda, aguardando confirmação do time de compras ou do cliente etc. Entra de verdade no Saldo Acumulado (positivo ou negativo). Visível só pro time GPS.</div>
-      <div class="fc-sim-form">
-        <div class="field-group" style="margin-bottom:0;">
-          <label class="field-label">Descrição</label>
-          <input type="text" id="fcAjusteDesc" placeholder="Ex: Despesa aguardando categoria, ajuste de compras...">
-        </div>
-        <div class="field-group" style="margin-bottom:0;">
-          <label class="field-label">Valor (R$) — negativo se for despesa</label>
-          <input type="number" id="fcAjusteValor" placeholder="Ex: 5000 ou -3200">
-        </div>
-        <div class="field-group" style="margin-bottom:0;">
-          <label class="field-label">Data</label>
-          <input type="date" id="fcAjusteData">
-        </div>
-        <button class="btn btn-primary" onclick="addAjusteManual()">Adicionar</button>
+    <!-- Modal: histórico do Saldo Inicial -->
+    <div class="modal-overlay" id="saldoInicialModal">
+      <div class="modal-box">
+        <div class="modal-title">🏁 Saldo Inicial</div>
+        <div class="modal-sub">Status atual do saldo inicial ativo no Fluxo de Caixa.</div>
+        <div class="fc-saldo-status" id="fcSaldoInicialStatus"></div>
+        <div class="modal-actions"><button class="btn btn-ghost" onclick="closeSaldoInicialModal()">Fechar</button></div>
       </div>
-      <div id="fcAjusteList" style="margin-top:14px;"></div>
+    </div>
+
+    <!-- Modal: histórico dos Lançamentos Manuais -->
+    <div class="modal-overlay" id="ajustesManuaisModal">
+      <div class="modal-box" style="width:520px;">
+        <div class="modal-title">🖊️ Lançamentos Manuais</div>
+        <div class="modal-sub">Todos os valores lançados à mão que estão entrando no Saldo Acumulado hoje.</div>
+        <div id="fcAjusteList"></div>
+        <div class="modal-actions"><button class="btn btn-ghost" onclick="closeAjustesManuaisModal()">Fechar</button></div>
+      </div>
     </div>
 
     <!-- ============ NOVO: Simulador de impacto no saldo ============ -->
@@ -316,8 +344,7 @@ async function init(){
 
   gpsStaff = isGpsStaff(email);
   if(!gpsStaff){
-    const saldoCard = el('fcSaldoInicialCard'); if(saldoCard) saldoCard.style.display='none';
-    const ajustesCard = el('fcAjustesManuaisCard'); if(ajustesCard) ajustesCard.style.display='none';
+    const card = el('fcAjustesGpsCard'); if(card) card.style.display='none';
   }
 
   renderAppNav({ activePage:'fluxodecaixa.html', userLabel: nameFromEmail(email), userRole: isOwner(email)?'owner':'vendor', onLogout: doLogout, sb, currentUser });
@@ -475,11 +502,26 @@ function buildAndRenderTable(){
   columnTree = buildColumnTree();
   rowTree = buildRowTree();
   renderTable();
+  renderDebugStats();
   // espera o layout (e a fonte) estabilizar antes de rolar, senão a posição sai errada
   const doScroll = ()=>scrollToToday();
   if(document.fonts && document.fonts.ready){ document.fonts.ready.then(doScroll); }
   requestAnimationFrame(()=>requestAnimationFrame(doScroll));
   setTimeout(doScroll, 300);
+}
+
+// Diagnóstico rápido (só GPS): quantas linhas carregaram de cada tipo/conta.
+// Ajuda a identificar rápido se algo sumiu do fluxo sem precisar abrir o console.
+function renderDebugStats(){
+  const wrap = el('fcDebugStats');
+  if(!wrap) return;
+  if(!gpsStaff){ wrap.textContent = ''; return; }
+  const totalPrincipal = rows.filter(r=>r.conta==='Principal').length;
+  const totalAgencia = rows.filter(r=>r.conta==='Agência').length;
+  const totalRec = rows.filter(r=>r.grupo==='RECEBIMENTOS').length;
+  const totalAjustes = rows.filter(r=>r.grupo==='AJUSTES_MANUAIS').length;
+  const totalPag = rows.length - totalRec - totalAjustes;
+  wrap.textContent = `🔍 Diagnóstico (só GPS): ${rows.length} linhas no total · Conta Principal: ${totalPrincipal} · Conta Agência: ${totalAgencia} · Recebimentos: ${totalRec} · Pagamentos: ${totalPag} · Lançamentos manuais: ${totalAjustes}`;
 }
 
 function renderTable(){
@@ -554,6 +596,11 @@ function toggleRowNode(label, level){
 
 async function doLogout(){ await sb.auth.signOut(); window.location.href = LOGIN_URL; }
 
+function openSaldoInicialModal(){ el('saldoInicialModal').classList.add('show'); }
+function closeSaldoInicialModal(){ el('saldoInicialModal').classList.remove('show'); }
+function openAjustesManuaisModal(){ el('ajustesManuaisModal').classList.add('show'); }
+function closeAjustesManuaisModal(){ el('ajustesManuaisModal').classList.remove('show'); }
+
 /* ================== NOVO: Saldo Inicial ================== */
 async function loadSaldoInicial(){
   const { data, error } = await sb.from('fluxo_saldo_inicial').select('*').order('criado_em',{ascending:false}).limit(1);
@@ -613,6 +660,8 @@ function renderAjustesManuaisList(){
       <span class="valor" style="color:${a.valor>=0?'#98C47C':'var(--red)'}">${fmtBRL(a.valor)}</span>
       <button class="del" onclick="removeAjusteManual(${a.id})">✕</button>
     </div>`).join('') : '<div style="color:var(--text3);font-size:12.5px;">Nenhum lançamento manual ativo.</div>';
+  const countEl = el('fcAjusteCount');
+  if(countEl) countEl.textContent = ajustesManuais.length ? `(${ajustesManuais.length})` : '';
 }
 async function addAjusteManual(){
   const descricao = el('fcAjusteDesc').value.trim();
