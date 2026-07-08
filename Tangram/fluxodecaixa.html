@@ -35,6 +35,8 @@ html.light .fc-lvl-0 td{background:#eef1f6;}
 
 /* Novas seções abaixo do fluxo de caixa (não afetam o layout da tabela principal) */
 .fc-sim-form{display:grid;grid-template-columns:1.4fr 1fr 160px auto;gap:10px;align-items:end;}
+.fc-saldo-form{display:grid;grid-template-columns:200px 200px auto;gap:10px;align-items:end;}
+.fc-saldo-status{font-size:12.5px;color:var(--text2);background:var(--navy3);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
 .fc-sim-table-wrap{overflow-x:auto;}
 .fc-sim-table{width:100%;border-collapse:collapse;font-size:12px;}
 .fc-sim-table th{text-align:right;font-size:10px;color:var(--text3);text-transform:uppercase;padding:8px 10px;border-bottom:1px solid var(--border2);}
@@ -62,7 +64,7 @@ html.light .fc-lvl-0 td{background:#eef1f6;}
 .fc-msg-status.resolvido,.fc-msg-status.aprovado{background:rgba(47,214,184,.15);color:#98C47C;}
 .fc-msg-status.recusado{background:rgba(239,106,106,.15);color:var(--red);}
 .fc-msg-resposta{margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:12px;color:var(--text2);}
-@media(max-width:900px){ .fc-sim-form,.fc-msg-form{grid-template-columns:1fr;} }
+@media(max-width:900px){ .fc-sim-form,.fc-msg-form,.fc-saldo-form{grid-template-columns:1fr;} }
 </style>
 </head>
 <body>
@@ -92,6 +94,24 @@ html.light .fc-lvl-0 td{background:#eef1f6;}
         <span><span class="fc-dot" style="background:var(--red)"></span> Saldo negativo</span>
         <span><span class="fc-dot" style="background:#2D70B8"></span> Hoje</span>
       </div>
+    </div>
+
+    <!-- ============ NOVO: Saldo Inicial ============ -->
+    <div class="card">
+      <div class="card-title">🏁 Saldo Inicial</div>
+      <div class="card-sub">Defina o saldo em uma data específica — o Saldo Acumulado passa a respeitar esse valor a partir dali. Remova pra voltar ao cálculo padrão (soma de todo o histórico da planilha).</div>
+      <div class="fc-saldo-form">
+        <div class="field-group" style="margin-bottom:0;">
+          <label class="field-label">Data</label>
+          <input type="date" id="fcSaldoInicialData">
+        </div>
+        <div class="field-group" style="margin-bottom:0;">
+          <label class="field-label">Saldo nessa data (R$)</label>
+          <input type="number" id="fcSaldoInicialValor" placeholder="Ex: 150000">
+        </div>
+        <button class="btn btn-primary" onclick="applySaldoInicial()">Aplicar</button>
+      </div>
+      <div class="fc-saldo-status" id="fcSaldoInicialStatus" style="margin-top:14px;"></div>
     </div>
 
     <!-- ============ NOVO: Simulador de impacto no saldo ============ -->
@@ -256,6 +276,7 @@ async function loadData(){
     }).filter(Boolean);
     rows.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
 
+    await loadSaldoInicial();
     buildAndRenderTable();
     el('loadingScreen').style.display='none';
     el('mainContent').style.display='block';
@@ -316,7 +337,16 @@ function sumInRange(catFilterFn, start, end){
   for(const r of rows){ if(r.date>=start && r.date<=end && catFilterFn(r)) s += r.valor; }
   return s;
 }
+// Se houver um saldo inicial definido (ver seção "Saldo Inicial" mais abaixo),
+// datas a partir dele passam a somar em cima desse valor em vez do zero absoluto;
+// datas anteriores continuam com o cálculo normal (soma de todo o histórico).
+let saldoInicialOverride = null; // { data_referencia, valor }
 function runningBalance(uptoDate){
+  if(saldoInicialOverride && uptoDate >= saldoInicialOverride.data_referencia){
+    let s = saldoInicialOverride.valor;
+    for(const r of rows){ if(r.date > saldoInicialOverride.data_referencia && r.date<=uptoDate) s += r.valor; }
+    return s;
+  }
   let s = 0;
   for(const r of rows){ if(r.date<=uptoDate) s += r.valor; else break; }
   return s;
@@ -446,6 +476,41 @@ function toggleRowNode(label, level){
 }
 
 async function doLogout(){ await sb.auth.signOut(); window.location.href = LOGIN_URL; }
+
+/* ================== NOVO: Saldo Inicial ================== */
+async function loadSaldoInicial(){
+  const { data, error } = await sb.from('fluxo_saldo_inicial').select('*').order('criado_em',{ascending:false}).limit(1);
+  saldoInicialOverride = (!error && data && data.length) ? data[0] : null;
+  renderSaldoInicialStatus();
+}
+function renderSaldoInicialStatus(){
+  const wrap = el('fcSaldoInicialStatus');
+  if(!wrap) return;
+  if(saldoInicialOverride){
+    const dataLabel = new Date(saldoInicialOverride.data_referencia+'T00:00:00').toLocaleDateString('pt-BR');
+    wrap.innerHTML = `✅ Saldo inicial ativo: <b>${fmtBRL(saldoInicialOverride.valor)}</b> em <b>${dataLabel}</b> — o Saldo Acumulado a partir dessa data respeita esse valor.
+      <button class="btn btn-danger btn-sm" onclick="removeSaldoInicial()">Remover</button>`;
+  } else {
+    wrap.innerHTML = 'Nenhum saldo inicial definido — o Saldo Acumulado segue o cálculo padrão (soma de todo o histórico da planilha).';
+  }
+}
+async function applySaldoInicial(){
+  const data_referencia = el('fcSaldoInicialData').value;
+  const valor = parseFloat(el('fcSaldoInicialValor').value);
+  if(!data_referencia || isNaN(valor)){ alert('Preencha a data e o saldo dessa data.'); return; }
+  await sb.from('fluxo_saldo_inicial').delete().gt('id', 0); // só existe um saldo inicial ativo por vez
+  const { error } = await sb.from('fluxo_saldo_inicial').insert({ data_referencia, valor, criado_por: nameFromEmail(currentUser.email) });
+  if(error){ alert('Erro ao salvar: '+error.message); return; }
+  el('fcSaldoInicialData').value=''; el('fcSaldoInicialValor').value='';
+  await loadSaldoInicial();
+  renderTable();
+}
+async function removeSaldoInicial(){
+  if(!confirm('Remover o saldo inicial? O Saldo Acumulado volta a considerar todo o histórico da planilha.')) return;
+  await sb.from('fluxo_saldo_inicial').delete().gt('id', 0);
+  await loadSaldoInicial();
+  renderTable();
+}
 
 /* ================== NOVO: Simulador de impacto no saldo ================== */
 let fcSimEntries = [];

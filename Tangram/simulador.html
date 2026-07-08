@@ -210,13 +210,13 @@ async function loadData(){
       inp.value = simVendedor;
       inp.addEventListener('input', ()=>{
         const match = allVendors.find(v=>v.toLowerCase()===inp.value.trim().toLowerCase());
-        if(match){ simVendedor = match; simOrders=[]; renderSimulator(); }
+        if(match){ simVendedor = match; renderSimulator(); }
       });
     }
 
     el('loadingScreen').style.display='none';
     el('mainContent').style.display='block';
-    renderSimulator();
+    await renderSimulator();
   }catch(e){
     console.error(e);
     el('loadingMsg').textContent = 'Erro ao carregar dados. Tente recarregar a página.';
@@ -237,7 +237,7 @@ function countBusinessDaysRemaining(){
   return count;
 }
 
-function renderSimulator(){
+async function renderSimulator(){
   const rows = captadaRows.filter(r=>r.mes===mesAtual && r.vendedor.toLowerCase()===simVendedor.toLowerCase());
   const captado = rows.reduce((s,r)=>s+r.total,0);
   const meta = getMeta(mesAtual, simVendedor);
@@ -262,32 +262,42 @@ function renderSimulator(){
 
   // guarda os números atuais pra usar quando o usuário adicionar/remover pedidos simulados
   simState = { captado, meta };
-  renderSimOrders();
+  await loadSimOrders();
 }
 
-/* ---- Pedidos simulados (cenário "e se esses pedidos entrarem?") ---- */
+/* ---- Pedidos simulados (cenário "e se esses pedidos entrarem?") ----
+   Persistidos no Supabase (tabela simulacoes_metas), por vendedor —
+   assim a lista sobrevive se o vendedor sair do Hub e voltar, e o
+   gestor consegue ver a mesma simulação abrindo o vendedor. */
 let simOrders = [];
 let simState = { captado:0, meta:0 };
 
-function addSimOrder(){
+async function loadSimOrders(){
+  const { data, error } = await sb.from('simulacoes_metas').select('*').eq('vendedor', simVendedor).order('criado_em',{ascending:true});
+  simOrders = (!error && data) ? data : [];
+  renderSimOrders();
+}
+async function addSimOrder(){
   const cliente = el('newOrderCliente').value.trim();
   const valor = parseFloat(el('newOrderValor').value);
   if(!cliente || !valor){ alert('Preencha o cliente/pedido e o valor.'); return; }
-  simOrders.push({ cliente, valor });
+  const { error } = await sb.from('simulacoes_metas').insert({ vendedor:simVendedor, cliente, valor });
+  if(error){ alert('Erro ao salvar: '+error.message); return; }
   el('newOrderCliente').value=''; el('newOrderValor').value='';
-  renderSimOrders();
+  await loadSimOrders();
 }
-function removeSimOrder(idx){
-  simOrders.splice(idx, 1);
-  renderSimOrders();
+async function removeSimOrder(id){
+  const { error } = await sb.from('simulacoes_metas').delete().eq('id', id);
+  if(error){ alert('Erro ao remover: '+error.message); return; }
+  await loadSimOrders();
 }
 function renderSimOrders(){
   const wrap = el('orderListWrap');
-  wrap.innerHTML = simOrders.length ? simOrders.map((o,i)=>`
+  wrap.innerHTML = simOrders.length ? simOrders.map(o=>`
     <div class="order-item">
       <span class="order-cliente">${o.cliente}</span>
       <span class="order-valor">${fmtBRL(o.valor)}</span>
-      <button class="order-del" onclick="removeSimOrder(${i})" title="Remover">✕</button>
+      <button class="order-del" onclick="removeSimOrder(${o.id})" title="Remover">✕</button>
     </div>`).join('') : '<div style="color:var(--text3);font-size:12.5px;padding:8px 0;">Nenhum pedido simulado ainda. Adicione acima os que estão em negociação.</div>';
 
   const totalPedidos = simOrders.reduce((s,o)=>s+o.valor, 0);
