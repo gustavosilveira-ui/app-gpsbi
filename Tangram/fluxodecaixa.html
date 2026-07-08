@@ -329,20 +329,29 @@ let debugAtrasadoExcluidos = 0;
 function rowsFromGvizTable(table, contaLabel){
   const raw = parseGvizRows(table);
   return raw.map(r=>{
-    const clienteFornecedor = (r['Cliente ou Fornecedor']||'').toString().trim();
-    if(clienteFornecedor==='SALDO' || clienteFornecedor==='SALDO ANTERIOR') return null; // linhas marcadoras, não lançamentos
-    const dateRaw = r['Data'];
+    // Importante: usar cabeçalhos normalizados aqui.
+    // A aba Agência pode vir do Google Sheets com pequenas diferenças no nome da coluna
+    // (espaço, acento, símbolo ou formatação), e isso fazia o Valor (R$) virar zero.
+    const clienteFornecedor = (getColNormalized(r, 'cliente ou fornecedor')||'').toString().trim();
+    if(normalizeTxt(clienteFornecedor)==='saldo' || normalizeTxt(clienteFornecedor)==='saldo anterior') return null; // linhas marcadoras, não lançamentos
+
+    const dateRaw = getColNormalized(r, 'data');
     const date = parseDateCell(typeof dateRaw==='object' && dateRaw!==null ? (dateRaw.v||dateRaw) : dateRaw);
     if(!date) return null;
-    const categoria = (r['Categoria']||'').toString().trim();
+
+    const categoria = (getColNormalized(r, 'categoria')||'').toString().trim();
     if(normalizeTxt(categoria)==='transferencia entre contas') return null; // não entra no fluxo
-    const origem = (r['Origem']||'').toString().trim();
+
+    const origem = (getColNormalized(r, 'origem')||'').toString().trim();
     if(normalizeTxt(origem).includes('previsao')) return null; // linha de previsão, não é movimentação realizada
-    const valorRaw = r['Valor (R$)'];
-    const valor = parseMoneyBR(typeof valorRaw==='object' && valorRaw!==null ? valorRaw.v : valorRaw);
+
+    const valorRaw = getColNormalized(r, 'valor (r$)');
+    const valor = parseMoneyBR(typeof valorRaw==='object' && valorRaw!==null ? (valorRaw.v ?? valorRaw.f) : valorRaw);
+
     const grupo = CATEGORIA_GRUPO_NORMALIZADO[normalizeTxt(categoria)] || 'OUTROS';
     const situacao = (getColNormalized(r, 'situacao')||'').toString().trim();
     if(normalizeTxt(situacao)==='atrasado'){ debugAtrasadoExcluidos++; return null; } // recebimento ou pagamento em atraso, não é caixa realizado
+
     return { date, categoria: categoria||'Sem categoria', grupo, valor, conta: contaLabel };
   }).filter(Boolean);
 }
