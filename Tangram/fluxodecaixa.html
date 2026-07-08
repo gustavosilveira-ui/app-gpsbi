@@ -845,8 +845,17 @@ function scrollToToday(){
   const todayTh = document.querySelector('.fc-table th.fc-today');
   if(!todayTh) return;
   const wrap = document.querySelector('.fc-wrap');
-  const firstColWidth = document.querySelector('.fc-table td:first-child')?.offsetWidth || 220;
-  wrap.scrollLeft = Math.max(0, todayTh.offsetLeft - firstColWidth - 64);
+  if(!wrap) return;
+
+  // A primeira coluna é sticky. Por isso o scroll precisa posicionar
+  // o dia vigente logo depois dela, com um pequeno respiro, sem cortar a coluna
+  // e sem deixar aparecer pedaço do dia anterior.
+  const firstCol = document.querySelector('.fc-table th:first-child') || document.querySelector('.fc-table td:first-child');
+  const firstColWidth = firstCol?.offsetWidth || 220;
+  const respiro = 12;
+  const targetLeft = todayTh.offsetLeft - firstColWidth + respiro;
+
+  wrap.scrollTo({ left: Math.max(0, targetLeft), behavior: 'auto' });
 }
 
 // localizar nó de coluna pela key (busca recursiva)
