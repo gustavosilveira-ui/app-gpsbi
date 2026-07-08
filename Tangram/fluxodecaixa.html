@@ -279,6 +279,7 @@ function parseDateCell(v){
 // - ignora linhas marcadoras de SALDO/SALDO ANTERIOR
 // - ignora linhas de "Previsão" na coluna Origem (não são movimentação realizada)
 // - ignora a categoria "Transferência entre contas" (não é entrada/saída real da empresa)
+// - ignora RECEBIMENTOS com Situação "Atrasado" (cliente ainda não pagou, não é dinheiro em caixa)
 function rowsFromGvizTable(table, contaLabel){
   const raw = parseGvizRows(table);
   return raw.map(r=>{
@@ -294,6 +295,8 @@ function rowsFromGvizTable(table, contaLabel){
     const valorRaw = r['Valor (R$)'];
     const valor = parseMoneyBR(typeof valorRaw==='object' && valorRaw!==null ? valorRaw.v : valorRaw);
     const grupo = CATEGORIA_GRUPO[categoria] || 'OUTROS';
+    const situacao = (r['Situação']||'').toString().trim();
+    if(grupo==='RECEBIMENTOS' && normalizeTxt(situacao)==='atrasado') return null; // recebimento ainda não pago pelo cliente
     return { date, categoria: categoria||'Sem categoria', grupo, valor, conta: contaLabel };
   }).filter(Boolean);
 }
