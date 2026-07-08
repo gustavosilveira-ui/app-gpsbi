@@ -307,7 +307,7 @@ function parseDateCell(v){
 // - ignora linhas marcadoras de SALDO/SALDO ANTERIOR
 // - ignora linhas de "Previsão" na coluna Origem (não são movimentação realizada)
 // - ignora a categoria "Transferência entre contas" (não é entrada/saída real da empresa)
-// - ignora RECEBIMENTOS com Situação "Atrasado" (cliente ainda não pagou, não é dinheiro em caixa)
+// - ignora qualquer linha (Recebimento ou Pagamento) com Situação "Atrasado" (ainda não realizado, não é caixa de verdade)
 function rowsFromGvizTable(table, contaLabel){
   const raw = parseGvizRows(table);
   return raw.map(r=>{
