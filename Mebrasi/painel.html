@@ -235,7 +235,7 @@ function rowToRecordPadrao(row, empresaNome, codEmpresaCfg){
   return {
     empresa: empresaNome, codEmpresa: codEmpresaCfg, codPedido, situacao, situacaoNF, nomeCliente,
     codProduto, tipoContribuinte, valorFaturado, icmsST, valorLiquido, totalSemIPI, qtdFaturada, codVendedor,
-    dtFat, dtEntregaSolicitada,
+    dtFat: dtFat || dtEntregaSolicitada, dtEntregaSolicitada,
   };
 }
 function rowToRecordOnline(row, codEmpresaCfg){
