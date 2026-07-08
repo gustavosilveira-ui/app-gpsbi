@@ -324,7 +324,7 @@ function rowsFromGvizTable(table, contaLabel){
     const valor = parseMoneyBR(typeof valorRaw==='object' && valorRaw!==null ? valorRaw.v : valorRaw);
     const grupo = CATEGORIA_GRUPO[categoria] || 'OUTROS';
     const situacao = (r['Situação']||'').toString().trim();
-    if(grupo==='RECEBIMENTOS' && normalizeTxt(situacao)==='atrasado') return null; // recebimento ainda não pago pelo cliente
+    if(normalizeTxt(situacao)==='atrasado') return null; // recebimento ou pagamento em atraso, não é caixa realizado
     return { date, categoria: categoria||'Sem categoria', grupo, valor, conta: contaLabel };
   }).filter(Boolean);
 }
