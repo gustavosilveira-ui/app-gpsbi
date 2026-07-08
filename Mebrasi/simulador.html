@@ -51,13 +51,13 @@
 
     <div class="card">
       <div class="card-title">🎯 Simulador de Meta — <span id="simAnoLabel"></span></div>
-      <div class="card-sub">Meta anual por representante. Veja se o ritmo atual bate a meta, e simule pedidos em negociação.</div>
+      <div class="card-sub">Comparação principal é sobre o MÊS vigente (meta anual dividida por 12). Simule pedidos em negociação e veja se bate a meta do mês.</div>
 
       <div class="sim-grid">
-        <div class="sim-kpi"><div class="sim-kpi-val" id="kpiMeta">--</div><div class="sim-kpi-lbl">Meta anual</div></div>
-        <div class="sim-kpi"><div class="sim-kpi-val" id="kpiCaptado">--</div><div class="sim-kpi-lbl">Captado no ano (até hoje)</div></div>
+        <div class="sim-kpi"><div class="sim-kpi-val" id="kpiMeta">--</div><div class="sim-kpi-lbl">Meta do mês (anual ÷ 12)</div></div>
+        <div class="sim-kpi"><div class="sim-kpi-val" id="kpiCaptado">--</div><div class="sim-kpi-lbl">Captado no ano (referência)</div></div>
         <div class="sim-kpi"><div class="sim-kpi-val" id="kpiCaptadoMes">--</div><div class="sim-kpi-lbl" id="kpiCaptadoMesLbl">Captado no mês vigente</div></div>
-        <div class="sim-kpi"><div class="sim-kpi-val" id="kpiFalta">--</div><div class="sim-kpi-lbl">Falta pra meta</div></div>
+        <div class="sim-kpi"><div class="sim-kpi-val" id="kpiFalta">--</div><div class="sim-kpi-lbl">Falta pra meta do mês</div></div>
         <div class="sim-kpi"><div class="sim-kpi-val" id="kpiDiasUteis">--</div><div class="sim-kpi-lbl">Dias úteis restantes no ano</div></div>
       </div>
 
@@ -78,7 +78,7 @@
       <div class="order-list" id="orderListWrap"></div>
 
       <div class="sim-summary-row"><span>Total dos pedidos simulados</span><b id="simTotalPedidos">R$ 0</b></div>
-      <div class="sim-summary-row"><span>Captado até hoje + pedidos simulados</span><b id="simNovoTotal">R$ 0</b></div>
+      <div class="sim-summary-row"><span>Captado no mês + pedidos simulados</span><b id="simNovoTotal">R$ 0</b></div>
 
       <div class="result-banner" id="resultBanner">
         <div class="result-icon" id="resultIcon">🤔</div>
@@ -251,32 +251,32 @@ function countBusinessDaysRemainingInYear(){
 }
 
 function renderSimulator(){
-  const meta = (metasMap[simVendedorCod] || {}).meta_anual || 0;
+  const metaAnual = (metasMap[simVendedorCod] || {}).meta_anual || 0;
+  const metaMensal = metaAnual / 12;
   const rowsRep = allRows.filter(r => r.codVendedor===simVendedorCod && r.dtFat.slice(0,4)===String(anoAtual) && !isMulticoposCliente(r.nomeCliente));
   const captado = rowsRep.reduce((s,r)=>s+valorFaturamento(r),0);
-  const falta = Math.max(0, meta-captado);
   const diasUteisRestantes = countBusinessDaysRemainingInYear();
 
   const mesAtualYm = `${anoAtual}-${String(new Date().getMonth()+1).padStart(2,'0')}`;
   const mesNomes = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
   const captadoMes = rowsRep.filter(r=>r.dtFat.slice(0,7)===mesAtualYm).reduce((s,r)=>s+valorFaturamento(r),0);
+  const faltaMes = Math.max(0, metaMensal-captadoMes);
 
-  el('kpiMeta').textContent = meta>0 ? fmtBRL(meta) : 'Sem meta definida';
+  el('kpiMeta').textContent = metaMensal>0 ? fmtBRL(metaMensal) : 'Sem meta definida';
   el('kpiCaptado').textContent = fmtBRL(captado);
   el('kpiCaptadoMes').textContent = fmtBRL(captadoMes);
   el('kpiCaptadoMesLbl').textContent = 'Captado em ' + mesNomes[new Date().getMonth()];
-  el('kpiFalta').textContent = meta>0 ? fmtBRL(falta) : '—';
+  el('kpiFalta').textContent = metaMensal>0 ? fmtBRL(faltaMes) : '—';
   el('kpiDiasUteis').textContent = diasUteisRestantes + (diasUteisRestantes===1?' dia':' dias');
 
-  const today = new Date();
-  const diaDoAno = Math.ceil((today - new Date(today.getFullYear(),0,0)) / 86400000);
-  const mediaDiaria = diaDoAno>0 ? captado/diaDoAno : 0;
-  const projecao = captado + mediaDiaria*diasUteisRestantes;
-  el('ritmoSub').textContent = meta>0
-    ? `No ritmo atual (média de ${fmtBRL(mediaDiaria)}/dia corrido), ${simRepresentacao} projeta fechar o ano em ${fmtBRL(projecao)} — ${projecao>=meta?'no caminho de bater a meta! 🎉':'ainda abaixo da meta, veja no simulador se algum pedido muda esse cenário.'}`
+  const diaDoMes = new Date().getDate();
+  const mediaDiariaMes = diaDoMes>0 ? captadoMes/diaDoMes : 0;
+  el('ritmoSub').textContent = metaMensal>0
+    ? `No ritmo atual (média de ${fmtBRL(mediaDiariaMes)}/dia nesse mês), captado do mês: ${fmtBRL(captadoMes)} — meta do mês: ${fmtBRL(metaMensal)} (meta anual ÷ 12). Captado no ano até agora: ${fmtBRL(captado)}.`
     : 'Sem meta cadastrada pra esse representante ainda.';
 
-  simState = { captado, meta };
+  // A comparação principal do simulador (bate ou não a meta) agora é sobre o MÊS vigente
+  simState = { captado: captadoMes, meta: metaMensal };
   renderSimOrders();
 }
 
