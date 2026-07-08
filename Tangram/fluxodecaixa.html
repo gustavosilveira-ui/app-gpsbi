@@ -262,7 +262,7 @@ function el(id){ return document.getElementById(id); }
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ---- Categoria -> Grupo (revisado com o Gustavo) ----
-const CATEGORIA_GRUPO = {"Clientes - Revenda de Mercadoria": "RECEBIMENTOS", "Empréstimos Bancários": "RECEBIMENTOS", "Adiantamento de Clientes": "RECEBIMENTOS", "Rendimentos de Aplicações": "RECEBIMENTOS", "Devoluções de Compra de Mercadoria de Revenda": "RECEBIMENTOS", "Vendas de Mercadoria - Online": "RECEBIMENTOS", "Eventos": "RECEBIMENTOS", "Recebimentos sem identificação": "RECEBIMENTOS", "Estorno desconto duplicata": "RECEBIMENTOS", "Aporte - Investimento": "RECEBIMENTOS", "Devoluções de Compra de Serviços": "RECEBIMENTOS", "Clientes - Serviços Prestados": "RECEBIMENTOS", "Clientes - Venda de Mercadoria Fabricadas": "RECEBIMENTOS", "amostra": "RECEBIMENTOS", "Reembolso de Despesas": "OUTROS", "REEMBOLSO EMPRESTIMO FUNCIONARIO": "RECEBIMENTOS", "Devoluções de Vendas de Mercadoria": "RECEBIMENTOS", "ICMS": "DEDUCOES", "COFINS": "DEDUCOES", "PIS": "DEDUCOES", "DARF": "DEDUCOES", "GNRE DIFAL": "DEDUCOES", "ISS": "DEDUCOES", "Simples Nacional (DAS)": "DEDUCOES", "COMISSÕES": "DEDUCOES", "IRPJ": "DEDUCOES", "CSLL": "DEDUCOES", "Taxas Prefeitura": "DEDUCOES", "Bonificações": "DEDUCOES", "ESTORNO DE CREDITO EM DUPLICIDADE": "DEDUCOES", "Compras de Mercadorias para Revenda": "FORNECEDORES", "Compras de Materia Prima": "FORNECEDORES", "Compra de Serviços": "FORNECEDORES", "Adiantamento ao Fornecedor": "FORNECEDORES", "XBZ": "FORNECEDORES", "Tarifas Bancárias": "FINANCEIRAS", "Juros sobre Empréstimos": "FINANCEIRAS", "IOF": "FINANCEIRAS", "Desconto duplicata": "FINANCEIRAS", "Cheque Devolvido": "FINANCEIRAS", "Pagamento de Empréstimos": "FINANCEIRAS", "PAGAMENTO DE EMPRÉSTIMOS": "FINANCEIRAS", "Cartão de crédito - Prieto": "FINANCEIRAS", "Cartão de crédito - Anju": "FINANCEIRAS", "Cartão coorporativo": "FINANCEIRAS", "CARTÃO DE CRÉDITO COMPRAS": "FINANCEIRAS", "SERASA": "FINANCEIRAS", "APLICAÇÃO CDB": "FINANCEIRAS", "Salários": "PESSOAL", "Rescisões": "PESSOAL", "Assistência Médica": "PESSOAL", "Vale Refeição": "PESSOAL", "RECRUTAMENTO E SELEÇÃO": "PESSOAL", "EXAME ADMISSIONAL": "PESSOAL", "TREINAMENTO": "PESSOAL", "Motorista extra": "PESSOAL", "FUNCIONÁRIOS EXTRAS": "PESSOAL", "Alimentação": "PESSOAL", "CONTABILIDADE": "ADMIN", "Advogados": "ADMIN", "CONSULTORIA (GPS)": "ADMIN", "CONSULTORIA (DOMINIO)": "ADMIN", "Consultoria": "ADMIN", "Mentoria": "ADMIN", "Material de Escritório": "ADMIN", "LIMPEZA": "ADMIN", "Água e Esgoto": "ADMIN", "Energia Elétrica": "ADMIN", "Aluguel": "ADMIN", "Aluguel Pluris": "ADMIN", "Sociedade da Pluris": "ADMIN", "Adiantamento Pluris": "ADMIN", "Seguros": "ADMIN", "Móveis e Utensílios": "ADMIN", "MÓVEIS E UTENCÍLIOS": "ADMIN", "Maquinas e Equipamentos": "ADMIN", "Manutenção de Imobilizado": "ADMIN", "Telefonia": "ADMIN", "INTERNET": "ADMIN", "Frete": "LOGISTICA", "Combustivel": "LOGISTICA", "Veículos": "LOGISTICA", "Sem Parar": "LOGISTICA", "Aluguel de equipamento (Impressora)": "LOGISTICA", "ALUGUEL DE EQUIPAMENTOS": "LOGISTICA", "IPVA,LICENCIAMENTO E MULTAS": "LOGISTICA", "MARKETING": "MARKETING_TI", "Feiras e Eventos": "MARKETING_TI", "Eventos - Repasse": "MARKETING_TI", "WORKSHOP": "MARKETING_TI", "CAMPANHAS COMEMORATIVAS": "MARKETING_TI", "CAMPANHAS COMEMORATIVAS - ENDOMARKETING": "MARKETING_TI", "SITE TANGRAM": "MARKETING_TI", "SISTEMA ERP": "MARKETING_TI", "Sistema ERP": "MARKETING_TI", "CONSULTORIA (T.I EDSON)": "MARKETING_TI", "Transferência entre contas": "TRANSFERENCIAS", "RETIRADA": "RETIRADA", "Adiantamento": "OUTROS", "Despesas Viagem China": "OUTROS", "REEMBOLSO DE DESPESAS": "OUTROS", "Amostra": "OUTROS"};
+const CATEGORIA_GRUPO = {"Clientes - Revenda de Mercadoria": "RECEBIMENTOS", "Saque MP": "RECEBIMENTOS", "Empréstimos Bancários": "RECEBIMENTOS", "Adiantamento de Clientes": "RECEBIMENTOS", "Rendimentos de Aplicações": "RECEBIMENTOS", "Devoluções de Compra de Mercadoria de Revenda": "RECEBIMENTOS", "Vendas de Mercadoria - Online": "RECEBIMENTOS", "Eventos": "RECEBIMENTOS", "Recebimentos sem identificação": "RECEBIMENTOS", "Estorno desconto duplicata": "RECEBIMENTOS", "Aporte - Investimento": "RECEBIMENTOS", "Devoluções de Compra de Serviços": "RECEBIMENTOS", "Clientes - Serviços Prestados": "RECEBIMENTOS", "Clientes - Venda de Mercadoria Fabricadas": "RECEBIMENTOS", "amostra": "RECEBIMENTOS", "Reembolso de Despesas": "OUTROS", "REEMBOLSO EMPRESTIMO FUNCIONARIO": "RECEBIMENTOS", "Devoluções de Vendas de Mercadoria": "RECEBIMENTOS", "ICMS": "DEDUCOES", "COFINS": "DEDUCOES", "PIS": "DEDUCOES", "DARF": "DEDUCOES", "GNRE DIFAL": "DEDUCOES", "ISS": "DEDUCOES", "Simples Nacional (DAS)": "DEDUCOES", "COMISSÕES": "DEDUCOES", "IRPJ": "DEDUCOES", "CSLL": "DEDUCOES", "Taxas Prefeitura": "DEDUCOES", "Bonificações": "DEDUCOES", "ESTORNO DE CREDITO EM DUPLICIDADE": "DEDUCOES", "Compras de Mercadorias para Revenda": "FORNECEDORES", "Compras de Materia Prima": "FORNECEDORES", "Compra de Serviços": "FORNECEDORES", "Adiantamento ao Fornecedor": "FORNECEDORES", "XBZ": "FORNECEDORES", "Tarifas Bancárias": "FINANCEIRAS", "Juros sobre Empréstimos": "FINANCEIRAS", "IOF": "FINANCEIRAS", "Desconto duplicata": "FINANCEIRAS", "Cheque Devolvido": "FINANCEIRAS", "Pagamento de Empréstimos": "FINANCEIRAS", "PAGAMENTO DE EMPRÉSTIMOS": "FINANCEIRAS", "Cartão de crédito - Prieto": "FINANCEIRAS", "Cartão de crédito - Anju": "FINANCEIRAS", "Cartão coorporativo": "FINANCEIRAS", "CARTÃO DE CRÉDITO COMPRAS": "FINANCEIRAS", "SERASA": "FINANCEIRAS", "APLICAÇÃO CDB": "FINANCEIRAS", "Salários": "PESSOAL", "Rescisões": "PESSOAL", "Assistência Médica": "PESSOAL", "Vale Refeição": "PESSOAL", "RECRUTAMENTO E SELEÇÃO": "PESSOAL", "EXAME ADMISSIONAL": "PESSOAL", "TREINAMENTO": "PESSOAL", "Motorista extra": "PESSOAL", "FUNCIONÁRIOS EXTRAS": "PESSOAL", "Alimentação": "PESSOAL", "CONTABILIDADE": "ADMIN", "Advogados": "ADMIN", "CONSULTORIA (GPS)": "ADMIN", "CONSULTORIA (DOMINIO)": "ADMIN", "Consultoria": "ADMIN", "Mentoria": "ADMIN", "Material de Escritório": "ADMIN", "LIMPEZA": "ADMIN", "Água e Esgoto": "ADMIN", "Energia Elétrica": "ADMIN", "Aluguel": "ADMIN", "Aluguel Pluris": "ADMIN", "Sociedade da Pluris": "ADMIN", "Adiantamento Pluris": "ADMIN", "Seguros": "ADMIN", "Móveis e Utensílios": "ADMIN", "MÓVEIS E UTENCÍLIOS": "ADMIN", "Maquinas e Equipamentos": "ADMIN", "Manutenção de Imobilizado": "ADMIN", "Telefonia": "ADMIN", "INTERNET": "ADMIN", "Frete": "LOGISTICA", "Combustivel": "LOGISTICA", "Veículos": "LOGISTICA", "Sem Parar": "LOGISTICA", "Aluguel de equipamento (Impressora)": "LOGISTICA", "ALUGUEL DE EQUIPAMENTOS": "LOGISTICA", "IPVA,LICENCIAMENTO E MULTAS": "LOGISTICA", "MARKETING": "MARKETING_TI", "Feiras e Eventos": "MARKETING_TI", "Eventos - Repasse": "MARKETING_TI", "WORKSHOP": "MARKETING_TI", "CAMPANHAS COMEMORATIVAS": "MARKETING_TI", "CAMPANHAS COMEMORATIVAS - ENDOMARKETING": "MARKETING_TI", "SITE TANGRAM": "MARKETING_TI", "SISTEMA ERP": "MARKETING_TI", "Sistema ERP": "MARKETING_TI", "CONSULTORIA (T.I EDSON)": "MARKETING_TI", "Transferência entre contas": "TRANSFERENCIAS", "RETIRADA": "RETIRADA", "Adiantamento": "OUTROS", "Despesas Viagem China": "OUTROS", "REEMBOLSO DE DESPESAS": "OUTROS", "Amostra": "OUTROS"};
 
 
 // Índice normalizado das categorias.
@@ -272,6 +272,53 @@ const CATEGORIA_GRUPO_NORMALIZADO = {};
 Object.entries(CATEGORIA_GRUPO).forEach(([categoria, grupo])=>{
   CATEGORIA_GRUPO_NORMALIZADO[normalizeTxt(categoria)] = grupo;
 });
+
+
+// Blindagem para categorias novas:
+// 1) Se a categoria estiver mapeada, respeita o grupo definido acima.
+// 2) Se for categoria nova e o valor for positivo, entra em RECEBIMENTOS
+//    criando a própria linha da categoria dentro de Recebimentos.
+// 3) Se for categoria nova e o valor for negativo, tenta reconhecer automaticamente
+//    uma das contas ativas de despesas pelo texto da categoria.
+// 4) Se não conseguir reconhecer, joga em Despesas Administrativas (não usa "Outros"
+//    nem "Categorias a Classificar"), para nenhuma despesa real ficar fora do fluxo.
+let debugCategoriasNovas = {};
+function resolveGrupoCategoria(categoria, valor){
+  const key = normalizeTxt(categoria);
+  if(CATEGORIA_GRUPO_NORMALIZADO[key]) return CATEGORIA_GRUPO_NORMALIZADO[key];
+
+  const label = (categoria || 'Sem categoria').toString().trim() || 'Sem categoria';
+
+  // Receita nova: cria linha nova dentro de RECEBIMENTOS.
+  if(valor >= 0){
+    debugCategoriasNovas[label] = 'RECEBIMENTOS';
+    return 'RECEBIMENTOS';
+  }
+
+  // Despesa nova: classificador simples por palavras-chave.
+  // Mantém o fluxo andando mesmo quando aparece uma categoria nova no Omie/planilha.
+  const regras = [
+    { grupo:'DEDUCOES', palavras:['imposto','tributo','icms','pis','cofins','darf','das','gnre','iss','irpj','csll','taxa prefeitura','prefeitura','st','difal'] },
+    { grupo:'FORNECEDORES', palavras:['fornecedor','mercadoria','revenda','materia prima','matéria prima','compra','servico','serviço','produto','insumo','embalagem','xbz'] },
+    { grupo:'FINANCEIRAS', palavras:['tarifa','bancaria','bancária','juros','iof','emprestimo','empréstimo','cartao','cartão','serasa','duplicata','cheque','aplicacao','aplicação','cdb','financiamento'] },
+    { grupo:'PESSOAL', palavras:['salario','salário','folha','funcionario','funcionário','rescisao','rescisão','fgts','inss','vale','vr','refeicao','refeição','assistencia medica','assistência médica','beneficio','benefício','exame','treinamento','motorista extra','alimentacao','alimentação'] },
+    { grupo:'ADMIN', palavras:['contabilidade','advogado','consultoria','mentoria','escritorio','escritório','aluguel','agua','água','energia','luz','internet','telefone','telefonia','limpeza','seguro','material','moveis','móveis','utensilio','utensílio','equipamento','manutencao','manutenção','sistema','erp','software','reembolso','despesa'] },
+    { grupo:'LOGISTICA', palavras:['frete','combustivel','combustível','veiculo','veículo','sem parar','ipva','licenciamento','multa','logistica','logística','entrega','transporte'] },
+    { grupo:'MARKETING_TI', palavras:['marketing','campanha','site','evento','feira','workshop','endomarketing','ti','t.i','midia','mídia','anuncio','anúncio'] },
+    { grupo:'RETIRADA', palavras:['retirada','socio','sócio','pro labore','pró labore'] },
+  ];
+
+  for(const regra of regras){
+    if(regra.palavras.some(p=>key.includes(normalizeTxt(p)))){
+      debugCategoriasNovas[label] = regra.grupo;
+      return regra.grupo;
+    }
+  }
+
+  // Fallback final: precisa entrar em uma conta ativa, então entra em Administrativas.
+  debugCategoriasNovas[label] = 'ADMIN';
+  return 'ADMIN';
+}
 
 const GRUPOS_PAGAMENTO = [
   {key:'DEDUCOES', label:'1.2 Deduções'},
@@ -357,7 +404,7 @@ function rowsFromGvizTable(table, contaLabel){
     const valorRaw = getColNormalized(r, 'valor (r$)');
     const valor = parseMoneyBR(typeof valorRaw==='object' && valorRaw!==null ? (valorRaw.v ?? valorRaw.f) : valorRaw);
 
-    const grupo = CATEGORIA_GRUPO_NORMALIZADO[normalizeTxt(categoria)] || 'OUTROS';
+    const grupo = resolveGrupoCategoria(categoria, valor);
     const situacao = (getColNormalized(r, 'situacao')||'').toString().trim();
     if(normalizeTxt(situacao)==='atrasado'){ debugAtrasadoExcluidos++; return null; } // recebimento ou pagamento em atraso, não é caixa realizado
 
@@ -588,7 +635,11 @@ function renderDebugStats(){
   const totalRec = rows.filter(r=>r.grupo==='RECEBIMENTOS').length;
   const totalAjustes = rows.filter(r=>r.grupo==='AJUSTES_MANUAIS').length;
   const totalPag = rows.length - totalRec - totalAjustes;
-  wrap.textContent = `🔍 Diagnóstico (só GPS): ${rows.length} linhas no total · Conta Principal: ${totalPrincipal} · Conta Agência: ${totalAgencia} · Recebimentos: ${totalRec} · Pagamentos: ${totalPag} · Lançamentos manuais: ${totalAjustes} · Atrasados excluídos: ${debugAtrasadoExcluidos}`;
+  const categoriasNovas = Object.keys(debugCategoriasNovas);
+  const detalheCategoriasNovas = categoriasNovas.length
+    ? ` · Categorias novas incluídas automaticamente: ${categoriasNovas.map(c=>`${c}→${debugCategoriasNovas[c]}`).join(', ')}`
+    : '';
+  wrap.textContent = `🔍 Diagnóstico (só GPS): ${rows.length} linhas no total · Conta Principal: ${totalPrincipal} · Conta Agência: ${totalAgencia} · Recebimentos: ${totalRec} · Pagamentos: ${totalPag} · Lançamentos manuais: ${totalAjustes} · Atrasados excluídos: ${debugAtrasadoExcluidos}${detalheCategoriasNovas}`;
 }
 
 function renderTable(){
