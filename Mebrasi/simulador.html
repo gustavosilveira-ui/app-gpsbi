@@ -3,37 +3,308 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Simulador de Meta · Hub GPSBI</title>
+<title>Simulador de Meta · Hub GPSBI Mebrasi</title>
 <link rel="stylesheet" href="theme.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+.rep-picker{display:flex;align-items:center;gap:10px;}
+.rep-picker input{flex:1;max-width:340px;}
+.sim-grid{display:grid;grid-template-columns:repeat(4,minmax(130px,1fr));gap:12px;margin-bottom:18px;overflow-x:auto;}
+.sim-kpi{background:var(--navy3);border-radius:12px;padding:16px;}
+.sim-kpi-val{font-family:'DM Mono',monospace;font-size:19px;font-weight:800;white-space:nowrap;}
+.sim-kpi-lbl{font-size:11px;color:var(--text3);margin-top:4px;}
+.new-order-row{display:grid;grid-template-columns:1fr 180px auto;gap:10px;margin-bottom:14px;align-items:end;}
+.order-list{display:flex;flex-direction:column;gap:8px;margin-bottom:16px;}
+.order-item{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;background:var(--navy3);}
+.order-item .order-cliente{flex:1;font-size:13px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.order-item .order-valor{font-family:'DM Mono',monospace;font-size:14px;font-weight:700;flex:none;}
+.order-item .order-del{flex:none;width:26px;height:26px;border-radius:8px;background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:14px;}
+.order-item .order-del:hover{background:rgba(239,106,106,.12);color:var(--red);}
+.sim-summary-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid var(--border);font-size:13px;}
+.sim-summary-row b{font-family:'DM Mono',monospace;font-size:15px;}
+.result-banner{border-radius:12px;padding:18px 20px;margin-top:16px;display:flex;align-items:center;gap:16px;}
+.result-banner.hit{background:rgba(152,196,124,.14);border:1px solid rgba(152,196,124,.3);}
+.result-banner.miss{background:rgba(239,106,106,.1);border:1px solid rgba(239,106,106,.25);}
+.result-icon{font-size:32px;}
+.result-text b{display:block;font-size:15px;margin-bottom:2px;}
+.result-text span{font-size:12.5px;color:var(--text2);}
+@media(max-width:760px){.new-order-row{grid-template-columns:1fr;}}
+</style>
 </head>
 <body>
-<div class="loading-screen" id="loadingScreen"><div class="spinner"></div><p>Carregando...</p></div>
+
+<div class="loading-screen" id="loadingScreen">
+  <div class="spinner"></div>
+  <p id="loadingMsg">Carregando seus números...</p>
+</div>
+
 <div id="mainContent" style="display:none;">
   <div class="content">
+
     <div class="card">
-      <div class="card-title">🎯 Simulador de Meta</div>
-      <div class="card-sub">Módulo em preparação para o Grupo Mebrasi.</div>
-      <div class="empty-state"><div class="icon">🎯</div>Vamos ativar esta página depois que as bases específicas do Mebrasi estiverem validadas.</div>
+      <label class="field-label">Simular para (representante)</label>
+      <div class="rep-picker">
+        <input type="text" id="repPicker" list="repDatalist" placeholder="Digite o nome do representante...">
+        <datalist id="repDatalist"></datalist>
+      </div>
     </div>
+
+    <div class="card">
+      <div class="card-title">🎯 Simulador de Meta — <span id="simAnoLabel"></span></div>
+      <div class="card-sub">Meta anual por representante. Veja se o ritmo atual bate a meta, e simule pedidos em negociação.</div>
+
+      <div class="sim-grid">
+        <div class="sim-kpi"><div class="sim-kpi-val" id="kpiMeta">--</div><div class="sim-kpi-lbl">Meta anual</div></div>
+        <div class="sim-kpi"><div class="sim-kpi-val" id="kpiCaptado">--</div><div class="sim-kpi-lbl">Captado no ano (até hoje)</div></div>
+        <div class="sim-kpi"><div class="sim-kpi-val" id="kpiFalta">--</div><div class="sim-kpi-lbl">Falta pra meta</div></div>
+        <div class="sim-kpi"><div class="sim-kpi-val" id="kpiDiasUteis">--</div><div class="sim-kpi-lbl">Dias úteis restantes no ano</div></div>
+      </div>
+
+      <div class="card-title" style="font-size:13px;">📝 Simule pedidos que ainda podem entrar</div>
+      <div class="card-sub" style="margin-bottom:10px;">Adicione os pedidos em negociação e veja na hora como fica o resultado do ano.</div>
+      <div class="new-order-row">
+        <div class="field-group" style="margin-bottom:0;">
+          <label class="field-label">Cliente / Pedido</label>
+          <input type="text" id="newOrderCliente" placeholder="Ex: Cliente X - pedido em negociação">
+        </div>
+        <div class="field-group" style="margin-bottom:0;">
+          <label class="field-label">Valor (R$)</label>
+          <input type="number" id="newOrderValor" placeholder="Ex: 8000">
+        </div>
+        <button class="btn btn-primary" onclick="addSimOrder()">Adicionar</button>
+      </div>
+
+      <div class="order-list" id="orderListWrap"></div>
+
+      <div class="sim-summary-row"><span>Total dos pedidos simulados</span><b id="simTotalPedidos">R$ 0</b></div>
+      <div class="sim-summary-row"><span>Captado até hoje + pedidos simulados</span><b id="simNovoTotal">R$ 0</b></div>
+
+      <div class="result-banner" id="resultBanner">
+        <div class="result-icon" id="resultIcon">🤔</div>
+        <div class="result-text">
+          <b id="resultTitle">--</b>
+          <span id="resultSub">--</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📈 Ritmo atual</div>
+      <div class="card-sub" id="ritmoSub">--</div>
+    </div>
+
   </div>
 </div>
+
 <script src="nav.js"></script>
 <script>
+/* ---- Config (mesma base de dados do painel principal) ---- */
 const SUPABASE_URL = 'https://hobpwhhpvwlwhmhairnp.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJob2Jwd2hocHZ3bHdobWhhaXJucCIsInJvbGUiOiJhbm9uIiwiaWF0IjoxNzgzNDQ5MzQ5LCJleHAiOjIwOTkwMjUzNDl9.j67wDzIZU755bcmanydd_E3TllYN5Ps2QcPH4A4rFUY';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhvYnB3aGhwdndsd2htaGFpcm5wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0NDkzNDksImV4cCI6MjA5OTAyNTM0OX0.j67wDzIZU755bcmanydd_E3TllYN5Ps2QcPH4A4rFUY';
 const LOGIN_URL = 'index.html';
+const OWNER_EMAILS = ['gustavosilveira@gpsbi.com.br'];
+
+const SHEETS = {
+  Gymis:      { sheetId: '1Z1cD8WGwRA4rtNa52MMR281Tr577lI2s8xSS86BoLfE', gid: '468585251', codEmpresa: 2, tipo: 'padrao' },
+  Especial:   { sheetId: '1u0Ibjzud3ulbYJ1kuGL0qU8IwPD6YOOqkDXTcG-Z2-8', gid: '0',         codEmpresa: 5, tipo: 'padrao' },
+  Multicopos: { sheetId: '1ULqyRMjupNuI18xE77UKArq8FnrNRIopfkmfotUSxDI', gid: '0',         codEmpresa: 4, tipo: 'padrao' },
+  Ryngavi:    { sheetId: '1ZaorGW2L2P3eBz2teJWvyGnuLg0Bd8U92ULGH0G5gaU', gid: '0',         codEmpresa: 3, tipo: 'padrao' },
+  Online:     { sheetId: '1hxSu4STLMdtj5WgvrzAdLm7aKRQNFF7LggorIR8ly5I', gid: '0',         codEmpresa: 1, tipo: 'online' },
+};
+
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+function isOwner(email){ return OWNER_EMAILS.includes((email||'').toLowerCase()); }
 function nameFromEmail(email){ return email.split('@')[0].split('.').map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' '); }
-async function doLogout(){ await sb.auth.signOut(); window.location.href=LOGIN_URL; }
-async function init(){
- const { data } = await sb.auth.getSession();
- if(!data.session){ window.location.replace(LOGIN_URL); return; }
- const user=data.session.user;
- renderAppNav({ activePage:'simulador.html', userLabel:nameFromEmail(user.email), userRole:user.email.endsWith('@gpsbi.com.br')?'owner':'vendor', onLogout:doLogout, sb, currentUser:user });
- document.getElementById('loadingScreen').style.display='none';
- document.getElementById('mainContent').style.display='block';
+function el(id){ return document.getElementById(id); }
+function fmtBRL(n){ if(!n && n!==0) return '—'; const sign=n<0?'-':''; return sign+'R$ '+Math.round(Math.abs(n)).toLocaleString('pt-BR'); }
+
+async function fetchGviz(sheetId, gid){
+  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&gid=${gid}&headers=1`;
+  const res = await fetch(url);
+  const text = await res.text();
+  const clean = text.replace(/^[^{]*/, '').replace(/\s*\)\s*;?\s*$/, '');
+  return JSON.parse(clean).table;
 }
+function parseGvizRows(table){
+  if(!table || !table.rows) return [];
+  const cols = table.cols.map(c=>c.label);
+  return table.rows.map(row=>{
+    const obj={};
+    cols.forEach((col,i)=>{ const cell=row.c[i]; obj[col]= cell ? (cell.v!==null?cell.v:(cell.f||null)) : null; });
+    return obj;
+  });
+}
+function cellVal(row, col){ const v = row[col]; return (typeof v==='object' && v!==null) ? (v.v!==undefined?v.v:v) : v; }
+function parseDateCell(v){
+  if(!v) return null;
+  if(typeof v==='string'){
+    if(/^\d{4}-\d{2}-\d{2}/.test(v)) return v.slice(0,10);
+    if(v.includes('/')){ const [d,m,y]=v.split('/'); return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`; }
+    const dm = v.match(/Date\((\d+),(\d+),(\d+)\)/);
+    if(dm){ const y=dm[1], m=String(parseInt(dm[2])+1).padStart(2,'0'), d=dm[3].padStart(2,'0'); return `${y}-${m}-${d}`; }
+  }
+  return null;
+}
+function parseMoneyBR(v){
+  if(v===null||v===undefined||v==='') return 0;
+  if(typeof v==='number') return v;
+  return parseFloat(String(v).replace(/\./g,'').replace(',','.')) || 0;
+}
+function isMulticoposCliente(nomeCliente){ return (nomeCliente||'').toUpperCase().includes('MULTICOPOS'); }
+function valorFaturamento(r){ return r.tipoContribuinte==='Suframa' ? r.valorLiquido : (r.valorFaturado + r.icmsST); }
+
+function rowToRecordPadrao(row){
+  const dtFat = parseDateCell(cellVal(row, 'Dt Faturamento'));
+  const dtEntregaSolicitada = parseDateCell(cellVal(row,'Dt Entrega Solicitada'));
+  if(!dtFat && !dtEntregaSolicitada) return null;
+  const nomeCliente = (row['Nome do Cliente.']||row['Nome do Cliente']||'').toString().trim();
+  const tipoContribuinte = (row['Tipo de Contribuinte']||'').toString().trim();
+  return {
+    dtFat: dtFat || dtEntregaSolicitada,
+    nomeCliente, tipoContribuinte,
+    valorFaturado: parseMoneyBR(cellVal(row,'Valor Faturado')),
+    icmsST: parseMoneyBR(cellVal(row,'ICMS ST')),
+    valorLiquido: parseMoneyBR(cellVal(row,'Valor Líquido R$')),
+    codVendedor: parseInt(cellVal(row,'Cod Vendedor'),10) || null,
+  };
+}
+
+let allRows = [];
+let metasMap = {}; // codVendedor -> { representacao, meta_anual }
+let currentUser=null, userEmail='', userName='', userRole='vendor';
+let simVendedorCod = null, simRepresentacao = '';
+let simOrders = [];
+let simState = { captado:0, meta:0 };
+const anoAtual = new Date().getFullYear();
+
+async function init(){
+  const { data } = await sb.auth.getSession();
+  if(!data.session){ window.location.replace(LOGIN_URL); return; }
+  currentUser = data.session.user;
+  userEmail = currentUser.email;
+  userRole = isOwner(userEmail) ? 'owner' : 'vendor';
+  userName = nameFromEmail(userEmail);
+
+  renderAppNav({ activePage:'simulador.html', userLabel:userName, userRole, onLogout: doLogout, sb, currentUser });
+  el('simAnoLabel').textContent = anoAtual;
+
+  await loadData();
+}
+
+async function loadData(){
+  try{
+    const empresas = Object.keys(SHEETS);
+    let combined = [];
+    for(const nome of empresas){
+      el('loadingMsg').textContent = `Carregando ${nome}...`;
+      const cfg = SHEETS[nome];
+      if(cfg.tipo==='online') continue; // Online não tem Cod Vendedor / meta individual
+      const table = await fetchGviz(cfg.sheetId, cfg.gid);
+      const raw = parseGvizRows(table);
+      combined = combined.concat(raw.map(rowToRecordPadrao).filter(Boolean));
+    }
+    allRows = combined;
+
+    const { data: metas, error: metasErr } = await sb.from('metas_mebrasi').select('*').eq('ano', anoAtual);
+    if(metasErr){ el('loadingMsg').textContent = 'Erro ao carregar metas. Verifique se a tabela metas_mebrasi existe no Supabase.'; return; }
+    metasMap = {};
+    (metas||[]).forEach(m=>{ metasMap[m.cod_vendedor] = { representacao: m.representacao, meta_anual: m.meta_anual }; });
+
+    const reps = Object.entries(metasMap).sort((a,b)=>a[1].representacao.localeCompare(b[1].representacao));
+    el('repDatalist').innerHTML = reps.map(([cod,r])=>`<option value="${r.representacao}">`).join('');
+    const inp = el('repPicker');
+    if(reps.length){ simVendedorCod = Number(reps[0][0]); simRepresentacao = reps[0][1].representacao; inp.value = simRepresentacao; }
+    inp.addEventListener('input', ()=>{
+      const match = reps.find(([cod,r])=>r.representacao.toLowerCase()===inp.value.trim().toLowerCase());
+      if(match){ simVendedorCod = Number(match[0]); simRepresentacao = match[1].representacao; simOrders=[]; renderSimulator(); }
+    });
+
+    el('loadingScreen').style.display='none';
+    el('mainContent').style.display='block';
+    renderSimulator();
+  }catch(e){
+    console.error(e);
+    el('loadingMsg').textContent = 'Erro ao carregar dados. Tente recarregar a página.';
+  }
+}
+
+function countBusinessDaysRemainingInYear(){
+  const today = new Date();
+  const end = new Date(today.getFullYear(), 11, 31);
+  let count = 0;
+  const d = new Date(today);
+  while(d <= end){
+    const dow = d.getDay();
+    if(dow!==0 && dow!==6) count++;
+    d.setDate(d.getDate()+1);
+  }
+  return count;
+}
+
+function renderSimulator(){
+  const meta = (metasMap[simVendedorCod] || {}).meta_anual || 0;
+  const rowsRep = allRows.filter(r => r.codVendedor===simVendedorCod && r.dtFat.slice(0,4)===String(anoAtual) && !isMulticoposCliente(r.nomeCliente));
+  const captado = rowsRep.reduce((s,r)=>s+valorFaturamento(r),0);
+  const falta = Math.max(0, meta-captado);
+  const diasUteisRestantes = countBusinessDaysRemainingInYear();
+
+  el('kpiMeta').textContent = meta>0 ? fmtBRL(meta) : 'Sem meta definida';
+  el('kpiCaptado').textContent = fmtBRL(captado);
+  el('kpiFalta').textContent = meta>0 ? fmtBRL(falta) : '—';
+  el('kpiDiasUteis').textContent = diasUteisRestantes + (diasUteisRestantes===1?' dia':' dias');
+
+  const today = new Date();
+  const diaDoAno = Math.ceil((today - new Date(today.getFullYear(),0,0)) / 86400000);
+  const mediaDiaria = diaDoAno>0 ? captado/diaDoAno : 0;
+  const projecao = captado + mediaDiaria*diasUteisRestantes;
+  el('ritmoSub').textContent = meta>0
+    ? `No ritmo atual (média de ${fmtBRL(mediaDiaria)}/dia corrido), ${simRepresentacao} projeta fechar o ano em ${fmtBRL(projecao)} — ${projecao>=meta?'no caminho de bater a meta! 🎉':'ainda abaixo da meta, veja no simulador se algum pedido muda esse cenário.'}`
+    : 'Sem meta cadastrada pra esse representante ainda.';
+
+  simState = { captado, meta };
+  renderSimOrders();
+}
+
+function addSimOrder(){
+  const cliente = el('newOrderCliente').value.trim();
+  const valor = parseFloat(el('newOrderValor').value);
+  if(!cliente || !valor){ alert('Preencha o cliente/pedido e o valor.'); return; }
+  simOrders.push({ cliente, valor });
+  el('newOrderCliente').value=''; el('newOrderValor').value='';
+  renderSimOrders();
+}
+function removeSimOrder(idx){ simOrders.splice(idx,1); renderSimOrders(); }
+function renderSimOrders(){
+  const wrap = el('orderListWrap');
+  wrap.innerHTML = simOrders.length ? simOrders.map((o,i)=>`
+    <div class="order-item">
+      <span class="order-cliente">${o.cliente}</span>
+      <span class="order-valor">${fmtBRL(o.valor)}</span>
+      <button class="order-del" onclick="removeSimOrder(${i})" title="Remover">✕</button>
+    </div>`).join('') : '<div style="color:var(--text3);font-size:12.5px;padding:8px 0;">Nenhum pedido simulado ainda. Adicione acima os que estão em negociação.</div>';
+
+  const totalPedidos = simOrders.reduce((s,o)=>s+o.valor, 0);
+  const novoTotal = simState.captado + totalPedidos;
+  el('simTotalPedidos').textContent = fmtBRL(totalPedidos);
+  el('simNovoTotal').textContent = fmtBRL(novoTotal);
+
+  const banner = el('resultBanner');
+  const { meta } = simState;
+  if(meta<=0){
+    banner.className = 'result-banner';
+    el('resultIcon').textContent = '📋';
+    el('resultTitle').textContent = 'Sem meta definida';
+    el('resultSub').textContent = 'Cadastre a meta anual desse representante na tabela metas_mebrasi pra simular direito.';
+    return;
+  }
+  const bate = novoTotal >= meta;
+  banner.className = 'result-banner ' + (bate?'hit':'miss');
+  el('resultIcon').textContent = bate ? '🎉' : '📊';
+  el('resultTitle').textContent = bate ? 'Com esses pedidos, bate a meta!' : 'Ainda não bate a meta com esses pedidos';
+  el('resultSub').textContent = `Captado + simulados: ${fmtBRL(novoTotal)} (meta: ${fmtBRL(meta)}).` + (bate ? '' : ` Faltariam ${fmtBRL(meta-novoTotal)}.`);
+}
+
+async function doLogout(){ await sb.auth.signOut(); window.location.href = LOGIN_URL; }
 init();
 </script>
 </body>

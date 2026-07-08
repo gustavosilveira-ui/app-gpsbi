@@ -75,15 +75,6 @@ body{padding-bottom:40px;}
 .pos-val{color:var(--green);} .neg-val{color:var(--red);}
 
 .empty-state{text-align:center;padding:40px 20px;color:var(--text3);font-size:13px;}
-
-.app-nav-row{display:flex;align-items:center;gap:6px;padding:10px 24px;background:var(--navy);border-bottom:1px solid var(--border2);overflow-x:auto;}
-.app-nav-row a{padding:8px 14px;border-radius:999px;font-size:12.5px;font-weight:600;color:var(--text3);white-space:nowrap;text-decoration:none;}
-.app-nav-row a:hover{background:var(--navy3);color:var(--text);}
-.app-nav-row a.active{background:linear-gradient(90deg,var(--blue),var(--cyan));color:#fff;}
-.theme-toggle{display:flex;align-items:center;gap:4px;padding:4px;border-radius:999px;background:var(--navy3);border:1px solid var(--border2);}
-.theme-toggle button{width:26px;height:26px;border-radius:50%;border:none;background:none;color:var(--text3);display:flex;align-items:center;justify-content:center;cursor:pointer;}
-.theme-toggle button.active{background:linear-gradient(135deg,var(--cyan),var(--blue));color:#fff;}
-.theme-toggle svg{width:13px;height:13px;}
 </style>
 </head>
 <body>
@@ -97,23 +88,11 @@ body{padding-bottom:40px;}
   <div class="topbar">
     <div class="brand"><span class="dot"></span> Hub GPSBI · Grupo Mebrasi</div>
     <div class="topbar-right">
-      <div class="theme-toggle">
-        <button id="btnDark" title="Escuro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg></button>
-        <button id="btnLight" title="Claro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg></button>
-      </div>
       <div class="user-chip"><div class="user-avatar" id="userAvatar">--</div><span id="userName">--</span></div>
       <div class="icon-btn" id="logoutBtn" title="Sair">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
       </div>
     </div>
-  </div>
-  <div class="app-nav-row">
-    <a class="active" href="painel.html">📊 Dashboard</a>
-    <a href="simulador.html">🎯 Simulador</a>
-    <a href="agenda.html">🗓️ Agenda</a>
-    <a href="mural.html">📣 Mural</a>
-    <a href="aprovacoes.html">✅ Aprovações</a>
-    <a href="fluxodecaixa.html">💰 Fluxo</a>
   </div>
 
   <div class="content">
@@ -234,7 +213,6 @@ function parseMoneyBR(v){
   return parseFloat(String(v).replace(/\./g,'').replace(',','.')) || 0;
 }
 function cellVal(row, col){ const v = row[col]; return (typeof v==='object' && v!==null) ? (v.v!==undefined?v.v:v) : v; }
-function dataBase(r){ return r.dtFat || r.dtEntregaSolicitada || null; }
 
 /* ---- Normalização: cada linha vira um "registro" comum, independente da empresa ---- */
 function rowToRecordPadrao(row, empresaNome, codEmpresaCfg){
@@ -251,11 +229,12 @@ function rowToRecordPadrao(row, empresaNome, codEmpresaCfg){
   const totalSemIPI = parseMoneyBR(cellVal(row,'Total sem IPI'));
   const qtdFaturada = parseMoneyBR(cellVal(row,'Qtd Faturada'));
   const codPedido = (row['Cod Pedido']||'').toString().trim();
+  const codVendedor = parseInt(cellVal(row,'Cod Vendedor'),10) || null;
   const dtEntregaSolicitada = parseDateCell(cellVal(row,'Dt Entrega Solicitada'));
   if(!dtFat && !dtEntregaSolicitada) return null;
   return {
     empresa: empresaNome, codEmpresa: codEmpresaCfg, codPedido, situacao, situacaoNF, nomeCliente,
-    codProduto, tipoContribuinte, valorFaturado, icmsST, valorLiquido, totalSemIPI, qtdFaturada,
+    codProduto, tipoContribuinte, valorFaturado, icmsST, valorLiquido, totalSemIPI, qtdFaturada, codVendedor,
     dtFat, dtEntregaSolicitada,
   };
 }
@@ -270,26 +249,9 @@ function rowToRecordOnline(row, codEmpresaCfg){
   return {
     empresa:'Online', codEmpresa: codEmpresaCfg, codPedido:(row['Pedido']||'').toString().trim(),
     situacao: situacaoEquivalente, situacaoNF:'', nomeCliente, codProduto:'', tipoContribuinte:'Online',
-    valorFaturado: total, icmsST:0, valorLiquido: total, totalSemIPI: total, qtdFaturada:1,
+    valorFaturado: total, icmsST:0, valorLiquido: total, totalSemIPI: total, qtdFaturada:1, codVendedor:null,
     dtFat: dt, dtEntregaSolicitada: dt,
   };
-}
-
-
-function applyTheme(t, skipSync){
-  document.documentElement.classList.toggle('light', t==='light');
-  localStorage.setItem('mebrasi_theme', t);
-  const bd=el('btnDark'), bl=el('btnLight');
-  if(bd) bd.classList.toggle('active', t==='dark');
-  if(bl) bl.classList.toggle('active', t==='light');
-  if(!skipSync && sb && currentUser){ sb.auth.updateUser({ data:{ theme:t } }).catch(()=>{}); }
-}
-function initTheme(){
-  const saved = currentUser?.user_metadata?.theme || localStorage.getItem('mebrasi_theme') || 'light';
-  applyTheme(saved, true);
-  const bd=el('btnDark'), bl=el('btnLight');
-  if(bd) bd.addEventListener('click', ()=>applyTheme('dark'));
-  if(bl) bl.addEventListener('click', ()=>applyTheme('light'));
 }
 
 let allRows = [];
@@ -302,7 +264,6 @@ async function init(){
   currentUser = data.session.user;
   el('userAvatar').textContent = currentUser.email.slice(0,2).toUpperCase();
   el('userName').textContent = currentUser.email.split('@')[0];
-  initTheme();
   el('logoutBtn').addEventListener('click', async ()=>{ await sb.auth.signOut(); window.location.href = LOGIN_URL; });
   document.documentElement.style.visibility='visible';
   await loadData();
@@ -327,7 +288,7 @@ async function loadData(){
     empresas.forEach(nome=>{ const o=document.createElement('option'); o.value=nome; o.textContent=nome; empSel.appendChild(o); });
     empSel.addEventListener('change', ()=>{ selectedEmpresa = empSel.value; render(); });
 
-    const anos = Array.from(new Set(allRows.map(r=>dataBase(r)).filter(Boolean).map(d=>d.slice(0,4)))).sort().reverse();
+    const anos = Array.from(new Set(allRows.map(r=>r.dtFat.slice(0,4)))).sort().reverse();
     const anoSel = el('anoSelect');
     anos.forEach(a=>{ const o=document.createElement('option'); o.value=a; o.textContent=a; anoSel.appendChild(o); });
     selectedAno = anos[0] || '';
@@ -343,7 +304,6 @@ async function loadData(){
   }catch(e){
     console.error(e);
     el('loadingMsg').textContent = 'Erro ao carregar as bases. Verifique o acesso às planilhas.';
-    alert('Erro no carregamento: '+(e.message||e));
   }
 }
 
@@ -355,11 +315,9 @@ function valorFaturamento(r){
 }
 function inScope(r){
   if(selectedEmpresa && r.empresa!==selectedEmpresa) return false;
-  const d = dataBase(r);
-  if(!d) return false;
-  if(dateFrom && d < dateFrom) return false;
-  if(dateTo && d > dateTo) return false;
-  if(!dateFrom && !dateTo && selectedAno && d.slice(0,4)!==selectedAno) return false;
+  if(dateFrom && r.dtFat < dateFrom) return false;
+  if(dateTo && r.dtFat > dateTo) return false;
+  if(!dateFrom && !dateTo && selectedAno && r.dtFat.slice(0,4)!==selectedAno) return false;
   return true;
 }
 // Faturamento/Icms/Suframa (Sem Multicopos)
@@ -401,9 +359,8 @@ function faturamentoMesmoPeriodo(rows, ym, dayLimit, monthsBack){
   const targetMonth = monthAdd(ym, monthsBack);
   return rows.filter(r=>{
     if(isMulticoposCliente(r)) return false;
-    const d = dataBase(r);
-    if(!d || d.slice(0,7)!==targetMonth) return false;
-    if(dayLimit){ const dia=parseInt(d.slice(8,10),10); if(dia>dayLimit) return false; }
+    if(r.dtFat.slice(0,7)!==targetMonth) return false;
+    if(dayLimit){ const d=parseInt(r.dtFat.slice(8,10),10); if(d>dayLimit) return false; }
     return true;
   }).reduce((s,r)=>s+valorFaturamento(r),0);
 }
@@ -419,9 +376,9 @@ function renderTable(rows){
     const rowsEmp = rows.filter(r=>r.empresa===nomeEmp);
     const fat = faturamentoSemMulticopos(rowsEmp) + faturamentoTriangular(rowsEmp) + faturamentoFidelidade(rowsEmp);
     const m1 = faturamentoMesmoPeriodo(allRows.filter(r=>r.empresa===nomeEmp), selectedAno? `${selectedAno}-${curYm.slice(5)}` : curYm, dayLimit, -1);
-    const ytdRows = allRows.filter(r=>r.empresa===nomeEmp && dataBase(r) && dataBase(r).slice(0,4)===(selectedAno||curYm.slice(0,4)));
+    const ytdRows = allRows.filter(r=>r.empresa===nomeEmp && r.dtFat.slice(0,4)===(selectedAno||curYm.slice(0,4)));
     const ytd = faturamentoSemMulticopos(ytdRows);
-    const ytdY1Rows = allRows.filter(r=>r.empresa===nomeEmp && dataBase(r) && dataBase(r).slice(0,4)===String(Number(selectedAno||curYm.slice(0,4))-1));
+    const ytdY1Rows = allRows.filter(r=>r.empresa===nomeEmp && r.dtFat.slice(0,4)===String(Number(selectedAno||curYm.slice(0,4))-1));
     const ytdY1 = faturamentoSemMulticopos(ytdY1Rows);
     const itens = itensSemMulticoposSemGSL(rowsEmp);
     const pedidosUnicos = pedidosSemMulticopos(rowsEmp);
@@ -460,11 +417,11 @@ function renderTable(rows){
 
 let evChart=null, shareChart=null;
 function renderEvolutionChart(rows){
-  const anosRef = selectedAno ? [selectedAno] : Array.from(new Set(rows.map(r=>dataBase(r)).filter(Boolean).map(d=>d.slice(0,4)))).sort();
+  const anosRef = selectedAno ? [selectedAno] : Array.from(new Set(rows.map(r=>r.dtFat.slice(0,4)))).sort();
   const meses = [];
   anosRef.forEach(ano=>{ for(let m=1;m<=12;m++){ meses.push(`${ano}-${String(m).padStart(2,'0')}`); } });
-  const mesesComDado = meses.filter(ym=>allRows.some(r=>(!selectedEmpresa||r.empresa===selectedEmpresa) && dataBase(r) && dataBase(r).slice(0,7)===ym));
-  const valores = mesesComDado.map(ym=>faturamentoSemMulticopos(allRows.filter(r=>(!selectedEmpresa||r.empresa===selectedEmpresa) && dataBase(r) && dataBase(r).slice(0,7)===ym)));
+  const mesesComDado = meses.filter(ym=>allRows.some(r=>(!selectedEmpresa||r.empresa===selectedEmpresa) && r.dtFat.slice(0,7)===ym));
+  const valores = mesesComDado.map(ym=>faturamentoSemMulticopos(allRows.filter(r=>(!selectedEmpresa||r.empresa===selectedEmpresa) && r.dtFat.slice(0,7)===ym)));
   const labels = mesesComDado.map(ym=>{ const [y,m]=ym.split('-'); const n=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez']; return n[parseInt(m,10)-1]+'/'+y.slice(2); });
 
   const data = { labels, datasets:[{ label:'Faturamento', data:valores, backgroundColor:'#2D70B8', borderRadius:5, maxBarThickness:34 }] };
