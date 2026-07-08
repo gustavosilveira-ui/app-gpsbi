@@ -9,7 +9,7 @@
 <style>
 .rep-picker{display:flex;align-items:center;gap:10px;}
 .rep-picker input{flex:1;max-width:340px;}
-.sim-grid{display:grid;grid-template-columns:repeat(4,minmax(130px,1fr));gap:12px;margin-bottom:18px;overflow-x:auto;}
+.sim-grid{display:grid;grid-template-columns:repeat(5,minmax(120px,1fr));gap:12px;margin-bottom:18px;overflow-x:auto;}
 .sim-kpi{background:var(--navy3);border-radius:12px;padding:16px;}
 .sim-kpi-val{font-family:'DM Mono',monospace;font-size:19px;font-weight:800;white-space:nowrap;}
 .sim-kpi-lbl{font-size:11px;color:var(--text3);margin-top:4px;}
@@ -56,6 +56,7 @@
       <div class="sim-grid">
         <div class="sim-kpi"><div class="sim-kpi-val" id="kpiMeta">--</div><div class="sim-kpi-lbl">Meta anual</div></div>
         <div class="sim-kpi"><div class="sim-kpi-val" id="kpiCaptado">--</div><div class="sim-kpi-lbl">Captado no ano (até hoje)</div></div>
+        <div class="sim-kpi"><div class="sim-kpi-val" id="kpiCaptadoMes">--</div><div class="sim-kpi-lbl" id="kpiCaptadoMesLbl">Captado no mês vigente</div></div>
         <div class="sim-kpi"><div class="sim-kpi-val" id="kpiFalta">--</div><div class="sim-kpi-lbl">Falta pra meta</div></div>
         <div class="sim-kpi"><div class="sim-kpi-val" id="kpiDiasUteis">--</div><div class="sim-kpi-lbl">Dias úteis restantes no ano</div></div>
       </div>
@@ -223,8 +224,9 @@ async function loadData(){
     if(reps.length){ simVendedorCod = Number(reps[0][0]); simRepresentacao = reps[0][1].representacao; inp.value = simRepresentacao; }
     inp.addEventListener('input', ()=>{
       const match = reps.find(([cod,r])=>r.representacao.toLowerCase()===inp.value.trim().toLowerCase());
-      if(match){ simVendedorCod = Number(match[0]); simRepresentacao = match[1].representacao; simOrders=[]; renderSimulator(); }
+      if(match){ simVendedorCod = Number(match[0]); simRepresentacao = match[1].representacao; loadSimOrders(); }
     });
+    await loadSimOrders();
 
     el('loadingScreen').style.display='none';
     el('mainContent').style.display='block';
@@ -255,8 +257,14 @@ function renderSimulator(){
   const falta = Math.max(0, meta-captado);
   const diasUteisRestantes = countBusinessDaysRemainingInYear();
 
+  const mesAtualYm = `${anoAtual}-${String(new Date().getMonth()+1).padStart(2,'0')}`;
+  const mesNomes = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const captadoMes = rowsRep.filter(r=>r.dtFat.slice(0,7)===mesAtualYm).reduce((s,r)=>s+valorFaturamento(r),0);
+
   el('kpiMeta').textContent = meta>0 ? fmtBRL(meta) : 'Sem meta definida';
   el('kpiCaptado').textContent = fmtBRL(captado);
+  el('kpiCaptadoMes').textContent = fmtBRL(captadoMes);
+  el('kpiCaptadoMesLbl').textContent = 'Captado em ' + mesNomes[new Date().getMonth()];
   el('kpiFalta').textContent = meta>0 ? fmtBRL(falta) : '—';
   el('kpiDiasUteis').textContent = diasUteisRestantes + (diasUteisRestantes===1?' dia':' dias');
 
@@ -272,15 +280,27 @@ function renderSimulator(){
   renderSimOrders();
 }
 
-function addSimOrder(){
+async function loadSimOrders(){
+  const { data, error } = await sb.from('simulacoes_mebrasi').select('*').eq('usuario_email', userEmail).eq('cod_vendedor', simVendedorCod).order('criado_em',{ascending:true});
+  simOrders = error ? [] : (data||[]).map(r=>({ id:r.id, cliente:r.cliente, valor:r.valor }));
+  renderSimulator();
+}
+async function addSimOrder(){
   const cliente = el('newOrderCliente').value.trim();
   const valor = parseFloat(el('newOrderValor').value);
   if(!cliente || !valor){ alert('Preencha o cliente/pedido e o valor.'); return; }
-  simOrders.push({ cliente, valor });
+  const { data, error } = await sb.from('simulacoes_mebrasi').insert({ usuario_email:userEmail, cod_vendedor:simVendedorCod, cliente, valor }).select().single();
+  if(error){ alert('Erro ao salvar simulação: '+error.message); return; }
+  simOrders.push({ id:data.id, cliente, valor });
   el('newOrderCliente').value=''; el('newOrderValor').value='';
   renderSimOrders();
 }
-function removeSimOrder(idx){ simOrders.splice(idx,1); renderSimOrders(); }
+async function removeSimOrder(idx){
+  const ordem = simOrders[idx];
+  simOrders.splice(idx,1);
+  renderSimOrders();
+  if(ordem && ordem.id) await sb.from('simulacoes_mebrasi').delete().eq('id', ordem.id);
+}
 function renderSimOrders(){
   const wrap = el('orderListWrap');
   wrap.innerHTML = simOrders.length ? simOrders.map((o,i)=>`

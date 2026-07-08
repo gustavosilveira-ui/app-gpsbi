@@ -485,7 +485,7 @@ html.light .kpi-card{background:#fff}
         <div class="chart-box big"><canvas id="evolutionChart"></canvas></div>
       </div>
       <div class="chart-card projeto-card">
-        <div class="chart-title">Faturamento por Representante</div>
+        <div class="chart-title">Faturamento por Empresa</div>
         <div class="chart-sub">Coluna Projeto da base</div>
         <div class="project-body project-body-full">
           <div class="project-donut"><canvas id="projetoChart"></canvas></div>
@@ -1335,7 +1335,8 @@ function renderEvolution(){
     Array.from({length:12},(_,i)=>`${y}-${String(i+1).padStart(2,'0')}`)
   );
   const allMonths = baseMonths.filter(m=>
-    captadaRows.some(r=>r.mes===m) || faturadaRows.some(r=>r.mes===m) || Object.prototype.hasOwnProperty.call(metasMap,m)
+    (captadaRows.some(r=>r.mes===m) || faturadaRows.some(r=>r.mes===m) || Object.prototype.hasOwnProperty.call(metasMap,m))
+    && m <= `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`
   );
   evolutionMonths = allMonths;
 
@@ -1399,8 +1400,7 @@ function renderEvolution(){
     return m===selectedMes ? cyan : blue;
   });
   const data={labels,datasets:[
-    {label:'Receita Captada',data:capByMes,backgroundColor:barColors,borderRadius:5,maxBarThickness:32,yAxisID:'y',order:2},
-    {label:'Receita Faturada',data:fatByMes,type:'line',borderColor:'#9CA3AF',backgroundColor:'#9CA3AF',borderWidth:2.5,pointRadius:3,pointBackgroundColor:'#9CA3AF',tension:.3,yAxisID:'y',order:1}
+    {label:'Receita Faturada',data:capByMes,backgroundColor:barColors,borderRadius:5,maxBarThickness:32,yAxisID:'y',order:2}
   ]};
   const opts={responsive:true,maintainAspectRatio:false,animation:{duration:300},
     layout:{padding:{top:40}},
@@ -1488,7 +1488,7 @@ function setupEvolutionDragSelect(){
 
 let projetoChart=null;
 function renderProjetoChart(rows){
-  const map={}; rows.forEach(r=>{ const p=r.canal||'N/D'; map[p]=(map[p]||0)+r.total; });
+  const map={}; rows.forEach(r=>{ const p=r.vendedor||'N/D'; map[p]=(map[p]||0)+r.total; });
   const entries = Object.entries(map).sort((a,b)=>b[1]-a[1]);
   const top = entries.slice(0,5);
   const outros = entries.slice(5).reduce((s,e)=>s+e[1],0);
@@ -1509,8 +1509,8 @@ function renderProjetoChart(rows){
       const idx = elements[0].index;
       if(idx===outrosIdx) return; // "OUTROS" agrupa vários, não dá pra filtrar por um só
       const clicked = finalRows[idx][0];
-      selectedCanal = (selectedCanal===clicked) ? '' : clicked;
-      const cSel = el('canalSelect'); if(cSel) cSel.value = selectedCanal;
+      selectedVendedor = (selectedVendedor===clicked) ? '' : clicked;
+      const vSel = el('vendedorSelect'); if(vSel) vSel.value = selectedVendedor;
       render();
     },
     onHover:(evt, elements)=>{ evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; },
