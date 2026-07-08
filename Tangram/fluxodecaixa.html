@@ -408,7 +408,8 @@ function rowsFromGvizTable(table, contaLabel){
     const situacao = (getColNormalized(r, 'situacao')||'').toString().trim();
     if(normalizeTxt(situacao)==='atrasado'){ debugAtrasadoExcluidos++; return null; } // recebimento ou pagamento em atraso, não é caixa realizado
 
-    return { date, categoria: categoria||'Sem categoria', grupo, valor, conta: contaLabel };
+    const contaCorrente = (getColNormalized(r, 'conta corrente')||contaLabel||'Conta não informada').toString().trim();
+    return { date, categoria: categoria||'Sem categoria', grupo, valor, conta: contaCorrente||contaLabel, fonte: contaLabel };
   }).filter(Boolean);
 }
 
@@ -448,7 +449,7 @@ async function loadData(){
         console.error('Erro ao carregar a aba Movimentação da Conta Agência:', e);
       }
     }
-    rows = rows.concat(HISTORICO_ROW_DEFS.map(h=>({ date:HISTORICO_CUTOFF, categoria:h.categoria, grupo:h.grupo, valor:0, conta:'Histórico' })));
+    rows = rows.concat(HISTORICO_ROW_DEFS.map(h=>({ date:HISTORICO_CUTOFF, categoria:h.categoria, grupo:h.grupo, valor:0, conta:'Histórico', fonte:'Histórico' })));
     rows.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
 
     await loadSaldoInicial();
@@ -561,6 +562,10 @@ const isRecebimento = r => r.grupo==='RECEBIMENTOS';
 const isPagamento = r => r.grupo!=='RECEBIMENTOS';
 const isGrupo = g => r => r.grupo===g;
 const isCategoria = c => r => r.categoria===c;
+const isContaRecebimento = conta => r => r.grupo==='RECEBIMENTOS' && r.conta===conta && r.date > HISTORICO_CUTOFF;
+const isContaCategoriaRecebimento = (conta, categoria) => r => r.grupo==='RECEBIMENTOS' && r.conta===conta && r.categoria===categoria && r.date > HISTORICO_CUTOFF;
+const onlyCurrentRecebimentos = r => r.grupo==='RECEBIMENTOS' && r.date > HISTORICO_CUTOFF;
+const noRowsFilter = r => false;
 
 /* ================== ÁRVORE DE LINHAS ================== */
 let rowTree = [];
@@ -568,14 +573,46 @@ function buildRowTree(){
   const catsByGrupo = {};
   rows.forEach(r=>{ if(!catsByGrupo[r.grupo]) catsByGrupo[r.grupo]=new Set(); catsByGrupo[r.grupo].add(r.categoria); });
 
-  const recebimentoCats = Array.from(catsByGrupo['RECEBIMENTOS']||[]).sort();
+  // RECEBIMENTOS: a partir de 01/07/2026, a visão principal passa a ser por Conta Corrente.
+  // O histórico até 30/06/2026 continua disponível, recolhido, por categoria.
+  const contasRecebimento = Array.from(new Set(
+    rows
+      .filter(r=>r.grupo==='RECEBIMENTOS' && r.date > HISTORICO_CUTOFF && r.conta && r.conta!=='Histórico')
+      .map(r=>r.conta)
+  )).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+
+  const recebimentoHistoricoCats = Array.from(catsByGrupo['RECEBIMENTOS']||[])
+    .filter(c=>normalizeTxt(c)!=='frete') // Frete é despesa logística, não recebimento.
+    .sort((a,b)=>a.localeCompare(b,'pt-BR'));
+
   const recebimentosNode = {
-    type:'recebimentos', level:0, label:'RECEBIMENTOS', filter:isRecebimento, expanded:false,
-    children: recebimentoCats.map(c=>({ type:'cat', level:2, label:c, filter:isCategoria(c), histKey:'RECEBIMENTOS||'+c, expanded:false, children:[] }))
+    type:'recebimentos', level:0, label:'RECEBIMENTOS', filter:onlyCurrentRecebimentos, expanded:false,
+    children: [
+      ...contasRecebimento.map(conta=>{
+        const catsConta = Array.from(new Set(
+          rows
+            .filter(r=>r.grupo==='RECEBIMENTOS' && r.date > HISTORICO_CUTOFF && r.conta===conta)
+            .map(r=>r.categoria)
+        )).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+        return {
+          type:'conta_recebimento', level:2, label:conta, filter:isContaRecebimento(conta), expanded:false,
+          children: catsConta.map(c=>({
+            type:'cat_conta_recebimento', level:2, label:c, filter:isContaCategoriaRecebimento(conta,c), expanded:false, children:[]
+          }))
+        };
+      }),
+      {
+        type:'recebimentos_historico', level:1, label:'Categorias / Histórico', filter:noRowsFilter,
+        histKey:'TOTAL||RECEBIMENTOS', expanded:false,
+        children: recebimentoHistoricoCats.map(c=>({
+          type:'cat', level:2, label:c, filter:noRowsFilter, histKey:'RECEBIMENTOS||'+c, expanded:false, children:[]
+        }))
+      }
+    ].filter(n=>!(n.type==='recebimentos_historico' && !n.children.length))
   };
 
   const pagamentoSubgrupos = GRUPOS_PAGAMENTO.map(g=>{
-    const cats = Array.from(catsByGrupo[g.key]||[]).sort();
+    const cats = Array.from(catsByGrupo[g.key]||[]).sort((a,b)=>a.localeCompare(b,'pt-BR'));
     return {
       type:'subgrupo', level:1, label:g.label, filter:isGrupo(g.key), histKey:g.key+'||'+g.label, expanded:false,
       children: cats.map(c=>({ type:'cat', level:2, label:c, filter:isCategoria(c), histKey:g.key+'||'+c, expanded:false, children:[] }))
@@ -592,7 +629,7 @@ function buildRowTree(){
 
   // Lançamentos manuais (GPS): entram como uma linha própria, pra ficar claro
   // que é um valor lançado à mão e não vindo direto da planilha do cliente.
-  const ajustesCats = Array.from(catsByGrupo['AJUSTES_MANUAIS']||[]).sort();
+  const ajustesCats = Array.from(catsByGrupo['AJUSTES_MANUAIS']||[]).sort((a,b)=>a.localeCompare(b,'pt-BR'));
   if(ajustesCats.length){
     nodes.push({
       type:'ajustes', level:0, label:'LANÇAMENTOS MANUAIS (GPS)', filter:r=>r.grupo==='AJUSTES_MANUAIS', expanded:false,
@@ -630,8 +667,8 @@ function renderDebugStats(){
   const wrap = el('fcDebugStats');
   if(!wrap) return;
   if(!gpsStaff){ wrap.textContent = ''; return; }
-  const totalPrincipal = rows.filter(r=>r.conta==='Principal').length;
-  const totalAgencia = rows.filter(r=>r.conta==='Agência').length;
+  const totalPrincipal = rows.filter(r=>r.fonte==='Principal' || r.conta==='Principal').length;
+  const totalAgencia = rows.filter(r=>r.fonte==='Agência' || r.conta==='Agência').length;
   const totalRec = rows.filter(r=>r.grupo==='RECEBIMENTOS').length;
   const totalAjustes = rows.filter(r=>r.grupo==='AJUSTES_MANUAIS').length;
   const totalPag = rows.length - totalRec - totalAjustes;
@@ -765,7 +802,7 @@ async function loadAjustesManuais(){
   rows = rows.filter(r=>r.grupo!=='AJUSTES_MANUAIS'); // evita duplicar se recarregar
   ajustesManuais.forEach(a=>{
     if(a.data > HISTORICO_CUTOFF){
-      rows.push({ date:a.data, categoria: a.descricao || 'Lançamento manual', grupo:'AJUSTES_MANUAIS', valor:a.valor });
+      rows.push({ date:a.data, categoria: a.descricao || 'Lançamento manual', grupo:'AJUSTES_MANUAIS', valor:a.valor, conta:'Lançamentos manuais', fonte:'Manual' });
     }
   });
   rows.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
