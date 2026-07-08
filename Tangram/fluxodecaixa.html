@@ -612,10 +612,18 @@ function sumInRange(catFilterFn, start, end){
 // datas a partir dele passam a somar em cima desse valor em vez do zero absoluto;
 // datas anteriores continuam com o cálculo normal (soma de todo o histórico).
 let saldoInicialOverride = null; // { data_referencia, valor }
+function valorImpactaSaldo(r){
+  // Duplicatas descontadas são uma linha só de VISIBILIDADE.
+  // Elas saem dos Recebimentos e também não podem alterar o Saldo Acumulado,
+  // senão o saldo fica inflado exatamente pelo valor da duplicata.
+  return r.grupo !== 'DUPLICATAS_DESCONTADAS';
+}
 function runningBalance(uptoDate){
   if(saldoInicialOverride && uptoDate >= saldoInicialOverride.data_referencia){
     let s = saldoInicialOverride.valor;
-    for(const r of rows){ if(r.date > saldoInicialOverride.data_referencia && r.date<=uptoDate) s += r.valor; }
+    for(const r of rows){
+      if(r.date > saldoInicialOverride.data_referencia && r.date<=uptoDate && valorImpactaSaldo(r)) s += r.valor;
+    }
     return s;
   }
 
@@ -623,10 +631,11 @@ function runningBalance(uptoDate){
   if(uptoDate <= HISTORICO_CUTOFF && HISTORICO_SALDO[uptoDate] !== undefined) return HISTORICO_SALDO[uptoDate];
 
   // A partir de 01/07/2026, parte do saldo final validado em 30/06/2026
-  // e soma somente a base nova + lançamentos manuais posteriores ao corte.
+  // e soma somente o que impacta caixa: Recebimentos + Pagamentos + ajustes manuais.
+  // Linhas informativas, como Duplicatas descontadas, não entram no saldo.
   let s = HISTORICO_SALDO[HISTORICO_CUTOFF] || 0;
   for(const r of rows){
-    if(r.date > HISTORICO_CUTOFF && r.date<=uptoDate) s += r.valor;
+    if(r.date > HISTORICO_CUTOFF && r.date<=uptoDate && valorImpactaSaldo(r)) s += r.valor;
   }
   return s;
 }
