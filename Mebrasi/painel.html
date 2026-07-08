@@ -269,23 +269,59 @@ async function init(){
   await loadData();
 }
 
+const CACHE_KEY = 'mebrasi_dados_cache_v1';
+const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutos
+
 async function loadData(){
   try{
     const empresas = Object.keys(SHEETS);
     let combined = [];
-    for(const nome of empresas){
-      el('loadingMsg').textContent = `Carregando ${nome}...`;
-      const cfg = SHEETS[nome];
-      const table = await fetchGviz(cfg.sheetId, cfg.gid);
-      const raw = parseGvizRows(table);
-      const recs = raw.map(r => cfg.tipo==='online' ? rowToRecordOnline(r, cfg.codEmpresa) : rowToRecordPadrao(r, nome, cfg.codEmpresa)).filter(Boolean);
-      combined = combined.concat(recs);
+    let falhas = [];
+
+    // 1) tenta usar cache da sessão (evita rebaixar tudo de novo em poucos minutos)
+    const cached = sessionStorage.getItem(CACHE_KEY);
+    if(cached){
+      try{
+        const parsed = JSON.parse(cached);
+        if(Date.now() - parsed.ts < CACHE_TTL_MS){
+          combined = parsed.rows;
+        }
+      }catch(e){ /* cache inválido, ignora */ }
+    }
+
+    if(!combined.length){
+      el('loadingMsg').textContent = 'Carregando as 5 empresas em paralelo...';
+      // 2) busca as 5 planilhas AO MESMO TEMPO (não uma de cada vez)
+      const resultados = await Promise.allSettled(empresas.map(async nome=>{
+        const cfg = SHEETS[nome];
+        const table = await fetchGviz(cfg.sheetId, cfg.gid);
+        const raw = parseGvizRows(table);
+        return raw.map(r => cfg.tipo==='online' ? rowToRecordOnline(r, cfg.codEmpresa) : rowToRecordPadrao(r, nome, cfg.codEmpresa)).filter(Boolean);
+      }));
+      resultados.forEach((r, i)=>{
+        if(r.status==='fulfilled') combined = combined.concat(r.value);
+        else falhas.push(empresas[i]);
+      });
+
+      if(combined.length){
+        try{ sessionStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), rows: combined })); }catch(e){ /* sessionStorage cheio, ignora */ }
+      }
+    }
+
+    if(!combined.length){
+      el('loadingMsg').textContent = 'Não consegui carregar nenhuma das 5 bases. Verifique o acesso às planilhas.';
+      return;
     }
     allRows = combined;
 
+    if(falhas.length){
+      console.warn('Falha ao carregar:', falhas.join(', '));
+    }
+
     // filtros: Empresa e Ano
+    const empresasOk = empresas; // mantém todas no filtro, mesmo que uma tenha falhado momentaneamente
     const empSel = el('empresaSelect');
-    empresas.forEach(nome=>{ const o=document.createElement('option'); o.value=nome; o.textContent=nome; empSel.appendChild(o); });
+    empresasOk.forEach(nome=>{ const o=document.createElement('option'); o.value=nome; o.textContent=nome + (falhas.includes(nome)?' (falhou ao carregar)':''); empSel.appendChild(o); });
     empSel.addEventListener('change', ()=>{ selectedEmpresa = empSel.value; render(); });
 
     const anos = Array.from(new Set(allRows.map(r=>r.dtFat.slice(0,4)))).sort().reverse();
@@ -300,6 +336,12 @@ async function loadData(){
 
     el('loadingScreen').style.display='none';
     el('mainContent').style.display='block';
+    if(falhas.length){
+      const banner = document.createElement('div');
+      banner.style.cssText = 'background:rgba(245,185,66,.12);color:var(--gold);border:1px solid rgba(245,185,66,.3);padding:10px 16px;border-radius:8px;font-size:12.5px;margin-bottom:14px;';
+      banner.textContent = `⚠️ Não consegui carregar: ${falhas.join(', ')}. Os números mostrados não incluem essas empresas — tenta recarregar a página em alguns minutos.`;
+      document.querySelector('.content').prepend(banner);
+    }
     render();
   }catch(e){
     console.error(e);

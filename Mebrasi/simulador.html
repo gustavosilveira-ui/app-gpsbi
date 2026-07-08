@@ -193,16 +193,23 @@ async function init(){
 
 async function loadData(){
   try{
-    const empresas = Object.keys(SHEETS);
+    const empresas = Object.keys(SHEETS).filter(nome => SHEETS[nome].tipo!=='online');
     let combined = [];
-    for(const nome of empresas){
-      el('loadingMsg').textContent = `Carregando ${nome}...`;
+
+    el('loadingMsg').textContent = 'Carregando as empresas em paralelo...';
+    const resultados = await Promise.allSettled(empresas.map(async nome=>{
       const cfg = SHEETS[nome];
-      if(cfg.tipo==='online') continue; // Online não tem Cod Vendedor / meta individual
       const table = await fetchGviz(cfg.sheetId, cfg.gid);
       const raw = parseGvizRows(table);
-      combined = combined.concat(raw.map(rowToRecordPadrao).filter(Boolean));
-    }
+      return raw.map(rowToRecordPadrao).filter(Boolean);
+    }));
+    combined = [];
+    const falhas = [];
+    resultados.forEach((r,i)=>{
+      if(r.status==='fulfilled') combined = combined.concat(r.value);
+      else falhas.push(empresas[i]);
+    });
+    if(falhas.length) console.warn('Falha ao carregar (simulador):', falhas.join(', '));
     allRows = combined;
 
     const { data: metas, error: metasErr } = await sb.from('metas_mebrasi').select('*').eq('ano', anoAtual);
