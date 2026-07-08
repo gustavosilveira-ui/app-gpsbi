@@ -565,6 +565,13 @@ html.light .kpi-card{background:#fff}
         <table><thead><tr><th>Produto</th><th style="text-align:right;padding-right:14px">Receita</th><th style="text-align:right">Qtd</th></tr></thead><tbody id="topProdutos"></tbody></table>
       </div>
     </div>
+
+    <div class="table-card" id="analiseWhatsCard" style="margin-top:18px;display:none;">
+      <div class="section-title">📋 Análise para WhatsApp</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:12px;">Texto pronto com os números do mês selecionado — cole direto no grupo do cliente.</div>
+      <pre id="analiseWhatsTexto" style="white-space:pre-wrap;font-family:'Sora',sans-serif;font-size:13px;line-height:1.7;background:var(--navy3);border-radius:10px;padding:14px 16px;margin-bottom:12px;"></pre>
+      <button id="analiseWhatsBtn" style="padding:9px 18px;border-radius:9px;border:none;font-weight:700;cursor:pointer;color:#fff;background:linear-gradient(90deg,var(--blue),var(--cyan));font-family:'Sora',sans-serif;font-size:12.5px;">📋 Copiar texto</button>
+    </div>
   </div>
 </div>
 
@@ -1146,6 +1153,7 @@ function render(){
   renderTopFamilias(capPeriodo);
   renderTopProdutos(capPeriodo);
   if(userRole==='owner' || userRole==='viewer') { renderRanking(); renderSuggestions(); renderMatrix(); }
+  if(userRole==='owner') renderAnaliseWhats();
 }
 
 let gaugeChartInst=null;
@@ -1165,6 +1173,75 @@ function renderGauge(pct,captado,meta){
   const data={datasets:[{data:[safeP,100-safeP],backgroundColor:[color,'rgba(120,130,150,0.15)'],borderWidth:0,circumference:270,rotation:225,cutout:'78%'}]};
   if(gaugeChartInst){ gaugeChartInst.data=data; gaugeChartInst.update(); return; }
   gaugeChartInst = new Chart(ctx,{type:'doughnut',data,options:{responsive:false,plugins:{legend:{display:false},tooltip:{enabled:false}},animation:{duration:600}}});
+}
+
+/* ---- Análise pronta pra WhatsApp ---- */
+let analiseWhatsBound = false;
+function periodoAtualInfo(mes){
+  const currentYm = `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`;
+  const [y,m] = mes.split('-').map(Number);
+  const lastDay = new Date(y,m,0).getDate();
+  const endDay = (mes===currentYm) ? new Date().getDate() : lastDay;
+  const pad = n=>String(n).padStart(2,'0');
+  return {
+    currentYm,
+    de: `01/${pad(m)}/${y}`,
+    ate: `${pad(endDay)}/${pad(m)}/${y}`,
+    dayLimit: (mes===currentYm) ? endDay : null
+  };
+}
+function gerarAnaliseTexto(){
+  const vendFilter = selectedVendedor, canalFilter = selectedCanal;
+  const mes = selectedMes || `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`;
+  const info = periodoAtualInfo(mes);
+
+  const capAtual = calcMonthTotalSamePeriod(mes, vendFilter, canalFilter, info.currentYm, captadaRows);
+  const fatAtual = calcMonthTotalSamePeriod(mes, vendFilter, canalFilter, info.currentYm, faturadaRows);
+
+  const mesAnterior = monthAdd(mes,-1);
+  const anoAnterior = monthAdd(mes,-12);
+  const capMesAnterior = calcMonthTotalSamePeriod(mesAnterior, vendFilter, canalFilter, mes===info.currentYm ? info.currentYm : null, captadaRows);
+  const capAnoAnterior = calcMonthTotalSamePeriod(anoAnterior, vendFilter, canalFilter, mes===info.currentYm ? info.currentYm : null, captadaRows);
+
+  const pctMes = capMesAnterior>0 ? (capAtual-capMesAnterior)/capMesAnterior*100 : null;
+  const pctAno = capAnoAnterior>0 ? (capAtual-capAnoAnterior)/capAnoAnterior*100 : null;
+
+  const pedidosUnicos = new Set(rowsUntilDay(captadaRows, mes, vendFilter, canalFilter, info.dayLimit).map(r=>r.pedido)).size;
+  const ticketMedio = pedidosUnicos>0 ? capAtual/pedidosUnicos : 0;
+
+  const linhaMes = pctMes===null ? '📈 Crescimento vs Mês: —' : `📈 Crescimento vs Mês: ${Math.round(pctMes)}% (${fmtBRLFull(capAtual-capMesAnterior)})`;
+  const linhaAno = pctAno===null ? '📈 Crescimento vs Ano: —' : `📈 Crescimento vs Ano: ${Math.round(pctAno)}% (${fmtBRLFull(capAtual-capAnoAnterior)})`;
+
+  return [
+    `📊 Análise de Resultados de Vendas – ${mesLabelFull(mes).toLowerCase()}`,
+    `🌟 > Tangram`,
+    `🗓️ Período: ${info.de} - ${info.ate}`,
+    `💰 Receita Captada: ${fmtBRLFull(capAtual)}`,
+    `💸 Receita Faturada: ${fmtBRLFull(fatAtual)}`,
+    linhaMes,
+    linhaAno,
+    `🛒 Ticket Médio: ${fmtBRLFull(ticketMedio)}`,
+    `https://tangram.gpsbi.com.br/`
+  ].join('\n');
+}
+function renderAnaliseWhats(){
+  const card = el('analiseWhatsCard');
+  if(!card) return;
+  card.style.display = 'block';
+  el('analiseWhatsTexto').textContent = gerarAnaliseTexto();
+  if(!analiseWhatsBound){
+    analiseWhatsBound = true;
+    el('analiseWhatsBtn').addEventListener('click', async ()=>{
+      const texto = el('analiseWhatsTexto').textContent;
+      try{
+        await navigator.clipboard.writeText(texto);
+        const btn = el('analiseWhatsBtn');
+        const original = btn.textContent;
+        btn.textContent = '✅ Copiado!';
+        setTimeout(()=>{ btn.textContent = original; }, 1800);
+      }catch(e){ alert('Não consegui copiar automaticamente. Selecione o texto acima e copie manualmente.'); }
+    });
+  }
 }
 
 function renderRankPos(myTotal){
