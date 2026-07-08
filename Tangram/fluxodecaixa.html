@@ -7,6 +7,7 @@
 <link rel="stylesheet" href="theme.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
+html{zoom:.8;}
 .fc-page-content{max-width:100% !important;padding:16px 14px !important;}
 .fc-wrap{overflow:auto;max-height:80vh;border-radius:12px;border:1px solid var(--border2);}
 .fc-table{border-collapse:separate;border-spacing:0;font-size:11.5px;width:max-content;min-width:100%;}
@@ -97,9 +98,9 @@ html.light .fc-lvl-0 td{background:#eef1f6;}
     </div>
 
     <!-- ============ NOVO: Saldo Inicial ============ -->
-    <div class="card">
+    <div class="card" id="fcSaldoInicialCard">
       <div class="card-title">🏁 Saldo Inicial</div>
-      <div class="card-sub">Defina o saldo em uma data específica — o Saldo Acumulado passa a respeitar esse valor a partir dali. Remova pra voltar ao cálculo padrão (soma de todo o histórico da planilha).</div>
+      <div class="card-sub">Defina o saldo em uma data específica — o Saldo Acumulado passa a respeitar esse valor a partir dali. Remova pra voltar ao cálculo padrão (soma de todo o histórico da planilha). Visível só pro time GPS.</div>
       <div class="fc-saldo-form">
         <div class="field-group" style="margin-bottom:0;">
           <label class="field-label">Data</label>
@@ -112,6 +113,28 @@ html.light .fc-lvl-0 td{background:#eef1f6;}
         <button class="btn btn-primary" onclick="applySaldoInicial()">Aplicar</button>
       </div>
       <div class="fc-saldo-status" id="fcSaldoInicialStatus" style="margin-top:14px;"></div>
+    </div>
+
+    <!-- ============ NOVO: Lançamentos Manuais ============ -->
+    <div class="card" id="fcAjustesManuaisCard">
+      <div class="card-title">🖊️ Lançamentos Manuais</div>
+      <div class="card-sub">Pra valores lançados à mão — despesa sem categoria definida ainda, aguardando confirmação do time de compras ou do cliente etc. Entra de verdade no Saldo Acumulado (positivo ou negativo). Visível só pro time GPS.</div>
+      <div class="fc-sim-form">
+        <div class="field-group" style="margin-bottom:0;">
+          <label class="field-label">Descrição</label>
+          <input type="text" id="fcAjusteDesc" placeholder="Ex: Despesa aguardando categoria, ajuste de compras...">
+        </div>
+        <div class="field-group" style="margin-bottom:0;">
+          <label class="field-label">Valor (R$) — negativo se for despesa</label>
+          <input type="number" id="fcAjusteValor" placeholder="Ex: 5000 ou -3200">
+        </div>
+        <div class="field-group" style="margin-bottom:0;">
+          <label class="field-label">Data</label>
+          <input type="date" id="fcAjusteData">
+        </div>
+        <button class="btn btn-primary" onclick="addAjusteManual()">Adicionar</button>
+      </div>
+      <div id="fcAjusteList" style="margin-top:14px;"></div>
     </div>
 
     <!-- ============ NOVO: Simulador de impacto no saldo ============ -->
@@ -166,13 +189,25 @@ const SUPABASE_URL = 'https://mczggrocmccvmyglnumv.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jemdncm9jbWNjdm15Z2xudW12Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMjM2NzcsImV4cCI6MjA5ODU5OTY3N30.XXzhDvxfNaUW61HvgE4xuqzSICoLEYjbJhd1X52Zp84';
 const SHEET_ID = '1PMqK9MkeaDQOOoIOPXIof6wNrcSXa_JR1ktQnFiIS7s';
 const GID_MOVIMENTACAO = '0';
+// Aba nova "Movimentação da Conta Agência" — troque '' pelo gid real da aba assim
+// que ela existir na planilha (abra a aba e veja o número depois de "gid=" na URL).
+const GID_MOVIMENTACAO_AGENCIA = '';
 const LOGIN_URL = 'index.html';
+
+function normalizeTxt(s){
+  return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+}
 
 // Acesso a essa página é diferente do "admin" geral do Hub:
 // aqui é qualquer e-mail @gpsbi.com.br + o Anderson (definido junto com o Gustavo).
 function canAccessFluxo(email){
   email = (email||'').toLowerCase();
   return email.endsWith('@gpsbi.com.br') || email === 'anderson@tangrampersonalizados.com.br';
+}
+// Alguns recursos (Saldo Inicial, Lançamentos Manuais) são só do time interno GPS —
+// o Anderson/Prieto (cliente) acessa o Fluxo de Caixa, mas não esses controles.
+function isGpsStaff(email){
+  return (email||'').toLowerCase().endsWith('@gpsbi.com.br');
 }
 function isOwner(email){
   const OWNER_EMAILS = ['anderson@tangrampersonalizados.com.br', 'gustavosilveira@gpsbi.com.br'];
@@ -201,6 +236,7 @@ const GRUPOS_PAGAMENTO = [
 
 let rows = []; // { date, categoria, grupo, valor }
 let currentUser = null;
+let gpsStaff = false;
 
 function fmtBRL(n){
   if(n===null||n===undefined||isNaN(n)) return 'R$ 0';
@@ -240,6 +276,29 @@ function parseDateCell(v){
   return null;
 }
 
+// Transforma as linhas cruas do gviz em lançamentos do fluxo, já aplicando os filtros:
+// - ignora linhas marcadoras de SALDO/SALDO ANTERIOR
+// - ignora linhas de "Previsão" na coluna Origem (não são movimentação realizada)
+// - ignora a categoria "Transferência entre contas" (não é entrada/saída real da empresa)
+function rowsFromGvizTable(table, contaLabel){
+  const raw = parseGvizRows(table);
+  return raw.map(r=>{
+    const clienteFornecedor = (r['Cliente ou Fornecedor']||'').toString().trim();
+    if(clienteFornecedor==='SALDO' || clienteFornecedor==='SALDO ANTERIOR') return null; // linhas marcadoras, não lançamentos
+    const dateRaw = r['Data'];
+    const date = parseDateCell(typeof dateRaw==='object' && dateRaw!==null ? (dateRaw.v||dateRaw) : dateRaw);
+    if(!date) return null;
+    const categoria = (r['Categoria']||'').toString().trim();
+    if(normalizeTxt(categoria)==='transferencia entre contas') return null; // não entra no fluxo
+    const origem = (r['Origem']||'').toString().trim();
+    if(normalizeTxt(origem).includes('previsao')) return null; // linha de previsão, não é movimentação realizada
+    const valorRaw = r['Valor (R$)'];
+    const valor = parseMoneyBR(typeof valorRaw==='object' && valorRaw!==null ? valorRaw.v : valorRaw);
+    const grupo = CATEGORIA_GRUPO[categoria] || 'OUTROS';
+    return { date, categoria: categoria||'Sem categoria', grupo, valor, conta: contaLabel };
+  }).filter(Boolean);
+}
+
 async function init(){
   const { data } = await sb.auth.getSession();
   if(!data.session){ window.location.replace(LOGIN_URL); return; }
@@ -253,6 +312,12 @@ async function init(){
     return;
   }
 
+  gpsStaff = isGpsStaff(email);
+  if(!gpsStaff){
+    const saldoCard = el('fcSaldoInicialCard'); if(saldoCard) saldoCard.style.display='none';
+    const ajustesCard = el('fcAjustesManuaisCard'); if(ajustesCard) ajustesCard.style.display='none';
+  }
+
   renderAppNav({ activePage:'fluxodecaixa.html', userLabel: nameFromEmail(email), userRole: isOwner(email)?'owner':'vendor', onLogout: doLogout, sb, currentUser });
 
   await loadData();
@@ -260,23 +325,21 @@ async function init(){
 
 async function loadData(){
   try{
-    const table = await fetchGviz(GID_MOVIMENTACAO);
-    const raw = parseGvizRows(table);
-    rows = raw.map(r=>{
-      const clienteFornecedor = (r['Cliente ou Fornecedor']||'').toString().trim();
-      if(clienteFornecedor==='SALDO' || clienteFornecedor==='SALDO ANTERIOR') return null; // linhas marcadoras, não lançamentos
-      const dateRaw = r['Data'];
-      const date = parseDateCell(typeof dateRaw==='object' && dateRaw!==null ? (dateRaw.v||dateRaw) : dateRaw);
-      if(!date) return null;
-      const categoria = (r['Categoria']||'').toString().trim();
-      const valorRaw = r['Valor (R$)'];
-      const valor = parseMoneyBR(typeof valorRaw==='object' && valorRaw!==null ? valorRaw.v : valorRaw);
-      const grupo = CATEGORIA_GRUPO[categoria] || 'OUTROS';
-      return { date, categoria: categoria||'Sem categoria', grupo, valor };
-    }).filter(Boolean);
+    const tablePrincipal = await fetchGviz(GID_MOVIMENTACAO);
+    rows = rowsFromGvizTable(tablePrincipal, 'Principal');
+
+    if(GID_MOVIMENTACAO_AGENCIA){
+      try{
+        const tableAgencia = await fetchGviz(GID_MOVIMENTACAO_AGENCIA);
+        rows = rows.concat(rowsFromGvizTable(tableAgencia, 'Agência'));
+      }catch(e){
+        console.error('Erro ao carregar a aba Movimentação da Conta Agência:', e);
+      }
+    }
     rows.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
 
     await loadSaldoInicial();
+    await loadAjustesManuais(); // injeta os lançamentos manuais como movimentação real
     buildAndRenderTable();
     el('loadingScreen').style.display='none';
     el('mainContent').style.display='block';
@@ -378,11 +441,23 @@ function buildRowTree(){
 
   const pagamentosNode = { type:'pagamentos', level:0, label:'PAGAMENTOS', filter:isPagamento, expanded:true, children: pagamentoSubgrupos };
 
-  return [
+  const nodes = [
     { type:'saldo', level:0, label:'SALDO ACUMULADO', special:'saldo', expanded:false, children:[] },
     recebimentosNode,
     pagamentosNode,
   ];
+
+  // Lançamentos manuais (GPS): entram como uma linha própria, pra ficar claro
+  // que é um valor lançado à mão e não vindo direto da planilha do cliente.
+  const ajustesCats = Array.from(catsByGrupo['AJUSTES_MANUAIS']||[]).sort();
+  if(ajustesCats.length){
+    nodes.push({
+      type:'ajustes', level:0, label:'LANÇAMENTOS MANUAIS (GPS)', filter:r=>r.grupo==='AJUSTES_MANUAIS', expanded:false,
+      children: ajustesCats.map(c=>({ type:'cat', level:2, label:c, filter:isCategoria(c), expanded:false, children:[] }))
+    });
+  }
+
+  return nodes;
 }
 function flattenRows(nodes){
   let out = [];
@@ -510,6 +585,49 @@ async function removeSaldoInicial(){
   await sb.from('fluxo_saldo_inicial').delete().gt('id', 0);
   await loadSaldoInicial();
   renderTable();
+}
+
+/* ================== NOVO: Lançamentos Manuais ================== */
+// Diferente do "Simulador de Impacto" (que é só um "e se"), isso aqui vira
+// movimentação de verdade: entra em `rows` e é somado no Saldo Acumulado real.
+let ajustesManuais = [];
+async function loadAjustesManuais(){
+  const { data, error } = await sb.from('fluxo_ajustes_manuais').select('*').order('data',{ascending:true});
+  ajustesManuais = (!error && data) ? data : [];
+  rows = rows.filter(r=>r.grupo!=='AJUSTES_MANUAIS'); // evita duplicar se recarregar
+  ajustesManuais.forEach(a=>{
+    rows.push({ date:a.data, categoria: a.descricao || 'Lançamento manual', grupo:'AJUSTES_MANUAIS', valor:a.valor });
+  });
+  rows.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+  renderAjustesManuaisList();
+}
+function renderAjustesManuaisList(){
+  const wrap = el('fcAjusteList');
+  if(!wrap) return;
+  wrap.innerHTML = ajustesManuais.length ? ajustesManuais.map(a=>`
+    <div class="fc-sim-entry">
+      <span class="desc">${a.descricao}</span>
+      <span class="data">${new Date(a.data+'T00:00:00').toLocaleDateString('pt-BR')}</span>
+      <span class="valor" style="color:${a.valor>=0?'#98C47C':'var(--red)'}">${fmtBRL(a.valor)}</span>
+      <button class="del" onclick="removeAjusteManual(${a.id})">✕</button>
+    </div>`).join('') : '<div style="color:var(--text3);font-size:12.5px;">Nenhum lançamento manual ativo.</div>';
+}
+async function addAjusteManual(){
+  const descricao = el('fcAjusteDesc').value.trim();
+  const valor = parseFloat(el('fcAjusteValor').value);
+  const data = el('fcAjusteData').value;
+  if(!descricao || isNaN(valor) || !data){ alert('Preencha descrição, valor e data.'); return; }
+  const { error } = await sb.from('fluxo_ajustes_manuais').insert({ data, descricao, valor, criado_por: nameFromEmail(currentUser.email) });
+  if(error){ alert('Erro ao salvar: '+error.message); return; }
+  el('fcAjusteDesc').value=''; el('fcAjusteValor').value=''; el('fcAjusteData').value='';
+  await loadAjustesManuais();
+  buildAndRenderTable();
+}
+async function removeAjusteManual(id){
+  if(!confirm('Remover esse lançamento manual? Ele deixa de contar no Saldo Acumulado.')) return;
+  await sb.from('fluxo_ajustes_manuais').delete().eq('id', id);
+  await loadAjustesManuais();
+  buildAndRenderTable();
 }
 
 /* ================== NOVO: Simulador de impacto no saldo ================== */
