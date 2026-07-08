@@ -224,6 +224,14 @@ const LOGIN_URL = 'index.html';
 function normalizeTxt(s){
   return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
 }
+// Busca o valor de uma coluna pelo nome "normalizado" (sem acento/maiúscula),
+// pra não depender de bater a grafia exata do cabeçalho vindo do Google Sheets.
+function getColNormalized(rowObj, wantedKeyNormalized){
+  for(const k in rowObj){
+    if(normalizeTxt(k)===wantedKeyNormalized) return rowObj[k];
+  }
+  return undefined;
+}
 
 // Acesso a essa página é diferente do "admin" geral do Hub:
 // aqui é qualquer e-mail @gpsbi.com.br + o Anderson (definido junto com o Gustavo).
@@ -308,6 +316,7 @@ function parseDateCell(v){
 // - ignora linhas de "Previsão" na coluna Origem (não são movimentação realizada)
 // - ignora a categoria "Transferência entre contas" (não é entrada/saída real da empresa)
 // - ignora qualquer linha (Recebimento ou Pagamento) com Situação "Atrasado" (ainda não realizado, não é caixa de verdade)
+let debugAtrasadoExcluidos = 0;
 function rowsFromGvizTable(table, contaLabel){
   const raw = parseGvizRows(table);
   return raw.map(r=>{
@@ -323,8 +332,8 @@ function rowsFromGvizTable(table, contaLabel){
     const valorRaw = r['Valor (R$)'];
     const valor = parseMoneyBR(typeof valorRaw==='object' && valorRaw!==null ? valorRaw.v : valorRaw);
     const grupo = CATEGORIA_GRUPO[categoria] || 'OUTROS';
-    const situacao = (r['Situação']||'').toString().trim();
-    if(normalizeTxt(situacao)==='atrasado') return null; // recebimento ou pagamento em atraso, não é caixa realizado
+    const situacao = (getColNormalized(r, 'situacao')||'').toString().trim();
+    if(normalizeTxt(situacao)==='atrasado'){ debugAtrasadoExcluidos++; return null; } // recebimento ou pagamento em atraso, não é caixa realizado
     return { date, categoria: categoria||'Sem categoria', grupo, valor, conta: contaLabel };
   }).filter(Boolean);
 }
@@ -521,7 +530,7 @@ function renderDebugStats(){
   const totalRec = rows.filter(r=>r.grupo==='RECEBIMENTOS').length;
   const totalAjustes = rows.filter(r=>r.grupo==='AJUSTES_MANUAIS').length;
   const totalPag = rows.length - totalRec - totalAjustes;
-  wrap.textContent = `🔍 Diagnóstico (só GPS): ${rows.length} linhas no total · Conta Principal: ${totalPrincipal} · Conta Agência: ${totalAgencia} · Recebimentos: ${totalRec} · Pagamentos: ${totalPag} · Lançamentos manuais: ${totalAjustes}`;
+  wrap.textContent = `🔍 Diagnóstico (só GPS): ${rows.length} linhas no total · Conta Principal: ${totalPrincipal} · Conta Agência: ${totalAgencia} · Recebimentos: ${totalRec} · Pagamentos: ${totalPag} · Lançamentos manuais: ${totalAjustes} · Atrasados excluídos: ${debugAtrasadoExcluidos}`;
 }
 
 function renderTable(){
