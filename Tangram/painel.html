@@ -53,6 +53,7 @@ body{padding-bottom:40px;}
 .user-name{font-size:12px;font-weight:600;}
 .user-role{font-size:10px;color:var(--text3);}
 .icon-btn{width:36px;height:36px;border-radius:50%;background:var(--navy3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text2);transition:all .2s;}
+.icon-btn.active{background:linear-gradient(135deg,var(--cyan),var(--blue));color:#fff;border-color:transparent;}
 .icon-btn:hover{background:var(--navy4);color:var(--text);}
 .icon-btn svg{width:16px;height:16px;}
 
@@ -377,10 +378,17 @@ html.light .kpi-card{background:#fff}
           <div class="user-role" id="userRole">--</div>
         </div>
       </div>
+      <div class="icon-btn" id="previewToggleBtn" title="Visualizar como o cliente vê" style="display:none;" onclick="togglePreviewMode()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      </div>
       <div class="icon-btn" id="logoutBtn" title="Sair">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
       </div>
     </div>
+  </div>
+
+  <div class="filter-chips" id="previewModeBanner" style="display:none;background:rgba(245,185,66,.12);color:var(--gold);border:1px solid rgba(245,185,66,.25);padding:8px 14px;border-radius:8px;font-size:12px;font-weight:700;">
+    👁️ Visualizando como o cliente vê — os itens só-GPS estão escondidos. <a href="#" onclick="togglePreviewMode();return false;" style="text-decoration:underline;color:inherit;margin-left:8px;">Voltar ao normal</a>
   </div>
 
   <div class="page-nav">
@@ -666,6 +674,8 @@ const NF_EXCLUIDAS_FATURADA = new Set(['14024','17884','18081','18089']);
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let currentUser=null, userRole='vendor', vendorName='';
+let gpsStaff = false, previewAsClient = false;
+function isGpsStaff(email){ return (email||'').toLowerCase().endsWith('@gpsbi.com.br'); }
 let captadaRows=[], faturadaRows=[], metasMap={}, allVendors=[], allCanais=[];
 let debugStats = {};
 let selectedMes='', selectedVendedor='', selectedCanal='', selectedProjeto='', selectedFamilia='', selectedProdutoFiltro='', selectedYears=['2025','2026'];
@@ -909,6 +919,7 @@ async function initAuth(){
   // 'viewer' -> qualquer outro usuário logado — vê o painel completo (todos os vendedores),
   //             já que nunca dá pra saber com certeza quem é vendedor de fato só pelo e-mail/nome.
   userRole = isOwner(email) ? 'owner' : 'viewer';
+  gpsStaff = isGpsStaff(email);
   vendorName = '';
   // preferência de tema salva na CONTA tem prioridade (acompanha o usuário em qualquer aparelho);
   // sem preferência salva ainda, mantém o padrão (claro) sem forçar nada.
@@ -940,7 +951,14 @@ function setupUI(){
   el('vendedorSelect').style.display='inline';
   el('suggestionsCard').style.display='block';
   if(userRole==='owner') el('btnMetas').style.display='flex';
+  if(gpsStaff) el('previewToggleBtn').style.display='flex';
   document.getElementById('logoutBtn').addEventListener('click', doLogout);
+}
+function togglePreviewMode(){
+  previewAsClient = !previewAsClient;
+  el('previewModeBanner').style.display = previewAsClient ? 'flex' : 'none';
+  el('previewToggleBtn').classList.toggle('active', previewAsClient);
+  render();
 }
 
 async function loadData(){
@@ -1153,7 +1171,8 @@ function render(){
   renderTopFamilias(capPeriodo);
   renderTopProdutos(capPeriodo);
   if(userRole==='owner' || userRole==='viewer') { renderRanking(); renderSuggestions(); renderMatrix(); }
-  if(userRole==='owner') renderAnaliseWhats();
+  if(gpsStaff && !previewAsClient) renderAnaliseWhats();
+  else { const c = el('analiseWhatsCard'); if(c) c.style.display='none'; }
 }
 
 let gaugeChartInst=null;
@@ -1209,18 +1228,25 @@ function gerarAnaliseTexto(){
   const pedidosUnicos = new Set(rowsUntilDay(captadaRows, mes, vendFilter, canalFilter, info.dayLimit).map(r=>r.pedido)).size;
   const ticketMedio = pedidosUnicos>0 ? capAtual/pedidosUnicos : 0;
 
-  const linhaMes = pctMes===null ? '📈 Crescimento vs Mês: —' : `📈 Crescimento vs Mês: ${Math.round(pctMes)}% (${fmtBRLFull(capAtual-capMesAnterior)})`;
-  const linhaAno = pctAno===null ? '📈 Crescimento vs Ano: —' : `📈 Crescimento vs Ano: ${Math.round(pctAno)}% (${fmtBRLFull(capAtual-capAnoAnterior)})`;
+  const linhaMes = pctMes===null ? '*📈 Crescimento vs Mês:* —' : `*📈 Crescimento vs Mês:* ${Math.round(pctMes)}% (${fmtBRLFull(capAtual-capMesAnterior)})`;
+  const linhaAno = pctAno===null ? '*📈 Crescimento vs Ano:* —' : `*📈 Crescimento vs Ano:* ${Math.round(pctAno)}% (${fmtBRLFull(capAtual-capAnoAnterior)})`;
 
   return [
-    `📊 Análise de Resultados de Vendas – ${mesLabelFull(mes).toLowerCase()}`,
-    `🌟 > Tangram`,
-    `🗓️ Período: ${info.de} - ${info.ate}`,
-    `💰 Receita Captada: ${fmtBRLFull(capAtual)}`,
-    `💸 Receita Faturada: ${fmtBRLFull(fatAtual)}`,
+    `*📊 Análise de Resultados de Vendas – ${mesLabelFull(mes).toLowerCase()}*`,
+    `*🌟 > Tangram*`,
+    ``,
+    `*🗓️ Período:* ${info.de} - ${info.ate}`,
+    ``,
+    `*💰 Receita Captada:* ${fmtBRLFull(capAtual)}`,
+    ``,
+    `*💸 Receita Faturada:* ${fmtBRLFull(fatAtual)}`,
+    ``,
     linhaMes,
+    ``,
     linhaAno,
-    `🛒 Ticket Médio: ${fmtBRLFull(ticketMedio)}`,
+    ``,
+    `*🛒 Ticket Médio:* ${fmtBRLFull(ticketMedio)}`,
+    ``,
     `https://tangram.gpsbi.com.br/`
   ].join('\n');
 }
