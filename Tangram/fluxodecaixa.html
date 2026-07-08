@@ -219,6 +219,8 @@ const SHEET_ID = '1PMqK9MkeaDQOOoIOPXIof6wNrcSXa_JR1ktQnFiIS7s';
 const GID_MOVIMENTACAO = '0';
 // Aba "Movimentação da Conta Agência" — mesmo arquivo, aba separada.
 const GID_MOVIMENTACAO_AGENCIA = '2083932624';
+// Aba "Desconto duplicada" — lista de boletos já descontados/antecipados.
+const GID_DESCONTO_DUPLICADA = '30185013';
 const LOGIN_URL = 'index.html';
 
 // Histórico validado do fluxo antigo: até 30/06/2026.
@@ -375,6 +377,59 @@ function parseDateCell(v){
   return null;
 }
 
+
+// Boletos já descontados/antecipados.
+// A aba "Desconto duplicada" tem o número limpo na coluna A.
+// Nas movimentações, o boleto vem dentro de "Nosso Número" como 109/0008272-3;
+// o fluxo usa os 4 dígitos imediatamente antes do hífen: 8272.
+let boletosDescontados = new Set();
+
+function extractCellValue(cell){
+  if(cell===null || cell===undefined) return '';
+  if(typeof cell==='object') return (cell.v ?? cell.f ?? '').toString().trim();
+  return cell.toString().trim();
+}
+function extractBoletoDesconto(v){
+  const s = extractCellValue(v);
+  if(!s || normalizeTxt(s).includes('numero boleto')) return null;
+  const digits = s.replace(/\D/g,'');
+  return digits ? String(parseInt(digits,10)) : null;
+}
+function extractBoletoFromNossoNumero(v){
+  const s = extractCellValue(v);
+  if(!s) return null;
+
+  // Exemplo: 109/0008272-3 => 8272
+  const beforeDash = s.match(/(\d{4})-\d+\s*$/);
+  if(beforeDash) return String(parseInt(beforeDash[1],10));
+
+  // Fallback: se vier sem hífen, usa os 4 últimos dígitos.
+  const digits = s.replace(/\D/g,'');
+  if(digits.length >= 4) return String(parseInt(digits.slice(-4),10));
+  return null;
+}
+async function loadBoletosDescontados(){
+  boletosDescontados = new Set();
+  if(!GID_DESCONTO_DUPLICADA) return;
+  try{
+    const table = await fetchGviz(GID_DESCONTO_DUPLICADA);
+    if(!table || !table.rows) return;
+    table.rows.forEach(row=>{
+      const cell = row.c && row.c[0] ? row.c[0] : null;
+      const boleto = extractBoletoDesconto(cell);
+      if(boleto) boletosDescontados.add(boleto);
+    });
+  }catch(e){
+    console.error('Erro ao carregar a aba Desconto duplicada:', e);
+  }
+}
+function isDuplicataDescontadaRow(r, grupo, valor){
+  if(grupo!=='RECEBIMENTOS' || valor<=0 || !boletosDescontados.size) return false;
+  const nossoNumero = getColNormalized(r, 'nosso numero');
+  const boleto = extractBoletoFromNossoNumero(nossoNumero);
+  return !!(boleto && boletosDescontados.has(boleto));
+}
+
 // Transforma as linhas cruas do gviz em lançamentos do fluxo, já aplicando os filtros:
 // - ignora linhas marcadoras de SALDO/SALDO ANTERIOR
 // - ignora linhas de "Previsão" na coluna Origem (não são movimentação realizada)
@@ -404,12 +459,15 @@ function rowsFromGvizTable(table, contaLabel){
     const valorRaw = getColNormalized(r, 'valor (r$)');
     const valor = parseMoneyBR(typeof valorRaw==='object' && valorRaw!==null ? (valorRaw.v ?? valorRaw.f) : valorRaw);
 
-    const grupo = resolveGrupoCategoria(categoria, valor);
+    let grupo = resolveGrupoCategoria(categoria, valor);
+    const duplicataDescontada = isDuplicataDescontadaRow(r, grupo, valor);
+    if(duplicataDescontada) grupo = 'DUPLICATAS_DESCONTADAS';
+
     const situacao = (getColNormalized(r, 'situacao')||'').toString().trim();
     if(normalizeTxt(situacao)==='atrasado'){ debugAtrasadoExcluidos++; return null; } // recebimento ou pagamento em atraso, não é caixa realizado
 
     const contaCorrente = (getColNormalized(r, 'conta corrente')||contaLabel||'Conta não informada').toString().trim();
-    return { date, categoria: categoria||'Sem categoria', grupo, valor, conta: contaCorrente||contaLabel, fonte: contaLabel };
+    return { date, categoria: categoria||'Sem categoria', grupo, valor, conta: contaCorrente||contaLabel, fonte: contaLabel, duplicataDescontada };
   }).filter(Boolean);
 }
 
@@ -438,6 +496,8 @@ async function init(){
 
 async function loadData(){
   try{
+    await loadBoletosDescontados();
+
     const tablePrincipal = await fetchGviz(GID_MOVIMENTACAO);
     rows = rowsFromGvizTable(tablePrincipal, 'Principal');
 
@@ -559,7 +619,8 @@ function runningBalance(uptoDate){
   return s;
 }
 const isRecebimento = r => r.grupo==='RECEBIMENTOS';
-const isPagamento = r => r.grupo!=='RECEBIMENTOS';
+const isPagamento = r => r.grupo!=='RECEBIMENTOS' && r.grupo!=='DUPLICATAS_DESCONTADAS' && r.grupo!=='AJUSTES_MANUAIS';
+const isDuplicataDescontada = r => r.grupo==='DUPLICATAS_DESCONTADAS';
 const isGrupo = g => r => r.grupo===g;
 const isCategoria = c => r => r.categoria===c;
 const isContaRecebimento = conta => r => r.grupo==='RECEBIMENTOS' && r.conta===conta && r.date > HISTORICO_CUTOFF;
@@ -585,9 +646,15 @@ function buildRowTree(){
     .filter(c=>normalizeTxt(c)!=='frete') // Frete é despesa logística, não recebimento.
     .sort((a,b)=>a.localeCompare(b,'pt-BR'));
 
+  const temDuplicatasDescontadas = rows.some(r=>r.grupo==='DUPLICATAS_DESCONTADAS' && r.date > HISTORICO_CUTOFF);
+
   const recebimentosNode = {
     type:'recebimentos', level:0, label:'RECEBIMENTOS', filter:onlyCurrentRecebimentos, expanded:false,
     children: [
+      ...(temDuplicatasDescontadas ? [{
+        type:'duplicatas_descontadas', level:2, label:'Duplicatas descontadas', filter:isDuplicataDescontada,
+        expanded:false, children:[]
+      }] : []),
       ...contasRecebimento.map(conta=>{
         const catsConta = Array.from(new Set(
           rows
@@ -670,13 +737,14 @@ function renderDebugStats(){
   const totalPrincipal = rows.filter(r=>r.fonte==='Principal' || r.conta==='Principal').length;
   const totalAgencia = rows.filter(r=>r.fonte==='Agência' || r.conta==='Agência').length;
   const totalRec = rows.filter(r=>r.grupo==='RECEBIMENTOS').length;
+  const totalDuplicatas = rows.filter(r=>r.grupo==='DUPLICATAS_DESCONTADAS').length;
   const totalAjustes = rows.filter(r=>r.grupo==='AJUSTES_MANUAIS').length;
-  const totalPag = rows.length - totalRec - totalAjustes;
+  const totalPag = rows.filter(isPagamento).length;
   const categoriasNovas = Object.keys(debugCategoriasNovas);
   const detalheCategoriasNovas = categoriasNovas.length
     ? ` · Categorias novas incluídas automaticamente: ${categoriasNovas.map(c=>`${c}→${debugCategoriasNovas[c]}`).join(', ')}`
     : '';
-  wrap.textContent = `🔍 Diagnóstico (só GPS): ${rows.length} linhas no total · Conta Principal: ${totalPrincipal} · Conta Agência: ${totalAgencia} · Recebimentos: ${totalRec} · Pagamentos: ${totalPag} · Lançamentos manuais: ${totalAjustes} · Atrasados excluídos: ${debugAtrasadoExcluidos}${detalheCategoriasNovas}`;
+  wrap.textContent = `🔍 Diagnóstico (só GPS): ${rows.length} linhas no total · Conta Principal: ${totalPrincipal} · Conta Agência: ${totalAgencia} · Recebimentos: ${totalRec} · Duplicatas descontadas: ${totalDuplicatas} · Pagamentos: ${totalPag} · Lançamentos manuais: ${totalAjustes} · Atrasados excluídos: ${debugAtrasadoExcluidos} · Boletos descontados importados: ${boletosDescontados.size}${detalheCategoriasNovas}`;
 }
 
 function renderTable(){
