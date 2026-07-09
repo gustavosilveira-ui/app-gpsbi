@@ -6,144 +6,283 @@
 <title>Fluxo de Caixa · Mebrasi</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
+/* ===== theme.css embutido (Mebrasi ainda não hospeda esse arquivo separado) ===== */
+/* ================================================================
+   Hub GPSBI · Mebrasi — Tema compartilhado (embutido aqui, adaptado do padrão Tangram)
+   Usado por todas as páginas (painel, simulador, agenda, mural, aprovações)
+   ================================================================ */
 @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
+
 :root{
   --navy:#071B33; --navy2:#0B2545; --navy3:#123C68; --navy4:#17395B;
-  --cyan:#36E2C9; --blue:#2D70B8; --gold:#f5b942; --red:#ef6a6a; --green:#98C47C;
-  --text:#FFFFFF; --text2:#D8E6F3; --text3:#9FD8E6; --border2:rgba(255,255,255,.14); --field-bg:rgba(255,255,255,.06);
+  --cyan:#36E2C9; --cyan2:#78F2E5; --blue:#2D70B8;
+  --green:#2fd6b8; --red:#ef6a6a; --gold:#f5b942; --purple:#9b7fe8;
+  --text:#FFFFFF; --text2:#D8E6F3; --text3:#9FD8E6;
+  --border:rgba(255,255,255,.08); --border2:rgba(255,255,255,.14);
+  --field-bg:rgba(255,255,255,.06);
+  --shadow:0 18px 42px rgba(0,0,0,.22);
+  --radius:14px; --radius-sm:10px;
 }
 html.light{
   --navy:#F6F9FC; --navy2:#FFFFFF; --navy3:#F1F6FB; --navy4:#E8FAF8;
-  --cyan:#008D90; --blue:#2D70B8; --red:#ef6a6a; --green:#2fa876;
-  --text:#071B33; --text2:#344054; --text3:#667085; --border2:#E6EAF0; --field-bg:#FFFFFF;
+  --cyan:#008D90; --cyan2:#36E2C9; --blue:#2D70B8;
+  --text:#071B33; --text2:#344054; --text3:#667085;
+  --border:rgba(7,27,51,.06); --border2:#E6EAF0;
+  --field-bg:#FFFFFF;
+  --shadow:0 18px 42px rgba(7,27,51,.06);
 }
-.theme-toggle{display:flex;align-items:center;gap:4px;padding:4px;border-radius:999px;background:var(--navy3);border:1px solid var(--border2);}
-.theme-toggle button{width:26px;height:26px;border-radius:50%;border:none;background:none;color:var(--text3);display:flex;align-items:center;justify-content:center;cursor:pointer;}
-.theme-toggle button.active{background:linear-gradient(135deg,var(--cyan),var(--blue));color:#fff;}
-.theme-toggle svg{width:13px;height:13px;}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 html{visibility:hidden;}
-html,body{background:var(--navy);color:var(--text);font-family:'Sora',sans-serif;min-height:100vh;}
+html,body{background:var(--navy);color:var(--text);font-family:'Sora',sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh;transition:background .25s,color .25s;}
 .mono{font-family:'DM Mono',monospace;}
 body{padding-bottom:40px;}
+a{color:inherit;text-decoration:none;}
+
+/* LOADING */
 .loading-screen{position:fixed;inset:0;background:var(--navy);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:200;}
 .spinner{width:36px;height:36px;border-radius:50%;border:3px solid var(--border2);border-top-color:var(--cyan);animation:spin .8s linear infinite;}
 @keyframes spin{to{transform:rotate(360deg);}}
 .loading-screen p{margin-top:16px;font-size:12px;color:var(--text3);}
-.topbar{display:flex;align-items:center;gap:16px;padding:14px 24px;background:var(--navy2);border-bottom:1px solid var(--border2);position:sticky;top:0;z-index:100;}
-.brand{font-weight:800;font-size:15px;flex:1;}
-.empresa-select{background:var(--field-bg);border:1px solid var(--border2);border-radius:9px;padding:8px 12px;color:var(--text);font-family:'Sora',sans-serif;font-size:13px;}
-.icon-btn{width:34px;height:34px;border-radius:50%;background:var(--navy3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text2);}
-.content{max-width:1300px;margin:0 auto;padding:24px;}
-.card{background:var(--navy2);border:1px solid var(--border2);border-radius:14px;padding:20px;box-shadow:0 18px 42px rgba(0,0,0,.22);margin-bottom:18px;}
+
+/* APP NAV (topo) */
+.app-topbar{display:flex;align-items:center;gap:18px;padding:12px 24px;background:var(--navy2);border-bottom:1px solid var(--border2);position:sticky;top:0;z-index:100;flex-wrap:nowrap;overflow-x:auto;}
+.app-brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:14px;flex:none;white-space:nowrap;}
+.app-brand .dot{width:8px;height:8px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),var(--blue));}
+.app-nav{display:flex;align-items:center;gap:4px;flex:none;flex-wrap:nowrap;}
+.app-nav a{padding:8px 14px;border-radius:999px;font-size:12.5px;font-weight:600;color:var(--text3);transition:all .15s;white-space:nowrap;flex:none;}
+.app-nav a:hover{background:var(--navy3);color:var(--text);}
+.app-nav a.active{background:linear-gradient(90deg,var(--blue),var(--cyan));color:#fff;}
+.app-right{display:flex;align-items:center;gap:10px;flex:none;}
+.app-theme-toggle{display:flex;align-items:center;gap:4px;padding:4px;border-radius:999px;background:var(--navy3);border:1px solid var(--border2);}
+.app-theme-toggle button{width:26px;height:26px;border-radius:50%;border:none;background:none;color:var(--text3);display:flex;align-items:center;justify-content:center;cursor:pointer;}
+.app-theme-toggle button.active{background:linear-gradient(135deg,var(--cyan),var(--blue));color:#fff;}
+.app-theme-toggle svg{width:13px;height:13px;}
+.app-user-chip{display:flex;align-items:center;gap:7px;padding:5px 10px 5px 5px;border-radius:999px;background:var(--navy3);border:1px solid var(--border2);font-size:11.5px;font-weight:600;white-space:nowrap;flex:none;}
+.app-user-avatar{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),var(--blue));display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;}
+.app-logout{width:32px;height:32px;border-radius:50%;background:var(--navy3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text2);}
+.app-logout svg{width:14px;height:14px;}
+
+.content{max-width:1200px;margin:0 auto;padding:24px;}
+.content.wide{max-width:1600px;}
+
+/* CARDS / COMPONENTES GENÉRICOS */
+.card{background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);margin-bottom:18px;}
 .card-title{font-size:16px;font-weight:800;margin-bottom:4px;}
 .card-sub{font-size:12px;color:var(--text3);margin-bottom:16px;}
-.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:9px;border:none;font-family:'Sora',sans-serif;font-size:12.5px;font-weight:700;cursor:pointer;}
+
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:9px;border:none;font-family:'Sora',sans-serif;font-size:12.5px;font-weight:700;cursor:pointer;transition:opacity .15s;}
+.btn:hover{opacity:.9;}
 .btn-primary{background:linear-gradient(90deg,var(--blue),var(--cyan));color:#fff;}
 .btn-ghost{background:var(--navy3);color:var(--text);border:1px solid var(--border2);}
 .btn-danger{background:rgba(239,106,106,.15);color:var(--red);border:1px solid rgba(239,106,106,.3);}
 .btn-sm{padding:6px 12px;font-size:11.5px;}
-input[type="text"],input[type="date"],input[type="number"],select{
-  width:100%;background:var(--field-bg);border:1px solid var(--border2);border-radius:9px;padding:9px 11px;color:var(--text);font-family:'Sora',sans-serif;font-size:13px;outline:none;
+.btn:disabled{opacity:.5;cursor:not-allowed;}
+
+input[type="text"],input[type="date"],input[type="number"],input[type="email"],textarea,select{
+  width:100%;background:var(--field-bg);border:1px solid var(--border2);border-radius:9px;padding:10px 12px;
+  color:var(--text);font-family:'Sora',sans-serif;font-size:13px;outline:none;
 }
-.fc-table-wrap{overflow-x:auto;}
-table.fc-table{border-collapse:collapse;font-size:12.5px;white-space:nowrap;}
-table.fc-table th, table.fc-table td{padding:8px 12px;border-bottom:1px solid var(--border2);text-align:right;}
-table.fc-table th:first-child, table.fc-table td:first-child{text-align:left;position:sticky;left:0;background:var(--navy2);min-width:220px;}
-table.fc-table th{color:var(--text3);font-weight:700;font-size:11px;text-transform:uppercase;}
-tr.row-total td{font-weight:800;}
-tr.row-group td:first-child{font-weight:700;color:var(--cyan);cursor:pointer;}
-tr.row-cat td:first-child{padding-left:32px;color:var(--text2);cursor:pointer;}
-.val-pos{color:var(--green);} .val-neg{color:var(--red);}
-.fc-toggle{display:inline-block;width:14px;}
+textarea{resize:vertical;min-height:70px;}
+label.field-label{display:block;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;font-weight:700;}
+.field-group{margin-bottom:14px;}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+
+.badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;flex:none;white-space:nowrap;}
+.badge-pendente{background:rgba(245,185,66,.15);color:var(--gold);}
+.badge-aprovado{background:rgba(47,214,184,.15);color:var(--green);}
+.badge-recusado{background:rgba(239,106,106,.15);color:var(--red);}
+
+.empty-state{text-align:center;padding:40px 20px;color:var(--text3);font-size:13px;}
+.empty-state .icon{font-size:36px;margin-bottom:10px;}
+
+@media(max-width:760px){
+  .app-topbar{padding:10px 14px;}
+  .field-row{grid-template-columns:1fr;}
+  .content{padding:14px;}
+}
+
+/* ===== estilos específicos do Fluxo de Caixa ===== */
+html{zoom:.8;}
+.fc-page-content{max-width:100% !important;padding:16px 14px !important;}
+.fc-wrap{overflow:auto;max-height:80vh;border-radius:12px;border:1px solid var(--border2);}
+.fc-table{border-collapse:separate;border-spacing:0;font-size:11.5px;width:max-content;min-width:100%;}
+.fc-table th,.fc-table td{padding:7px 10px;white-space:nowrap;text-align:right;border-bottom:1px solid var(--border);}
+.fc-table th{position:sticky;top:0;background:var(--navy2);z-index:3;color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.03em;}
+.fc-table th.fc-today,.fc-table td.fc-today{background:rgba(45,112,184,.20) !important;}
+.fc-table th:first-child,.fc-table td:first-child{position:sticky;left:0;background:var(--navy2);z-index:4;text-align:left;min-width:220px;}
+html.light .fc-table th,html.light .fc-table td:first-child,html.light .fc-table th:first-child{background:#fff;}
+.fc-toggle{display:inline-block;width:18px;cursor:pointer;user-select:none;color:var(--text2);font-size:14px;font-weight:900;}
+.fc-row-label:hover .fc-toggle{color:var(--cyan);}
+.fc-col-toggle{cursor:pointer;color:var(--cyan);font-weight:900;font-size:15px;padding:2px 4px;}
+.fc-dow{font-size:9px;color:var(--text3);font-weight:700;letter-spacing:.03em;}
+.fc-row-label{cursor:pointer;user-select:none;}
+.fc-row-label:hover{color:var(--cyan);}
+.fc-lvl-0{font-weight:800;font-size:12.5px;}
+.fc-lvl-0 td{background:var(--navy3);}
+html.light .fc-lvl-0 td{background:#eef1f6;}
+.fc-lvl-1{font-weight:700;padding-left:14px;}
+.fc-lvl-2{padding-left:28px;color:var(--text2);}
+.fc-saldo-pos{color:#4F8F3A;font-weight:800;}
+.fc-saldo-neg{color:var(--red);font-weight:800;background:rgba(239,106,106,.08);}
+.fc-limite-alert{position:relative;overflow:visible;}
+.fc-limit-head{position:relative;display:inline-flex;align-items:center;justify-content:center;}
+.fc-day-head{position:relative;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;line-height:1.05;}
+.fc-day-top{display:inline-flex;align-items:center;justify-content:center;gap:5px;}
+.fc-day-num{font-size:10px;color:var(--text);font-weight:800;}
+html.light .fc-day-num{color:#1f2a3d;}
+.fc-limit-dot{width:9px;height:9px;border-radius:999px;background:var(--gold);display:inline-block;box-shadow:0 0 0 0 rgba(245,185,66,.55);animation:fcLimitPulse 1.65s ease-in-out infinite;vertical-align:middle;flex:none;}
+.fc-limit-dot.previo{background:var(--gold);}
+.fc-limit-dot.alert{background:#F5B942;}
+.fc-limit-dot.critico{background:#EF6A6A;box-shadow:0 0 0 0 rgba(239,106,106,.45);}
+.fc-limit-dot.atencao{background:#F08A24;box-shadow:0 0 0 0 rgba(240,138,36,.45);}
+.fc-limit-tooltip{position:absolute;left:50%;top:100%;transform:translate(-50%,8px);min-width:220px;background:var(--navy2);color:var(--text);border:1px solid var(--border2);border-radius:10px;padding:10px 12px;box-shadow:0 18px 45px rgba(0,0,0,.28);font-size:11px;line-height:1.35;text-transform:none;letter-spacing:0;white-space:normal;text-align:left;opacity:0;visibility:hidden;pointer-events:none;z-index:50;}
+.fc-limit-tooltip b{display:block;color:var(--gold);font-size:11.5px;margin-bottom:6px;}
+.fc-limit-tooltip .row{display:flex;justify-content:space-between;gap:12px;margin-top:4px;}
+.fc-limit-tooltip .muted{color:var(--text3);margin-top:7px;}
+.fc-limit-head:hover .fc-limit-tooltip,.fc-day-head:hover .fc-limit-tooltip{opacity:1;visibility:visible;}
+@keyframes fcLimitPulse{0%,100%{transform:scale(.82);opacity:.72;box-shadow:0 0 0 0 rgba(245,185,66,.38);}50%{transform:scale(1.18);opacity:1;box-shadow:0 0 0 6px rgba(245,185,66,0);}}
+.fc-legend{display:flex;gap:18px;align-items:center;font-size:11.5px;color:var(--text3);margin-top:10px;flex-wrap:wrap;}
+.fc-legend span{display:flex;align-items:center;gap:6px;}
+.fc-dot{width:10px;height:10px;border-radius:3px;display:inline-block;}
+.fc-denied{max-width:520px;margin:80px auto;text-align:center;}
+
+/* Novas seções abaixo do fluxo de caixa (não afetam o layout da tabela principal) */
+.fc-sim-form{display:grid;grid-template-columns:1.4fr 1fr 160px auto;gap:10px;align-items:end;}
 .fc-ajustes-row{display:grid;grid-template-columns:1fr 1px 1fr;gap:20px;align-items:start;}
+.fc-ajustes-col{min-width:0;}
 .fc-ajustes-divider{background:var(--border2);align-self:stretch;}
-.fc-mini-form{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;align-items:end;}
+.fc-mini-form{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;}
+.fc-mini-form-4{grid-template-columns:1fr 1fr 120px auto;}
+.fc-mini-form input{font-size:12px;padding:8px 10px;}
 .fc-mini-title{font-size:13.5px;font-weight:800;margin-bottom:3px;}
 .fc-mini-sub{font-size:11px;color:var(--text3);margin-bottom:12px;line-height:1.4;}
-@media(max-width:900px){.fc-ajustes-row{grid-template-columns:1fr;}.fc-ajustes-divider{display:none;}.fc-mini-form{grid-template-columns:1fr;}}
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:300;}
+@media(max-width:900px){
+  .fc-ajustes-row{grid-template-columns:1fr;}
+  .fc-ajustes-divider{display:none;}
+  .fc-mini-form,.fc-mini-form-4{grid-template-columns:1fr;}
+}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.55);display:none;align-items:center;justify-content:center;z-index:300;}
 .modal-overlay.show{display:flex;}
-.modal-box{background:var(--navy2);border:1px solid var(--border2);border-radius:14px;padding:24px;width:480px;max-width:92vw;max-height:80vh;overflow-y:auto;}
+.modal-box{background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius);padding:24px;width:460px;max-width:92vw;max-height:80vh;overflow-y:auto;box-shadow:0 30px 70px rgba(0,0,0,.5);}
 .modal-title{font-size:16px;font-weight:700;margin-bottom:4px;}
 .modal-sub{font-size:12px;color:var(--text3);margin-bottom:16px;}
 .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;}
-.fc-list-item{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--border2);font-size:12.5px;}
-.empty-state{text-align:center;padding:30px;color:var(--text3);font-size:13px;}
-.denied{max-width:480px;margin:120px auto;text-align:center;padding:30px;}
+.fc-saldo-form{display:grid;grid-template-columns:200px 200px auto;gap:10px;align-items:end;}
+.fc-saldo-status{font-size:12.5px;color:var(--text2);background:var(--navy3);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.fc-sim-table-wrap{overflow-x:auto;}
+.fc-sim-table{width:100%;border-collapse:collapse;font-size:12px;}
+.fc-sim-table th{text-align:right;font-size:10px;color:var(--text3);text-transform:uppercase;padding:8px 10px;border-bottom:1px solid var(--border2);}
+.fc-sim-table th:first-child,.fc-sim-table td:first-child{text-align:left;}
+.fc-sim-table td{text-align:right;padding:8px 10px;font-family:'DM Mono',monospace;border-bottom:1px solid var(--border);white-space:nowrap;}
+.fc-sim-entry{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;background:var(--navy3);margin-bottom:8px;}
+.fc-sim-entry .desc{flex:1;font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
+.fc-sim-entry .valor{font-family:'DM Mono',monospace;font-weight:700;flex:none;}
+.fc-sim-entry .data{color:var(--text3);font-size:11.5px;flex:none;}
+.fc-sim-entry .del{flex:none;background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:14px;}
+.fc-sim-entry .del:hover{color:var(--red);}
+
+.fc-msg-form{display:grid;grid-template-columns:220px 1fr auto;gap:10px;align-items:start;}
+.fc-msg-item{background:var(--navy3);border-radius:12px;padding:14px 16px;margin-bottom:10px;}
+.fc-msg-head{display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:nowrap;}
+.fc-msg-autor{font-size:12.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1;}
+.fc-msg-date{font-size:10.5px;color:var(--text3);flex:none;white-space:nowrap;}
+.fc-msg-tipo{font-size:10px;font-weight:700;padding:3px 9px;border-radius:999px;flex:none;white-space:nowrap;}
+.fc-msg-tipo.observacao{background:rgba(45,112,184,.15);color:#2D70B8;}
+.fc-msg-tipo.aviso{background:rgba(245,185,66,.15);color:var(--gold);}
+.fc-msg-tipo.solicitacao{background:rgba(155,127,232,.15);color:var(--purple);}
+.fc-msg-text{font-size:13px;color:var(--text2);line-height:1.5;white-space:pre-wrap;margin-bottom:8px;}
+.fc-msg-status{display:inline-block;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;}
+.fc-msg-status.aberto{background:rgba(245,185,66,.15);color:var(--gold);}
+.fc-msg-status.resolvido,.fc-msg-status.aprovado{background:rgba(47,214,184,.15);color:#98C47C;}
+.fc-msg-status.recusado{background:rgba(239,106,106,.15);color:var(--red);}
+.fc-msg-resposta{margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:12px;color:var(--text2);}
+@media(max-width:900px){ .fc-sim-form,.fc-msg-form,.fc-saldo-form{grid-template-columns:1fr;} }
 </style>
 </head>
 <body>
 
 <div class="loading-screen" id="loadingScreen">
   <div class="spinner"></div>
-  <p>Carregando o Fluxo de Caixa do Mebrasi...</p>
+  <p id="loadingMsg">Carregando fluxo de caixa...</p>
 </div>
 
-<div class="denied" id="deniedScreen" style="display:none;">
-  <h2>Acesso restrito</h2>
-  <p style="color:var(--text3);margin-top:10px;">Essa área é exclusiva para o time GPS e Mebrasi.</p>
+<div id="deniedScreen" style="display:none;">
+  <div class="content">
+    <div class="card fc-denied">
+      <div class="card-title">🔒 Acesso restrito</div>
+      <div class="card-sub">Essa área é exclusiva pro time GPS e Mebrasi.</div>
+    </div>
+  </div>
 </div>
 
 <div id="mainContent" style="display:none;">
-  <div class="topbar">
-    <div class="brand">💰 Fluxo de Caixa · Mebrasi</div>
-    <select class="empresa-select" id="empresaSelect">
+  <div class="app-topbar">
+    <div class="app-brand"><span class="dot"></span> Hub Mebrasi</div>
+    <select class="empresa-select" id="empresaSelect" style="background:var(--field-bg);border:1px solid var(--border2);border-radius:9px;padding:8px 12px;color:var(--text);font-family:'Sora',sans-serif;font-size:13px;margin-right:auto;">
       <option value="">🌐 Global (4 empresas)</option>
       <option value="gymis">Gymis</option>
       <option value="ryngavi">Ryngavi</option>
       <option value="especial">Especial</option>
       <option value="multicopos">Multicopos</option>
     </select>
-    <div class="icon-btn" id="logoutBtn" title="Sair">⎋</div>
-    <div class="theme-toggle" id="themeToggle">
-      <button id="btnDark" title="Escuro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg></button>
-      <button id="btnLight" title="Claro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg></button>
+    <div class="app-right">
+      <div class="app-theme-toggle" id="appThemeToggle">
+        <button id="appBtnDark" title="Escuro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg></button>
+        <button id="appBtnLight" title="Claro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg></button>
+      </div>
+      <div class="app-user-chip" id="userChip"></div>
+      <div class="app-logout" id="appLogoutBtn" title="Sair"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg></div>
     </div>
   </div>
-
-  <div class="content">
-
+  <div class="content wide fc-page-content">
     <div class="card">
-      <div class="card-title">Fluxo de Caixa</div>
-      <div class="card-sub">Saldo acumulado dia a dia — clique nas setinhas pra abrir/fechar grupos e categorias. Fonte: títulos já pagos/recebidos (realizado).</div>
-      <div class="fc-table-wrap">
-        <table class="fc-table" id="fcTable"></table>
+      <div class="card-title">💰 Fluxo de Caixa</div>
+      <div class="card-sub">Clique nas setinhas pra abrir/fechar anos, meses e dias — e as categorias dentro de Recebimentos e Pagamentos. Saldo acumulado dia a dia.</div>
+      <div class="card-sub" id="empresaLabelSub" style="margin-top:-8px;font-weight:700;"></div>
+      <div class="fc-wrap"><table class="fc-table" id="fcTable"></table></div>
+      <div class="fc-legend">
+        <span><span class="fc-dot" style="background:#98C47C"></span> Saldo positivo</span>
+        <span><span class="fc-dot" style="background:var(--red)"></span> Saldo negativo</span>
+        <span><span class="fc-dot" style="background:#2D70B8"></span> Hoje</span>
       </div>
       <div id="fcDebugStats" style="font-size:11px;color:var(--text3);margin-top:8px;"></div>
     </div>
 
+    <!-- ============ NOVO: Em Aberto (previsto, cap/venc) ============ -->
     <div class="card">
       <div class="card-title">📋 Em Aberto (previsto)</div>
       <div class="card-sub">Títulos ainda não pagos/recebidos (situação "Aberto"), pela data de vencimento — não entra no Saldo Acumulado, é só uma visão do que está por vir.</div>
-      <div id="abertoWrap"></div>
+      <div id="abertoWrap" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;"></div>
     </div>
 
+    <!-- ============ NOVO: Saldo Inicial + Lançamentos Manuais (compacto, lado a lado) ============ -->
     <div class="card" id="fcAjustesGpsCard">
       <div class="fc-ajustes-row">
         <div class="fc-ajustes-col">
           <div class="fc-mini-title">🏁 Saldo Inicial</div>
-          <div class="fc-mini-sub">Define o saldo de uma empresa numa data — o Acumulado dela passa a respeitar isso a partir dali. Visível só pro time GPS.</div>
+          <div class="fc-mini-sub">Define o saldo numa data — o Acumulado passa a respeitar isso a partir dali. Visível só pro time GPS.</div>
           <div class="fc-mini-form">
-            <select id="fcSaldoEmpresa">
-              <option value="gymis">Gymis</option><option value="ryngavi">Ryngavi</option>
-              <option value="especial">Especial</option><option value="multicopos">Multicopos</option>
-            </select>
+            <select id="fcSaldoEmpresa"><option value="gymis">Gymis</option><option value="ryngavi">Ryngavi</option><option value="especial">Especial</option><option value="multicopos">Multicopos</option></select>
             <input type="date" id="fcSaldoInicialData">
             <input type="number" id="fcSaldoInicialValor" placeholder="Saldo (R$)">
             <button class="btn btn-primary btn-sm" onclick="applySaldoInicial()">Aplicar</button>
           </div>
           <button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="openSaldoInicialModal()">Ver detalhes</button>
+
+          <div class="fc-mini-title" style="margin-top:16px;">🚨 Limite da Conta</div>
+          <div class="fc-mini-sub">Marca no Saldo Acumulado o primeiro dia em que o fluxo ultrapassa o limite negativo da conta (por empresa).</div>
+          <div class="fc-mini-form">
+            <select id="fcLimiteContaEmpresa"><option value="gymis">Gymis</option><option value="ryngavi">Ryngavi</option><option value="especial">Especial</option><option value="multicopos">Multicopos</option></select>
+            <input type="number" id="fcLimiteContaValor" placeholder="Limite (R$)">
+            <button class="btn btn-primary btn-sm" onclick="applyLimiteConta()">Aplicar</button>
+          </div>
         </div>
         <div class="fc-ajustes-divider"></div>
         <div class="fc-ajustes-col">
           <div class="fc-mini-title">🖊️ Lançamentos Manuais</div>
-          <div class="fc-mini-sub">Valor lançado à mão, por empresa. Entra de verdade no Saldo Acumulado. Visível só pro time GPS.</div>
-          <div class="fc-mini-form" style="grid-template-columns:1fr 1fr 1fr 1fr auto;">
-            <select id="fcAjusteEmpresa">
-              <option value="gymis">Gymis</option><option value="ryngavi">Ryngavi</option>
-              <option value="especial">Especial</option><option value="multicopos">Multicopos</option>
-            </select>
+          <div class="fc-mini-sub">Valor lançado à mão (despesa sem categoria ainda, etc). Entra de verdade no Saldo Acumulado. Visível só pro time GPS.</div>
+          <div class="fc-mini-form fc-mini-form-4" style="grid-template-columns:1fr 1fr 1fr 1fr auto;">
+            <select id="fcAjusteEmpresa"><option value="gymis">Gymis</option><option value="ryngavi">Ryngavi</option><option value="especial">Especial</option><option value="multicopos">Multicopos</option></select>
             <input type="text" id="fcAjusteDesc" placeholder="Descrição">
             <input type="number" id="fcAjusteValor" placeholder="Valor (R$)">
             <input type="date" id="fcAjusteData">
@@ -154,36 +293,74 @@ tr.row-cat td:first-child{padding-left:32px;color:var(--text2);cursor:pointer;}
       </div>
     </div>
 
+    <!-- Modal: histórico do Saldo Inicial -->
     <div class="modal-overlay" id="saldoInicialModal">
       <div class="modal-box">
-        <div class="modal-title">🏁 Saldo Inicial por empresa</div>
-        <div class="modal-sub">Status atual de cada empresa.</div>
-        <div id="fcSaldoInicialStatus"></div>
+        <div class="modal-title">🏁 Saldo Inicial</div>
+        <div class="modal-sub">Status atual do saldo inicial ativo no Fluxo de Caixa.</div>
+        <div class="fc-saldo-status" id="fcSaldoInicialStatus"></div>
         <div class="modal-actions"><button class="btn btn-ghost" onclick="closeSaldoInicialModal()">Fechar</button></div>
       </div>
     </div>
+
+    <!-- Modal: histórico dos Lançamentos Manuais -->
     <div class="modal-overlay" id="ajustesManuaisModal">
-      <div class="modal-box" style="width:560px;">
+      <div class="modal-box" style="width:520px;">
         <div class="modal-title">🖊️ Lançamentos Manuais</div>
-        <div class="modal-sub">Todos os valores lançados à mão, por empresa.</div>
+        <div class="modal-sub">Todos os valores lançados à mão que estão entrando no Saldo Acumulado hoje.</div>
         <div id="fcAjusteList"></div>
         <div class="modal-actions"><button class="btn btn-ghost" onclick="closeAjustesManuaisModal()">Fechar</button></div>
       </div>
     </div>
 
+    <!-- ============ NOVO: Simulador de impacto no saldo ============ -->
+    <div class="card">
+      <div class="card-title">🧪 Simulador de Impacto no Saldo</div>
+      <div class="card-sub">Simule a entrada de uma receita ou despesa e veja como o saldo dos próximos dias mudaria — sem alterar nada na base real.</div>
+      <div class="fc-sim-form">
+        <div class="field-group" style="margin-bottom:0;">
+          <label class="field-label">Descrição</label>
+          <input type="text" id="fcSimDesc" placeholder="Ex: Recebimento cliente X, Pagamento fornecedor Y...">
+        </div>
+        <div class="field-group" style="margin-bottom:0;">
+          <label class="field-label">Valor (R$) — negativo se for despesa</label>
+          <input type="number" id="fcSimValor" placeholder="Ex: 15000 ou -8000">
+        </div>
+        <div class="field-group" style="margin-bottom:0;">
+          <label class="field-label">Data</label>
+          <input type="date" id="fcSimData">
+        </div>
+        <button class="btn btn-primary" onclick="addFcSimEntry()">Adicionar</button>
+      </div>
+      <div id="fcSimList" style="margin:14px 0;"></div>
+      <div class="fc-sim-table-wrap" id="fcSimTableWrap" style="display:none;">
+        <table class="fc-sim-table">
+          <thead><tr><th>Data</th><th>Saldo Real</th><th>Saldo Simulado</th><th>Diferença</th></tr></thead>
+          <tbody id="fcSimTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ============ NOVO: Observações, avisos e solicitações ============ -->
+    <div class="card">
+      <div class="card-title">📋 Observações, Avisos e Solicitações</div>
+      <div class="card-sub">Espaço da GPS e do Mebrasi pra registrar observações, avisar algo importante ou pedir uma ação — tudo com histórico.</div>
+      <div class="fc-msg-form">
+        <select id="fcMsgTipo">
+          <option value="observacao">📝 Observação</option>
+          <option value="aviso">⚠️ Aviso</option>
+          <option value="solicitacao">🙋 Solicitação (precisa de resposta)</option>
+        </select>
+        <textarea id="fcMsgTexto" placeholder="Escreva aqui..."></textarea>
+        <button class="btn btn-primary" onclick="submitFcMsg()">Publicar</button>
+      </div>
+      <div id="fcMsgList" style="margin-top:16px;"></div>
+    </div>
   </div>
 </div>
 
+<script src="nav.js"></script>
 <script>
-/* ================================================================
-   Fluxo de Caixa · Mebrasi — v1
-   4 empresas (Gymis, Ryngavi, Especial, Multicopos), cada uma com 4
-   bases na planilha "Basesfinancompiladas":
-     pg_<empresa>   = despesas JÁ PAGAS (data de pagamento)  -> realizado
-     cr_<empresa>   = receitas JÁ RECEBIDAS (data de recebimento) -> realizado
-     cap_<empresa>  = contas a pagar por vencimento (só "Aberto" entra)
-     venc_<empresa> = contas a receber por vencimento (só "Aberto" entra)
-   ================================================================ */
 const SUPABASE_URL = 'https://hobpwhhpvwlwhmhairnp.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhvYnB3aGhwdndsd2htaGFpcm5wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0NDkzNDksImV4cCI6MjA5OTAyNTM0OX0.j67wDzIZU755bcmanydd_E3TllYN5Ps2QcPH4A4rFUY';
 const SHEET_ID = '1cWc7JRuUur_UAIeTM9VqNxPr8ktISPt09cnh7N_HULc';
@@ -191,39 +368,33 @@ const LOGIN_URL = 'index.html';
 const EMPRESAS = ['gymis','ryngavi','especial','multicopos'];
 const EMPRESA_LABEL = { gymis:'Gymis', ryngavi:'Ryngavi', especial:'Especial', multicopos:'Multicopos' };
 
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-function el(id){ return document.getElementById(id); }
-function fmtBRL(n){ return 'R$ ' + (n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
-function parseMoneyBR(v){
-  if(v===null||v===undefined||v==='') return 0;
-  if(typeof v==='number') return v;
-  return parseFloat(String(v).replace(/\./g,'').replace(',','.')) || 0;
+function normalizeTxt(s){
+  return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
 }
-function normalizeTxt(s){ return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim(); }
+// Busca o valor de uma coluna pelo nome "normalizado" (sem acento/maiúscula),
+// pra não depender de bater a grafia exata do cabeçalho vindo do Google Sheets.
 function getColNormalized(rowObj, wantedKeyNormalized){
-  for(const k in rowObj){ if(normalizeTxt(k)===wantedKeyNormalized) return rowObj[k]; }
+  for(const k in rowObj){
+    if(normalizeTxt(k)===wantedKeyNormalized) return rowObj[k];
+  }
   return undefined;
 }
-function parseDateBR(s){
-  if(s===null||s===undefined||s==='') return null;
-  s = s.toString().trim();
-  // formato texto "DD/MM/AAAA" (como veio originalmente do CSV)
-  let m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
-  if(m) return `${m[3]}-${m[2]}-${m[1]}`;
-  // formato que o Google Sheets manda quando a célula virou uma DATA de verdade
-  // (o Sheets converte "01/01/2026" digitado/colado em data automaticamente)
-  m = s.match(/^Date\((\d+),(\d+),(\d+)/);
-  if(m){
-    const y = m[1];
-    const mo = String(parseInt(m[2],10)+1).padStart(2,'0'); // mês vem base-0
-    const d = String(parseInt(m[3],10)).padStart(2,'0');
-    return `${y}-${mo}-${d}`;
-  }
-  return null;
+
+// Acesso a essa página é diferente do "admin" geral do Hub:
+// aqui é qualquer e-mail @gpsbi.com.br ou @mebrasi.com.br.
+function canAccessFluxo(email){
+  email = (email||'').toLowerCase();
+  return email.endsWith('@gpsbi.com.br') || email.endsWith('@mebrasi.com.br');
 }
-function canAccessFluxo(email){ email=(email||'').toLowerCase(); return email.endsWith('@gpsbi.com.br') || email.endsWith('@mebrasi.com.br'); }
-function isGpsStaff(email){ return (email||'').toLowerCase().endsWith('@gpsbi.com.br'); }
+// Saldo Inicial, Lançamentos Manuais e Limite da Conta são só do time interno GPS —
+// o Mebrasi acessa o Fluxo de Caixa, mas não esses controles.
+function isGpsStaff(email){
+  return (email||'').toLowerCase().endsWith('@gpsbi.com.br');
+}
 function nameFromEmail(email){ return email.split('@')[0].split('.').map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' '); }
+function el(id){ return document.getElementById(id); }
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 /* ---- Mapa de categoria -> grupo (Mebrasi) ----
    PENDENTE: "Transferências à Crédito" e "Transferencia Entre Empresas"
@@ -244,8 +415,8 @@ const CATEGORIA_GRUPO = {
   'Construcao':'FORNECEDORES','Eletrico/Eletronico/Mecanico':'FORNECEDORES','Eletrica':'FORNECEDORES','Eletro eletronicos':'FORNECEDORES',
   'Mecanica':'FORNECEDORES','Auto Eletrico':'FORNECEDORES','Borracharia':'FORNECEDORES','Funilaria / Piintura':'FORNECEDORES',
   'Beneficiamento':'FORNECEDORES','DP':'FORNECEDORES','Transformador':'FORNECEDORES','Expedicao':'FORNECEDORES','Prestacao Servico':'FORNECEDORES',
-  'Iss / issqn':'IMPOSTOS','Ipi':'IMPOSTOS','Icms':'IMPOSTOS','Irrf':'IMPOSTOS','Pis':'IMPOSTOS','Cofins':'IMPOSTOS','Csll':'IMPOSTOS',
-  'Irpj':'IMPOSTOS','Simples':'IMPOSTOS','Substituicao Tributaria':'IMPOSTOS','Parcelamento de debitos nao previdenciarios':'IMPOSTOS',
+  'Iss / issqn':'DEDUCOES','Ipi':'DEDUCOES','Icms':'DEDUCOES','Irrf':'DEDUCOES','Pis':'DEDUCOES','Cofins':'DEDUCOES','Csll':'DEDUCOES',
+  'Irpj':'DEDUCOES','Simples':'DEDUCOES','Substituicao Tributaria':'DEDUCOES','Parcelamento de debitos nao previdenciarios':'DEDUCOES',
   'Tarifa Cobranca':'FINANCEIRAS','Tar lcto cred conta':'FINANCEIRAS','Tarifa tranferencia PIX':'FINANCEIRAS','JUROS':'FINANCEIRAS',
   'Taxa/Juro/Multa':'FINANCEIRAS','Tarifa Doc/Ted':'FINANCEIRAS','Tarifa c/c':'FINANCEIRAS','Tarifa Cesta Empres.':'FINANCEIRAS',
   'Aplicações Financeiras':'FINANCEIRAS','IOF':'FINANCEIRAS','Deságio':'FINANCEIRAS','Tarifa Folha de Cheque':'FINANCEIRAS',
@@ -260,98 +431,153 @@ const CATEGORIA_GRUPO = {
   'Imovel':'ADMIN','Caixinha Empresa':'ADMIN','Viagem':'ADMIN',
   'Pedagio/Estacionamento/Zona Azul':'LOGISTICA','Combustivel':'LOGISTICA','Frete / Cobrança':'LOGISTICA','Veiculo':'LOGISTICA',
   'Lava Rapido':'LOGISTICA','Moto-Boy':'LOGISTICA',
-  'Festa/Eventos/Confraternizacao':'MARKETING','Brinde/Doacao/Bonificacao/Patrocinio':'MARKETING','Floricultura':'OUTROS',
+  'Festa/Eventos/Confraternizacao':'MARKETING_TI','Brinde/Doacao/Bonificacao/Patrocinio':'MARKETING_TI','Floricultura':'OUTROS',
   'Panificadora/Supermercado':'OUTROS','Animal':'OUTROS','Farmacia':'OUTROS',
   'Transferencia Entre Empresas':'TRANSFERENCIAS',
   'Adiantamento Salario - Não lançar ':'NAO_LANCAR','13º Salario - Não lançar':'NAO_LANCAR',
 };
-function resolveGrupo(categoria){
-  return CATEGORIA_GRUPO[categoria] || CATEGORIA_GRUPO[categoria.trim()] || 'OUTROS';
+const CATEGORIA_GRUPO_NORMALIZADO = {};
+Object.entries(CATEGORIA_GRUPO).forEach(([categoria, grupo])=>{
+  CATEGORIA_GRUPO_NORMALIZADO[normalizeTxt(categoria)] = grupo;
+});
+
+// Blindagem pra categorias novas (mesma lógica usada no Fluxo de Caixa da Tangram): categoria
+// desconhecida entra em RECEBIMENTOS se o valor for positivo, ou tenta um
+// classificador simples por palavra-chave se for negativo.
+let debugCategoriasNovas = {};
+function resolveGrupoCategoria(categoria, valor){
+  const key = normalizeTxt(categoria);
+  if(CATEGORIA_GRUPO_NORMALIZADO[key]) return CATEGORIA_GRUPO_NORMALIZADO[key];
+  const label = (categoria || 'Sem categoria').toString().trim() || 'Sem categoria';
+  if(valor >= 0){ debugCategoriasNovas[label] = 'RECEBIMENTOS'; return 'RECEBIMENTOS'; }
+  const regras = [
+    { grupo:'DEDUCOES', palavras:['imposto','tributo','icms','pis','cofins','darf','das','gnre','iss','irpj','csll','ipi','irrf'] },
+    { grupo:'SOCIOS', palavras:['socio','sócio'] },
+    { grupo:'FORNECEDORES', palavras:['fornecedor','materia prima','matéria prima','compra','servico','serviço','produto','insumo','embalagem','componente'] },
+    { grupo:'FINANCEIRAS', palavras:['tarifa','bancaria','bancária','juros','iof','emprestimo','empréstimo','cartao','cartão','duplicata','cheque','financiamento'] },
+    { grupo:'PESSOAL', palavras:['salario','salário','folha','funcionario','funcionário','rescisao','rescisão','fgts','inss','vale','refeicao','refeição','assistencia medica','ferias','férias'] },
+    { grupo:'ADMIN', palavras:['contabilidade','advogado','aluguel','agua','água','energia','luz','internet','telefone','telefonia','limpeza','seguro','material','moveis','móveis','equipamento','manutencao','manutenção'] },
+    { grupo:'LOGISTICA', palavras:['frete','combustivel','combustível','veiculo','veículo','transporte','pedagio','estacionamento'] },
+    { grupo:'MARKETING_TI', palavras:['marketing','festa','evento','brinde'] },
+  ];
+  for(const regra of regras){
+    if(regra.palavras.some(p=>key.includes(normalizeTxt(p)))){ debugCategoriasNovas[label] = regra.grupo; return regra.grupo; }
+  }
+  debugCategoriasNovas[label] = 'OUTROS';
+  return 'OUTROS';
 }
+
 const GRUPOS_PAGAMENTO = [
   { key:'SOCIOS', label:'Sócios (Retiradas/Empréstimos)' },
   { key:'FORNECEDORES', label:'Fornecedores / Produção' },
-  { key:'PESSOAL', label:'Pessoal' },
-  { key:'IMPOSTOS', label:'Impostos / Encargos' },
-  { key:'FINANCEIRAS', label:'Financeiras' },
-  { key:'ADMIN', label:'Administrativo' },
-  { key:'LOGISTICA', label:'Logística' },
-  { key:'MARKETING', label:'Marketing / Eventos' },
+  { key:'PESSOAL', label:'Despesas Com Pessoal' },
+  { key:'DEDUCOES', label:'Impostos / Deduções' },
+  { key:'FINANCEIRAS', label:'Despesas Financeiras' },
+  { key:'ADMIN', label:'Despesas Administrativas' },
+  { key:'LOGISTICA', label:'Despesa Logística' },
+  { key:'MARKETING_TI', label:'Despesas Com Marketing / TI' },
   { key:'TRANSFERENCIAS', label:'Transferência Entre Empresas' },
   { key:'OUTROS', label:'Outros' },
 ];
 
-let currentUser=null, gpsStaff=false, currentEmail='';
-let selectedEmpresa = ''; // '' = Global
-let rowsByEmpresa = {}, abertoByEmpresa = {};
-let saldoIniciais = {}, ajustesManuais = {};
-let currentTheme = localStorage.getItem('mebrasi_theme') || 'light'; // padrão: claro
+let rowsByEmpresa = {}; // { empresa: [{date,categoria,grupo,valor}] }
+let abertoByEmpresa = {}; // { empresa: [{date,categoria,valor}] } (cap/venc só "Aberto")
+let rows = []; // linhas no escopo atual (Global soma as 4, ou só a empresa selecionada)
+let currentUser = null;
+let gpsStaff = false;
+let limiteContaPorEmpresa = {}; // { empresa: valor }
 
-function applyTheme(t){
-  currentTheme = t;
-  document.documentElement.classList.toggle('light', t==='light');
-  localStorage.setItem('mebrasi_theme', t);
-  const bd=el('btnDark'), bl=el('btnLight');
-  if(bd) bd.classList.toggle('active', t==='dark');
-  if(bl) bl.classList.toggle('active', t==='light');
+function fmtBRL(n){
+  if(n===null||n===undefined||isNaN(n)) return 'R$ 0';
+  const sign = n<0 ? '-' : '';
+  return sign+'R$ '+Math.round(Math.abs(n)).toLocaleString('pt-BR');
+}
+function parseMoneyBR(v){
+  if(v===null||v===undefined||v==='') return 0;
+  if(typeof v==='number') return v;
+  return parseFloat(String(v).replace(/\./g,'').replace(',','.')) || 0;
 }
 
 async function fetchGvizSheet(sheetName){
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}&headers=1`;
   const res = await fetch(url);
-  const txt = await res.text();
-  const json = JSON.parse(txt.substring(txt.indexOf('{'), txt.lastIndexOf('}')+1));
-  return json.table;
+  const text = await res.text();
+  const clean = text.replace(/^[^{]*/, '').replace(/\s*\)\s*;?\s*$/, '');
+  return JSON.parse(clean).table;
 }
 function parseGvizRows(table){
-  if(!table || !table.cols) return [];
-  const cols = table.cols.map(c=>c.label||c.id||'');
-  return (table.rows||[]).map(r=>{
-    const o = {};
-    cols.forEach((label,i)=>{
-      const cell = r.c ? r.c[i] : null;
-      o[label] = cell ? (cell.v!==undefined && cell.v!==null ? cell.v : '') : '';
-    });
-    return o;
+  if(!table || !table.rows) return [];
+  const cols = table.cols.map(c=>c.label);
+  return table.rows.map(row=>{
+    const obj={};
+    cols.forEach((col,i)=>{ const cell=row.c[i]; obj[col]= cell ? (cell.v!==null?cell.v:(cell.f||null)) : null; });
+    return obj;
   });
+}
+function parseDateCell(v){
+  if(!v) return null;
+  if(typeof v==='string'){
+    if(/^\d{4}-\d{2}-\d{2}/.test(v)) return v.slice(0,10);
+    if(v.includes('/')){ const [d,m,y]=v.split('/'); return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`; }
+    const dm = v.match(/Date\((\d+),(\d+),(\d+)\)/);
+    if(dm){ const y=dm[1], m=String(parseInt(dm[2])+1).padStart(2,'0'), d=dm[3].padStart(2,'0'); return `${y}-${m}-${d}`; }
+  }
+  return null;
 }
 function isSubtotalRow(rowObj){
   return Object.values(rowObj).some(v => (v||'').toString().indexOf('TOTAL DO DIA')!==-1);
 }
 
+// pg_<empresa> = despesas JÁ PAGAS (data de pagamento) -> realizado
 function rowsFromPG(table, empresa){
-  return parseGvizRows(table).filter(r=>!isSubtotalRow(r)).map(r=>{
-    const date = parseDateBR(r['Data Pagto']);
+  const raw = parseGvizRows(table);
+  return raw.filter(r=>!isSubtotalRow(r)).map(r=>{
+    const dateRaw = getColNormalized(r, 'data pagto');
+    const date = parseDateCell(typeof dateRaw==='object' && dateRaw!==null ? (dateRaw.v||dateRaw) : dateRaw);
     if(!date) return null;
-    const categoria = (r['Desc Conta']||'Sem categoria').toString().trim();
-    return { date, categoria, grupo: resolveGrupo(categoria), valor: -Math.abs(parseMoneyBR(r['Valor'])), empresa };
+    const categoria = (getColNormalized(r,'desc conta')||'Sem categoria').toString().trim();
+    if(normalizeTxt(categoria)==='transferencia entre contas' && !empresa) return null;
+    const valor = -Math.abs(parseMoneyBR(getColNormalized(r,'valor')));
+    return { date, categoria, grupo: resolveGrupoCategoria(categoria, valor), valor, empresa };
   }).filter(Boolean);
 }
+// cr_<empresa> = receitas JÁ RECEBIDAS (data de recebimento) -> realizado
 function rowsFromCR(table, empresa){
-  return parseGvizRows(table).filter(r=>!isSubtotalRow(r)).map(r=>{
-    const date = parseDateBR(r['Dt Pagto']);
+  const raw = parseGvizRows(table);
+  return raw.filter(r=>!isSubtotalRow(r)).map(r=>{
+    const dateRaw = getColNormalized(r, 'dt pagto');
+    const date = parseDateCell(typeof dateRaw==='object' && dateRaw!==null ? (dateRaw.v||dateRaw) : dateRaw);
     if(!date) return null;
-    const categoria = (r['Desc Conta']||'Sem categoria').toString().trim();
-    return { date, categoria, grupo: resolveGrupo(categoria), valor: Math.abs(parseMoneyBR(r['Valor Pago'])), empresa };
+    const categoria = (getColNormalized(r,'desc conta')||'Sem categoria').toString().trim();
+    const valor = Math.abs(parseMoneyBR(getColNormalized(r,'valor pago')));
+    return { date, categoria, grupo: resolveGrupoCategoria(categoria, valor), valor, empresa };
   }).filter(Boolean);
 }
+// cap_<empresa> = contas a pagar por vencimento (só "Aberto" entra na visão "Em Aberto")
 function rowsFromCAP(table, empresa){
-  return parseGvizRows(table).filter(r=>!isSubtotalRow(r)).map(r=>{
+  const raw = parseGvizRows(table);
+  return raw.filter(r=>!isSubtotalRow(r)).map(r=>{
     if(normalizeTxt(getColNormalized(r,'situacao'))!=='aberto') return null;
-    const date = parseDateBR(r['Data']);
+    const dateRaw = getColNormalized(r, 'data');
+    const date = parseDateCell(typeof dateRaw==='object' && dateRaw!==null ? (dateRaw.v||dateRaw) : dateRaw);
     if(!date) return null;
-    const categoria = (r['Desc Conta']||'Sem categoria').toString().trim();
-    const valorRaw = r['Valor(R$)']!==undefined && r['Valor(R$)']!=='' ? r['Valor(R$)'] : r['Valor'];
-    return { date, categoria, grupo: resolveGrupo(categoria), valor: -Math.abs(parseMoneyBR(valorRaw)), empresa };
+    const categoria = (getColNormalized(r,'desc conta')||'Sem categoria').toString().trim();
+    const valorRaw = getColNormalized(r,'valor(r$)');
+    const valor = -Math.abs(parseMoneyBR(valorRaw!==undefined && valorRaw!=='' && valorRaw!==null ? valorRaw : getColNormalized(r,'valor')));
+    return { date, categoria, grupo: resolveGrupoCategoria(categoria, valor), valor, empresa };
   }).filter(Boolean);
 }
+// venc_<empresa> = contas a receber por vencimento (só "Aberto")
 function rowsFromVENC(table, empresa){
-  return parseGvizRows(table).filter(r=>!isSubtotalRow(r)).map(r=>{
+  const raw = parseGvizRows(table);
+  return raw.filter(r=>!isSubtotalRow(r)).map(r=>{
     if(normalizeTxt(getColNormalized(r,'situacao'))!=='aberto') return null;
-    const date = parseDateBR(r['Dt Venc']);
+    const dateRaw = getColNormalized(r, 'dt venc');
+    const date = parseDateCell(typeof dateRaw==='object' && dateRaw!==null ? (dateRaw.v||dateRaw) : dateRaw);
     if(!date) return null;
-    const categoria = (r['Desc Conta']||'Sem categoria').toString().trim();
-    return { date, categoria, grupo: resolveGrupo(categoria), valor: Math.abs(parseMoneyBR(r['Vl Total Título'])), empresa };
+    const categoria = (getColNormalized(r,'desc conta')||'Sem categoria').toString().trim();
+    const valor = Math.abs(parseMoneyBR(getColNormalized(r,'vl total titulo')));
+    return { date, categoria, grupo: resolveGrupoCategoria(categoria, valor), valor, empresa };
   }).filter(Boolean);
 }
 
@@ -359,25 +585,46 @@ async function init(){
   const { data } = await sb.auth.getSession();
   if(!data.session){ window.location.replace(LOGIN_URL); return; }
   currentUser = data.session.user;
-  currentEmail = currentUser.email;
-  if(!canAccessFluxo(currentEmail)){
+  const email = currentUser.email;
+
+  if(!canAccessFluxo(email)){
     el('loadingScreen').style.display='none';
     el('deniedScreen').style.display='block';
-    applyTheme(currentTheme);
     document.documentElement.style.visibility='visible';
     return;
   }
-  gpsStaff = isGpsStaff(currentEmail);
-  if(!gpsStaff){ const c=el('fcAjustesGpsCard'); if(c) c.style.display='none'; }
-  applyTheme(currentTheme);
-  document.documentElement.style.visibility='visible'; // mostra o spinner (ou erro) desde já
 
-  el('btnDark').addEventListener('click', ()=>applyTheme('dark'));
-  el('btnLight').addEventListener('click', ()=>applyTheme('light'));
-  el('empresaSelect').addEventListener('change', e=>{ selectedEmpresa = e.target.value; renderAll(); });
-  el('logoutBtn').addEventListener('click', async ()=>{ await sb.auth.signOut(); window.location.href=LOGIN_URL; });
+  gpsStaff = isGpsStaff(email);
+  if(!gpsStaff){ const card = el('fcAjustesGpsCard'); if(card) card.style.display='none'; }
+  document.documentElement.style.visibility='visible'; // mostra o spinner (ou erro) já de cara
+
+  el('userChip').textContent = nameFromEmail(email);
+  el('empresaSelect').addEventListener('change', e=>{ selectedEmpresa = e.target.value; rebuildRowsNoEscopo(); buildAndRenderTable(); renderAberto(); });
+  el('appLogoutBtn').addEventListener('click', doLogout);
+  el('appBtnDark').addEventListener('click', ()=>appApplyTheme('dark'));
+  el('appBtnLight').addEventListener('click', ()=>appApplyTheme('light'));
+  appApplyTheme(localStorage.getItem('mebrasi_theme') || 'light', true);
 
   await loadData();
+}
+
+function appApplyTheme(t, skipSync){
+  document.documentElement.classList.toggle('light', t==='light');
+  localStorage.setItem('mebrasi_theme', t);
+  const bd=el('appBtnDark'), bl=el('appBtnLight');
+  if(bd) bd.classList.toggle('active', t==='dark');
+  if(bl) bl.classList.toggle('active', t==='light');
+}
+
+function rebuildRowsNoEscopo(){
+  const empresasNoEscopo = selectedEmpresa ? [selectedEmpresa] : EMPRESAS;
+  let all = [];
+  empresasNoEscopo.forEach(emp => { all = all.concat(rowsByEmpresa[emp]||[]); });
+  // "Transferencia Entre Empresas" só conta quando se olha UMA empresa específica
+  if(!selectedEmpresa) all = all.filter(r=>r.grupo!=='TRANSFERENCIAS');
+  rows = all.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+  const label = el('empresaLabelSub');
+  if(label) label.textContent = selectedEmpresa ? ('Empresa: '+EMPRESA_LABEL[selectedEmpresa]) : 'Visão Global — soma das 4 empresas';
 }
 
 async function loadData(){
@@ -392,164 +639,342 @@ async function loadData(){
       rowsByEmpresa[empresa].sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
       abertoByEmpresa[empresa] = rowsFromCAP(tCap, empresa).concat(rowsFromVENC(tVenc, empresa));
     }
-    await loadSaldoIniciais();
-    await loadAjustesManuais();
+    rebuildRowsNoEscopo();
+
+    await loadSaldoInicial();
+    await loadAjustesManuais(); // injeta os lançamentos manuais como movimentação real
+    loadLimiteConta();
+    buildAndRenderTable();
+    renderAberto();
     el('loadingScreen').style.display='none';
     el('mainContent').style.display='block';
-    document.documentElement.style.visibility='visible';
-    renderAll();
+    el('fcSimData').value = new Date().toISOString().slice(0,10);
+    await loadFcMsgs();
   }catch(e){
     console.error(e);
-    el('loadingScreen').querySelector('p').innerHTML = 'Erro ao carregar a base: '+e.message+
-      '<br><br style="display:block;content:\'\';margin-top:8px;">Se o erro for de leitura/JSON, confira se a planilha "Basesfinancompiladas" está compartilhada como <b>"Qualquer pessoa com o link → Leitor"</b> — sem isso, o Google não deixa o site ler os dados.';
+    el('loadingMsg').textContent = 'Erro ao carregar a base: '+e.message+'. Confira se a planilha "Basesfinancompiladas" está compartilhada como "Qualquer pessoa com o link -> Leitor".';
   }
 }
 
-function empresasNoEscopo(){ return selectedEmpresa ? [selectedEmpresa] : EMPRESAS; }
+/* ================== ÁRVORE DE COLUNAS (Ano > Mês > Dia) ================== */
+const MESES_ABBR = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+let columnTree = [];
 
-/* Saldo acumulado até uma data, de UMA empresa, respeitando o saldo
-   inicial dela (se houver) + os lançamentos manuais dela (já incluídos
-   em rowsByEmpresa[empresa] via loadAjustesManuais). */
+const DOW_ABBR = ['DOM','SEG','TER','QUA','QUI','SEX','SÁB'];
+function buildColumnTree(){
+  if(!rows.length) return [];
+  const minYear = parseInt(rows[0].date.slice(0,4),10);
+  const maxYear = parseInt(rows[rows.length-1].date.slice(0,4),10);
+  const today = new Date();
+  const todayStr = today.toISOString().slice(0,10);
+  const curYear = today.getFullYear(), curMonth = today.getMonth()+1;
+
+  const years = [];
+  for(let y=minYear; y<=maxYear; y++){
+    const months = [];
+    for(let m=1; m<=12; m++){
+      const lastDay = new Date(y,m,0).getDate();
+      const days = [];
+      for(let d=1; d<=lastDay; d++){
+        const dstr = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        const dow = DOW_ABBR[new Date(y,m-1,d).getDay()];
+        days.push({ type:'day', key:'d'+dstr, label:`<div class="fc-dow">${dow}</div><div>${String(d).padStart(2,'0')}</div>`, start:dstr, end:dstr, isToday: dstr===todayStr, children:[], expanded:false });
+      }
+      months.push({ type:'month', key:`m${y}-${m}`, label:MESES_ABBR[m-1]+'/'+String(y).slice(2),
+        start:`${y}-${String(m).padStart(2,'0')}-01`, end:`${y}-${String(m).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`,
+        isToday:false, children:days, expanded:(y===curYear && m===curMonth) });
+    }
+    years.push({ type:'year', key:'y'+y, label:String(y), start:`${y}-01-01`, end:`${y}-12-31`,
+      isToday:false, children:months, expanded:(y===curYear) });
+  }
+  return years;
+}
+function flattenColumns(nodes){
+  let out = [];
+  for(const n of nodes){
+    out.push(n);
+    if(n.expanded && n.children.length) out = out.concat(flattenColumns(n.children));
+  }
+  return out;
+}
+
+
+/* ================== CÁLCULO DE VALORES ================== */
+function sumInRange(catFilterFn, start, end){
+  let s = 0;
+  for(const r of rows){ if(r.date>=start && r.date<=end && catFilterFn(r)) s += r.valor; }
+  return s;
+}
+// Se houver um saldo inicial definido (ver seção "Saldo Inicial" mais abaixo),
+// datas a partir dele passam a somar em cima desse valor em vez do zero absoluto;
+// datas anteriores continuam com o cálculo normal (soma de todo o histórico).
+let saldoIniciais = {}; // { empresa: {data_referencia, valor} }
+
+// Saldo acumulado de UMA empresa até uma data, respeitando o saldo inicial
+// dela (se houver). Os lançamentos manuais já estão dentro de rowsByEmpresa.
 function runningBalanceEmpresa(empresa, uptoDate){
+  const rowsEmp = rowsByEmpresa[empresa] || [];
   const override = saldoIniciais[empresa];
-  const rows = rowsByEmpresa[empresa] || [];
   if(override && uptoDate >= override.data_referencia){
     let s = override.valor;
-    for(const r of rows){ if(r.date > override.data_referencia && r.date<=uptoDate) s += r.valor; }
+    for(const r of rowsEmp){ if(r.date > override.data_referencia && r.date<=uptoDate) s += r.valor; }
     return s;
   }
   let s = 0;
-  for(const r of rows){ if(r.date<=uptoDate) s += r.valor; else break; }
+  for(const r of rowsEmp){ if(r.date<=uptoDate) s += r.valor; else break; }
   return s;
 }
-function saldoAcumuladoTotal(uptoDate){
-  return empresasNoEscopo().reduce((sum,emp)=>sum + runningBalanceEmpresa(emp, uptoDate), 0);
+// Saldo Acumulado no escopo atual: uma empresa só, ou a soma das 4 (Global).
+function runningBalance(uptoDate){
+  const empresasNoEscopo = selectedEmpresa ? [selectedEmpresa] : EMPRESAS;
+  return empresasNoEscopo.reduce((sum,emp)=>sum + runningBalanceEmpresa(emp, uptoDate), 0);
 }
-function rowsNoEscopo(){
-  let all = [];
-  empresasNoEscopo().forEach(emp => { all = all.concat(rowsByEmpresa[emp]||[]); });
-  // "Transferencia Entre Empresas" só conta quando se olha UMA empresa específica
-  if(!selectedEmpresa) all = all.filter(r=>r.grupo!=='TRANSFERENCIAS');
-  return all;
-}
-function sumByGrupoCategoria(rows){
-  const map = {}; // grupo -> { categoria -> valor }
-  rows.forEach(r=>{
-    if(!map[r.grupo]) map[r.grupo] = {};
-    map[r.grupo][r.categoria] = (map[r.grupo][r.categoria]||0) + r.valor;
-  });
-  return map;
-}
+const isRecebimento = r => r.grupo==='RECEBIMENTOS';
+const isPagamento = r => r.grupo!=='RECEBIMENTOS' && r.grupo!=='AJUSTES_MANUAIS';
+const isGrupo = g => r => r.grupo===g;
+const isCategoria = c => r => r.categoria===c;
 
-/* ---- Renderização da tabela principal (últimos 60 dias corridos) ---- */
-let expandedGroups = {}, expandedCats = {};
-function renderTable(){
-  const rows = rowsNoEscopo();
-  const allDates = new Set();
-  rows.forEach(r=>allDates.add(r.date));
-  empresasNoEscopo().forEach(emp=>{ if(saldoIniciais[emp]) allDates.add(saldoIniciais[emp].data_referencia); });
-  let datesArr = Array.from(allDates).sort();
-  if(!datesArr.length){ el('fcTable').innerHTML = '<tr><td class="empty-state">Sem dados carregados ainda.</td></tr>'; return; }
-  // mostra os últimos 45 dias com movimento + hoje, pra não ficar gigante
-  const todayISO = new Date().toISOString().slice(0,10);
-  if(!allDates.has(todayISO)) datesArr.push(todayISO);
-  datesArr = datesArr.sort().slice(-45);
+/* ================== ÁRVORE DE LINHAS ================== */
+let rowTree = [];
+function buildRowTree(){
+  const catsByGrupo = {};
+  rows.forEach(r=>{ if(!catsByGrupo[r.grupo]) catsByGrupo[r.grupo]=new Set(); catsByGrupo[r.grupo].add(r.categoria); });
 
-  const byGC = sumByGrupoCategoria(rows);
-  const recebCats = Object.keys(byGC['RECEBIMENTOS']||{}).sort();
-  const gruposPag = GRUPOS_PAGAMENTO.map(g=>({...g, cats: Object.keys(byGC[g.key]||{}).sort()})).filter(g=>g.cats.length);
+  const recebimentoCats = Array.from(catsByGrupo['RECEBIMENTOS']||[]).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  const recebimentosNode = {
+    type:'recebimentos', level:0, label:'RECEBIMENTOS', filter:isRecebimento, expanded:false,
+    children: recebimentoCats.map(c=>({ type:'cat', level:2, label:c, filter:isCategoria(c), expanded:false, children:[] }))
+  };
 
-  function sumInRange(filterFn, start, end){
-    return rows.filter(r=>r.date>=start && r.date<=end).filter(filterFn).reduce((s,r)=>s+r.valor,0);
-  }
+  const pagamentoSubgrupos = GRUPOS_PAGAMENTO.map(g=>{
+    const cats = Array.from(catsByGrupo[g.key]||[]).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+    return {
+      type:'subgrupo', level:1, label:g.label, filter:isGrupo(g.key), expanded:false,
+      children: cats.map(c=>({ type:'cat', level:2, label:c, filter:isCategoria(c), expanded:false, children:[] }))
+    };
+  }).filter(sg=>sg.children.length); // esconde grupo sem nenhuma categoria
 
-  let headHtml = '<tr><th>Linha</th>' + datesArr.map(d=>`<th>${d.slice(8,10)}/${d.slice(5,7)}</th>`).join('') + '</tr>';
+  const pagamentosNode = { type:'pagamentos', level:0, label:'PAGAMENTOS', filter:isPagamento, expanded:true, children: pagamentoSubgrupos };
 
-  let bodyHtml = '';
-  // SALDO ACUMULADO
-  bodyHtml += '<tr class="row-total"><td>SALDO ACUMULADO</td>' + datesArr.map(d=>{
-    const v = saldoAcumuladoTotal(d);
-    return `<td class="${v>=0?'val-pos':'val-neg'}">${fmtBRL(v)}</td>`;
-  }).join('') + '</tr>';
+  const nodes = [
+    { type:'saldo', level:0, label:'SALDO ACUMULADO', special:'saldo', expanded:false, children:[] },
+    recebimentosNode,
+    pagamentosNode,
+  ];
 
-  // RECEBIMENTOS
-  const recArrow = expandedGroups['RECEBIMENTOS'] ? '▾' : '▸';
-  bodyHtml += `<tr class="row-group" onclick="toggleGroup('RECEBIMENTOS')"><td><span class="fc-toggle">${recArrow}</span>RECEBIMENTOS</td>` +
-    datesArr.map(d=>`<td class="val-pos">${fmtBRL(sumInRange(r=>r.grupo==='RECEBIMENTOS', d, d))}</td>`).join('') + '</tr>';
-  if(expandedGroups['RECEBIMENTOS']){
-    recebCats.forEach(c=>{
-      bodyHtml += `<tr class="row-cat"><td>${c}</td>` + datesArr.map(d=>`<td>${fmtBRL(sumInRange(r=>r.grupo==='RECEBIMENTOS'&&r.categoria===c, d, d))}</td>`).join('') + '</tr>';
+  // Lançamentos manuais (GPS): entram como uma linha própria, pra ficar claro
+  // que é um valor lançado à mão e não vindo direto da planilha do cliente.
+  const ajustesCats = Array.from(catsByGrupo['AJUSTES_MANUAIS']||[]).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  if(ajustesCats.length){
+    nodes.push({
+      type:'ajustes', level:0, label:'LANÇAMENTOS MANUAIS (GPS)', filter:r=>r.grupo==='AJUSTES_MANUAIS', expanded:false,
+      children: ajustesCats.map(c=>({ type:'cat', level:2, label:c, filter:isCategoria(c), expanded:false, children:[] }))
     });
   }
 
-  // PAGAMENTOS (todos os grupos exceto Recebimentos)
-  const pagArrow = expandedGroups['PAGAMENTOS'] ? '▾' : '▸';
-  bodyHtml += `<tr class="row-group" onclick="toggleGroup('PAGAMENTOS')"><td><span class="fc-toggle">${pagArrow}</span>PAGAMENTOS</td>` +
-    datesArr.map(d=>`<td class="val-neg">${fmtBRL(sumInRange(r=>r.grupo!=='RECEBIMENTOS', d, d))}</td>`).join('') + '</tr>';
-  if(expandedGroups['PAGAMENTOS']){
-    gruposPag.forEach(g=>{
-      const key = 'sub_'+g.key;
-      const arrow = expandedGroups[key] ? '▾' : '▸';
-      bodyHtml += `<tr class="row-group" onclick="toggleGroup('${key}')"><td style="padding-left:24px;"><span class="fc-toggle">${arrow}</span>${g.label}</td>` +
-        datesArr.map(d=>`<td>${fmtBRL(sumInRange(r=>r.grupo===g.key, d, d))}</td>`).join('') + '</tr>';
-      if(expandedGroups[key]){
-        g.cats.forEach(c=>{
-          bodyHtml += `<tr class="row-cat"><td>${c}</td>` + datesArr.map(d=>`<td>${fmtBRL(sumInRange(r=>r.grupo===g.key&&r.categoria===c, d, d))}</td>`).join('') + '</tr>';
-        });
+  return nodes;
+}
+function flattenRows(nodes){
+  let out = [];
+  for(const n of nodes){
+    out.push(n);
+    if(n.expanded && n.children && n.children.length) out = out.concat(flattenRows(n.children));
+  }
+  return out;
+}
+
+/* ================== RENDER ================== */
+function buildAndRenderTable(){
+  columnTree = buildColumnTree();
+  rowTree = buildRowTree();
+  renderTable();
+  renderDebugStats();
+  // espera o layout (e a fonte) estabilizar antes de rolar, senão a posição sai errada
+  const doScroll = ()=>scrollToToday();
+  if(document.fonts && document.fonts.ready){ document.fonts.ready.then(doScroll); }
+  requestAnimationFrame(()=>requestAnimationFrame(doScroll));
+  setTimeout(doScroll, 300);
+}
+
+// Diagnóstico rápido (só GPS): quantas linhas carregaram de cada tipo/conta.
+// Ajuda a identificar rápido se algo sumiu do fluxo sem precisar abrir o console.
+function renderDebugStats(){
+  const wrap = el('fcDebugStats');
+  if(!wrap) return;
+  if(!gpsStaff){ wrap.textContent = ''; return; }
+  const porEmpresa = EMPRESAS.map(e=>`${EMPRESA_LABEL[e]}: ${(rowsByEmpresa[e]||[]).length}`).join(' · ');
+  const totalRec = rows.filter(r=>r.grupo==='RECEBIMENTOS').length;
+  const totalAjustes = rows.filter(r=>r.grupo==='AJUSTES_MANUAIS').length;
+  const totalPag = rows.filter(isPagamento).length;
+  const categoriasNovas = Object.keys(debugCategoriasNovas);
+  const detalheCategoriasNovas = categoriasNovas.length
+    ? ` · Categorias novas incluídas automaticamente: ${categoriasNovas.map(c=>`${c}→${debugCategoriasNovas[c]}`).join(', ')}`
+    : '';
+  wrap.textContent = `🔍 Diagnóstico (só GPS): ${rows.length} linhas no escopo atual (${selectedEmpresa?EMPRESA_LABEL[selectedEmpresa]:'Global'}) · ${porEmpresa} · Recebimentos: ${totalRec} · Pagamentos: ${totalPag} · Lançamentos manuais: ${totalAjustes}${detalheCategoriasNovas}`;
+}
+
+function renderColumnHeader(c){
+  const hasChildren = c.children && c.children.length;
+  const arrow = hasChildren ? `<span class="fc-col-toggle" onclick="toggleColumn('${c.key}')">${c.expanded?'−':'+'}</span> ` : '';
+  const limiteInfo = getLimiteContaHeaderInfo(c);
+  const alerta = limiteInfo ? renderLimiteContaHeaderAlert(limiteInfo) : '';
+  if(c.type === 'day'){
+    const datePart = (c.start || '').slice(8,10);
+    const dowMatch = String(c.label||'').match(/<div class="fc-dow">([^<]+)<\/div>/);
+    const dow = dowMatch ? dowMatch[1] : '';
+    return `<th class="${c.isToday?'fc-today':''}"><span class="fc-day-head"><span class="fc-day-top"><span class="fc-dow">${dow}</span>${alerta}</span><span class="fc-day-num">${datePart}</span></span></th>`;
+  }
+  return `<th class="${c.isToday?'fc-today':''}"><span class="fc-limit-head">${arrow}${c.label}</span></th>`;
+}
+
+function renderTable(){
+  const cols = flattenColumns(columnTree);
+  const visibleRows = flattenRows(rowTree);
+
+  // cabeçalho
+  let thead = '<thead><tr><th></th>' + cols.map(c=>renderColumnHeader(c)).join('') + '</tr></thead>';
+
+  // corpo
+  let tbody = '<tbody>';
+  visibleRows.forEach(rNode=>{
+    const cls = `fc-lvl-${rNode.level}`;
+    const hasChildren = rNode.children && rNode.children.length;
+    const arrow = hasChildren ? `<span class="fc-toggle">${rNode.expanded?'▾':'▸'}</span> ` : (rNode.level>0 ? '<span class="fc-toggle"></span> ' : '');
+    tbody += `<tr class="${cls}" data-key="${rNode._key||''}">`;
+    tbody += `<td class="fc-row-label" onclick="${hasChildren?`toggleRowNode('${rNode.label.replace(/'/g,"\\'")}', ${rNode.level})`:''}">${arrow}${rNode.label}</td>`;
+    cols.forEach(c=>{
+      let val;
+      if(rNode.special==='saldo'){
+        val = runningBalance(c.end);
+        const cellCls = (val>=0?'fc-saldo-pos':'fc-saldo-neg') + (c.isToday?' fc-today':'');
+        tbody += `<td class="${cellCls}">${fmtBRL(val)}</td>`;
+      } else {
+        val = sumInRange(rNode.filter, c.start, c.end);
+        tbody += `<td class="${c.isToday?'fc-today':''}">${fmtBRL(val)}</td>`;
       }
     });
+    tbody += '</tr>';
+  });
+  tbody += '</tbody>';
+
+  el('fcTable').innerHTML = thead + tbody;
+}
+function scrollToToday(){
+  const todayTh = document.querySelector('.fc-table th.fc-today');
+  if(!todayTh) return;
+  const wrap = document.querySelector('.fc-wrap');
+  const firstColWidth = document.querySelector('.fc-table td:first-child')?.offsetWidth || 220;
+  wrap.scrollLeft = Math.max(0, todayTh.offsetLeft - firstColWidth - 24);
+}
+
+// localizar nó de coluna pela key (busca recursiva)
+function findColumnNode(nodes, key){
+  for(const n of nodes){
+    if(n.key===key) return n;
+    if(n.children.length){ const f = findColumnNode(n.children, key); if(f) return f; }
   }
-
-  el('fcTable').innerHTML = headHtml + bodyHtml;
-  renderDebugStats(rows);
+  return null;
 }
-function toggleGroup(key){ expandedGroups[key] = !expandedGroups[key]; renderTable(); }
-
-function renderDebugStats(rows){
-  if(!gpsStaff){ el('fcDebugStats').textContent=''; return; }
-  const porEmpresa = EMPRESAS.map(e=>`${EMPRESA_LABEL[e]}: ${(rowsByEmpresa[e]||[]).length}`).join(' · ');
-  el('fcDebugStats').textContent = `🔍 Diagnóstico (só GPS): ${rows.length} linhas no escopo atual · ${porEmpresa}`;
+function toggleColumn(key){
+  const node = findColumnNode(columnTree, key);
+  if(node){ node.expanded = !node.expanded; renderTable(); }
 }
 
-/* ---- Em Aberto (resumo simples, por categoria) ---- */
-function renderAberto(){
-  let rows = [];
-  empresasNoEscopo().forEach(emp => { rows = rows.concat(abertoByEmpresa[emp]||[]); });
-  const pagar = rows.filter(r=>r.valor<0);
-  const receber = rows.filter(r=>r.valor>0);
-  const totalPagar = pagar.reduce((s,r)=>s+r.valor,0);
-  const totalReceber = receber.reduce((s,r)=>s+r.valor,0);
-
-  function porCategoria(list){
-    const map = {};
-    list.forEach(r=>{ map[r.categoria] = (map[r.categoria]||0) + r.valor; });
-    return Object.entries(map).sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]));
+// localizar nó de linha por label+level (simplificação: como não há duplicidade de label no mesmo nível, funciona)
+function findRowNode(nodes, label, level){
+  for(const n of nodes){
+    if(n.label===label && n.level===level) return n;
+    if(n.children && n.children.length){ const f = findRowNode(n.children, label, level); if(f) return f; }
   }
-  const catsPagar = porCategoria(pagar);
-  const catsReceber = porCategoria(receber);
-
-  el('abertoWrap').innerHTML = `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
-      <div>
-        <div style="font-weight:800;color:var(--red);margin-bottom:8px;">A Pagar em Aberto: ${fmtBRL(Math.abs(totalPagar))}</div>
-        ${catsPagar.map(([c,v])=>`<div class="fc-list-item"><span>${c}</span><span class="val-neg">${fmtBRL(Math.abs(v))}</span></div>`).join('') || '<div class="empty-state">Nada em aberto.</div>'}
-      </div>
-      <div>
-        <div style="font-weight:800;color:var(--green);margin-bottom:8px;">A Receber em Aberto: ${fmtBRL(totalReceber)}</div>
-        ${catsReceber.map(([c,v])=>`<div class="fc-list-item"><span>${c}</span><span class="val-pos">${fmtBRL(v)}</span></div>`).join('') || '<div class="empty-state">Nada em aberto.</div>'}
-      </div>
-    </div>`;
+  return null;
+}
+function toggleRowNode(label, level){
+  const node = findRowNode(rowTree, label, level);
+  if(node){ node.expanded = !node.expanded; renderTable(); }
 }
 
-function renderAll(){ renderTable(); renderAberto(); }
+async function doLogout(){ await sb.auth.signOut(); window.location.href = LOGIN_URL; }
 
-/* ================== Saldo Inicial (por empresa) ================== */
-async function loadSaldoIniciais(){
+function openSaldoInicialModal(){ el('saldoInicialModal').classList.add('show'); }
+function closeSaldoInicialModal(){ el('saldoInicialModal').classList.remove('show'); }
+function openAjustesManuaisModal(){ el('ajustesManuaisModal').classList.add('show'); }
+function closeAjustesManuaisModal(){ el('ajustesManuaisModal').classList.remove('show'); }
+
+/* ================== NOVO: Limite da Conta (por empresa) ================== */
+function loadLimiteConta(){
+  limiteContaPorEmpresa = {};
+  EMPRESAS.forEach(emp=>{
+    const saved = localStorage.getItem('fcLimiteConta_'+emp);
+    const n = parseFloat(saved);
+    limiteContaPorEmpresa[emp] = (!isNaN(n) && n > 0) ? n : 0;
+  });
+  const empSel = el('fcLimiteContaEmpresa');
+  const input = el('fcLimiteContaValor');
+  if(empSel && input){
+    input.value = limiteContaPorEmpresa[empSel.value] || '';
+    empSel.addEventListener('change', ()=>{ input.value = limiteContaPorEmpresa[empSel.value] || ''; });
+  }
+}
+function applyLimiteConta(){
+  const empSel = el('fcLimiteContaEmpresa');
+  const empresa = empSel ? empSel.value : EMPRESAS[0];
+  const input = el('fcLimiteContaValor');
+  const valor = parseFloat(input ? input.value : '');
+  if(isNaN(valor) || valor <= 0){ alert('Informe um limite válido.'); return; }
+  limiteContaPorEmpresa[empresa] = valor;
+  localStorage.setItem('fcLimiteConta_'+empresa, String(valor));
+  renderTable();
+}
+// Limite no escopo atual: uma empresa só, ou a soma das 4 (Global).
+function limiteContaNoEscopo(){
+  const empresasNoEscopo = selectedEmpresa ? [selectedEmpresa] : EMPRESAS;
+  return empresasNoEscopo.reduce((s,emp)=>s+(limiteContaPorEmpresa[emp]||0), 0);
+}
+function prevDateStr(dstr){
+  const d = new Date(dstr+'T00:00:00');
+  d.setDate(d.getDate()-1);
+  return d.toISOString().slice(0,10);
+}
+function nextDateStr(dstr){
+  const d = new Date(dstr+'T00:00:00');
+  d.setDate(d.getDate()+1);
+  return d.toISOString().slice(0,10);
+}
+function escapeHtml(s){
+  return String(s||'').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]));
+}
+function getLimiteContaHeaderInfo(c){
+  const limiteConta = limiteContaNoEscopo();
+  if(!c || c.type!=='day' || !limiteConta || limiteConta<=0) return null;
+  const saldo = runningBalance(c.end);
+  const limiteNegativo = -Math.abs(limiteConta);
+  if(saldo < limiteNegativo){
+    return { tipo:'alerta', severidade: getLimiteSeverity(Math.abs(saldo) - Math.abs(limiteConta), limiteConta), titulo:'⚠ Limite da Conta', data:c.end, saldo, excesso: Math.abs(saldo) - Math.abs(limiteConta), mensagem:'Limite ultrapassado neste dia.' };
+  }
+  const amanha = nextDateStr(c.end);
+  const saldoAmanha = runningBalance(amanha);
+  if(saldo >= limiteNegativo && saldoAmanha < limiteNegativo){
+    return { tipo:'previo', severidade:'previo', titulo:'⚠ Alerta para amanhã', data:amanha, saldo:saldoAmanha, excesso: Math.abs(saldoAmanha) - Math.abs(limiteConta), mensagem:'Amanhã o saldo ultrapassará o limite.' };
+  }
+  return null;
+}
+function getLimiteSeverity(excesso, limiteConta){
+  const ratio = Math.abs(excesso || 0) / Math.abs(limiteConta || 1);
+  if(ratio >= 0.50) return 'critico';
+  if(ratio >= 0.25) return 'atencao';
+  return 'alert';
+}
+function renderLimiteContaHeaderAlert(info){
+  const limiteConta = limiteContaNoEscopo();
+  const dataLabel = new Date(info.data+'T00:00:00').toLocaleDateString('pt-BR');
+  return `<span class="fc-limit-dot ${info.severidade || (info.tipo==='alerta'?'alert':'previo')}"></span><span class="fc-limit-tooltip"><b>${escapeHtml(info.titulo)}</b><div class="row"><span>Data</span><strong>${dataLabel}</strong></div><div class="row"><span>Limite</span><strong>${fmtBRL(limiteConta)}</strong></div><div class="row"><span>Saldo previsto</span><strong>${fmtBRL(info.saldo)}</strong></div><div class="row"><span>Excesso</span><strong>${fmtBRL(info.excesso)}</strong></div><div class="muted">${escapeHtml(info.mensagem)}<br>💡 Sugestão: antecipar recebimentos, rever pagamentos ou solicitar aumento do limite.</div></span>`;
+}
+
+/* ================== NOVO: Saldo Inicial (por empresa) ================== */
+async function loadSaldoInicial(){
   const { data, error } = await sb.from('fluxo_saldo_inicial').select('*').order('criado_em',{ascending:false});
   saldoIniciais = {};
-  if(!error && data){
-    data.forEach(row=>{ if(!saldoIniciais[row.empresa]) saldoIniciais[row.empresa] = row; }); // primeiro = mais recente por empresa
-  }
+  if(!error && data){ data.forEach(row=>{ if(!saldoIniciais[row.empresa]) saldoIniciais[row.empresa] = row; }); }
   renderSaldoInicialStatus();
 }
 function renderSaldoInicialStatus(){
@@ -557,9 +982,9 @@ function renderSaldoInicialStatus(){
   if(!wrap) return;
   wrap.innerHTML = EMPRESAS.map(emp=>{
     const o = saldoIniciais[emp];
-    if(!o) return `<div class="fc-list-item"><span>${EMPRESA_LABEL[emp]}</span><span style="color:var(--text3);">Sem saldo inicial definido</span></div>`;
+    if(!o) return `<div style="padding:8px 0;border-bottom:1px solid var(--border);">${EMPRESA_LABEL[emp]}: <span style="color:var(--text3);">sem saldo inicial definido</span></div>`;
     const dataLabel = new Date(o.data_referencia+'T00:00:00').toLocaleDateString('pt-BR');
-    return `<div class="fc-list-item"><span>${EMPRESA_LABEL[emp]}: ${fmtBRL(o.valor)} em ${dataLabel}</span><button class="btn btn-danger btn-sm" onclick="removeSaldoInicial('${emp}')">Remover</button></div>`;
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);gap:10px;"><span>${EMPRESA_LABEL[emp]}: <b>${fmtBRL(o.valor)}</b> em <b>${dataLabel}</b></span><button class="btn btn-danger btn-sm" onclick="removeSaldoInicial('${emp}')">Remover</button></div>`;
   }).join('');
 }
 async function applySaldoInicial(){
@@ -568,44 +993,47 @@ async function applySaldoInicial(){
   const valor = parseFloat(el('fcSaldoInicialValor').value);
   if(!data_referencia || isNaN(valor)){ alert('Preencha a data e o saldo dessa data.'); return; }
   await sb.from('fluxo_saldo_inicial').delete().eq('empresa', empresa);
-  const { error } = await sb.from('fluxo_saldo_inicial').insert({ empresa, data_referencia, valor, criado_por: nameFromEmail(currentEmail) });
+  const { error } = await sb.from('fluxo_saldo_inicial').insert({ empresa, data_referencia, valor, criado_por: nameFromEmail(currentUser.email) });
   if(error){ alert('Erro ao salvar: '+error.message); return; }
   el('fcSaldoInicialData').value=''; el('fcSaldoInicialValor').value='';
-  await loadSaldoIniciais();
-  renderAll();
+  await loadSaldoInicial();
+  renderTable();
 }
 async function removeSaldoInicial(empresa){
   if(!confirm('Remover o saldo inicial de '+EMPRESA_LABEL[empresa]+'?')) return;
   await sb.from('fluxo_saldo_inicial').delete().eq('empresa', empresa);
-  await loadSaldoIniciais();
-  renderAll();
+  await loadSaldoInicial();
+  renderTable();
 }
 
-/* ================== Lançamentos Manuais (por empresa) ================== */
+/* ================== NOVO: Lançamentos Manuais (por empresa) ================== */
+// Diferente do "Simulador de Impacto" (que é só um "e se"), isso aqui vira
+// movimentação de verdade: entra em rowsByEmpresa e é somado no Saldo Acumulado real.
+let ajustesManuais = [];
 async function loadAjustesManuais(){
   const { data, error } = await sb.from('fluxo_ajustes_manuais').select('*').order('data',{ascending:true});
-  ajustesManuais = data && !error ? data : [];
+  ajustesManuais = (!error && data) ? data : [];
   EMPRESAS.forEach(emp=>{ rowsByEmpresa[emp] = (rowsByEmpresa[emp]||[]).filter(r=>r.grupo!=='AJUSTES_MANUAIS'); });
-  (ajustesManuais||[]).forEach(a=>{
-    if(!rowsByEmpresa[a.empresa]) rowsByEmpresa[a.empresa]=[];
-    rowsByEmpresa[a.empresa].push({ date:a.data, categoria:a.descricao||'Lançamento manual', grupo:'AJUSTES_MANUAIS', valor:a.valor, empresa:a.empresa });
+  ajustesManuais.forEach(a=>{
+    if(!rowsByEmpresa[a.empresa]) rowsByEmpresa[a.empresa] = [];
+    rowsByEmpresa[a.empresa].push({ date:a.data, categoria: a.descricao || 'Lançamento manual', grupo:'AJUSTES_MANUAIS', valor:a.valor, empresa:a.empresa });
   });
   EMPRESAS.forEach(emp=>{ (rowsByEmpresa[emp]||[]).sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0); });
+  rebuildRowsNoEscopo();
   renderAjustesManuaisList();
 }
 function renderAjustesManuaisList(){
   const wrap = el('fcAjusteList');
   if(!wrap) return;
-  wrap.innerHTML = (ajustesManuais||[]).length ? ajustesManuais.map(a=>`
-    <div class="fc-list-item">
-      <span>${EMPRESA_LABEL[a.empresa]||a.empresa} · ${a.descricao} (${new Date(a.data+'T00:00:00').toLocaleDateString('pt-BR')})</span>
-      <span style="display:flex;align-items:center;gap:8px;">
-        <span class="${a.valor>=0?'val-pos':'val-neg'}">${fmtBRL(a.valor)}</span>
-        <button class="btn btn-danger btn-sm" onclick="removeAjusteManual(${a.id})">✕</button>
-      </span>
-    </div>`).join('') : '<div class="empty-state">Nenhum lançamento manual ativo.</div>';
+  wrap.innerHTML = ajustesManuais.length ? ajustesManuais.map(a=>`
+    <div class="fc-sim-entry">
+      <span class="desc">${EMPRESA_LABEL[a.empresa]||a.empresa} · ${a.descricao}</span>
+      <span class="data">${new Date(a.data+'T00:00:00').toLocaleDateString('pt-BR')}</span>
+      <span class="valor" style="color:${a.valor>=0?'#98C47C':'var(--red)'}">${fmtBRL(a.valor)}</span>
+      <button class="del" onclick="removeAjusteManual(${a.id})">✕</button>
+    </div>`).join('') : '<div style="color:var(--text3);font-size:12.5px;">Nenhum lançamento manual ativo.</div>';
   const countEl = el('fcAjusteCount');
-  if(countEl) countEl.textContent = (ajustesManuais||[]).length ? `(${ajustesManuais.length})` : '';
+  if(countEl) countEl.textContent = ajustesManuais.length ? `(${ajustesManuais.length})` : '';
 }
 async function addAjusteManual(){
   const empresa = el('fcAjusteEmpresa').value;
@@ -613,23 +1041,141 @@ async function addAjusteManual(){
   const valor = parseFloat(el('fcAjusteValor').value);
   const data = el('fcAjusteData').value;
   if(!descricao || isNaN(valor) || !data){ alert('Preencha descrição, valor e data.'); return; }
-  const { error } = await sb.from('fluxo_ajustes_manuais').insert({ empresa, data, descricao, valor, criado_por: nameFromEmail(currentEmail) });
+  const { error } = await sb.from('fluxo_ajustes_manuais').insert({ empresa, data, descricao, valor, criado_por: nameFromEmail(currentUser.email) });
   if(error){ alert('Erro ao salvar: '+error.message); return; }
   el('fcAjusteDesc').value=''; el('fcAjusteValor').value=''; el('fcAjusteData').value='';
   await loadAjustesManuais();
-  renderAll();
+  buildAndRenderTable();
 }
 async function removeAjusteManual(id){
-  if(!confirm('Remover esse lançamento manual?')) return;
+  if(!confirm('Remover esse lançamento manual? Ele deixa de contar no Saldo Acumulado.')) return;
   await sb.from('fluxo_ajustes_manuais').delete().eq('id', id);
   await loadAjustesManuais();
-  renderAll();
+  buildAndRenderTable();
 }
 
-function openSaldoInicialModal(){ el('saldoInicialModal').classList.add('show'); }
-function closeSaldoInicialModal(){ el('saldoInicialModal').classList.remove('show'); }
-function openAjustesManuaisModal(){ el('ajustesManuaisModal').classList.add('show'); }
-function closeAjustesManuaisModal(){ el('ajustesManuaisModal').classList.remove('show'); }
+/* ================== NOVO: Em Aberto (cap/venc só "Aberto") ================== */
+function renderAberto(){
+  const wrap = el('abertoWrap');
+  if(!wrap) return;
+  const empresasNoEscopo = selectedEmpresa ? [selectedEmpresa] : EMPRESAS;
+  let list = [];
+  empresasNoEscopo.forEach(emp => { list = list.concat(abertoByEmpresa[emp]||[]); });
+  const pagar = list.filter(r=>r.valor<0);
+  const receber = list.filter(r=>r.valor>0);
+  function porCategoria(l){
+    const map = {};
+    l.forEach(r=>{ map[r.categoria] = (map[r.categoria]||0) + r.valor; });
+    return Object.entries(map).sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]));
+  }
+  const catsPagar = porCategoria(pagar), catsReceber = porCategoria(receber);
+  const totalPagar = pagar.reduce((s,r)=>s+r.valor,0), totalReceber = receber.reduce((s,r)=>s+r.valor,0);
+  wrap.innerHTML = `
+    <div>
+      <div style="font-weight:800;color:var(--red);margin-bottom:8px;">A Pagar em Aberto: ${fmtBRL(Math.abs(totalPagar))}</div>
+      ${catsPagar.map(([c,v])=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12.5px;"><span>${c}</span><span style="color:var(--red)">${fmtBRL(Math.abs(v))}</span></div>`).join('') || '<div style="color:var(--text3);font-size:12.5px;">Nada em aberto.</div>'}
+    </div>
+    <div>
+      <div style="font-weight:800;color:#98C47C;margin-bottom:8px;">A Receber em Aberto: ${fmtBRL(totalReceber)}</div>
+      ${catsReceber.map(([c,v])=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12.5px;"><span>${c}</span><span style="color:#98C47C">${fmtBRL(v)}</span></div>`).join('') || '<div style="color:var(--text3);font-size:12.5px;">Nada em aberto.</div>'}
+    </div>`;
+}
+
+/* ================== NOVO: Simulador de impacto no saldo ================== */
+/* ================== NOVO: Simulador de impacto no saldo ================== */
+let fcSimEntries = [];
+function addFcSimEntry(){
+  const descricao = el('fcSimDesc').value.trim();
+  const valor = parseFloat(el('fcSimValor').value);
+  const data = el('fcSimData').value;
+  if(!descricao || !valor || !data){ alert('Preencha descrição, valor e data.'); return; }
+  fcSimEntries.push({ descricao, valor, data });
+  el('fcSimDesc').value=''; el('fcSimValor').value=''; el('fcSimData').value='';
+  renderFcSim();
+}
+function removeFcSimEntry(idx){ fcSimEntries.splice(idx,1); renderFcSim(); }
+function renderFcSim(){
+  const wrap = el('fcSimList');
+  wrap.innerHTML = fcSimEntries.length ? fcSimEntries.map((e,i)=>`
+    <div class="fc-sim-entry">
+      <span class="desc">${e.descricao}</span>
+      <span class="data">${new Date(e.data+'T00:00:00').toLocaleDateString('pt-BR')}</span>
+      <span class="valor" style="color:${e.valor>=0?'#98C47C':'var(--red)'}">${fmtBRL(e.valor)}</span>
+      <button class="del" onclick="removeFcSimEntry(${i})">✕</button>
+    </div>`).join('') : '<div style="color:var(--text3);font-size:12.5px;">Nenhuma simulação adicionada ainda.</div>';
+
+  const tableWrap = el('fcSimTableWrap');
+  if(!fcSimEntries.length){ tableWrap.style.display='none'; return; }
+  tableWrap.style.display='block';
+
+  const minDate = fcSimEntries.map(e=>e.data).sort()[0];
+  const dias = [];
+  const start = new Date(minDate+'T00:00:00');
+  for(let i=0;i<15;i++){
+    const d = new Date(start); d.setDate(start.getDate()+i);
+    dias.push(d.toISOString().slice(0,10));
+  }
+  el('fcSimTableBody').innerHTML = dias.map(dstr=>{
+    const saldoReal = runningBalance(dstr);
+    const impacto = fcSimEntries.filter(e=>e.data<=dstr).reduce((s,e)=>s+e.valor,0);
+    const saldoSim = saldoReal + impacto;
+    const diffCls = impacto>=0 ? 'style="color:#98C47C"' : 'style="color:var(--red)"';
+    const dateLabel = new Date(dstr+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
+    return `<tr><td>${dateLabel}</td><td>${fmtBRL(saldoReal)}</td><td style="font-weight:700">${fmtBRL(saldoSim)}</td><td ${diffCls}>${impacto>=0?'+':''}${fmtBRL(impacto)}</td></tr>`;
+  }).join('');
+}
+
+/* ================== NOVO: Observações, avisos e solicitações ================== */
+async function loadFcMsgs(){
+  const { data, error } = await sb.from('fluxo_mensagens').select('*').order('criado_em',{ascending:false});
+  if(error){ el('fcMsgList').innerHTML = '<div style="color:var(--gold);font-size:12px;">⚠️ Não consegui carregar. Verifique se a tabela fluxo_mensagens existe no Supabase.</div>'; return; }
+  renderFcMsgs(data||[]);
+}
+function renderFcMsgs(msgs){
+  if(!msgs.length){ el('fcMsgList').innerHTML = '<div class="empty-state"><div class="icon">📋</div>Nenhum registro ainda.</div>'; return; }
+  const tipoLabel = { observacao:'📝 Observação', aviso:'⚠️ Aviso', solicitacao:'🙋 Solicitação' };
+  const statusLabel = { aberto:'⏳ Aberto', resolvido:'✓ Resolvido', aprovado:'✓ Aprovado', recusado:'✕ Recusado' };
+  el('fcMsgList').innerHTML = msgs.map(m=>{
+    const date = new Date(m.criado_em).toLocaleString('pt-BR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+    const podeResponder = m.tipo==='solicitacao' && m.status==='aberto';
+    const acoes = podeResponder ? `
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button class="btn btn-primary btn-sm" onclick="respondFcMsg(${m.id},'aprovado')">Aprovar</button>
+        <button class="btn btn-danger btn-sm" onclick="respondFcMsg(${m.id},'recusado')">Recusar</button>
+        <button class="btn btn-ghost btn-sm" onclick="respondFcMsg(${m.id},'resolvido')">Marcar resolvido</button>
+      </div>` : (m.status==='aberto' && m.tipo!=='solicitacao' ? `<button class="btn btn-ghost btn-sm" onclick="respondFcMsg(${m.id},'resolvido')" style="margin-top:8px;">Marcar resolvido</button>` : '');
+    const resposta = m.resposta ? `<div class="fc-msg-resposta"><b>${m.respondido_por||''}:</b> ${m.resposta}</div>` : '';
+    return `<div class="fc-msg-item">
+      <div class="fc-msg-head">
+        <span class="fc-msg-autor">${m.autor_nome||m.autor_email}</span>
+        <span class="fc-msg-tipo ${m.tipo}">${tipoLabel[m.tipo]||m.tipo}</span>
+        <span class="fc-msg-status ${m.status}">${statusLabel[m.status]||m.status}</span>
+        <span class="fc-msg-date">${date}</span>
+      </div>
+      <div class="fc-msg-text">${(m.mensagem||'').replace(/</g,'&lt;')}</div>
+      ${resposta}
+      ${acoes}
+    </div>`;
+  }).join('');
+}
+async function submitFcMsg(){
+  const tipo = el('fcMsgTipo').value;
+  const mensagem = el('fcMsgTexto').value.trim();
+  if(!mensagem) return;
+  const { error } = await sb.from('fluxo_mensagens').insert({
+    autor_email: currentUser.email, autor_nome: nameFromEmail(currentUser.email), tipo, mensagem, status:'aberto'
+  });
+  if(!error){ el('fcMsgTexto').value=''; await loadFcMsgs(); }
+  else alert('Erro ao publicar: '+error.message);
+}
+async function respondFcMsg(id, status){
+  const resposta = prompt('Quer deixar uma resposta? (opcional)') || '';
+  const { error } = await sb.from('fluxo_mensagens').update({
+    status, resposta, respondido_por: nameFromEmail(currentUser.email), respondido_em: new Date().toISOString()
+  }).eq('id', id);
+  if(!error) await loadFcMsgs();
+  else alert('Erro: '+error.message);
+}
 
 init();
 </script>
