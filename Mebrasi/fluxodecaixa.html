@@ -175,6 +175,8 @@ html.light .fc-day-num{color:#1f2a3d;}
 .fc-detail-table th{font-size:10px;color:var(--text3);text-transform:uppercase;text-align:left;padding:8px 8px;border-bottom:1px solid var(--border2);}
 .fc-detail-table th.num,.fc-detail-table td.num{text-align:right;font-family:'DM Mono',monospace;}
 .fc-detail-table td{padding:9px 8px;border-bottom:1px solid var(--border);}
+.fc-detail-table td.wrap{white-space:normal;min-width:180px;}
+.fc-detail-table td.small{font-size:11.5px;color:var(--text3);}
 .fc-detail-muted{font-size:11.5px;color:var(--text3);line-height:1.45;margin-top:8px;}
 .fc-detail-list{max-height:260px;overflow:auto;margin-top:10px;border-radius:10px;border:1px solid var(--border);}
 .fc-clickable-cell{cursor:pointer;}
@@ -549,6 +551,20 @@ function parseDateCell(v){
 function isSubtotalRow(rowObj){
   return Object.values(rowObj).some(v => (v||'').toString().indexOf('TOTAL DO DIA')!==-1);
 }
+function cleanCell(v){
+  if(v===null||v===undefined) return '';
+  if(typeof v==='object' && v!==null) return (v.f ?? v.v ?? '').toString().trim();
+  return v.toString().trim();
+}
+function rowMeta(r){
+  const titulo = cleanCell(getColNormalized(r,'titulo')) || cleanCell(getColNormalized(r,'título'));
+  const nome = cleanCell(getColNormalized(r,'nome')) || cleanCell(getColNormalized(r,'cliente')) || cleanCell(getColNormalized(r,'fornecedor'));
+  const cnpj = cleanCell(getColNormalized(r,'cnpj'));
+  const banco = cleanCell(getColNormalized(r,'banco'));
+  const forma = cleanCell(getColNormalized(r,'forma pagto')) || cleanCell(getColNormalized(r,'forma pagamento'));
+  const situacao = cleanCell(getColNormalized(r,'situacao'));
+  return { titulo, nome, cnpj, banco, forma, situacao };
+}
 
 // pg_<empresa> = despesas JÁ PAGAS (data de pagamento) -> realizado
 function rowsFromPG(table, empresa){
@@ -564,7 +580,7 @@ function rowsFromPG(table, empresa){
     // Valor principal = coluna O (cabeçalho "Valor").
     const valorRaw = getColNormalized(r,'valor') ?? getColNormalized(r,'valor(r$)') ?? getColNormalized(r,'valor pago');
     const valor = -Math.abs(parseMoneyBR(valorRaw));
-    return { date, categoria, grupo: resolveGrupoCategoria(categoria, valor), valor, empresa, origem:'pg' };
+    return { date, categoria, grupo: resolveGrupoCategoria(categoria, valor), valor, empresa, origem:'pg', ...rowMeta(r) };
   }).filter(Boolean);
 }
 // cr_<empresa> = receitas JÁ RECEBIDAS (data de recebimento) -> realizado
@@ -576,7 +592,7 @@ function rowsFromCR(table, empresa){
     if(!date) return null;
     const categoria = (getColNormalized(r,'desc conta')||'Sem categoria').toString().trim();
     const valor = Math.abs(parseMoneyBR(getColNormalized(r,'valor pago')));
-    return { date, categoria, grupo: resolveGrupoCategoria(categoria, valor), valor, empresa };
+    return { date, categoria, grupo: resolveGrupoCategoria(categoria, valor), valor, empresa, origem:'cr', ...rowMeta(r) };
   }).filter(Boolean);
 }
 function isTituloAbertoOuPrevisto(rowObj){
@@ -601,7 +617,7 @@ function rowsFromCAP(table, empresa){
     const categoria = (getColNormalized(r,'desc conta')||'Sem categoria').toString().trim();
     const valorRaw = getColNormalized(r,'valor(r$)');
     const valor = -Math.abs(parseMoneyBR(valorRaw!==undefined && valorRaw!=='' && valorRaw!==null ? valorRaw : getColNormalized(r,'valor')));
-    return { date, categoria, grupo: resolveGrupoCategoria(categoria, valor), valor, empresa, origem:'cap' };
+    return { date, categoria, grupo: resolveGrupoCategoria(categoria, valor), valor, empresa, origem:'cap', ...rowMeta(r) };
   }).filter(Boolean);
 }
 // venc_<empresa> = contas a receber por vencimento (projetado/futuro)
@@ -614,7 +630,7 @@ function rowsFromVENC(table, empresa){
     if(!date) return null;
     const categoria = (getColNormalized(r,'desc conta')||'Sem categoria').toString().trim();
     const valor = Math.abs(parseMoneyBR(getColNormalized(r,'vl total titulo')));
-    return { date, categoria, grupo: resolveGrupoCategoria(categoria, valor), valor, empresa, origem:'venc' };
+    return { date, categoria, grupo: resolveGrupoCategoria(categoria, valor), valor, empresa, origem:'venc', ...rowMeta(r) };
   }).filter(Boolean);
 }
 
@@ -955,24 +971,34 @@ function openFluxoFicha(rowId, colId){
   el('fluxoFichaTitulo').textContent = 'Ficha · ' + rNode.label;
   el('fluxoFichaSub').textContent = 'Período: ' + rangeLabel(range.start, range.end);
 
-  const empresasHtml = empresas.length ? empresas.map(([emp,val])=>`
+  const empresasHtml = empresas.length ? empresas.map(([emp,val])=>{
+    const pct = total ? (Math.abs(val) / Math.abs(total)) * 100 : 0;
+    return `
     <tr>
       <td>${escapeHtml(EMPRESA_LABEL[emp] || emp)}</td>
       <td class="num" style="color:${val>=0?'#4F8F3A':'var(--red)'}">${fmtBRL(val)}</td>
+      <td class="num">${pct.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%</td>
       <td class="num">${detailRows.filter(r=>(r.empresa||'geral')===emp).length}</td>
-    </tr>`).join('') : `<tr><td colspan="3" style="color:var(--text3);">Nenhum lançamento encontrado nesse período.</td></tr>`;
+    </tr>`;
+  }).join('') : `<tr><td colspan="4" style="color:var(--text3);">Nenhum lançamento encontrado nesse período.</td></tr>`;
 
   const detalheHtml = detailRows
     .slice()
     .sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0)
-    .slice(0,80)
-    .map(r=>`
+    .slice(0,120)
+    .map(r=>{
+      const pct = total ? (Math.abs(r.valor) / Math.abs(total)) * 100 : 0;
+      const doc = r.titulo || r.banco || r.forma || r.situacao || '';
+      return `
       <tr>
         <td>${formatDateBR(r.date)}</td>
         <td>${escapeHtml(EMPRESA_LABEL[r.empresa] || r.empresa || 'Geral')}</td>
-        <td>${escapeHtml(r.categoria || '')}</td>
+        <td class="wrap">${escapeHtml(r.nome || 'Sem nome')}</td>
+        <td class="small">${escapeHtml(doc)}</td>
+        <td class="num">${pct.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%</td>
         <td class="num" style="color:${r.valor>=0?'#4F8F3A':'var(--red)'}">${fmtBRL(r.valor)}</td>
-      </tr>`).join('');
+      </tr>`;
+    }).join('');
 
   el('fluxoFichaBody').innerHTML = `
     <div class="fc-detail-summary">
@@ -982,17 +1008,17 @@ function openFluxoFicha(rowId, colId){
     </div>
     <div style="font-size:12.5px;font-weight:800;margin:12px 0 6px;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;">Por empresa</div>
     <table class="fc-detail-table">
-      <thead><tr><th>Empresa</th><th class="num">Valor</th><th class="num">Itens</th></tr></thead>
+      <thead><tr><th>Empresa</th><th class="num">Valor</th><th class="num">%</th><th class="num">Itens</th></tr></thead>
       <tbody>${empresasHtml}</tbody>
     </table>
     <div style="font-size:12.5px;font-weight:800;margin:16px 0 6px;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;">Lançamentos</div>
     <div class="fc-detail-list">
       <table class="fc-detail-table" style="margin-top:0;">
-        <thead><tr><th>Data</th><th>Empresa</th><th>Categoria</th><th class="num">Valor</th></tr></thead>
-        <tbody>${detalheHtml || `<tr><td colspan="4" style="color:var(--text3);">Sem lançamentos.</td></tr>`}</tbody>
+        <thead><tr><th>Data</th><th>Empresa</th><th>Nome</th><th>Documento</th><th class="num">%</th><th class="num">Valor</th></tr></thead>
+        <tbody>${detalheHtml || `<tr><td colspan="6" style="color:var(--text3);">Sem lançamentos.</td></tr>`}</tbody>
       </table>
     </div>
-    ${detailRows.length>80 ? `<div class="fc-detail-muted">Mostrando os primeiros 80 lançamentos.</div>` : ``}
+    ${detailRows.length>120 ? `<div class="fc-detail-muted">Mostrando os primeiros 120 lançamentos.</div>` : ``}
   `;
   el('fluxoFichaModal').classList.add('show');
 }
