@@ -367,6 +367,7 @@ const SHEET_ID = '1cWc7JRuUur_UAIeTM9VqNxPr8ktISPt09cnh7N_HULc';
 const LOGIN_URL = 'index.html';
 const EMPRESAS = ['gymis','ryngavi','especial','multicopos'];
 const EMPRESA_LABEL = { gymis:'Gymis', ryngavi:'Ryngavi', especial:'Especial', multicopos:'Multicopos' };
+let selectedEmpresa = ''; // '' = Global (soma as 4)
 
 function normalizeTxt(s){
   return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
