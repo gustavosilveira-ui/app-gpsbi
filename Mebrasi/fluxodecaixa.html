@@ -526,13 +526,17 @@ function isSubtotalRow(rowObj){
 function rowsFromPG(table, empresa){
   const raw = parseGvizRows(table);
   return raw.filter(r=>!isSubtotalRow(r)).map(r=>{
-    const dateRaw = getColNormalized(r, 'data pagto');
+    // Na base Mebrasi/pg_<empresa>, a data de pagamento vem na coluna I com cabeçalho "Data".
+    // Mantemos o fallback "Data Pagto" para compatibilidade com versões antigas.
+    const dateRaw = getColNormalized(r, 'data pagto') || getColNormalized(r, 'data');
     const date = parseDateCell(typeof dateRaw==='object' && dateRaw!==null ? (dateRaw.v||dateRaw) : dateRaw);
     if(!date) return null;
     const categoria = (getColNormalized(r,'desc conta')||'Sem categoria').toString().trim();
     if(normalizeTxt(categoria)==='transferencia entre contas' && !empresa) return null;
-    const valor = -Math.abs(parseMoneyBR(getColNormalized(r,'valor')));
-    return { date, categoria, grupo: resolveGrupoCategoria(categoria, valor), valor, empresa };
+    // Valor principal = coluna O (cabeçalho "Valor").
+    const valorRaw = getColNormalized(r,'valor') ?? getColNormalized(r,'valor(r$)') ?? getColNormalized(r,'valor pago');
+    const valor = -Math.abs(parseMoneyBR(valorRaw));
+    return { date, categoria, grupo: resolveGrupoCategoria(categoria, valor), valor, empresa, origem:'pg' };
   }).filter(Boolean);
 }
 // cr_<empresa> = receitas JÁ RECEBIDAS (data de recebimento) -> realizado
