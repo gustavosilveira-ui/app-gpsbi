@@ -334,6 +334,7 @@ async function init(){
   }
   gpsStaff = isGpsStaff(currentEmail);
   if(!gpsStaff){ const c=el('fcAjustesGpsCard'); if(c) c.style.display='none'; }
+  document.documentElement.style.visibility='visible'; // mostra o spinner (ou erro) desde já
 
   el('empresaSelect').addEventListener('change', e=>{ selectedEmpresa = e.target.value; renderAll(); });
   el('logoutBtn').addEventListener('click', async ()=>{ await sb.auth.signOut(); window.location.href=LOGIN_URL; });
@@ -361,7 +362,8 @@ async function loadData(){
     renderAll();
   }catch(e){
     console.error(e);
-    el('loadingScreen').querySelector('p').textContent = 'Erro ao carregar a base: '+e.message;
+    el('loadingScreen').querySelector('p').innerHTML = 'Erro ao carregar a base: '+e.message+
+      '<br><br style="display:block;content:\'\';margin-top:8px;">Se o erro for de leitura/JSON, confira se a planilha "Basesfinancompiladas" está compartilhada como <b>"Qualquer pessoa com o link → Leitor"</b> — sem isso, o Google não deixa o site ler os dados.';
   }
 }
 
