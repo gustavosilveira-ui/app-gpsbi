@@ -984,7 +984,11 @@ function openFluxoFicha(rowId, colId){
 
   const detalheHtml = detailRows
     .slice()
-    .sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0)
+    .sort((a,b)=>{
+      const diff = Math.abs(b.valor || 0) - Math.abs(a.valor || 0);
+      if(diff !== 0) return diff;
+      return a.date<b.date?-1:a.date>b.date?1:0;
+    })
     .slice(0,120)
     .map(r=>{
       const pct = total ? (Math.abs(r.valor) / Math.abs(total)) * 100 : 0;
