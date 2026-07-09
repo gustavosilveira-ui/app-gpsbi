@@ -12,6 +12,15 @@
   --cyan:#36E2C9; --blue:#2D70B8; --gold:#f5b942; --red:#ef6a6a; --green:#98C47C;
   --text:#FFFFFF; --text2:#D8E6F3; --text3:#9FD8E6; --border2:rgba(255,255,255,.14); --field-bg:rgba(255,255,255,.06);
 }
+html.light{
+  --navy:#F6F9FC; --navy2:#FFFFFF; --navy3:#F1F6FB; --navy4:#E8FAF8;
+  --cyan:#008D90; --blue:#2D70B8; --red:#ef6a6a; --green:#2fa876;
+  --text:#071B33; --text2:#344054; --text3:#667085; --border2:#E6EAF0; --field-bg:#FFFFFF;
+}
+.theme-toggle{display:flex;align-items:center;gap:4px;padding:4px;border-radius:999px;background:var(--navy3);border:1px solid var(--border2);}
+.theme-toggle button{width:26px;height:26px;border-radius:50%;border:none;background:none;color:var(--text3);display:flex;align-items:center;justify-content:center;cursor:pointer;}
+.theme-toggle button.active{background:linear-gradient(135deg,var(--cyan),var(--blue));color:#fff;}
+.theme-toggle svg{width:13px;height:13px;}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 html{visibility:hidden;}
 html,body{background:var(--navy);color:var(--text);font-family:'Sora',sans-serif;min-height:100vh;}
@@ -87,6 +96,10 @@ tr.row-cat td:first-child{padding-left:32px;color:var(--text2);cursor:pointer;}
       <option value="multicopos">Multicopos</option>
     </select>
     <div class="icon-btn" id="logoutBtn" title="Sair">⎋</div>
+    <div class="theme-toggle" id="themeToggle">
+      <button id="btnDark" title="Escuro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg></button>
+      <button id="btnLight" title="Claro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg></button>
+    </div>
   </div>
 
   <div class="content">
@@ -192,10 +205,21 @@ function getColNormalized(rowObj, wantedKeyNormalized){
   return undefined;
 }
 function parseDateBR(s){
-  s = (s||'').toString().trim();
-  const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
-  if(!m) return null;
-  return `${m[3]}-${m[2]}-${m[1]}`;
+  if(s===null||s===undefined||s==='') return null;
+  s = s.toString().trim();
+  // formato texto "DD/MM/AAAA" (como veio originalmente do CSV)
+  let m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if(m) return `${m[3]}-${m[2]}-${m[1]}`;
+  // formato que o Google Sheets manda quando a célula virou uma DATA de verdade
+  // (o Sheets converte "01/01/2026" digitado/colado em data automaticamente)
+  m = s.match(/^Date\((\d+),(\d+),(\d+)/);
+  if(m){
+    const y = m[1];
+    const mo = String(parseInt(m[2],10)+1).padStart(2,'0'); // mês vem base-0
+    const d = String(parseInt(m[3],10)).padStart(2,'0');
+    return `${y}-${mo}-${d}`;
+  }
+  return null;
 }
 function canAccessFluxo(email){ email=(email||'').toLowerCase(); return email.endsWith('@gpsbi.com.br') || email.endsWith('@mebrasi.com.br'); }
 function isGpsStaff(email){ return (email||'').toLowerCase().endsWith('@gpsbi.com.br'); }
@@ -261,6 +285,16 @@ let currentUser=null, gpsStaff=false, currentEmail='';
 let selectedEmpresa = ''; // '' = Global
 let rowsByEmpresa = {}, abertoByEmpresa = {};
 let saldoIniciais = {}, ajustesManuais = {};
+let currentTheme = localStorage.getItem('mebrasi_theme') || 'light'; // padrão: claro
+
+function applyTheme(t){
+  currentTheme = t;
+  document.documentElement.classList.toggle('light', t==='light');
+  localStorage.setItem('mebrasi_theme', t);
+  const bd=el('btnDark'), bl=el('btnLight');
+  if(bd) bd.classList.toggle('active', t==='dark');
+  if(bl) bl.classList.toggle('active', t==='light');
+}
 
 async function fetchGvizSheet(sheetName){
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
@@ -329,13 +363,17 @@ async function init(){
   if(!canAccessFluxo(currentEmail)){
     el('loadingScreen').style.display='none';
     el('deniedScreen').style.display='block';
+    applyTheme(currentTheme);
     document.documentElement.style.visibility='visible';
     return;
   }
   gpsStaff = isGpsStaff(currentEmail);
   if(!gpsStaff){ const c=el('fcAjustesGpsCard'); if(c) c.style.display='none'; }
+  applyTheme(currentTheme);
   document.documentElement.style.visibility='visible'; // mostra o spinner (ou erro) desde já
 
+  el('btnDark').addEventListener('click', ()=>applyTheme('dark'));
+  el('btnLight').addEventListener('click', ()=>applyTheme('light'));
   el('empresaSelect').addEventListener('change', e=>{ selectedEmpresa = e.target.value; renderAll(); });
   el('logoutBtn').addEventListener('click', async ()=>{ await sb.auth.signOut(); window.location.href=LOGIN_URL; });
 
