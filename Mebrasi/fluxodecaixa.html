@@ -554,31 +554,42 @@ function rowsFromCR(table, empresa){
     return { date, categoria, grupo: resolveGrupoCategoria(categoria, valor), valor, empresa };
   }).filter(Boolean);
 }
-// cap_<empresa> = contas a pagar por vencimento (só "Aberto" entra na visão "Em Aberto")
+function isTituloAbertoOuPrevisto(rowObj){
+  const situacao = normalizeTxt(getColNormalized(rowObj,'situacao'));
+  // Para o fluxo projetado, entram todos os títulos ainda não liquidados:
+  // Aberto, Efetiva, Previsto etc. Saem apenas cancelados/baixados/pagos,
+  // pois pagos já entram pelas abas pg_/cr_ na data real de pagamento.
+  if(!situacao) return true;
+  if(situacao.includes('cancel')) return false;
+  if(situacao==='pago' || situacao==='paga' || situacao.includes('baixad') || situacao.includes('liquidad')) return false;
+  return true;
+}
+
+// cap_<empresa> = contas a pagar por vencimento (projetado/futuro)
 function rowsFromCAP(table, empresa){
   const raw = parseGvizRows(table);
   return raw.filter(r=>!isSubtotalRow(r)).map(r=>{
-    if(normalizeTxt(getColNormalized(r,'situacao'))!=='aberto') return null;
+    if(!isTituloAbertoOuPrevisto(r)) return null;
     const dateRaw = getColNormalized(r, 'data');
     const date = parseDateCell(typeof dateRaw==='object' && dateRaw!==null ? (dateRaw.v||dateRaw) : dateRaw);
     if(!date) return null;
     const categoria = (getColNormalized(r,'desc conta')||'Sem categoria').toString().trim();
     const valorRaw = getColNormalized(r,'valor(r$)');
     const valor = -Math.abs(parseMoneyBR(valorRaw!==undefined && valorRaw!=='' && valorRaw!==null ? valorRaw : getColNormalized(r,'valor')));
-    return { date, categoria, grupo: resolveGrupoCategoria(categoria, valor), valor, empresa };
+    return { date, categoria, grupo: resolveGrupoCategoria(categoria, valor), valor, empresa, origem:'cap' };
   }).filter(Boolean);
 }
-// venc_<empresa> = contas a receber por vencimento (só "Aberto")
+// venc_<empresa> = contas a receber por vencimento (projetado/futuro)
 function rowsFromVENC(table, empresa){
   const raw = parseGvizRows(table);
   return raw.filter(r=>!isSubtotalRow(r)).map(r=>{
-    if(normalizeTxt(getColNormalized(r,'situacao'))!=='aberto') return null;
+    if(!isTituloAbertoOuPrevisto(r)) return null;
     const dateRaw = getColNormalized(r, 'dt venc');
     const date = parseDateCell(typeof dateRaw==='object' && dateRaw!==null ? (dateRaw.v||dateRaw) : dateRaw);
     if(!date) return null;
     const categoria = (getColNormalized(r,'desc conta')||'Sem categoria').toString().trim();
     const valor = Math.abs(parseMoneyBR(getColNormalized(r,'vl total titulo')));
-    return { date, categoria, grupo: resolveGrupoCategoria(categoria, valor), valor, empresa };
+    return { date, categoria, grupo: resolveGrupoCategoria(categoria, valor), valor, empresa, origem:'venc' };
   }).filter(Boolean);
 }
 
@@ -636,9 +647,15 @@ async function loadData(){
         fetchGvizSheet('pg_'+empresa), fetchGvizSheet('cr_'+empresa),
         fetchGvizSheet('cap_'+empresa), fetchGvizSheet('venc_'+empresa)
       ]);
-      rowsByEmpresa[empresa] = rowsFromPG(tPg, empresa).concat(rowsFromCR(tCr, empresa));
+      const pgRows = rowsFromPG(tPg, empresa);
+      const crRows = rowsFromCR(tCr, empresa);
+      const capRows = rowsFromCAP(tCap, empresa);
+      const vencRows = rowsFromVENC(tVenc, empresa);
+      // Realizado: pg_/cr_ pela data real de pagamento/recebimento.
+      // Projetado: cap_/venc_ pela data de vencimento, exceto pagos/baixados/cancelados.
+      rowsByEmpresa[empresa] = pgRows.concat(crRows, capRows, vencRows);
       rowsByEmpresa[empresa].sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
-      abertoByEmpresa[empresa] = rowsFromCAP(tCap, empresa).concat(rowsFromVENC(tVenc, empresa));
+      abertoByEmpresa[empresa] = capRows.concat(vencRows);
     }
     rebuildRowsNoEscopo();
 
