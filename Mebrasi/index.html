@@ -475,13 +475,12 @@ body{
 const SUPABASE_URL = 'https://hobpwhhpvwlwhmhairnp.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhvYnB3aGhwdndsd2htaGFpcm5wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0NDkzNDksImV4cCI6MjA5OTAyNTM0OX0.j67wDzIZU755bcmanydd_E3TllYN5Ps2QcPH4A4rFUY';
 const APP_URL = window.location.origin + window.location.pathname.replace('index.html','');
-const PANEL_ABSOLUTE_URL = window.location.origin + window.location.pathname.replace('index.html','') + 'painel.html';
+const PANEL_ABSOLUTE_URL = window.location.origin + window.location.pathname.replace('index.html','') + 'fluxodecaixa.html';
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // Domínios corporativos liberados pra autocadastro (validação client-side;
 // a validação que realmente protege roda no Auth Hook do Supabase, server-side).
-// TODO: confirmar com o Gustavo o domínio de e-mail oficial do Mebrasi e adicionar aqui
-const ALLOWED_SIGNUP_DOMAINS = ['gpsbi.com.br'];
+const ALLOWED_SIGNUP_DOMAINS = ['gpsbi.com.br', 'mebrasi.com.br'];
 function isAllowedSignupEmail(email){
   const domain = (email.split('@')[1] || '').toLowerCase();
   return ALLOWED_SIGNUP_DOMAINS.includes(domain);
@@ -678,7 +677,7 @@ function enterApp(user){
 
 // Link do painel do cliente.
 // Quando tiver o link real do Power BI, substitua o # abaixo pela URL do relatório.
-const CLIENT_PANEL_URL = 'painel.html';
+const CLIENT_PANEL_URL = 'fluxodecaixa.html';
 
 function openMainPanel(){
   if(CLIENT_PANEL_URL && CLIENT_PANEL_URL !== '#'){
