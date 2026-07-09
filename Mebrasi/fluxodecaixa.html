@@ -175,8 +175,9 @@ html.light .fc-day-num{color:#1f2a3d;}
 .fc-detail-table th{font-size:10px;color:var(--text3);text-transform:uppercase;text-align:left;padding:8px 8px;border-bottom:1px solid var(--border2);}
 .fc-detail-table th.num,.fc-detail-table td.num{text-align:right;font-family:'DM Mono',monospace;}
 .fc-detail-table td{padding:9px 8px;border-bottom:1px solid var(--border);}
-.fc-detail-table td.wrap{white-space:normal;min-width:180px;}
-.fc-detail-table td.small{font-size:11.5px;color:var(--text3);}
+.fc-detail-table td.wrap{white-space:nowrap;min-width:240px;max-width:300px;overflow:hidden;text-overflow:ellipsis;}
+.fc-detail-table td.small{font-size:11.5px;color:var(--text3);white-space:nowrap;max-width:110px;overflow:hidden;text-overflow:ellipsis;}
+.fc-detail-table td.valor-modal{white-space:nowrap;min-width:82px;text-align:right;font-family:'DM Mono',monospace;}
 .fc-detail-muted{font-size:11.5px;color:var(--text3);line-height:1.45;margin-top:8px;}
 .fc-detail-list{max-height:260px;overflow:auto;margin-top:10px;border-radius:10px;border:1px solid var(--border);}
 .fc-clickable-cell{cursor:pointer;}
@@ -515,6 +516,10 @@ function fmtBRL(n){
   if(n===null||n===undefined||isNaN(n)) return 'R$ 0';
   const sign = n<0 ? '-' : '';
   return sign+'R$ '+Math.round(Math.abs(n)).toLocaleString('pt-BR');
+}
+function fmtNumeroFicha(n){
+  if(n===null||n===undefined||isNaN(n)) return '0';
+  return Math.round(Math.abs(n)).toLocaleString('pt-BR');
 }
 function parseMoneyBR(v){
   if(v===null||v===undefined||v==='') return 0;
@@ -997,10 +1002,10 @@ function openFluxoFicha(rowId, colId){
       <tr>
         <td>${formatDateBR(r.date)}</td>
         <td>${escapeHtml(EMPRESA_LABEL[r.empresa] || r.empresa || 'Geral')}</td>
-        <td class="wrap">${escapeHtml(r.nome || 'Sem nome')}</td>
-        <td class="small">${escapeHtml(doc)}</td>
+        <td class="wrap" title="${escapeHtml(r.nome || 'Sem nome')}">${escapeHtml(r.nome || 'Sem nome')}</td>
+        <td class="small" title="${escapeHtml(doc)}">${escapeHtml(doc)}</td>
         <td class="num">${pct.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%</td>
-        <td class="num" style="color:${r.valor>=0?'#4F8F3A':'var(--red)'}">${fmtBRL(r.valor)}</td>
+        <td class="valor-modal" style="color:${r.valor>=0?'#4F8F3A':'var(--red)'}">${fmtNumeroFicha(r.valor)}</td>
       </tr>`;
     }).join('');
 
