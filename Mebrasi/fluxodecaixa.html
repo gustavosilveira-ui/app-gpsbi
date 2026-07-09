@@ -167,6 +167,20 @@ html.light .fc-day-num{color:#1f2a3d;}
 .modal-title{font-size:16px;font-weight:700;margin-bottom:4px;}
 .modal-sub{font-size:12px;color:var(--text3);margin-bottom:16px;}
 .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;}
+.fc-detail-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}
+.fc-detail-kpi{background:var(--navy3);border-radius:10px;padding:12px 14px;}
+.fc-detail-kpi-val{font-family:'DM Mono',monospace;font-weight:800;font-size:15px;}
+.fc-detail-kpi-lbl{font-size:10.5px;color:var(--text3);margin-top:3px;}
+.fc-detail-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:10px;}
+.fc-detail-table th{font-size:10px;color:var(--text3);text-transform:uppercase;text-align:left;padding:8px 8px;border-bottom:1px solid var(--border2);}
+.fc-detail-table th.num,.fc-detail-table td.num{text-align:right;font-family:'DM Mono',monospace;}
+.fc-detail-table td{padding:9px 8px;border-bottom:1px solid var(--border);}
+.fc-detail-muted{font-size:11.5px;color:var(--text3);line-height:1.45;margin-top:8px;}
+.fc-detail-list{max-height:260px;overflow:auto;margin-top:10px;border-radius:10px;border:1px solid var(--border);}
+.fc-clickable-cell{cursor:pointer;}
+.fc-clickable-cell:hover{background:rgba(54,226,201,.10) !important;color:var(--cyan);}
+@media(max-width:760px){.fc-detail-summary{grid-template-columns:1fr;}}
+
 .fc-saldo-form{display:grid;grid-template-columns:200px 200px auto;gap:10px;align-items:end;}
 .fc-saldo-status{font-size:12.5px;color:var(--text2);background:var(--navy3);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
 .fc-sim-table-wrap{overflow-x:auto;}
@@ -303,6 +317,20 @@ html.light .fc-day-num{color:#1f2a3d;}
         <div class="modal-sub">Todos os valores lançados à mão que estão entrando no Saldo Acumulado hoje.</div>
         <div id="fcAjusteList"></div>
         <div class="modal-actions"><button class="btn btn-ghost" onclick="closeAjustesManuaisModal()">Fechar</button></div>
+      </div>
+    </div>
+
+    <!-- Modal: ficha do item do Fluxo -->
+    <div class="modal-overlay" id="fluxoFichaModal">
+      <div class="modal-box" style="width:720px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+          <div>
+            <div class="modal-title" id="fluxoFichaTitulo">Ficha do Fluxo</div>
+            <div class="modal-sub" id="fluxoFichaSub">Detalhamento por empresa.</div>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="closeFluxoFicha()">Fechar</button>
+        </div>
+        <div id="fluxoFichaBody"></div>
       </div>
     </div>
 
@@ -842,22 +870,33 @@ function renderColumnHeader(c){
   return `<th class="${c.isToday?'fc-today':''}"><span class="fc-limit-head">${arrow}${c.label}</span></th>`;
 }
 
+let fcRowDetailRefs = {};
+let fcColDetailRefs = {};
+
 function renderTable(){
   const cols = flattenColumns(columnTree);
   const visibleRows = flattenRows(rowTree);
+  fcRowDetailRefs = {};
+  fcColDetailRefs = {};
 
   // cabeçalho
   let thead = '<thead><tr><th></th>' + cols.map(c=>renderColumnHeader(c)).join('') + '</tr></thead>';
 
   // corpo
   let tbody = '<tbody>';
-  visibleRows.forEach(rNode=>{
+  visibleRows.forEach((rNode, rowIdx)=>{
+    const rowId = 'r'+rowIdx;
+    fcRowDetailRefs[rowId] = rNode;
     const cls = `fc-lvl-${rNode.level}`;
     const hasChildren = rNode.children && rNode.children.length;
     const arrow = hasChildren ? `<span class="fc-toggle">${rNode.expanded?'▾':'▸'}</span> ` : (rNode.level>0 ? '<span class="fc-toggle"></span> ' : '');
+    const labelSafe = rNode.label.replace(/'/g,"\\'");
+    const labelClick = hasChildren ? `toggleRowNode('${labelSafe}', ${rNode.level})` : (rNode.special==='saldo' ? '' : `openFluxoFicha('${rowId}', null)`);
     tbody += `<tr class="${cls}" data-key="${rNode._key||''}">`;
-    tbody += `<td class="fc-row-label" onclick="${hasChildren?`toggleRowNode('${rNode.label.replace(/'/g,"\\'")}', ${rNode.level})`:''}">${arrow}${rNode.label}</td>`;
-    cols.forEach(c=>{
+    tbody += `<td class="fc-row-label" onclick="${labelClick}">${arrow}${rNode.label}</td>`;
+    cols.forEach((c, colIdx)=>{
+      const colId = 'c'+colIdx;
+      fcColDetailRefs[colId] = c;
       let val;
       if(rNode.special==='saldo'){
         val = runningBalance(c.end);
@@ -865,7 +904,10 @@ function renderTable(){
         tbody += `<td class="${cellCls}">${fmtBRL(val)}</td>`;
       } else {
         val = sumInRange(rNode.filter, c.start, c.end);
-        tbody += `<td class="${c.isToday?'fc-today':''}">${fmtBRL(val)}</td>`;
+        const clickable = Math.round(val) !== 0;
+        const cellCls = `${c.isToday?'fc-today':''}${clickable?' fc-clickable-cell':''}`.trim();
+        const onClick = clickable ? ` onclick="openFluxoFicha('${rowId}', '${colId}')"` : '';
+        tbody += `<td class="${cellCls}"${onClick}>${fmtBRL(val)}</td>`;
       }
     });
     tbody += '</tr>';
@@ -874,6 +916,90 @@ function renderTable(){
 
   el('fcTable').innerHTML = thead + tbody;
 }
+function formatDateBR(dstr){
+  if(!dstr) return '';
+  return new Date(dstr+'T00:00:00').toLocaleDateString('pt-BR');
+}
+function rangeLabel(start,end){
+  if(!start || !end) return '';
+  return start===end ? formatDateBR(start) : `${formatDateBR(start)} até ${formatDateBR(end)}`;
+}
+function visibleRangeFromColumns(){
+  const cols = flattenColumns(columnTree).filter(c=>c.type==='day');
+  if(!cols.length) return null;
+  return { start: cols[0].start, end: cols[cols.length-1].end };
+}
+function rowsForFicha(rNode, start, end){
+  if(!rNode || rNode.special==='saldo') return [];
+  return rows.filter(r=>r.date>=start && r.date<=end && rNode.filter(r));
+}
+function openFluxoFicha(rowId, colId){
+  const rNode = fcRowDetailRefs[rowId];
+  if(!rNode || rNode.special==='saldo') return;
+  let range;
+  const col = colId ? fcColDetailRefs[colId] : null;
+  if(col) range = { start: col.start, end: col.end };
+  else range = visibleRangeFromColumns() || { start: rows[0]?.date, end: rows[rows.length-1]?.date };
+  if(!range.start || !range.end) return;
+
+  const detailRows = rowsForFicha(rNode, range.start, range.end);
+  const total = detailRows.reduce((s,r)=>s+r.valor,0);
+  const porEmpresa = {};
+  detailRows.forEach(r=>{
+    const emp = r.empresa || 'geral';
+    porEmpresa[emp] = (porEmpresa[emp] || 0) + r.valor;
+  });
+  const empresas = Object.entries(porEmpresa).sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]));
+  const qtd = detailRows.length;
+
+  el('fluxoFichaTitulo').textContent = 'Ficha · ' + rNode.label;
+  el('fluxoFichaSub').textContent = 'Período: ' + rangeLabel(range.start, range.end);
+
+  const empresasHtml = empresas.length ? empresas.map(([emp,val])=>`
+    <tr>
+      <td>${escapeHtml(EMPRESA_LABEL[emp] || emp)}</td>
+      <td class="num" style="color:${val>=0?'#4F8F3A':'var(--red)'}">${fmtBRL(val)}</td>
+      <td class="num">${detailRows.filter(r=>(r.empresa||'geral')===emp).length}</td>
+    </tr>`).join('') : `<tr><td colspan="3" style="color:var(--text3);">Nenhum lançamento encontrado nesse período.</td></tr>`;
+
+  const detalheHtml = detailRows
+    .slice()
+    .sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0)
+    .slice(0,80)
+    .map(r=>`
+      <tr>
+        <td>${formatDateBR(r.date)}</td>
+        <td>${escapeHtml(EMPRESA_LABEL[r.empresa] || r.empresa || 'Geral')}</td>
+        <td>${escapeHtml(r.categoria || '')}</td>
+        <td class="num" style="color:${r.valor>=0?'#4F8F3A':'var(--red)'}">${fmtBRL(r.valor)}</td>
+      </tr>`).join('');
+
+  el('fluxoFichaBody').innerHTML = `
+    <div class="fc-detail-summary">
+      <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${fmtBRL(total)}</div><div class="fc-detail-kpi-lbl">Total no período</div></div>
+      <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${empresas.length}</div><div class="fc-detail-kpi-lbl">Empresas com movimento</div></div>
+      <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${qtd}</div><div class="fc-detail-kpi-lbl">Lançamentos</div></div>
+    </div>
+    <div style="font-size:12.5px;font-weight:800;margin:12px 0 6px;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;">Por empresa</div>
+    <table class="fc-detail-table">
+      <thead><tr><th>Empresa</th><th class="num">Valor</th><th class="num">Itens</th></tr></thead>
+      <tbody>${empresasHtml}</tbody>
+    </table>
+    <div style="font-size:12.5px;font-weight:800;margin:16px 0 6px;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;">Lançamentos</div>
+    <div class="fc-detail-list">
+      <table class="fc-detail-table" style="margin-top:0;">
+        <thead><tr><th>Data</th><th>Empresa</th><th>Categoria</th><th class="num">Valor</th></tr></thead>
+        <tbody>${detalheHtml || `<tr><td colspan="4" style="color:var(--text3);">Sem lançamentos.</td></tr>`}</tbody>
+      </table>
+    </div>
+    ${detailRows.length>80 ? `<div class="fc-detail-muted">Mostrando os primeiros 80 lançamentos.</div>` : ``}
+  `;
+  el('fluxoFichaModal').classList.add('show');
+}
+function closeFluxoFicha(){
+  el('fluxoFichaModal').classList.remove('show');
+}
+
 function scrollToToday(){
   const todayTh = document.querySelector('.fc-table th.fc-today');
   if(!todayTh) return;
