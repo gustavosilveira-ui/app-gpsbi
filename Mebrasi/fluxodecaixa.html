@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fluxo de Caixa · Mebrasi</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
+:root{
+  --navy:#071B33; --navy2:#0B2545; --navy3:#123C68; --navy4:#17395B;
+  --cyan:#36E2C9; --blue:#2D70B8; --gold:#f5b942; --red:#ef6a6a; --green:#98C47C;
+  --text:#FFFFFF; --text2:#D8E6F3; --text3:#9FD8E6; --border2:rgba(255,255,255,.14); --field-bg:rgba(255,255,255,.06);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{visibility:hidden;}
+html,body{background:var(--navy);color:var(--text);font-family:'Sora',sans-serif;min-height:100vh;}
+.mono{font-family:'DM Mono',monospace;}
+body{padding-bottom:40px;}
+.loading-screen{position:fixed;inset:0;background:var(--navy);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:200;}
+.spinner{width:36px;height:36px;border-radius:50%;border:3px solid var(--border2);border-top-color:var(--cyan);animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.loading-screen p{margin-top:16px;font-size:12px;color:var(--text3);}
+.topbar{display:flex;align-items:center;gap:16px;padding:14px 24px;background:var(--navy2);border-bottom:1px solid var(--border2);position:sticky;top:0;z-index:100;}
+.brand{font-weight:800;font-size:15px;flex:1;}
+.empresa-select{background:var(--field-bg);border:1px solid var(--border2);border-radius:9px;padding:8px 12px;color:var(--text);font-family:'Sora',sans-serif;font-size:13px;}
+.icon-btn{width:34px;height:34px;border-radius:50%;background:var(--navy3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text2);}
+.content{max-width:1300px;margin:0 auto;padding:24px;}
+.card{background:var(--navy2);border:1px solid var(--border2);border-radius:14px;padding:20px;box-shadow:0 18px 42px rgba(0,0,0,.22);margin-bottom:18px;}
+.card-title{font-size:16px;font-weight:800;margin-bottom:4px;}
+.card-sub{font-size:12px;color:var(--text3);margin-bottom:16px;}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:9px;border:none;font-family:'Sora',sans-serif;font-size:12.5px;font-weight:700;cursor:pointer;}
+.btn-primary{background:linear-gradient(90deg,var(--blue),var(--cyan));color:#fff;}
+.btn-ghost{background:var(--navy3);color:var(--text);border:1px solid var(--border2);}
+.btn-danger{background:rgba(239,106,106,.15);color:var(--red);border:1px solid rgba(239,106,106,.3);}
+.btn-sm{padding:6px 12px;font-size:11.5px;}
+input[type="text"],input[type="date"],input[type="number"],select{
+  width:100%;background:var(--field-bg);border:1px solid var(--border2);border-radius:9px;padding:9px 11px;color:var(--text);font-family:'Sora',sans-serif;font-size:13px;outline:none;
+}
+.fc-table-wrap{overflow-x:auto;}
+table.fc-table{border-collapse:collapse;font-size:12.5px;white-space:nowrap;}
+table.fc-table th, table.fc-table td{padding:8px 12px;border-bottom:1px solid var(--border2);text-align:right;}
+table.fc-table th:first-child, table.fc-table td:first-child{text-align:left;position:sticky;left:0;background:var(--navy2);min-width:220px;}
+table.fc-table th{color:var(--text3);font-weight:700;font-size:11px;text-transform:uppercase;}
+tr.row-total td{font-weight:800;}
+tr.row-group td:first-child{font-weight:700;color:var(--cyan);cursor:pointer;}
+tr.row-cat td:first-child{padding-left:32px;color:var(--text2);cursor:pointer;}
+.val-pos{color:var(--green);} .val-neg{color:var(--red);}
+.fc-toggle{display:inline-block;width:14px;}
+.fc-ajustes-row{display:grid;grid-template-columns:1fr 1px 1fr;gap:20px;align-items:start;}
+.fc-ajustes-divider{background:var(--border2);align-self:stretch;}
+.fc-mini-form{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;align-items:end;}
+.fc-mini-title{font-size:13.5px;font-weight:800;margin-bottom:3px;}
+.fc-mini-sub{font-size:11px;color:var(--text3);margin-bottom:12px;line-height:1.4;}
+@media(max-width:900px){.fc-ajustes-row{grid-template-columns:1fr;}.fc-ajustes-divider{display:none;}.fc-mini-form{grid-template-columns:1fr;}}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:300;}
+.modal-overlay.show{display:flex;}
+.modal-box{background:var(--navy2);border:1px solid var(--border2);border-radius:14px;padding:24px;width:480px;max-width:92vw;max-height:80vh;overflow-y:auto;}
+.modal-title{font-size:16px;font-weight:700;margin-bottom:4px;}
+.modal-sub{font-size:12px;color:var(--text3);margin-bottom:16px;}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;}
+.fc-list-item{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--border2);font-size:12.5px;}
+.empty-state{text-align:center;padding:30px;color:var(--text3);font-size:13px;}
+.denied{max-width:480px;margin:120px auto;text-align:center;padding:30px;}
+</style>
+</head>
+<body>
+
+<div class="loading-screen" id="loadingScreen">
+  <div class="spinner"></div>
+  <p>Carregando o Fluxo de Caixa do Mebrasi...</p>
+</div>
+
+<div class="denied" id="deniedScreen" style="display:none;">
+  <h2>Acesso restrito</h2>
+  <p style="color:var(--text3);margin-top:10px;">Essa área é exclusiva para o time GPS e Mebrasi.</p>
+</div>
+
+<div id="mainContent" style="display:none;">
+  <div class="topbar">
+    <div class="brand">💰 Fluxo de Caixa · Mebrasi</div>
+    <select class="empresa-select" id="empresaSelect">
+      <option value="">🌐 Global (4 empresas)</option>
+      <option value="gymis">Gymis</option>
+      <option value="ryngavi">Ryngavi</option>
+      <option value="especial">Especial</option>
+      <option value="multicopos">Multicopos</option>
+    </select>
+    <div class="icon-btn" id="logoutBtn" title="Sair">⎋</div>
+  </div>
+
+  <div class="content">
+
+    <div class="card">
+      <div class="card-title">Fluxo de Caixa</div>
+      <div class="card-sub">Saldo acumulado dia a dia — clique nas setinhas pra abrir/fechar grupos e categorias. Fonte: títulos já pagos/recebidos (realizado).</div>
+      <div class="fc-table-wrap">
+        <table class="fc-table" id="fcTable"></table>
+      </div>
+      <div id="fcDebugStats" style="font-size:11px;color:var(--text3);margin-top:8px;"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📋 Em Aberto (previsto)</div>
+      <div class="card-sub">Títulos ainda não pagos/recebidos (situação "Aberto"), pela data de vencimento — não entra no Saldo Acumulado, é só uma visão do que está por vir.</div>
+      <div id="abertoWrap"></div>
+    </div>
+
+    <div class="card" id="fcAjustesGpsCard">
+      <div class="fc-ajustes-row">
+        <div class="fc-ajustes-col">
+          <div class="fc-mini-title">🏁 Saldo Inicial</div>
+          <div class="fc-mini-sub">Define o saldo de uma empresa numa data — o Acumulado dela passa a respeitar isso a partir dali. Visível só pro time GPS.</div>
+          <div class="fc-mini-form">
+            <select id="fcSaldoEmpresa">
+              <option value="gymis">Gymis</option><option value="ryngavi">Ryngavi</option>
+              <option value="especial">Especial</option><option value="multicopos">Multicopos</option>
+            </select>
+            <input type="date" id="fcSaldoInicialData">
+            <input type="number" id="fcSaldoInicialValor" placeholder="Saldo (R$)">
+            <button class="btn btn-primary btn-sm" onclick="applySaldoInicial()">Aplicar</button>
+          </div>
+          <button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="openSaldoInicialModal()">Ver detalhes</button>
+        </div>
+        <div class="fc-ajustes-divider"></div>
+        <div class="fc-ajustes-col">
+          <div class="fc-mini-title">🖊️ Lançamentos Manuais</div>
+          <div class="fc-mini-sub">Valor lançado à mão, por empresa. Entra de verdade no Saldo Acumulado. Visível só pro time GPS.</div>
+          <div class="fc-mini-form" style="grid-template-columns:1fr 1fr 1fr 1fr auto;">
+            <select id="fcAjusteEmpresa">
+              <option value="gymis">Gymis</option><option value="ryngavi">Ryngavi</option>
+              <option value="especial">Especial</option><option value="multicopos">Multicopos</option>
+            </select>
+            <input type="text" id="fcAjusteDesc" placeholder="Descrição">
+            <input type="number" id="fcAjusteValor" placeholder="Valor (R$)">
+            <input type="date" id="fcAjusteData">
+            <button class="btn btn-primary btn-sm" onclick="addAjusteManual()">Adicionar</button>
+          </div>
+          <button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="openAjustesManuaisModal()">Ver lançamentos <span id="fcAjusteCount"></span></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="saldoInicialModal">
+      <div class="modal-box">
+        <div class="modal-title">🏁 Saldo Inicial por empresa</div>
+        <div class="modal-sub">Status atual de cada empresa.</div>
+        <div id="fcSaldoInicialStatus"></div>
+        <div class="modal-actions"><button class="btn btn-ghost" onclick="closeSaldoInicialModal()">Fechar</button></div>
+      </div>
+    </div>
+    <div class="modal-overlay" id="ajustesManuaisModal">
+      <div class="modal-box" style="width:560px;">
+        <div class="modal-title">🖊️ Lançamentos Manuais</div>
+        <div class="modal-sub">Todos os valores lançados à mão, por empresa.</div>
+        <div id="fcAjusteList"></div>
+        <div class="modal-actions"><button class="btn btn-ghost" onclick="closeAjustesManuaisModal()">Fechar</button></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ================================================================
+   Fluxo de Caixa · Mebrasi — v1
+   4 empresas (Gymis, Ryngavi, Especial, Multicopos), cada uma com 4
+   bases na planilha "Basesfinancompiladas":
+     pg_<empresa>   = despesas JÁ PAGAS (data de pagamento)  -> realizado
+     cr_<empresa>   = receitas JÁ RECEBIDAS (data de recebimento) -> realizado
+     cap_<empresa>  = contas a pagar por vencimento (só "Aberto" entra)
+     venc_<empresa> = contas a receber por vencimento (só "Aberto" entra)
+   ================================================================ */
+const SUPABASE_URL = 'https://hobpwhhpvwlwhmhairnp.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhvYnB3aGhwdndsd2htaGFpcm5wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0NDkzNDksImV4cCI6MjA5OTAyNTM0OX0.j67wDzIZU755bcmanydd_E3TllYN5Ps2QcPH4A4rFUY';
+const SHEET_ID = '1cWc7JRuUur_UAIeTM9VqNxPr8ktISPt09cnh7N_HULc';
+const LOGIN_URL = 'index.html';
+const EMPRESAS = ['gymis','ryngavi','especial','multicopos'];
+const EMPRESA_LABEL = { gymis:'Gymis', ryngavi:'Ryngavi', especial:'Especial', multicopos:'Multicopos' };
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+function el(id){ return document.getElementById(id); }
+function fmtBRL(n){ return 'R$ ' + (n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function parseMoneyBR(v){
+  if(v===null||v===undefined||v==='') return 0;
+  if(typeof v==='number') return v;
+  return parseFloat(String(v).replace(/\./g,'').replace(',','.')) || 0;
+}
+function normalizeTxt(s){ return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim(); }
+function getColNormalized(rowObj, wantedKeyNormalized){
+  for(const k in rowObj){ if(normalizeTxt(k)===wantedKeyNormalized) return rowObj[k]; }
+  return undefined;
+}
+function parseDateBR(s){
+  s = (s||'').toString().trim();
+  const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if(!m) return null;
+  return `${m[3]}-${m[2]}-${m[1]}`;
+}
+function canAccessFluxo(email){ email=(email||'').toLowerCase(); return email.endsWith('@gpsbi.com.br') || email.endsWith('@mebrasi.com.br'); }
+function isGpsStaff(email){ return (email||'').toLowerCase().endsWith('@gpsbi.com.br'); }
+function nameFromEmail(email){ return email.split('@')[0].split('.').map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' '); }
+
+/* ---- Mapa de categoria -> grupo (Mebrasi) ----
+   PENDENTE: "Transferências à Crédito" e "Transferencia Entre Empresas"
+   ainda precisam de confirmação do cliente (perguntado, aguardando resposta). */
+const CATEGORIA_GRUPO = {
+  'Receita de Vendas':'RECEBIMENTOS', 'Transferências à Crédito':'RECEBIMENTOS', 'Reembolso Cliente':'RECEBIMENTOS',
+  'Roberto':'SOCIOS','Angelo':'SOCIOS','Nelio':'SOCIOS','Emprestimo Yziplas':'SOCIOS','Devolução Emprestimo Angelo':'SOCIOS',
+  'Folha de Pagamento - Fabrica':'PESSOAL','Folha de Pagamento - Adm':'PESSOAL','Adiantamento de Salário - Fabrica':'PESSOAL',
+  'Adiantamento de Salário - Adm':'PESSOAL','Férias - Fabrica':'PESSOAL','Férias - Adm':'PESSOAL','13º Salario - Fabrica':'PESSOAL',
+  '13º Salario - Adm':'PESSOAL','Plr - Fabrica':'PESSOAL','Plr - Adm':'PESSOAL','Rescisão -  Fabrica':'PESSOAL','Rescisão - Adm':'PESSOAL',
+  'Vale Transporte':'PESSOAL','Refeicao':'PESSOAL','Gps/Inss':'PESSOAL','Gfip/Fgts/Grfc':'PESSOAL','Pensao Alimenticia':'PESSOAL',
+  'Emprestimo Consignado - Funcionários Fabrica':'PESSOAL','Emprestimo Consignado - Funcionários Adm':'PESSOAL','Hora Extra - Adm':'PESSOAL',
+  'Contribuição Assistencial':'PESSOAL','Cesta Basica/Cesta Natal':'PESSOAL','RH':'PESSOAL','Uniformes/Epi/Cremes/Pastas':'PESSOAL',
+  'Reembolso Funcionario':'PESSOAL','Comissao':'PESSOAL','Desconto de Comissao':'PESSOAL','Desconto de Comissão':'PESSOAL',
+  'Materia Prima':'FORNECEDORES','Embalagens':'FORNECEDORES','Componente':'FORNECEDORES','Estamparia':'FORNECEDORES','Injetora':'FORNECEDORES',
+  'Ferramentaria':'FORNECEDORES','Acessorios/Equipamentos/Ferramentas':'FORNECEDORES','Acessorios/Pecas':'FORNECEDORES','Transportadora':'FORNECEDORES',
+  'Manutencao':'FORNECEDORES','Maquina':'FORNECEDORES','Material':'FORNECEDORES','Mao-de-Obra':'FORNECEDORES','Pecas/Produtos':'FORNECEDORES',
+  'Construcao':'FORNECEDORES','Eletrico/Eletronico/Mecanico':'FORNECEDORES','Eletrica':'FORNECEDORES','Eletro eletronicos':'FORNECEDORES',
+  'Mecanica':'FORNECEDORES','Auto Eletrico':'FORNECEDORES','Borracharia':'FORNECEDORES','Funilaria / Piintura':'FORNECEDORES',
+  'Beneficiamento':'FORNECEDORES','DP':'FORNECEDORES','Transformador':'FORNECEDORES','Expedicao':'FORNECEDORES','Prestacao Servico':'FORNECEDORES',
+  'Iss / issqn':'IMPOSTOS','Ipi':'IMPOSTOS','Icms':'IMPOSTOS','Irrf':'IMPOSTOS','Pis':'IMPOSTOS','Cofins':'IMPOSTOS','Csll':'IMPOSTOS',
+  'Irpj':'IMPOSTOS','Simples':'IMPOSTOS','Substituicao Tributaria':'IMPOSTOS','Parcelamento de debitos nao previdenciarios':'IMPOSTOS',
+  'Tarifa Cobranca':'FINANCEIRAS','Tar lcto cred conta':'FINANCEIRAS','Tarifa tranferencia PIX':'FINANCEIRAS','JUROS':'FINANCEIRAS',
+  'Taxa/Juro/Multa':'FINANCEIRAS','Tarifa Doc/Ted':'FINANCEIRAS','Tarifa c/c':'FINANCEIRAS','Tarifa Cesta Empres.':'FINANCEIRAS',
+  'Aplicações Financeiras':'FINANCEIRAS','IOF':'FINANCEIRAS','Deságio':'FINANCEIRAS','Tarifa Folha de Cheque':'FINANCEIRAS',
+  'Tarifa Folha Pagamento':'FINANCEIRAS','tarifa de mov. titulo e emissão de boleto':'FINANCEIRAS','TARIFA DEPOSITO IDENTIFICADO':'FINANCEIRAS',
+  'Emprestimo':'FINANCEIRAS','Devolução valor titulo fidc':'FINANCEIRAS','Cheque Devolvido-Sem Identificação':'FINANCEIRAS',
+  'Cheque Devolvido Depositado':'FINANCEIRAS','Troca de Cheques ':'FINANCEIRAS','multa de veiculos':'FINANCEIRAS','Imposto/Encargos/Taxas/Juros':'FINANCEIRAS',
+  'Despesa Cartao de Credito Meb.':'FINANCEIRAS',
+  'Contabilidade':'ADMIN','Aluguel':'ADMIN','Informatica':'ADMIN','Informatica/Internet':'ADMIN','Telefonia':'ADMIN','Telefone':'ADMIN',
+  'Agua':'ADMIN','Luz':'ADMIN','Gas':'ADMIN','Seguranca':'ADMIN','Juridico':'ADMIN','Correio':'ADMIN','Cartorio':'ADMIN',
+  'Papelaria/Bazar':'ADMIN','Documentos Diversos':'ADMIN','Moveis':'ADMIN','Eletrodoméstico':'ADMIN','Limpeza':'ADMIN','Iptu':'ADMIN',
+  'Seguro':'ADMIN','Seguradora':'ADMIN','Curso/Escola/Faculdade':'ADMIN','Jornais/Revistas/Propaganda':'ADMIN','Processo':'ADMIN',
+  'Imovel':'ADMIN','Caixinha Empresa':'ADMIN','Viagem':'ADMIN',
+  'Pedagio/Estacionamento/Zona Azul':'LOGISTICA','Combustivel':'LOGISTICA','Frete / Cobrança':'LOGISTICA','Veiculo':'LOGISTICA',
+  'Lava Rapido':'LOGISTICA','Moto-Boy':'LOGISTICA',
+  'Festa/Eventos/Confraternizacao':'MARKETING','Brinde/Doacao/Bonificacao/Patrocinio':'MARKETING','Floricultura':'OUTROS',
+  'Panificadora/Supermercado':'OUTROS','Animal':'OUTROS','Farmacia':'OUTROS',
+  'Transferencia Entre Empresas':'TRANSFERENCIAS',
+  'Adiantamento Salario - Não lançar ':'NAO_LANCAR','13º Salario - Não lançar':'NAO_LANCAR',
+};
+function resolveGrupo(categoria){
+  return CATEGORIA_GRUPO[categoria] || CATEGORIA_GRUPO[categoria.trim()] || 'OUTROS';
+}
+const GRUPOS_PAGAMENTO = [
+  { key:'SOCIOS', label:'Sócios (Retiradas/Empréstimos)' },
+  { key:'FORNECEDORES', label:'Fornecedores / Produção' },
+  { key:'PESSOAL', label:'Pessoal' },
+  { key:'IMPOSTOS', label:'Impostos / Encargos' },
+  { key:'FINANCEIRAS', label:'Financeiras' },
+  { key:'ADMIN', label:'Administrativo' },
+  { key:'LOGISTICA', label:'Logística' },
+  { key:'MARKETING', label:'Marketing / Eventos' },
+  { key:'TRANSFERENCIAS', label:'Transferência Entre Empresas' },
+  { key:'OUTROS', label:'Outros' },
+];
+
+let currentUser=null, gpsStaff=false, currentEmail='';
+let selectedEmpresa = ''; // '' = Global
+let rowsByEmpresa = {}, abertoByEmpresa = {};
+let saldoIniciais = {}, ajustesManuais = {};
+
+async function fetchGvizSheet(sheetName){
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
+  const res = await fetch(url);
+  const txt = await res.text();
+  const json = JSON.parse(txt.substring(txt.indexOf('{'), txt.lastIndexOf('}')+1));
+  return json.table;
+}
+function parseGvizRows(table){
+  if(!table || !table.cols) return [];
+  const cols = table.cols.map(c=>c.label||c.id||'');
+  return (table.rows||[]).map(r=>{
+    const o = {};
+    cols.forEach((label,i)=>{
+      const cell = r.c ? r.c[i] : null;
+      o[label] = cell ? (cell.v!==undefined && cell.v!==null ? cell.v : '') : '';
+    });
+    return o;
+  });
+}
+function isSubtotalRow(rowObj){
+  return Object.values(rowObj).some(v => (v||'').toString().indexOf('TOTAL DO DIA')!==-1);
+}
+
+function rowsFromPG(table, empresa){
+  return parseGvizRows(table).filter(r=>!isSubtotalRow(r)).map(r=>{
+    const date = parseDateBR(r['Data Pagto']);
+    if(!date) return null;
+    const categoria = (r['Desc Conta']||'Sem categoria').toString().trim();
+    return { date, categoria, grupo: resolveGrupo(categoria), valor: -Math.abs(parseMoneyBR(r['Valor'])), empresa };
+  }).filter(Boolean);
+}
+function rowsFromCR(table, empresa){
+  return parseGvizRows(table).filter(r=>!isSubtotalRow(r)).map(r=>{
+    const date = parseDateBR(r['Dt Pagto']);
+    if(!date) return null;
+    const categoria = (r['Desc Conta']||'Sem categoria').toString().trim();
+    return { date, categoria, grupo: resolveGrupo(categoria), valor: Math.abs(parseMoneyBR(r['Valor Pago'])), empresa };
+  }).filter(Boolean);
+}
+function rowsFromCAP(table, empresa){
+  return parseGvizRows(table).filter(r=>!isSubtotalRow(r)).map(r=>{
+    if(normalizeTxt(getColNormalized(r,'situacao'))!=='aberto') return null;
+    const date = parseDateBR(r['Data']);
+    if(!date) return null;
+    const categoria = (r['Desc Conta']||'Sem categoria').toString().trim();
+    const valorRaw = r['Valor(R$)']!==undefined && r['Valor(R$)']!=='' ? r['Valor(R$)'] : r['Valor'];
+    return { date, categoria, grupo: resolveGrupo(categoria), valor: -Math.abs(parseMoneyBR(valorRaw)), empresa };
+  }).filter(Boolean);
+}
+function rowsFromVENC(table, empresa){
+  return parseGvizRows(table).filter(r=>!isSubtotalRow(r)).map(r=>{
+    if(normalizeTxt(getColNormalized(r,'situacao'))!=='aberto') return null;
+    const date = parseDateBR(r['Dt Venc']);
+    if(!date) return null;
+    const categoria = (r['Desc Conta']||'Sem categoria').toString().trim();
+    return { date, categoria, grupo: resolveGrupo(categoria), valor: Math.abs(parseMoneyBR(r['Vl Total Título'])), empresa };
+  }).filter(Boolean);
+}
+
+async function init(){
+  const { data } = await sb.auth.getSession();
+  if(!data.session){ window.location.replace(LOGIN_URL); return; }
+  currentUser = data.session.user;
+  currentEmail = currentUser.email;
+  if(!canAccessFluxo(currentEmail)){
+    el('loadingScreen').style.display='none';
+    el('deniedScreen').style.display='block';
+    document.documentElement.style.visibility='visible';
+    return;
+  }
+  gpsStaff = isGpsStaff(currentEmail);
+  if(!gpsStaff){ const c=el('fcAjustesGpsCard'); if(c) c.style.display='none'; }
+
+  el('empresaSelect').addEventListener('change', e=>{ selectedEmpresa = e.target.value; renderAll(); });
+  el('logoutBtn').addEventListener('click', async ()=>{ await sb.auth.signOut(); window.location.href=LOGIN_URL; });
+
+  await loadData();
+}
+
+async function loadData(){
+  try{
+    rowsByEmpresa = {}; abertoByEmpresa = {};
+    for(const empresa of EMPRESAS){
+      const [tPg, tCr, tCap, tVenc] = await Promise.all([
+        fetchGvizSheet('pg_'+empresa), fetchGvizSheet('cr_'+empresa),
+        fetchGvizSheet('cap_'+empresa), fetchGvizSheet('venc_'+empresa)
+      ]);
+      rowsByEmpresa[empresa] = rowsFromPG(tPg, empresa).concat(rowsFromCR(tCr, empresa));
+      rowsByEmpresa[empresa].sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+      abertoByEmpresa[empresa] = rowsFromCAP(tCap, empresa).concat(rowsFromVENC(tVenc, empresa));
+    }
+    await loadSaldoIniciais();
+    await loadAjustesManuais();
+    el('loadingScreen').style.display='none';
+    el('mainContent').style.display='block';
+    document.documentElement.style.visibility='visible';
+    renderAll();
+  }catch(e){
+    console.error(e);
+    el('loadingScreen').querySelector('p').textContent = 'Erro ao carregar a base: '+e.message;
+  }
+}
+
+function empresasNoEscopo(){ return selectedEmpresa ? [selectedEmpresa] : EMPRESAS; }
+
+/* Saldo acumulado até uma data, de UMA empresa, respeitando o saldo
+   inicial dela (se houver) + os lançamentos manuais dela (já incluídos
+   em rowsByEmpresa[empresa] via loadAjustesManuais). */
+function runningBalanceEmpresa(empresa, uptoDate){
+  const override = saldoIniciais[empresa];
+  const rows = rowsByEmpresa[empresa] || [];
+  if(override && uptoDate >= override.data_referencia){
+    let s = override.valor;
+    for(const r of rows){ if(r.date > override.data_referencia && r.date<=uptoDate) s += r.valor; }
+    return s;
+  }
+  let s = 0;
+  for(const r of rows){ if(r.date<=uptoDate) s += r.valor; else break; }
+  return s;
+}
+function saldoAcumuladoTotal(uptoDate){
+  return empresasNoEscopo().reduce((sum,emp)=>sum + runningBalanceEmpresa(emp, uptoDate), 0);
+}
+function rowsNoEscopo(){
+  let all = [];
+  empresasNoEscopo().forEach(emp => { all = all.concat(rowsByEmpresa[emp]||[]); });
+  // "Transferencia Entre Empresas" só conta quando se olha UMA empresa específica
+  if(!selectedEmpresa) all = all.filter(r=>r.grupo!=='TRANSFERENCIAS');
+  return all;
+}
+function sumByGrupoCategoria(rows){
+  const map = {}; // grupo -> { categoria -> valor }
+  rows.forEach(r=>{
+    if(!map[r.grupo]) map[r.grupo] = {};
+    map[r.grupo][r.categoria] = (map[r.grupo][r.categoria]||0) + r.valor;
+  });
+  return map;
+}
+
+/* ---- Renderização da tabela principal (últimos 60 dias corridos) ---- */
+let expandedGroups = {}, expandedCats = {};
+function renderTable(){
+  const rows = rowsNoEscopo();
+  const allDates = new Set();
+  rows.forEach(r=>allDates.add(r.date));
+  empresasNoEscopo().forEach(emp=>{ if(saldoIniciais[emp]) allDates.add(saldoIniciais[emp].data_referencia); });
+  let datesArr = Array.from(allDates).sort();
+  if(!datesArr.length){ el('fcTable').innerHTML = '<tr><td class="empty-state">Sem dados carregados ainda.</td></tr>'; return; }
+  // mostra os últimos 45 dias com movimento + hoje, pra não ficar gigante
+  const todayISO = new Date().toISOString().slice(0,10);
+  if(!allDates.has(todayISO)) datesArr.push(todayISO);
+  datesArr = datesArr.sort().slice(-45);
+
+  const byGC = sumByGrupoCategoria(rows);
+  const recebCats = Object.keys(byGC['RECEBIMENTOS']||{}).sort();
+  const gruposPag = GRUPOS_PAGAMENTO.map(g=>({...g, cats: Object.keys(byGC[g.key]||{}).sort()})).filter(g=>g.cats.length);
+
+  function sumInRange(filterFn, start, end){
+    return rows.filter(r=>r.date>=start && r.date<=end).filter(filterFn).reduce((s,r)=>s+r.valor,0);
+  }
+
+  let headHtml = '<tr><th>Linha</th>' + datesArr.map(d=>`<th>${d.slice(8,10)}/${d.slice(5,7)}</th>`).join('') + '</tr>';
+
+  let bodyHtml = '';
+  // SALDO ACUMULADO
+  bodyHtml += '<tr class="row-total"><td>SALDO ACUMULADO</td>' + datesArr.map(d=>{
+    const v = saldoAcumuladoTotal(d);
+    return `<td class="${v>=0?'val-pos':'val-neg'}">${fmtBRL(v)}</td>`;
+  }).join('') + '</tr>';
+
+  // RECEBIMENTOS
+  const recArrow = expandedGroups['RECEBIMENTOS'] ? '▾' : '▸';
+  bodyHtml += `<tr class="row-group" onclick="toggleGroup('RECEBIMENTOS')"><td><span class="fc-toggle">${recArrow}</span>RECEBIMENTOS</td>` +
+    datesArr.map(d=>`<td class="val-pos">${fmtBRL(sumInRange(r=>r.grupo==='RECEBIMENTOS', d, d))}</td>`).join('') + '</tr>';
+  if(expandedGroups['RECEBIMENTOS']){
+    recebCats.forEach(c=>{
+      bodyHtml += `<tr class="row-cat"><td>${c}</td>` + datesArr.map(d=>`<td>${fmtBRL(sumInRange(r=>r.grupo==='RECEBIMENTOS'&&r.categoria===c, d, d))}</td>`).join('') + '</tr>';
+    });
+  }
+
+  // PAGAMENTOS (todos os grupos exceto Recebimentos)
+  const pagArrow = expandedGroups['PAGAMENTOS'] ? '▾' : '▸';
+  bodyHtml += `<tr class="row-group" onclick="toggleGroup('PAGAMENTOS')"><td><span class="fc-toggle">${pagArrow}</span>PAGAMENTOS</td>` +
+    datesArr.map(d=>`<td class="val-neg">${fmtBRL(sumInRange(r=>r.grupo!=='RECEBIMENTOS', d, d))}</td>`).join('') + '</tr>';
+  if(expandedGroups['PAGAMENTOS']){
+    gruposPag.forEach(g=>{
+      const key = 'sub_'+g.key;
+      const arrow = expandedGroups[key] ? '▾' : '▸';
+      bodyHtml += `<tr class="row-group" onclick="toggleGroup('${key}')"><td style="padding-left:24px;"><span class="fc-toggle">${arrow}</span>${g.label}</td>` +
+        datesArr.map(d=>`<td>${fmtBRL(sumInRange(r=>r.grupo===g.key, d, d))}</td>`).join('') + '</tr>';
+      if(expandedGroups[key]){
+        g.cats.forEach(c=>{
+          bodyHtml += `<tr class="row-cat"><td>${c}</td>` + datesArr.map(d=>`<td>${fmtBRL(sumInRange(r=>r.grupo===g.key&&r.categoria===c, d, d))}</td>`).join('') + '</tr>';
+        });
+      }
+    });
+  }
+
+  el('fcTable').innerHTML = headHtml + bodyHtml;
+  renderDebugStats(rows);
+}
+function toggleGroup(key){ expandedGroups[key] = !expandedGroups[key]; renderTable(); }
+
+function renderDebugStats(rows){
+  if(!gpsStaff){ el('fcDebugStats').textContent=''; return; }
+  const porEmpresa = EMPRESAS.map(e=>`${EMPRESA_LABEL[e]}: ${(rowsByEmpresa[e]||[]).length}`).join(' · ');
+  el('fcDebugStats').textContent = `🔍 Diagnóstico (só GPS): ${rows.length} linhas no escopo atual · ${porEmpresa}`;
+}
+
+/* ---- Em Aberto (resumo simples, por categoria) ---- */
+function renderAberto(){
+  let rows = [];
+  empresasNoEscopo().forEach(emp => { rows = rows.concat(abertoByEmpresa[emp]||[]); });
+  const pagar = rows.filter(r=>r.valor<0);
+  const receber = rows.filter(r=>r.valor>0);
+  const totalPagar = pagar.reduce((s,r)=>s+r.valor,0);
+  const totalReceber = receber.reduce((s,r)=>s+r.valor,0);
+
+  function porCategoria(list){
+    const map = {};
+    list.forEach(r=>{ map[r.categoria] = (map[r.categoria]||0) + r.valor; });
+    return Object.entries(map).sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]));
+  }
+  const catsPagar = porCategoria(pagar);
+  const catsReceber = porCategoria(receber);
+
+  el('abertoWrap').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+      <div>
+        <div style="font-weight:800;color:var(--red);margin-bottom:8px;">A Pagar em Aberto: ${fmtBRL(Math.abs(totalPagar))}</div>
+        ${catsPagar.map(([c,v])=>`<div class="fc-list-item"><span>${c}</span><span class="val-neg">${fmtBRL(Math.abs(v))}</span></div>`).join('') || '<div class="empty-state">Nada em aberto.</div>'}
+      </div>
+      <div>
+        <div style="font-weight:800;color:var(--green);margin-bottom:8px;">A Receber em Aberto: ${fmtBRL(totalReceber)}</div>
+        ${catsReceber.map(([c,v])=>`<div class="fc-list-item"><span>${c}</span><span class="val-pos">${fmtBRL(v)}</span></div>`).join('') || '<div class="empty-state">Nada em aberto.</div>'}
+      </div>
+    </div>`;
+}
+
+function renderAll(){ renderTable(); renderAberto(); }
+
+/* ================== Saldo Inicial (por empresa) ================== */
+async function loadSaldoIniciais(){
+  const { data, error } = await sb.from('fluxo_saldo_inicial').select('*').order('criado_em',{ascending:false});
+  saldoIniciais = {};
+  if(!error && data){
+    data.forEach(row=>{ if(!saldoIniciais[row.empresa]) saldoIniciais[row.empresa] = row; }); // primeiro = mais recente por empresa
+  }
+  renderSaldoInicialStatus();
+}
+function renderSaldoInicialStatus(){
+  const wrap = el('fcSaldoInicialStatus');
+  if(!wrap) return;
+  wrap.innerHTML = EMPRESAS.map(emp=>{
+    const o = saldoIniciais[emp];
+    if(!o) return `<div class="fc-list-item"><span>${EMPRESA_LABEL[emp]}</span><span style="color:var(--text3);">Sem saldo inicial definido</span></div>`;
+    const dataLabel = new Date(o.data_referencia+'T00:00:00').toLocaleDateString('pt-BR');
+    return `<div class="fc-list-item"><span>${EMPRESA_LABEL[emp]}: ${fmtBRL(o.valor)} em ${dataLabel}</span><button class="btn btn-danger btn-sm" onclick="removeSaldoInicial('${emp}')">Remover</button></div>`;
+  }).join('');
+}
+async function applySaldoInicial(){
+  const empresa = el('fcSaldoEmpresa').value;
+  const data_referencia = el('fcSaldoInicialData').value;
+  const valor = parseFloat(el('fcSaldoInicialValor').value);
+  if(!data_referencia || isNaN(valor)){ alert('Preencha a data e o saldo dessa data.'); return; }
+  await sb.from('fluxo_saldo_inicial').delete().eq('empresa', empresa);
+  const { error } = await sb.from('fluxo_saldo_inicial').insert({ empresa, data_referencia, valor, criado_por: nameFromEmail(currentEmail) });
+  if(error){ alert('Erro ao salvar: '+error.message); return; }
+  el('fcSaldoInicialData').value=''; el('fcSaldoInicialValor').value='';
+  await loadSaldoIniciais();
+  renderAll();
+}
+async function removeSaldoInicial(empresa){
+  if(!confirm('Remover o saldo inicial de '+EMPRESA_LABEL[empresa]+'?')) return;
+  await sb.from('fluxo_saldo_inicial').delete().eq('empresa', empresa);
+  await loadSaldoIniciais();
+  renderAll();
+}
+
+/* ================== Lançamentos Manuais (por empresa) ================== */
+async function loadAjustesManuais(){
+  const { data, error } = await sb.from('fluxo_ajustes_manuais').select('*').order('data',{ascending:true});
+  ajustesManuais = data && !error ? data : [];
+  EMPRESAS.forEach(emp=>{ rowsByEmpresa[emp] = (rowsByEmpresa[emp]||[]).filter(r=>r.grupo!=='AJUSTES_MANUAIS'); });
+  (ajustesManuais||[]).forEach(a=>{
+    if(!rowsByEmpresa[a.empresa]) rowsByEmpresa[a.empresa]=[];
+    rowsByEmpresa[a.empresa].push({ date:a.data, categoria:a.descricao||'Lançamento manual', grupo:'AJUSTES_MANUAIS', valor:a.valor, empresa:a.empresa });
+  });
+  EMPRESAS.forEach(emp=>{ (rowsByEmpresa[emp]||[]).sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0); });
+  renderAjustesManuaisList();
+}
+function renderAjustesManuaisList(){
+  const wrap = el('fcAjusteList');
+  if(!wrap) return;
+  wrap.innerHTML = (ajustesManuais||[]).length ? ajustesManuais.map(a=>`
+    <div class="fc-list-item">
+      <span>${EMPRESA_LABEL[a.empresa]||a.empresa} · ${a.descricao} (${new Date(a.data+'T00:00:00').toLocaleDateString('pt-BR')})</span>
+      <span style="display:flex;align-items:center;gap:8px;">
+        <span class="${a.valor>=0?'val-pos':'val-neg'}">${fmtBRL(a.valor)}</span>
+        <button class="btn btn-danger btn-sm" onclick="removeAjusteManual(${a.id})">✕</button>
+      </span>
+    </div>`).join('') : '<div class="empty-state">Nenhum lançamento manual ativo.</div>';
+  const countEl = el('fcAjusteCount');
+  if(countEl) countEl.textContent = (ajustesManuais||[]).length ? `(${ajustesManuais.length})` : '';
+}
+async function addAjusteManual(){
+  const empresa = el('fcAjusteEmpresa').value;
+  const descricao = el('fcAjusteDesc').value.trim();
+  const valor = parseFloat(el('fcAjusteValor').value);
+  const data = el('fcAjusteData').value;
+  if(!descricao || isNaN(valor) || !data){ alert('Preencha descrição, valor e data.'); return; }
+  const { error } = await sb.from('fluxo_ajustes_manuais').insert({ empresa, data, descricao, valor, criado_por: nameFromEmail(currentEmail) });
+  if(error){ alert('Erro ao salvar: '+error.message); return; }
+  el('fcAjusteDesc').value=''; el('fcAjusteValor').value=''; el('fcAjusteData').value='';
+  await loadAjustesManuais();
+  renderAll();
+}
+async function removeAjusteManual(id){
+  if(!confirm('Remover esse lançamento manual?')) return;
+  await sb.from('fluxo_ajustes_manuais').delete().eq('id', id);
+  await loadAjustesManuais();
+  renderAll();
+}
+
+function openSaldoInicialModal(){ el('saldoInicialModal').classList.add('show'); }
+function closeSaldoInicialModal(){ el('saldoInicialModal').classList.remove('show'); }
+function openAjustesManuaisModal(){ el('ajustesManuaisModal').classList.add('show'); }
+function closeAjustesManuaisModal(){ el('ajustesManuaisModal').classList.remove('show'); }
+
+init();
+</script>
+</body>
+</html>
