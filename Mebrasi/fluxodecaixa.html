@@ -151,8 +151,8 @@ html.light .fc-day-num{color:#1f2a3d;}
 .fc-ajustes-row{display:grid;grid-template-columns:1fr 1px 1fr;gap:20px;align-items:start;}
 .fc-ajustes-col{min-width:0;}
 .fc-ajustes-divider{background:var(--border2);align-self:stretch;}
-.fc-mini-form{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;}
-.fc-mini-form-4{grid-template-columns:1fr 1fr 120px auto;}
+.fc-mini-form{display:grid;grid-template-columns:160px 150px 140px auto;gap:8px;align-items:end;}
+.fc-mini-form-4{grid-template-columns:160px 1.8fr 140px 150px auto;}
 .fc-mini-form input{font-size:12px;padding:8px 10px;}
 .fc-mini-title{font-size:13.5px;font-weight:800;margin-bottom:3px;}
 .fc-mini-sub{font-size:11px;color:var(--text3);margin-bottom:12px;line-height:1.4;}
@@ -292,7 +292,7 @@ html.light .fc-day-num{color:#1f2a3d;}
             <select id="fcSaldoEmpresa"><option value="gymis">Gymis</option><option value="ryngavi">Ryngavi</option><option value="especial">Especial</option><option value="multicopos">Multicopos</option></select>
             <input type="date" id="fcSaldoInicialData">
             <input type="number" id="fcSaldoInicialValor" placeholder="Saldo (R$)">
-            <button class="btn btn-primary btn-sm" onclick="applySaldoInicial()">Aplicar</button>
+            <button class="btn btn-primary btn-sm" style="padding:8px 16px;min-width:96px;" onclick="applySaldoInicial()">Salvar</button>
           </div>
           <button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="openSaldoInicialModal()">Ver detalhes</button>
 
@@ -301,19 +301,19 @@ html.light .fc-day-num{color:#1f2a3d;}
           <div class="fc-mini-form">
             <select id="fcLimiteContaEmpresa"><option value="gymis">Gymis</option><option value="ryngavi">Ryngavi</option><option value="especial">Especial</option><option value="multicopos">Multicopos</option></select>
             <input type="number" id="fcLimiteContaValor" placeholder="Limite (R$)">
-            <button class="btn btn-primary btn-sm" onclick="applyLimiteConta()">Aplicar</button>
+            <button class="btn btn-primary btn-sm" style="padding:8px 16px;min-width:96px;" onclick="applyLimiteConta()">Salvar</button>
           </div>
         </div>
         <div class="fc-ajustes-divider"></div>
         <div class="fc-ajustes-col">
           <div class="fc-mini-title">🖊️ Lançamentos Manuais</div>
           <div class="fc-mini-sub">Valor lançado à mão (despesa sem categoria ainda, etc). Entra de verdade no Saldo Acumulado. Visível só pro time GPS.</div>
-          <div class="fc-mini-form fc-mini-form-4" style="grid-template-columns:1fr 1fr 1fr 1fr auto;">
+          <div class="fc-mini-form fc-mini-form-4" style="grid-template-columns:160px 2fr 150px 150px auto;">
             <select id="fcAjusteEmpresa"><option value="gymis">Gymis</option><option value="ryngavi">Ryngavi</option><option value="especial">Especial</option><option value="multicopos">Multicopos</option></select>
             <input type="text" id="fcAjusteDesc" placeholder="Descrição">
             <input type="number" id="fcAjusteValor" placeholder="Valor (R$)">
             <input type="date" id="fcAjusteData">
-            <button class="btn btn-primary btn-sm" onclick="addAjusteManual()">Adicionar</button>
+            <button class="btn btn-primary btn-sm" style="padding:8px 16px;min-width:110px;" onclick="addAjusteManual()">Adicionar</button>
           </div>
           <button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="openAjustesManuaisModal()">Ver lançamentos <span id="fcAjusteCount"></span></button>
         </div>
