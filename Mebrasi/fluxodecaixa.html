@@ -152,7 +152,7 @@ html.light .fc-day-num{color:#1f2a3d;}
 .fc-ajustes-col{min-width:0;}
 .fc-ajustes-divider{background:var(--border2);align-self:stretch;}
 .fc-mini-form{display:grid;grid-template-columns:150px 150px 140px 110px 1fr;gap:8px;align-items:end;}
-.fc-mini-form-4{grid-template-columns:150px 1.6fr 150px 150px 110px 1fr;}
+.fc-mini-form-4{grid-template-columns:150px 3.2fr 150px 150px 110px;}
 .fc-mini-form input,.fc-mini-form select,.fc-mini-form-4 input,.fc-mini-form-4 select{font-size:12px;padding:8px 10px;}
 .fc-mini-form button,.fc-mini-form-4 button{white-space:nowrap;}
 .fc-mini-title{font-size:13.5px;font-weight:800;margin-bottom:3px;}
@@ -1061,7 +1061,7 @@ function scrollToToday(){
   const firstColWidth = document.querySelector('.fc-table td:first-child')?.offsetWidth || 220;
   // deixa uns dias do PASSADO visíveis também (não só hoje pra frente),
   // senão em dias sem lançamento futuro ainda a tabela parece "vazia"
-  const diasDoPassadoVisiveis = 7;
+  const diasDoPassadoVisiveis = 1;
   const colWidth = todayTh.offsetWidth || 90;
   wrap.scrollLeft = Math.max(0, todayTh.offsetLeft - firstColWidth - 24 - (diasDoPassadoVisiveis * colWidth));
 }
