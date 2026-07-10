@@ -711,7 +711,9 @@ async function loadData(){
       const vencRows = rowsFromVENC(tVenc, empresa);
       // Realizado: fc_ (conciliação) pela data de vencimento/conciliação.
       // Projetado: cap_/venc_ pela data de vencimento, exceto pagos/baixados/cancelados.
-      rowsByEmpresa[empresa] = fcRows.concat(capRows, vencRows);
+      // Só fc_ (realizado) conta no Saldo Acumulado. cap_/venc_ (aberto/previsto,
+      // mesmo retroativo) NUNCA soma no saldo — só aparece na seção "Em Aberto".
+      rowsByEmpresa[empresa] = fcRows;
       rowsByEmpresa[empresa].sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
       abertoByEmpresa[empresa] = capRows.concat(vencRows);
     }
