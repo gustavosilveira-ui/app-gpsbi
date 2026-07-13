@@ -18,12 +18,12 @@
    ================================================================ */
 
 // TODO (Gustavo): preencher com os valores reais antes do deploy.
-const SUPABASE_URL = '{{UUIZZ_SUPABASE_URL}}';
-const SUPABASE_ANON_KEY = '{{UUIZZ_SUPABASE_ANON_KEY}}';
-const SHEET_ID = '{{UUIZZ_SHEET_ID}}'; // extrair de https://docs.google.com/spreadsheets/d/ESTE_ID/edit
-const GID_CAP = '{{GID_CAP}}';                         // aba "CAP" — Empoderamento (Conta Azul)
-const GID_CAR = '{{GID_CAR}}';                         // aba "CAR" — Empoderamento (Conta Azul)
-const GID_MOVIMENTACAO_UUIZZ = '{{GID_MOVIMENTACAO_UUIZZ}}'; // aba "Movimentação da Conta Uuizz" — Mister Wiz (Omie)
+const SUPABASE_URL = 'https://okrvklvvulmjdarlwdbl.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9rcnZrbHZ2dWxtamRhcmx3ZGJsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM5NTgxOTEsImV4cCI6MjA5OTUzNDE5MX0.X8lXu_ZHB1v_tSvQso4RVEWt32NaI7gPZrTlQsB6dog';
+const SHEET_ID = '1eFzTg4nqZecn7fqjcvFOOQOhcE0cl5iAR1U1p_gKO2s'; // extrair de https://docs.google.com/spreadsheets/d/ESTE_ID/edit
+const GID_CAP = '193110136';                         // aba "CAP" — Empoderamento (Conta Azul)
+const GID_CAR = '14079185';                         // aba "CAR" — Empoderamento (Conta Azul)
+const GID_MOVIMENTACAO_UUIZZ = '1752090986'; // aba "Movimentação da Conta Uuizz" — Mister Wiz (Omie)
 const LOGIN_URL = 'index.html';
 
 function normalizeTxt(s){
