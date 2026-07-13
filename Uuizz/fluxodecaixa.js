@@ -97,30 +97,47 @@ function extractCellValue(cell){
   if(typeof cell==='object') return (cell.v ?? cell.f ?? '').toString().trim();
   return cell.toString().trim();
 }
+function todayISO(){
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function readDateCol(r, colName){
+  const raw = getColNormalized(r, colName);
+  return parseDateCell(typeof raw==='object' && raw!==null ? (raw.v||raw) : raw);
+}
 
-/* ================== Ingestão: CAP / CAR (Empoderamento — Conta Azul) ================== */
+/* ================== Ingestão: CAP / CAR (Empoderamento — Conta Azul) ==================
+   Réplica exata do racional já usado no Google Sheets do Gustavo:
+   - "Data Real": se tem Data do último pagamento, usa ela (é quando o caixa mexeu de
+     verdade, podendo ser diferente da data de vencimento). Sem pagamento: usa a data
+     de vencimento/prevista SE ainda não venceu (fica como projeção no fluxo). Vencida
+     e sem pagamento = "Em aberto" de verdade, fica fora do fluxo.
+   - "Valor": total pago/recebido se já há pagamento; senão, o valor original da
+     parcela (projeção). Sempre em módulo — Pagamentos e Recebimentos são positivos;
+     só o Saldo Acumulado é o líquido (Recebimentos − Pagamentos).
+   - Categoria 1 / Categoria 2: dois níveis de agrupamento, iguais aos da planilha. */
 // tipoLancamento: 'pagar' (CAP) ou 'receber' (CAR)
 function rowsFromCapCar(table, tipoLancamento){
   const raw = parseGvizRows(table);
+  const hoje = todayISO();
   return raw.map(r=>{
-    const situacao = normalizeTxt(getColNormalized(r,'situacao'));
-    if(situacao !== 'quitado') return null; // só realizado entra no fluxo (aberto/atrasado/perdido ficam de fora nesta versão)
+    const dataVenc = tipoLancamento==='pagar' ? readDateCol(r,'data de vencimento') : readDateCol(r,'data prevista');
+    const dataPagto = readDateCol(r,'data do ultimo pagamento');
 
-    const dateRaw = getColNormalized(r, 'data de vencimento');
-    const date = parseDateCell(typeof dateRaw==='object' && dateRaw!==null ? (dateRaw.v||dateRaw) : dateRaw);
+    if(!dataPagto && (!dataVenc || dataVenc < hoje)) return null; // vencida e não paga: fora do fluxo
+    const date = dataPagto || dataVenc;
     if(!date) return null;
 
-    const categoria = (getColNormalized(r, 'categoria 1') || 'Sem categoria').toString().trim();
+    const categoria1 = (getColNormalized(r, 'categoria 1') || 'Sem categoria').toString().trim();
+    const categoria2 = (getColNormalized(r, 'categoria 2') || '').toString().trim();
 
-    let valor;
-    if(tipoLancamento === 'pagar'){
-      valor = -Math.abs(parseMoneyBR(getColNormalized(r, 'valor total pago da parcela (r$)')));
-    } else {
-      valor = Math.abs(parseMoneyBR(getColNormalized(r, 'valor total recebido da parcela (r$)')));
-    }
-    if(!valor) return null; // linha quitada com valor zerado não soma nada e não precisa aparecer
+    const valorRealizado = Math.abs(parseMoneyBR(getColNormalized(r, tipoLancamento==='pagar' ? 'valor total pago da parcela (r$)' : 'valor total recebido da parcela (r$)')));
+    const valorOriginal = Math.abs(parseMoneyBR(getColNormalized(r, 'valor original da parcela (r$)')));
+    const valor = valorRealizado > 0 ? valorRealizado : valorOriginal;
+    if(!valor) return null;
 
     const grupo = tipoLancamento==='pagar' ? 'PAGAMENTOS' : 'RECEBIMENTOS';
+    const signedValor = grupo==='RECEBIMENTOS' ? valor : -valor;
     const conta = (getColNormalized(r,'conta bancaria')||'Não informada').toString().trim();
     const nome = (
       getColNormalized(r, tipoLancamento==='pagar' ? 'nome do fornecedor' : 'nome do cliente') || ''
@@ -128,11 +145,15 @@ function rowsFromCapCar(table, tipoLancamento){
     const documento = (getColNormalized(r,'nota fiscal') || getColNormalized(r,'codigo de referencia') || '').toString().trim();
     const historico = (getColNormalized(r,'descricao') || getColNormalized(r,'observacoes') || '').toString().trim();
 
-    return { date, categoria, grupo, valor, conta, empresa:'Empoderamento', fonte: tipoLancamento==='pagar'?'CAP':'CAR', nome, documento, historico };
+    return { date, categoria1, categoria2, grupo, valor, signedValor, conta, empresa:'Empoderamento', fonte: tipoLancamento==='pagar'?'CAP':'CAR', nome, documento, historico };
   }).filter(Boolean);
 }
 
-/* ================== Ingestão: Movimentação da Conta Uuizz (Mister Wiz — Omie) ================== */
+/* ================== Ingestão: Movimentação da Conta Uuizz (Mister Wiz — Omie) ==================
+   Extrato bancário: já traz Situação com realizado (Conciliado/Não Conciliado) e
+   projeção futura (A vencer/Vence hoje/Previsto/Calculando). Só exclui "Atrasado"
+   (equivalente ao "Em aberto vencido" do Conta Azul). Um único nível de categoria
+   (não tem Categoria 1/2 separadas como CAP/CAR). */
 function rowsFromMovimentacao(table){
   const raw = parseGvizRows(table);
   return raw.map(r=>{
@@ -140,28 +161,30 @@ function rowsFromMovimentacao(table){
     if(normalizeTxt(clienteFornecedor)==='saldo' || normalizeTxt(clienteFornecedor)==='saldo anterior') return null; // linhas marcadoras, não lançamentos
 
     const situacao = normalizeTxt(getColNormalized(r, 'situacao'));
-    if(situacao !== 'conciliado') return null; // só realizado entra no fluxo nesta versão
+    if(situacao === 'atrasado') return null; // vencido e não conciliado, fora do fluxo
 
-    const dateRaw = getColNormalized(r, 'data');
-    const date = parseDateCell(typeof dateRaw==='object' && dateRaw!==null ? (dateRaw.v||dateRaw) : dateRaw);
+    const date = readDateCol(r, 'data');
     if(!date) return null;
 
-    const categoria = (getColNormalized(r, 'categoria') || 'Sem categoria').toString().trim();
+    const categoria1 = (getColNormalized(r, 'categoria') || 'Sem categoria').toString().trim();
     const valorRaw = getColNormalized(r, 'valor (r$)');
-    const valor = parseMoneyBR(typeof valorRaw==='object' && valorRaw!==null ? (valorRaw.v ?? valorRaw.f) : valorRaw);
-    if(!valor) return null;
+    const rawValor = parseMoneyBR(typeof valorRaw==='object' && valorRaw!==null ? (valorRaw.v ?? valorRaw.f) : valorRaw);
+    if(!rawValor) return null;
 
-    const grupo = valor >= 0 ? 'RECEBIMENTOS' : 'PAGAMENTOS';
+    const grupo = rawValor >= 0 ? 'RECEBIMENTOS' : 'PAGAMENTOS';
+    const valor = Math.abs(rawValor);
+    const signedValor = rawValor;
     const conta = (getColNormalized(r, 'conta corrente')||'Não informada').toString().trim();
     const documento = (getColNormalized(r,'documento') || getColNormalized(r,'nota fiscal') || '').toString().trim();
     const historico = (getColNormalized(r,'observacoes') || '').toString().trim();
 
-    return { date, categoria, grupo, valor, conta, empresa:'Mister Wiz', fonte:'Movimentação', nome: clienteFornecedor, documento, historico };
+    return { date, categoria1, categoria2:'', grupo, valor, signedValor, conta, empresa:'Mister Wiz', fonte:'Movimentação', nome: clienteFornecedor, documento, historico };
   }).filter(Boolean);
 }
 
+
 /* ================== Estado global ================== */
-let rows = []; // { date, categoria, grupo, valor, conta, empresa, fonte, nome, documento, historico }
+let rows = []; // { date, categoria1, categoria2, grupo, valor, signedValor, conta, empresa, fonte, nome, documento, historico }
 let currentUser = null;
 let gpsStaff = false;
 let empresaFiltro = 'global'; // 'global' | 'Empoderamento' | 'Mister Wiz'
@@ -284,11 +307,11 @@ function runningBalanceForEmpresa(empresaKey, uptoDate){
   const relevantRows = rows.filter(r=>r.empresa===empresaKey);
   if(override && uptoDate >= override.data_referencia){
     let s = override.valor;
-    for(const r of relevantRows){ if(r.date > override.data_referencia && r.date<=uptoDate) s += r.valor; }
+    for(const r of relevantRows){ if(r.date > override.data_referencia && r.date<=uptoDate) s += r.signedValor; }
     return s;
   }
   let s = 0;
-  for(const r of relevantRows){ if(r.date<=uptoDate) s += r.valor; }
+  for(const r of relevantRows){ if(r.date<=uptoDate) s += r.signedValor; }
   return s;
 }
 function runningBalance(uptoDate){
@@ -300,23 +323,43 @@ function runningBalance(uptoDate){
 
 const isRecebimento = r => r.grupo==='RECEBIMENTOS';
 const isPagamento = r => r.grupo==='PAGAMENTOS';
-const isCategoria = (grupo,c) => r => r.grupo===grupo && r.categoria===c;
 
-/* ================== ÁRVORE DE LINHAS ================== */
+/* ================== ÁRVORE DE LINHAS ==================
+   RECEBIMENTOS e PAGAMENTOS em dois níveis — Categoria 1 (a "conta"/grupo,
+   ex: "2. Fornecedores") e, dentro dela, Categoria 2 — igual à planilha e ao
+   padrão homologado da Tangram. Tudo fechado por padrão (nada explodido). */
 let rowTree = [];
+function buildGrupoChildren(scoped, grupo, signHint){
+  const rowsGrupo = scoped.filter(r=>r.grupo===grupo);
+  const cat1s = Array.from(new Set(rowsGrupo.map(r=>r.categoria1))).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  return cat1s.map(c1=>{
+    const rowsC1 = rowsGrupo.filter(r=>r.categoria1===c1);
+    const cat2s = Array.from(new Set(rowsC1.map(r=>r.categoria2).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+    const temSemSubcategoria = rowsC1.some(r=>!r.categoria2);
+    const children = cat2s.map(c2=>({
+      type:'cat2', level:2, label:c2, signHint,
+      filter: r=>r.grupo===grupo && r.categoria1===c1 && r.categoria2===c2,
+      expanded:false, children:[]
+    }));
+    if(temSemSubcategoria && cat2s.length){
+      children.push({
+        type:'cat2', level:2, label:'(sem subcategoria)', signHint,
+        filter: r=>r.grupo===grupo && r.categoria1===c1 && !r.categoria2,
+        expanded:false, children:[]
+      });
+    }
+    return {
+      type:'cat1', level:1, label:c1, signHint,
+      filter: r=>r.grupo===grupo && r.categoria1===c1,
+      expanded:false, children
+    };
+  });
+}
 function buildRowTree(){
   const scoped = rowsInScope();
-  const catsRec = Array.from(new Set(scoped.filter(isRecebimento).map(r=>r.categoria))).sort((a,b)=>a.localeCompare(b,'pt-BR'));
-  const catsPag = Array.from(new Set(scoped.filter(isPagamento).map(r=>r.categoria))).sort((a,b)=>a.localeCompare(b,'pt-BR'));
 
-  const recebimentosNode = {
-    type:'recebimentos', level:0, label:'RECEBIMENTOS', filter:isRecebimento, expanded:false,
-    children: catsRec.map(c=>({ type:'cat', level:1, label:c, filter:isCategoria('RECEBIMENTOS',c), expanded:false, children:[] }))
-  };
-  const pagamentosNode = {
-    type:'pagamentos', level:0, label:'PAGAMENTOS', filter:isPagamento, expanded:true,
-    children: catsPag.map(c=>({ type:'cat', level:1, label:c, filter:isCategoria('PAGAMENTOS',c), expanded:false, children:[] }))
-  };
+  const recebimentosNode = { type:'recebimentos', level:0, label:'RECEBIMENTOS', signHint:'pos', filter:isRecebimento, expanded:false, children: buildGrupoChildren(scoped, 'RECEBIMENTOS', 'pos') };
+  const pagamentosNode = { type:'pagamentos', level:0, label:'PAGAMENTOS', signHint:'neg', filter:isPagamento, expanded:false, children: buildGrupoChildren(scoped, 'PAGAMENTOS', 'neg') };
 
   const nodes = [
     { type:'saldo', level:0, label:'SALDO ACUMULADO', special:'saldo', expanded:false, children:[] },
@@ -324,11 +367,12 @@ function buildRowTree(){
     pagamentosNode,
   ];
 
-  const ajustesCats = Array.from(new Set(scoped.filter(r=>r.grupo==='AJUSTES_MANUAIS').map(r=>r.categoria))).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  const ajustesRows = scoped.filter(r=>r.grupo==='AJUSTES_MANUAIS');
+  const ajustesCats = Array.from(new Set(ajustesRows.map(r=>r.categoria1))).sort((a,b)=>a.localeCompare(b,'pt-BR'));
   if(ajustesCats.length){
     nodes.push({
       type:'ajustes', level:0, label:'LANÇAMENTOS MANUAIS (GPS)', filter:r=>r.grupo==='AJUSTES_MANUAIS', expanded:false,
-      children: ajustesCats.map(c=>({ type:'cat', level:1, label:c, filter:isCategoria('AJUSTES_MANUAIS',c), expanded:false, children:[] }))
+      children: ajustesCats.map(c=>({ type:'cat1', level:1, label:c, filter: r=>r.grupo==='AJUSTES_MANUAIS'&&r.categoria1===c, expanded:false, children:[] }))
     });
   }
   return nodes;
@@ -418,7 +462,8 @@ function renderTable(){
       } else {
         val = sumInRange(rNode.filter, c.start, c.end);
         const clickable = Math.round(val)!==0;
-        const hoverCls = val>=0 ? ' fc-hover-receita' : ' fc-hover-despesa';
+        const negativo = rNode.signHint ? rNode.signHint==='neg' : val<0;
+        const hoverCls = negativo ? ' fc-hover-despesa' : ' fc-hover-receita';
         const cellCls = `${c.isToday?'fc-today':''}${clickable?(' fc-clickable-cell'+hoverCls):''}`.trim();
         const onClick = clickable ? ` onclick="openFluxoFicha('${rowId}','${colId}')"` : '';
         tbody += `<td class="${cellCls}"${onClick}>${fmtBRL(val)}</td>`;
@@ -454,6 +499,9 @@ function openFluxoFicha(rowId,colId){
   const col = fcColDetailRefs[colId];
   if(!rNode || !col || rNode.special==='saldo') return;
 
+  const negativo = rNode.signHint === 'neg';
+  const corValor = negativo ? 'var(--red)' : '#4F8F3A';
+
   const detailRows = rowsForFicha(rNode,col.start,col.end);
   const total = detailRows.reduce((s,r)=>s+r.valor,0);
 
@@ -472,7 +520,7 @@ function openFluxoFicha(rowId,colId){
   const contasHtml = contas.length ? contas.map(([conta,val])=>{
     const pct = total ? Math.abs(val)/Math.abs(total)*100 : 0;
     const itens = detailRows.filter(r=>((r.empresa? r.empresa+' · ':'') + (r.conta||r.fonte||'Não informada'))===conta).length;
-    return `<tr><td>${escapeFichaHtml(conta)}</td><td class="num" style="color:${val>=0?'#4F8F3A':'var(--red)'}">${fmtBRL(val)}</td><td class="num">${pct.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%</td><td class="num">${itens}</td></tr>`;
+    return `<tr><td>${escapeFichaHtml(conta)}</td><td class="num" style="color:${corValor}">${fmtBRL(val)}</td><td class="num">${pct.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%</td><td class="num">${itens}</td></tr>`;
   }).join('') : `<tr><td colspan="4" style="color:var(--text3);">Nenhum lançamento encontrado.</td></tr>`;
 
   const linhas = detailRows.slice().sort((a,b)=>{
@@ -482,7 +530,7 @@ function openFluxoFicha(rowId,colId){
 
   const detalheHtml = linhas.slice(0,120).map(r=>{
     const pct = total ? Math.abs(r.valor)/Math.abs(total)*100 : 0;
-    const nome = r.nome || r.historico || r.categoria || 'Sem nome';
+    const nome = r.nome || r.historico || r.categoria2 || r.categoria1 || 'Sem nome';
     const doc = r.documento || r.fonte || '';
     return `<tr>
       <td>${formatDateBR(r.date)}</td>
@@ -490,7 +538,7 @@ function openFluxoFicha(rowId,colId){
       <td class="wrap" title="${escapeFichaHtml(nome)}">${escapeFichaHtml(nome)}</td>
       <td class="small" title="${escapeFichaHtml(doc)}">${escapeFichaHtml(doc)}</td>
       <td class="num">${pct.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%</td>
-      <td class="valor-modal" style="color:${r.valor>=0?'#4F8F3A':'var(--red)'}">${fmtNumeroFicha(r.valor)}</td>
+      <td class="valor-modal" style="color:${corValor}">${fmtNumeroFicha(r.valor)}</td>
     </tr>`;
   }).join('');
 
@@ -630,7 +678,7 @@ async function loadAjustesManuais(){
   ajustesManuais = (!error && data) ? data : [];
   rows = rows.filter(r=>r.grupo!=='AJUSTES_MANUAIS');
   ajustesManuais.forEach(a=>{
-    rows.push({ date:a.data, categoria: a.descricao || 'Lançamento manual', grupo:'AJUSTES_MANUAIS', valor:a.valor, conta:'Lançamentos manuais', empresa:a.empresa, fonte:'Manual' });
+  rows.push({ date:a.data, categoria1: a.descricao || 'Lançamento manual', categoria2:'', grupo:'AJUSTES_MANUAIS', valor:a.valor, signedValor:a.valor, conta:'Lançamentos manuais', empresa:a.empresa, fonte:'Manual' });
   });
   rows.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
   renderAjustesManuaisList();
