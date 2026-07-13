@@ -1,5 +1,5 @@
 /* ================================================================
-   Hub GPSBI · Uuizz — Fluxo de Caixa - // TESTE ATUALIZAÇÃO 13-07
+   Hub GPSBI · Uuizz — Fluxo de Caixa
    Baseado na arquitetura homologada da Tangram (tabela ano>mês>dia,
    ficha de detalhamento, saldo inicial e lançamentos manuais via
    Supabase, alertas de limite bancário), adaptado para duas fontes
