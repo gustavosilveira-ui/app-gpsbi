@@ -16,7 +16,7 @@
    - realizado pela Data Real;
    - projeções futuras pela data prevista/vencimento;
    - vencidos sem baixa ficam fora do fluxo;
-   - valores seguem as colunas de apoio homologadas "Data Real" e "Valor".
+   - o Hub recria em memória as fórmulas das colunas de apoio "Data Real" e "Valor".
    ================================================================ */
 
 // TODO (Gustavo): preencher com os valores reais antes do deploy.
@@ -80,17 +80,9 @@ function parseGvizRows(table){
   const cols = table.cols.map(c=>c.label);
   return table.rows.map(row=>{
     const obj={};
-    obj.__cells = row.c.map(cell=>cell ? (cell.v!==null ? cell.v : (cell.f||null)) : null);
-    cols.forEach((col,i)=>{
-      if(!col) return;
-      const cell=row.c[i];
-      obj[col]= cell ? (cell.v!==null?cell.v:(cell.f||null)) : null;
-    });
+    cols.forEach((col,i)=>{ const cell=row.c[i]; obj[col]= cell ? (cell.v!==null?cell.v:(cell.f||null)) : null; });
     return obj;
   });
-}
-function getCellByIndex(r, zeroBasedIndex){
-  return r && Array.isArray(r.__cells) ? r.__cells[zeroBasedIndex] : undefined;
 }
 function parseDateCell(v){
   if(v===null || v===undefined || v==='') return null;
@@ -134,6 +126,142 @@ function readDateCol(r, colName){
   return parseDateCell(typeof raw==='object' && raw!==null ? (raw.v||raw) : raw);
 }
 
+
+const CAP_CATEGORIA_PAI = new Map([
+  [normalizeTxt('Investimento CDB'), '1. Investimentos'],
+  [normalizeTxt('Consultoria/Mentoria'), '1. Investimentos'],
+  [normalizeTxt('ISS sobre Faturamento'), 'Deduções Da Receita'],
+  [normalizeTxt('Alvará de Funcionamento'), 'Deduções Da Receita'],
+  [normalizeTxt('Comissões de Vendedores'), 'Deduções Da Receita'],
+  [normalizeTxt('PIS'), 'Deduções Da Receita'],
+  [normalizeTxt('Cofins'), 'Deduções Da Receita'],
+  [normalizeTxt('CSLL'), 'Deduções Da Receita'],
+  [normalizeTxt('IRPJ'), 'Deduções Da Receita'],
+  [normalizeTxt('Estorno para clientes'), 'Deduções Da Receita'],
+  [normalizeTxt('DARE - SC'), 'Deduções Da Receita'],
+  [normalizeTxt('Teen Power Impostos'), 'Deduções Da Receita'],
+  [normalizeTxt('Simples Nacional - DAS'), 'Deduções Da Receita'],
+  [normalizeTxt('Bonificações'), 'Deduções Da Receita'],
+  [normalizeTxt('Embalagens/Caixa de envio'), '2. Fornecedores'],
+  [normalizeTxt('Equipe - Prestadores de serviços'), '2. Fornecedores'],
+  [normalizeTxt('Mentoria'), '2. Fornecedores'],
+  [normalizeTxt('Embalagens/Caixas de envio'), '2. Fornecedores'],
+  [normalizeTxt('Transferência- Mister Wiz'), '2. Fornecedores'],
+  [normalizeTxt('Freelancer'), '2. Fornecedores'],
+  [normalizeTxt('Gráfica'), '2. Fornecedores'],
+  [normalizeTxt('Despesas com cartão de crédito'), '3. Despesas Financeiras'],
+  [normalizeTxt('Tarifas de Boletos'), '3. Despesas Financeiras'],
+  [normalizeTxt('Tarifas Bancárias'), '3. Despesas Financeiras'],
+  [normalizeTxt('Juros pagos'), '3. Despesas Financeiras'],
+  [normalizeTxt('Juros sobre empréstimo'), '3. Despesas Financeiras'],
+  [normalizeTxt('IOF'), '3. Despesas Financeiras'],
+  [normalizeTxt('Empréstimos de Bancos'), '3. Despesas Financeiras'],
+  [normalizeTxt('Empréstimos de Sócios'), '3. Despesas Financeiras'],
+  [normalizeTxt('Adiantamento a Sócios'), '3. Despesas Financeiras'],
+  [normalizeTxt('Empréstimos de Outras Instituições'), '3. Despesas Financeiras'],
+  [normalizeTxt('Entre Contas Empoderamento-Despesa'), '3. Despesas Financeiras'],
+  [normalizeTxt('Despesas Médicas'), '4. Despesas Com Pessoal'],
+  [normalizeTxt('Capacitação e Cursos'), '4. Despesas Com Pessoal'],
+  [normalizeTxt('Exames Médicos'), '4. Despesas Com Pessoal'],
+  [normalizeTxt('FGTS e Multa de FGTS'), '4. Despesas Com Pessoal'],
+  [normalizeTxt('Transporte Ônibus'), '4. Despesas Com Pessoal'],
+  [normalizeTxt('13º Salário - 2ª Parcela'), '4. Despesas Com Pessoal'],
+  [normalizeTxt('Roupas/Acessórios'), '4. Despesas Com Pessoal'],
+  [normalizeTxt('IRRF'), '4. Despesas Com Pessoal'],
+  [normalizeTxt('INSS sobre Pró-labore - GPS'), '4. Despesas Com Pessoal'],
+  [normalizeTxt('INSS sobre Salários - GPS'), '4. Despesas Com Pessoal'],
+  [normalizeTxt('Darf'), '4. Despesas Com Pessoal'],
+  [normalizeTxt('GRU Judicial'), '4. Despesas Com Pessoal'],
+  [normalizeTxt('Lanches e Refeições'), '4. Despesas Com Pessoal'],
+  [normalizeTxt('Plano de Saúde Sócios'), '4. Despesas Com Pessoal'],
+  [normalizeTxt('Plano de saúde'), '4. Despesas Com Pessoal'],
+  [normalizeTxt('Pró-labore'), '4. Despesas Com Pessoal'],
+  [normalizeTxt('Apoio'), '4. Despesas Com Pessoal'],
+  [normalizeTxt('Salários'), '4. Despesas Com Pessoal'],
+  [normalizeTxt('Recrutamento'), '4. Despesas Com Pessoal'],
+  [normalizeTxt('Segurança do Trabalho'), '4. Despesas Com Pessoal'],
+  [normalizeTxt('Teen Power Salarios'), '4. Despesas Com Pessoal'],
+  [normalizeTxt('Transporte (táxi, uber, gasolina e estac.)'), '4. Despesas Com Pessoal'],
+  [normalizeTxt('Vale-Transporte'), '4. Despesas Com Pessoal'],
+  [normalizeTxt('Despesas Pessoais dos Sócios'), '5. Despesas Administrativas'],
+  [normalizeTxt('Confraternizações'), '5. Despesas Administrativas'],
+  [normalizeTxt('13º Salário - 1ª Parcela'), '5. Despesas Administrativas'],
+  [normalizeTxt('Teen Power-Honorários contábeis'), '5. Despesas Administrativas'],
+  [normalizeTxt('Coworking'), '5. Despesas Administrativas'],
+  [normalizeTxt('Reembolso'), '5. Despesas Administrativas'],
+  [normalizeTxt('Assessoria Jurídica'), '5. Despesas Administrativas'],
+  [normalizeTxt('Honorários Contábeis'), '5. Despesas Administrativas'],
+  [normalizeTxt('Certificado Digital'), '5. Despesas Administrativas'],
+  [normalizeTxt('Materiais de Escritório'), '5. Despesas Administrativas'],
+  [normalizeTxt('Limpeza'), '5. Despesas Administrativas'],
+  [normalizeTxt('Telefonia'), '5. Despesas Administrativas'],
+  [normalizeTxt('Hospedagem'), '4.8 Despesas com Viagem'],
+  [normalizeTxt('Passagem aérea'), '4.8 Despesas com Viagem'],
+  [normalizeTxt('Aluguel'), '6. Despesas Com Infra-Estrutura'],
+  [normalizeTxt('Condomínio'), '6. Despesas Com Infra-Estrutura'],
+  [normalizeTxt('Consertos/Reposição de peças'), '6. Despesas Com Infra-Estrutura'],
+  [normalizeTxt('Benfeitorias em Bens de Terceiros'), '6. Despesas Com Infra-Estrutura'],
+  [normalizeTxt('manutenção e reforma'), '6. Despesas Com Infra-Estrutura'],
+  [normalizeTxt('Manutenção de Equipamentos'), '6. Despesas Com Infra-Estrutura'],
+  [normalizeTxt('Energia Elétrica'), '6. Despesas Com Infra-Estrutura'],
+  [normalizeTxt('Combustíveis'), '7. Despesas Logísticas'],
+  [normalizeTxt('Transporte Urbano (táxi, Uber)'), '7. Despesas Logísticas'],
+  [normalizeTxt('Frete/Correios/Motoboy'), '7. Despesas Logísticas'],
+  [normalizeTxt('Correios/Frete/Motoboy'), '7. Despesas Logísticas'],
+  [normalizeTxt('Estacionamento'), '7. Despesas Logísticas'],
+  [normalizeTxt('Pedágios'), '7. Despesas Logísticas'],
+  [normalizeTxt('ware'), 'Despesa com TI'],
+  [normalizeTxt('Memberkit - Plataforma CGP - SM'), 'Despesa com TI'],
+  [normalizeTxt('Streamyard - SM'), 'Despesa com TI'],
+  [normalizeTxt('Equipamentos eletrônicos - SM'), 'Despesa com TI'],
+  [normalizeTxt('Nuvem - Drive - SM'), 'Despesa com TI'],
+  [normalizeTxt('Sistema operacional - SM'), 'Despesa com TI'],
+  [normalizeTxt('Hospedagem SM'), 'Despesa com TI'],
+  [normalizeTxt('Teen Power SM'), 'Despesa com TI'],
+  [normalizeTxt('Vimeo - SM'), 'Despesa com TI'],
+  [normalizeTxt('Soundcloud - SM'), 'Despesa com TI'],
+  [normalizeTxt('Clickup SM'), 'Despesa com TI'],
+  [normalizeTxt('Telefonia SM'), 'Despesa com TI'],
+  [normalizeTxt('Programa/Ferramenta SM'), 'Despesa com TI'],
+  [normalizeTxt('Socialeds - SM'), 'Despesa com TI'],
+  [normalizeTxt('Agenda online - sistema op. SM'), 'Despesa com TI'],
+  [normalizeTxt('Guru'), 'Despesa com TI'],
+  [normalizeTxt('CRM SM'), 'Despesa com TI'],
+  [normalizeTxt('CRM'), 'Despesa com TI'],
+  [normalizeTxt('Computadores'), 'Despesa com TI'],
+  [normalizeTxt('Desplugados'), 'Despesa com TI'],
+  [normalizeTxt('Equipamentos eletrônicos'), 'Despesa com TI'],
+  [normalizeTxt('Internet'), 'Despesa com TI'],
+  [normalizeTxt('Plataforma ZOOM'), 'Despesa com TI'],
+  [normalizeTxt('Recarga/Plano Móvel'), 'Despesa com TI'],
+  [normalizeTxt('Software'), 'Despesa com TI'],
+  [normalizeTxt('Sistema operacional'), 'Despesa com TI'],
+  [normalizeTxt('Ferramenta comercial'), 'Despesas Com Marketing'],
+  [normalizeTxt('Ferramenta de Tecnologia'), 'Despesas Com Marketing'],
+  [normalizeTxt('Ferramenta de MKT'), 'Despesas Com Marketing'],
+  [normalizeTxt('Agência de Marketing'), 'Despesas Com Marketing'],
+  [normalizeTxt('Produção de vídeo'), 'Despesas Com Marketing'],
+  [normalizeTxt('Assessoria de imprensa'), 'Despesas Com Marketing'],
+  [normalizeTxt('Brindes para Clientes'), 'Despesas Com Marketing'],
+  [normalizeTxt('Doação'), 'Despesas Com Marketing'],
+  [normalizeTxt('Edição de vídeos'), 'Despesas Com Marketing'],
+  [normalizeTxt('Evento presencial'), 'Despesas Com Marketing'],
+  [normalizeTxt('Foto e Filmagem'), 'Despesas Com Marketing'],
+  [normalizeTxt('Influencers'), 'Despesas Com Marketing'],
+  [normalizeTxt('Make/Cabelo'), 'Despesas Com Marketing'],
+  [normalizeTxt('Presentes/bonificações'), 'Despesas Com Marketing'],
+  [normalizeTxt('Produtos Eventos'), 'Despesas Com Marketing'],
+  [normalizeTxt('Registros de Marca'), 'Despesas Com Marketing'],
+  [normalizeTxt('Teen Power-Acate'), 'Despesas Com Marketing'],
+  [normalizeTxt('Tráfego Pago'), 'Despesas Com Marketing'],
+  [normalizeTxt('07. Distribuição de Lucros'), 'Despesas Com Marketing'],
+  [normalizeTxt('Distribuição de Lucros'), 'Despesas Com Marketing'],
+]);
+
+function categoriaPaiCap(categoria){
+  return CAP_CATEGORIA_PAI.get(normalizeTxt(categoria)) || 'Outros';
+}
+
 /* ================== Ingestão: CAP / CAR (Empoderamento — Conta Azul) ==================
    Réplica exata do racional já usado no Google Sheets do Gustavo:
    - "Data Real": se tem Data do último pagamento, usa ela (é quando o caixa mexeu de
@@ -144,154 +272,6 @@ function readDateCol(r, colName){
      parcela (projeção). Sempre em módulo — Pagamentos e Recebimentos são positivos;
      só o Saldo Acumulado é o líquido (Recebimentos − Pagamentos).
    - Categoria 1 / Categoria 2: dois níveis de agrupamento, iguais aos da planilha. */
-// Estrutura oficial do fluxo atual da Empoderamento.
-// A base traz a categoria detalhada em Categoria 1; o grupo-pai é a conta
-// gerencial usada no fluxo homologado.
-const EMPODERAMENTO_GRUPOS = {
-  'Investimento CDB':'1. Investimentos',
-  'Consultoria/Mentoria':'1. Investimentos',
-
-  'ISS sobre Faturamento':'Deduções Da Receita',
-  'Alvará de Funcionamento':'Deduções Da Receita',
-  'Comissões de Vendedores':'Deduções Da Receita',
-  'PIS':'Deduções Da Receita',
-  'Cofins':'Deduções Da Receita',
-  'COFINS':'Deduções Da Receita',
-  'CSLL':'Deduções Da Receita',
-  'IRPJ':'Deduções Da Receita',
-  'Estorno para clientes':'Deduções Da Receita',
-  'DARE - SC':'Deduções Da Receita',
-  'Teen Power Impostos':'Deduções Da Receita',
-  'Simples Nacional - DAS':'Deduções Da Receita',
-  'Bonificações':'Deduções Da Receita',
-
-  'Embalagens/Caixa de envio':'2. Fornecedores',
-  'Equipe - Prestadores de serviços':'2. Fornecedores',
-  'Mentoria':'2. Fornecedores',
-  'Embalagens/Caixas de envio':'2. Fornecedores',
-  'Transferência- Mister Wiz':'2. Fornecedores',
-  'Freelancer':'2. Fornecedores',
-  'Gráfica':'2. Fornecedores',
-
-  'Despesas com cartão de crédito':'3. Despesas Financeiras',
-  'Tarifas de Boletos':'3. Despesas Financeiras',
-  'Tarifas Bancárias':'3. Despesas Financeiras',
-  'Juros pagos':'3. Despesas Financeiras',
-  'Juros sobre empréstimo':'3. Despesas Financeiras',
-  'IOF':'3. Despesas Financeiras',
-  'Empréstimos de Bancos':'3. Despesas Financeiras',
-  'Empréstimos de Sócios':'3. Despesas Financeiras',
-  'Adiantamento a Sócios':'3. Despesas Financeiras',
-  'Empréstimos de Outras Instituições':'3. Despesas Financeiras',
-  'Entre Contas Empoderamento-Despesa':'3. Despesas Financeiras',
-
-  'Despesas Médicas':'4. Despesas Com Pessoal',
-  'Capacitação e Cursos':'4. Despesas Com Pessoal',
-  'Exames Médicos':'4. Despesas Com Pessoal',
-  'FGTS e Multa de FGTS':'4. Despesas Com Pessoal',
-  'Transporte Ônibus':'4. Despesas Com Pessoal',
-  '13º Salário - 2ª Parcela':'4. Despesas Com Pessoal',
-  'Roupas/Acessórios':'4. Despesas Com Pessoal',
-  'IRRF':'4. Despesas Com Pessoal',
-  'INSS sobre Pró-labore - GPS':'4. Despesas Com Pessoal',
-  'INSS sobre Salários - GPS':'4. Despesas Com Pessoal',
-  'Darf':'4. Despesas Com Pessoal',
-  'GRU Judicial':'4. Despesas Com Pessoal',
-  'Lanches e Refeições':'4. Despesas Com Pessoal',
-  'Plano de Saúde Sócios':'4. Despesas Com Pessoal',
-  'Plano de saúde':'4. Despesas Com Pessoal',
-  'Pró-labore':'4. Despesas Com Pessoal',
-  'Apoio':'4. Despesas Com Pessoal',
-  'Salários':'4. Despesas Com Pessoal',
-  'Recrutamento':'4. Despesas Com Pessoal',
-  'Segurança do Trabalho':'4. Despesas Com Pessoal',
-  'Teen Power Salarios':'4. Despesas Com Pessoal',
-  'Transporte (táxi, uber, gasolina e estac.)':'4. Despesas Com Pessoal',
-  'Vale-Transporte':'4. Despesas Com Pessoal',
-
-  'Despesas Pessoais dos Sócios':'5. Despesas Administrativas',
-  'Confraternizações':'5. Despesas Administrativas',
-  '13º Salário - 1ª Parcela':'5. Despesas Administrativas',
-  'Teen Power-Honorários contábeis':'5. Despesas Administrativas',
-  'Coworking':'5. Despesas Administrativas',
-  'Reembolso':'5. Despesas Administrativas',
-  'Assessoria Jurídica':'5. Despesas Administrativas',
-  'Honorários Contábeis':'5. Despesas Administrativas',
-  'Certificado Digital':'5. Despesas Administrativas',
-  'Materiais de Escritório':'5. Despesas Administrativas',
-  'Limpeza':'5. Despesas Administrativas',
-  'Telefonia':'5. Despesas Administrativas',
-
-  'Hospedagem':'4.8 Despesas com Viagem',
-  'Passagem aérea':'4.8 Despesas com Viagem',
-
-  'Aluguel':'6. Despesas Com Infra-Estrutura',
-  'Condomínio':'6. Despesas Com Infra-Estrutura',
-  'Consertos/Reposição de peças':'6. Despesas Com Infra-Estrutura',
-  'Benfeitorias em Bens de Terceiros':'6. Despesas Com Infra-Estrutura',
-  'manutenção e reforma':'6. Despesas Com Infra-Estrutura',
-  'Manutenção de Equipamentos':'6. Despesas Com Infra-Estrutura',
-  'Energia Elétrica':'6. Despesas Com Infra-Estrutura',
-
-  'Combustíveis':'7. Despesas Logísticas',
-  'Transporte Urbano (táxi, Uber)':'7. Despesas Logísticas',
-  'Frete/Correios/Motoboy':'7. Despesas Logísticas',
-  'Correios/Frete/Motoboy':'7. Despesas Logísticas',
-  'Estacionamento':'7. Despesas Logísticas',
-  'Pedágios':'7. Despesas Logísticas',
-
-  'ware':'Despesa com TI',
-  'Memberkit - Plataforma CGP - SM':'Despesa com TI',
-  'Streamyard - SM':'Despesa com TI',
-  'Equipamentos eletrônicos - SM':'Despesa com TI',
-  'Nuvem - Drive - SM':'Despesa com TI',
-  'Sistema operacional - SM':'Despesa com TI',
-  'Hospedagem SM':'Despesa com TI',
-  'Teen Power SM':'Despesa com TI',
-  'Vimeo - SM':'Despesa com TI',
-  'Soundcloud - SM':'Despesa com TI',
-  'Clickup SM':'Despesa com TI',
-  'Telefonia SM':'Despesa com TI',
-  'Programa/Ferramenta SM':'Despesa com TI',
-  'Socialeds - SM':'Despesa com TI',
-  'Agenda online - sistema op. SM':'Despesa com TI',
-  'Guru':'Despesa com TI',
-  'CRM SM':'Despesa com TI',
-  'CRM':'Despesa com TI',
-  'Computadores':'Despesa com TI',
-  'Desplugados':'Despesa com TI',
-  'Equipamentos eletrônicos':'Despesa com TI',
-  'Internet':'Despesa com TI',
-  'Plataforma ZOOM':'Despesa com TI',
-  'Recarga/Plano Móvel':'Despesa com TI',
-  'Software':'Despesa com TI',
-  'Sistema operacional':'Despesa com TI',
-
-  'Ferramenta comercial':'Despesas Com Marketing',
-  'Ferramenta de Tecnologia':'Despesas Com Marketing',
-  'Ferramenta de MKT':'Despesas Com Marketing',
-  'Agência de Marketing':'Despesas Com Marketing',
-  'Produção de vídeo':'Despesas Com Marketing',
-  'Assessoria de imprensa':'Despesas Com Marketing',
-  'Brindes para Clientes':'Despesas Com Marketing',
-  'Doação':'Despesas Com Marketing',
-  'Edição de vídeos':'Despesas Com Marketing',
-  'Evento presencial':'Despesas Com Marketing',
-  'Foto e Filmagem':'Despesas Com Marketing',
-  'Influencers':'Despesas Com Marketing',
-  'Make/Cabelo':'Despesas Com Marketing',
-  'Presentes/bonificações':'Despesas Com Marketing',
-  'Produtos Eventos':'Despesas Com Marketing',
-  'Registros de Marca':'Despesas Com Marketing',
-  'Teen Power-Acate':'Despesas Com Marketing',
-  'Tráfego Pago':'Despesas Com Marketing',
-
-  'Distribuição de Lucros':'07. Distribuição de Lucros'
-};
-function grupoEmpoderamento(categoria){
-  return EMPODERAMENTO_GRUPOS[categoria] || 'Outros';
-}
-
 // tipoLancamento: 'pagar' (CAP) ou 'receber' (CAR)
 function rowsFromCapCar(table, tipoLancamento){
   const raw = parseGvizRows(table);
@@ -299,55 +279,54 @@ function rowsFromCapCar(table, tipoLancamento){
 
   return raw.map(r=>{
     /*
-      Regra homologada na planilha:
-      CAP:
-        Data Real = se sem pagamento e vencida -> "Em aberto";
-                    senão, data do pagamento; se não houver, vencimento.
-        Valor = valor pago, senão valor original.
+      O Hub recria internamente as colunas de apoio da planilha:
 
       CAR:
-        Data Real = se sem recebimento e vencida -> "Em aberto";
-                    senão, data do recebimento; se não houver, prevista.
-        Valor = valor recebido, senão valor original.
+        Data Real = SE(E(Z="";F<HOJE());"Em aberto";SE(Z>0;Z;F))
+        Valor     = SE(S>0;S;M)
 
-      O Hub usa prioritariamente as colunas de apoio "Data Real" e "Valor".
+      CAP:
+        Data Real = SE(E(Z="";E<HOJE());"Em aberto";SE(Z<>"";Z;E))
+        Valor     = SE(S>0;S;M)
+
+      Portanto, não dependemos das colunas auxiliares Data Real/Valor.
     */
-    // Leitura por posição fixa das colunas homologadas.
-    // CAP: AX=Data Real, AY=Valor, AC=Categoria 1, AI=Categoria 2.
-    // CAR: AK=Data Real, AN=Valor, AC=Categoria 1, AG=Categoria 2.
-    const isCap = tipoLancamento==='pagar';
-    let date = parseDateCell(getCellByIndex(r, isCap ? 49 : 36));
+    const dataPrevista = tipoLancamento==='pagar'
+      ? readDateCol(r,'data de vencimento')
+      : readDateCol(r,'data prevista');
 
-    const dataVenc = parseDateCell(getCellByIndex(r, isCap ? 4 : 5)) ||
-                     parseDateCell(getCellByIndex(r, isCap ? 5 : 4));
-    const dataBaixa = parseDateCell(getCellByIndex(r, 25));
+    const dataBaixa = readDateCol(r,'data do ultimo pagamento');
 
-    if(!date){
-      if(!dataBaixa && (!dataVenc || dataVenc < hoje)) return null;
-      date = dataBaixa || dataVenc;
-    }
+    // Vencido sem baixa = "Em aberto" e fica fora do fluxo.
+    if(!dataBaixa && (!dataPrevista || dataPrevista < hoje)) return null;
 
+    const date = dataBaixa || dataPrevista;
     if(!date) return null;
 
-    const categoria1 = (getCellByIndex(r, 28) || 'Sem categoria').toString().trim();
-    const categoria2 = (getCellByIndex(r, isCap ? 34 : 32) || '').toString().trim();
-
-    const valorApoio = Math.abs(parseMoneyBR(getCellByIndex(r, isCap ? 50 : 39)));
-    const valorRealizado = Math.abs(parseMoneyBR(getCellByIndex(r, 18)));
-    const valorOriginal = Math.abs(parseMoneyBR(getCellByIndex(r, 12)));
-
-    const valor = valorApoio > 0
-      ? valorApoio
-      : (valorRealizado > 0 ? valorRealizado : valorOriginal);
-
+    const valorRealizado = Math.abs(parseMoneyBR(
+      getColNormalized(
+        r,
+        tipoLancamento==='pagar'
+          ? 'valor total pago da parcela (r$)'
+          : 'valor total recebido da parcela (r$)'
+      )
+    ));
+    const valorOriginal = Math.abs(parseMoneyBR(
+      getColNormalized(r,'valor original da parcela (r$)')
+    ));
+    const valor = valorRealizado > 0 ? valorRealizado : valorOriginal;
     if(!valor) return null;
 
-    const conta = (getCellByIndex(r,24) || 'Não informada').toString().trim();
+    const categoriaOrigem = (getColNormalized(r,'categoria 1') || 'Sem categoria').toString().trim();
+    const categoria2Origem = (getColNormalized(r,'categoria 2') || '').toString().trim();
 
-    /*
-      O CAP original soma somente estas contas:
-      Inter, Sicredi e Teen Power-Sicredi.
-    */
+    const conta = (
+      getColNormalized(r,'conta bancaria') ||
+      getColNormalized(r,'conta') ||
+      'Não informada'
+    ).toString().trim();
+
+    // O CAP original soma somente Inter, Sicredi e Teen Power-Sicredi.
     if(tipoLancamento==='pagar'){
       const contaNorm = normalizeTxt(conta);
       const permitidas = new Set(['inter','sicredi','teen power-sicredi']);
@@ -369,38 +348,31 @@ function rowsFromCapCar(table, tipoLancamento){
     const documento = (
       getColNormalized(r,'nota fiscal') ||
       getColNormalized(r,'codigo de referencia') ||
-      getColNormalized(r,'código de referência') ||
       ''
     ).toString().trim();
 
     const historico = (
       getColNormalized(r,'descricao') ||
-      getColNormalized(r,'descrição') ||
       getColNormalized(r,'observacoes') ||
-      getColNormalized(r,'observações') ||
       ''
     ).toString().trim();
 
     /*
-      Hierarquia:
-      RECEBIMENTOS/PAGAMENTOS
-        Conta contábil (Categoria 1)
-          Categoria detalhada (Categoria 2)
-
-      Mantemos Categoria 1 como grupo principal porque é assim que o fluxo
-      original da Empoderamento está estruturado.
+      No CAR, Categoria 1 aparece diretamente dentro de RECEBIMENTOS.
+      No CAP, Categoria 1 é a categoria detalhada e a conta-pai é a
+      estrutura gerencial do fluxo atual da Empoderamento.
     */
     const contaContabil = tipoLancamento==='pagar'
-      ? grupoEmpoderamento(categoria1)
-      : (categoria2 || categoria1 || 'Sem categoria');
+      ? categoriaPaiCap(categoriaOrigem)
+      : categoriaOrigem;
     const categoriaDetalhe = tipoLancamento==='pagar'
-      ? categoria1
-      : (categoria2 ? categoria1 : '');
+      ? categoriaOrigem
+      : categoria2Origem;
 
     return {
       date,
-      categoria1,
-      categoria2,
+      categoria1:categoriaOrigem,
+      categoria2:categoria2Origem,
       contaContabil,
       categoriaDetalhe,
       grupo,
@@ -871,7 +843,7 @@ function toggleRowNode(label, level){
 }
 async function doLogout(){ await sb.auth.signOut(); window.location.href = LOGIN_URL; }
 
-/* ================== Limite da Conta (fixo em R$ 0 pras duas empresas) ================== */
+/* ================== Limite da Conta ================== */
 function openSaldoInicialModal(){ el('saldoInicialModal').classList.add('show'); }
 function closeSaldoInicialModal(){ el('saldoInicialModal').classList.remove('show'); }
 function openAjustesManuaisModal(){ el('ajustesManuaisModal').classList.add('show'); }
