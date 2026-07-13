@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mural · Hub GPSBI</title>
+<link rel="stylesheet" href="theme.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+.post-item{background:var(--navy3);border-radius:12px;padding:16px 18px;margin-bottom:12px;}
+.post-item.pinned{border:1px solid rgba(245,185,66,.4);}
+.post-head{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+.post-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),var(--blue));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff;flex:none;}
+.post-meta{flex:1;min-width:0;}
+.post-author{font-size:12.5px;font-weight:700;}
+.post-date{font-size:10.5px;color:var(--text3);}
+.pin-badge{font-size:10px;background:rgba(245,185,66,.15);color:var(--gold);padding:3px 8px;border-radius:999px;font-weight:700;flex:none;}
+.post-title{font-size:14px;font-weight:800;margin-bottom:4px;}
+.post-msg{font-size:13px;color:var(--text2);line-height:1.5;white-space:pre-wrap;margin-bottom:10px;}
+.post-actions{display:flex;align-items:center;gap:10px;}
+.like-btn{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:var(--navy4);border:1px solid var(--border2);cursor:pointer;font-size:12px;font-weight:700;color:var(--text2);}
+.like-btn.liked{background:rgba(58,233,209,.15);color:var(--cyan);border-color:rgba(58,233,209,.3);}
+.post-del{margin-left:auto;background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:12px;}
+.post-del:hover{color:var(--red);}
+.read-list{margin-top:10px;padding:10px 12px;background:var(--navy4);border-radius:8px;font-size:11.5px;color:var(--text2);line-height:1.6;}
+</style>
+</head>
+<body>
+
+<div class="loading-screen" id="loadingScreen">
+  <div class="spinner"></div>
+  <p>Carregando o mural...</p>
+</div>
+
+<div id="mainContent" style="display:none;">
+  <div class="content">
+    <div class="card" id="newPostCard" style="display:none;">
+      <div class="card-title">📣 Novo comunicado</div>
+      <div class="card-sub">Só administradores podem publicar — todo mundo vê.</div>
+      <div class="field-group">
+        <label class="field-label">Título</label>
+        <input type="text" id="postTitulo" placeholder="Ex: Nova meta de julho, Bem-vindo à equipe...">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Mensagem</label>
+        <textarea id="postMensagem" placeholder="Escreva o comunicado..."></textarea>
+      </div>
+      <div class="field-group" style="display:flex;align-items:center;gap:8px;">
+        <input type="checkbox" id="postFixado" style="width:auto;">
+        <label for="postFixado" style="font-size:12.5px;color:var(--text2);">Fixar no topo</label>
+      </div>
+      <button class="btn btn-primary" onclick="submitPost()">Publicar</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Mural da Equipe</div>
+      <div class="card-sub">Comunicados e avisos internos.</div>
+      <div id="postsWrap"></div>
+    </div>
+  </div>
+</div>
+
+<script src="nav.js"></script>
+<script>
+// TODO (Gustavo): preencher com o projeto Supabase real da Uuizz.
+const SUPABASE_URL = '{{UUIZZ_SUPABASE_URL}}';
+const SUPABASE_ANON_KEY = '{{UUIZZ_SUPABASE_ANON_KEY}}';
+const LOGIN_URL = 'index.html';
+const OWNER_EMAILS = ['daniela@empoderamentoadolescente.com.br', 'gustavosilveira@gpsbi.com.br'];
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+function isOwner(email){ return OWNER_EMAILS.includes((email||'').toLowerCase()); }
+function nameFromEmail(email){ return email.split('@')[0].split('.').map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' '); }
+function el(id){ return document.getElementById(id); }
+
+let currentUser=null, userEmail='', userName='', userRole='vendor';
+
+async function init(){
+  const { data } = await sb.auth.getSession();
+  if(!data.session){ window.location.replace(LOGIN_URL); return; }
+  currentUser = data.session.user;
+  userEmail = currentUser.email;
+  userRole = isOwner(userEmail) ? 'owner' : 'vendor';
+  userName = nameFromEmail(userEmail);
+
+  renderAppNav({ activePage:'mural.html', userLabel:userName, userRole, onLogout: doLogout, sb, currentUser });
+  if(userRole==='owner') el('newPostCard').style.display='block';
+
+  el('loadingScreen').style.display='none';
+  el('mainContent').style.display='block';
+  await loadPosts();
+}
+
+async function loadPosts(){
+  const { data: posts, error } = await sb.from('comunicados').select('*').order('fixado',{ascending:false}).order('criado_em',{ascending:false});
+  if(error){ el('postsWrap').innerHTML = '<div class="empty-state">⚠️ Não consegui carregar o mural. Verifique se a tabela comunicados existe no Supabase.</div>'; return; }
+  const { data: reacoes } = await sb.from('comunicado_reacoes').select('*');
+  const { data: leituras } = await sb.from('comunicado_leituras').select('*');
+  renderPosts(posts||[], reacoes||[], leituras||[]);
+}
+
+function renderPosts(posts, reacoes, leituras){
+  if(!posts.length){
+    el('postsWrap').innerHTML = '<div class="empty-state"><div class="icon">📣</div>Nenhum comunicado ainda.</div>';
+    return;
+  }
+  el('postsWrap').innerHTML = posts.map(p=>{
+    const likes = reacoes.filter(r=>r.comunicado_id===p.id);
+    const liked = likes.some(r=>r.usuario_email===userEmail);
+    const leiturasPost = leituras.filter(l=>l.comunicado_id===p.id);
+    const jaLeu = leiturasPost.some(l=>l.usuario_email===userEmail);
+    const initials = (p.autor_nome||'--').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+    const date = new Date(p.criado_em).toLocaleString('pt-BR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+    const listaLeitores = leiturasPost.map(l=>`${l.usuario_nome||l.usuario_email} · ${new Date(l.lido_em).toLocaleString('pt-BR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}`).join('<br>') || 'Ninguém confirmou leitura ainda.';
+    return `<div class="post-item ${p.fixado?'pinned':''}">
+      <div class="post-head">
+        <div class="post-avatar">${initials}</div>
+        <div class="post-meta"><div class="post-author">${p.autor_nome||p.autor_email}</div><div class="post-date">${date}</div></div>
+        ${p.fixado ? '<span class="pin-badge">📌 Fixado</span>' : ''}
+      </div>
+      <div class="post-title">${p.titulo}</div>
+      <div class="post-msg">${(p.mensagem||'').replace(/</g,'&lt;')}</div>
+      <div class="post-actions">
+        <button class="like-btn ${liked?'liked':''}" onclick="toggleLike(${p.id}, ${liked})">👍 ${likes.length||''}</button>
+        <button class="like-btn ${jaLeu?'liked':''}" onclick="toggleRead(${p.id}, ${jaLeu})" ${jaLeu?'disabled':''}>${jaLeu?'✅ Lido, de acordo':'☑️ Marcar como lido'}</button>
+        ${userRole==='owner' ? `<button class="like-btn" onclick="toggleReadList(${p.id})" title="${listaLeitores.replace(/"/g,'&quot;')}">👀 ${leiturasPost.length} leram</button>` : ''}
+        ${userRole==='owner' ? `<button class="post-del" onclick="deletePost(${p.id})">Excluir</button>` : ''}
+      </div>
+      <div class="read-list" id="readList_${p.id}" style="display:none;">${listaLeitores}</div>
+    </div>`;
+  }).join('');
+}
+function toggleReadList(id){
+  const el2 = document.getElementById('readList_'+id);
+  if(el2) el2.style.display = el2.style.display==='none' ? 'block' : 'none';
+}
+async function toggleRead(comunicadoId, already){
+  if(already) return;
+  const { error } = await sb.from('comunicado_leituras').insert({ comunicado_id:comunicadoId, usuario_email:userEmail, usuario_nome:userName });
+  if(!error) await loadPosts();
+  else alert('Erro: '+error.message);
+}
+
+async function submitPost(){
+  const titulo = el('postTitulo').value.trim();
+  const mensagem = el('postMensagem').value.trim();
+  const fixado = el('postFixado').checked;
+  if(!titulo || !mensagem) return;
+  const { error } = await sb.from('comunicados').insert({ autor_email:userEmail, autor_nome:userName, titulo, mensagem, fixado });
+  if(!error){ el('postTitulo').value=''; el('postMensagem').value=''; el('postFixado').checked=false; await loadPosts(); }
+  else alert('Erro ao publicar: '+error.message);
+}
+async function toggleLike(comunicadoId, liked){
+  if(liked) await sb.from('comunicado_reacoes').delete().eq('comunicado_id', comunicadoId).eq('usuario_email', userEmail);
+  else await sb.from('comunicado_reacoes').insert({ comunicado_id:comunicadoId, usuario_email:userEmail });
+  await loadPosts();
+}
+async function deletePost(id){
+  if(!confirm('Excluir esse comunicado?')) return;
+  await sb.from('comunicados').delete().eq('id', id);
+  await loadPosts();
+}
+async function doLogout(){ await sb.auth.signOut(); window.location.href = LOGIN_URL; }
+
+init();
+</script>
+</body>
+</html>
