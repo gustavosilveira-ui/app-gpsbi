@@ -48,7 +48,7 @@ function renderAppNav({ activePage, userLabel, userRole, onLogout, sb, currentUs
 
   const html = `
   <div class="app-topbar">
-    <div class="app-brand"><span class="dot"></span> Hub Uuizz</div>
+    <div class="app-brand"><span class="dot"></span> Hub GPSBI</div>
     <nav class="app-nav">${navLinks}</nav>
     <div class="app-right">
       <div class="app-theme-toggle" id="appThemeToggle">
