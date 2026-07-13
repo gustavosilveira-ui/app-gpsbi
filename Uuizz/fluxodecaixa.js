@@ -598,21 +598,22 @@ function buildRecebimentosChildren(scoped){
 function buildPagamentosChildren(scoped){
   const rowsGrupo = scoped.filter(isPagamento);
   const gruposPresentes = Array.from(new Set(rowsGrupo.map(r=>r.grupoDisplay || 'Outros')));
-  const ordemGrupos = ['1. Investimentos','Deduções Da Receita','2. Fornecedores','3. Despesas Financeiras','4. Despesas Com Pessoal','5. Despesas Administrativas','4.8 Despesas com Viagem','6. Despesas Com Infra-Estrutura','7. Despesas Logísticas','Despesa com TI','Despesas Com Marketing','Outros'];
+  const ordemGrupos = ['1. Investimentos','Deduções Da Receita','2. Fornecedores','3. Despesas Financeiras','4. Despesas Com Pessoal','5. Despesas Administrativas','4.8 Despesas com Viagem','6. Despesas Com Infra-Estrutura','7. Despesas Logísticas','Despesa com TI','Despesas Com Marketing','Outros','Lançamentos Manuais (GPS)'];
   gruposPresentes.sort((a,b)=>{
     const ia = ordemGrupos.indexOf(a), ib = ordemGrupos.indexOf(b);
     return (ia<0?999:ia) - (ib<0?999:ib);
   });
   return gruposPresentes.map(g=>{
     const rowsG = rowsGrupo.filter(r=>(r.grupoDisplay||'Outros')===g);
+    const ehManual = g === 'Lançamentos Manuais (GPS)';
     const categorias = Array.from(new Set(rowsG.map(r=>r.categoria))).sort((a,b)=>a.localeCompare(b,'pt-BR'));
     const children = categorias.map(c=>({
-      type:'cat', level:2, label:c, signHint:'neg',
+      type:'cat', level:2, label:c, signHint:'neg', mostrarNegativo:ehManual,
       filter: r=>r.grupo==='PAGAMENTOS' && (r.grupoDisplay||'Outros')===g && r.categoria===c,
       expanded:false, children:[]
     }));
     return {
-      type:'grupo', level:1, label:g, signHint:'neg',
+      type:'grupo', level:1, label:g, signHint:'neg', mostrarNegativo:ehManual,
       filter: r=>r.grupo==='PAGAMENTOS' && (r.grupoDisplay||'Outros')===g,
       expanded:false, children
     };
@@ -630,14 +631,6 @@ function buildRowTree(){
     pagamentosNode,
   ];
 
-  const ajustesRows = scoped.filter(r=>r.grupo==='AJUSTES_MANUAIS');
-  const ajustesCats = Array.from(new Set(ajustesRows.map(r=>r.categoria))).sort((a,b)=>a.localeCompare(b,'pt-BR'));
-  if(ajustesCats.length){
-    nodes.push({
-      type:'ajustes', level:0, label:'LANÇAMENTOS MANUAIS (GPS)', filter:r=>r.grupo==='AJUSTES_MANUAIS', expanded:false,
-      children: ajustesCats.map(c=>({ type:'cat', level:1, label:c, filter: r=>r.grupo==='AJUSTES_MANUAIS'&&r.categoria===c, expanded:false, children:[] }))
-    });
-  }
   return nodes;
 }
 function flattenRows(nodes){
@@ -670,7 +663,7 @@ function renderDebugStats(){
   const totalMW = scoped.filter(r=>r.empresa==='Mister Wiz').length;
   const totalRec = scoped.filter(isRecebimento).length;
   const totalPag = scoped.filter(isPagamento).length;
-  const totalAjustes = scoped.filter(r=>r.grupo==='AJUSTES_MANUAIS').length;
+  const totalAjustes = scoped.filter(r=>r.fonte==='Manual').length;
   wrap.textContent = `🔍 Diagnóstico (só GPS): ${scoped.length} linhas no escopo atual (${empresaFiltro}) · Empoderamento: ${totalEmp} · Mister Wiz: ${totalMW} · Recebimentos: ${totalRec} · Pagamentos: ${totalPag} · Lançamentos manuais: ${totalAjustes} · CAP modo: ${debugModoCapCar.CAP||'?'} · CAR modo: ${debugModoCapCar.CAR||'?'}`;
 }
 
@@ -729,7 +722,8 @@ function renderTable(){
         const hoverCls = negativo ? ' fc-hover-despesa' : ' fc-hover-receita';
         const cellCls = `${c.isToday?'fc-today':''}${clickable?(' fc-clickable-cell'+hoverCls):''}`.trim();
         const onClick = clickable ? ` onclick="openFluxoFicha('${rowId}','${colId}')"` : '';
-        tbody += `<td class="${cellCls}"${onClick}>${fmtBRL(val)}</td>`;
+        const valExibido = rNode.mostrarNegativo ? -Math.abs(val) : val;
+        tbody += `<td class="${cellCls}"${onClick}>${fmtBRL(valExibido)}</td>`;
       }
     });
     tbody += '</tr>';
@@ -764,14 +758,15 @@ function openFluxoFicha(rowId,colId){
 
   const negativo = rNode.signHint === 'neg';
   const corValor = negativo ? 'var(--red)' : '#4F8F3A';
+  const sinal = rNode.mostrarNegativo ? -1 : 1;
 
   const detailRows = rowsForFicha(rNode,col.start,col.end);
-  const total = detailRows.reduce((s,r)=>s+r.valor,0);
+  const total = detailRows.reduce((s,r)=>s+r.valor,0) * sinal;
 
   const porConta = {};
   detailRows.forEach(r=>{
     const conta = (r.empresa? r.empresa+' · ':'') + (r.conta || r.fonte || 'Não informada');
-    porConta[conta] = (porConta[conta]||0) + r.valor;
+    porConta[conta] = (porConta[conta]||0) + r.valor*sinal;
   });
 
   const contas = Object.entries(porConta).sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]));
@@ -801,7 +796,7 @@ function openFluxoFicha(rowId,colId){
       <td class="wrap" title="${escapeFichaHtml(nome)}">${escapeFichaHtml(nome)}</td>
       <td class="small" title="${escapeFichaHtml(doc)}">${escapeFichaHtml(doc)}</td>
       <td class="num">${pct.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%</td>
-      <td class="valor-modal" style="color:${corValor}">${fmtNumeroFicha(r.valor)}</td>
+      <td class="valor-modal" style="color:${corValor}">${fmtNumeroFicha(r.valor*sinal)}</td>
     </tr>`;
   }).join('');
 
@@ -939,9 +934,13 @@ let ajustesManuais = [];
 async function loadAjustesManuais(){
   const { data, error } = await sb.from('fluxo_ajustes_manuais').select('*').order('data',{ascending:true});
   ajustesManuais = (!error && data) ? data : [];
-  rows = rows.filter(r=>r.grupo!=='AJUSTES_MANUAIS');
+  rows = rows.filter(r=>r.fonte!=='Manual');
   ajustesManuais.forEach(a=>{
-  rows.push({ date:a.data, categoria: a.descricao || 'Lançamento manual', grupoDisplay:null, grupo:'AJUSTES_MANUAIS', valor:a.valor, signedValor:a.valor, conta:'Lançamentos manuais', empresa:a.empresa, fonte:'Manual' });
+    const grupo = a.valor >= 0 ? 'RECEBIMENTOS' : 'PAGAMENTOS';
+    const grupoDisplay = grupo==='PAGAMENTOS' ? 'Lançamentos Manuais (GPS)' : null;
+    // valor fica sempre em módulo (soma certinho no TOTAL de Pagamentos/Recebimentos);
+    // signedValor mantém o sinal original pro Saldo Acumulado.
+    rows.push({ date:a.data, categoria: a.descricao || 'Ajuste', grupoDisplay, grupo, valor:Math.abs(a.valor), signedValor:a.valor, conta:'Lançamentos manuais', nome:a.descricao, empresa:a.empresa, fonte:'Manual' });
   });
   rows.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
   renderAjustesManuaisList();
