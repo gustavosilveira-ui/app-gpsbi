@@ -288,19 +288,45 @@ function resolveGrupoPagamento(categoria){
      (ex: "4. Despesas Com Pessoal") vem do mapa fixo CATEGORIA_GRUPO_PAGAMENTOS,
      que reflete o plano de contas real que o Gustavo já usa no Google Sheets. */
 // tipoLancamento: 'pagar' (CAP) ou 'receber' (CAR)
+function tableHasColumn(rawRows, normalizedKey){
+  if(!rawRows.length) return false;
+  return Object.keys(rawRows[0]).some(k=>normalizeTxt(k)===normalizedKey);
+}
+const debugModoCapCar = {}; // { CAP: 'apoio'|'manual', CAR: 'apoio'|'manual' }
 function rowsFromCapCar(table, tipoLancamento){
   const raw = parseGvizRows(table);
+  // A planilha conectada pode ou não já ter as colunas de apoio "Data Real"/"Valor"
+  // (o Gustavo mantém elas num arquivo de trabalho à parte). Se existirem, usa
+  // direto — é a mesma fonte que as fórmulas dele leem. Se não, recalcula aqui.
+  const usaColunasDeApoio = tableHasColumn(raw, 'data real') && tableHasColumn(raw, 'valor');
+  debugModoCapCar[tipoLancamento==='pagar'?'CAP':'CAR'] = usaColunasDeApoio ? 'apoio' : 'manual';
+  const hoje = todayISO();
+
   return raw.map(r=>{
-    const dataRealRaw = getColNormalized(r, 'data real');
-    if(!dataRealRaw) return null;
-    if(typeof dataRealRaw === 'string' && normalizeTxt(dataRealRaw) === 'em aberto') return null; // vencida e não paga: fora do fluxo
+    let date, valor;
 
-    const date = parseDateCell(typeof dataRealRaw==='object' && dataRealRaw!==null ? (dataRealRaw.v||dataRealRaw.f) : dataRealRaw);
-    if(!date) return null;
+    if(usaColunasDeApoio){
+      const dataRealRaw = getColNormalized(r, 'data real');
+      if(!dataRealRaw) return null;
+      if(typeof dataRealRaw === 'string' && normalizeTxt(dataRealRaw) === 'em aberto') return null; // vencida e não paga: fora do fluxo
+      date = parseDateCell(typeof dataRealRaw==='object' && dataRealRaw!==null ? (dataRealRaw.v||dataRealRaw.f) : dataRealRaw);
+      if(!date) return null;
 
-    const valorRaw = getColNormalized(r, 'valor');
-    const valor = Math.abs(parseMoneyBR(typeof valorRaw==='object' && valorRaw!==null ? (valorRaw.v ?? valorRaw.f) : valorRaw));
-    if(!valor) return null;
+      const valorRaw = getColNormalized(r, 'valor');
+      valor = Math.abs(parseMoneyBR(typeof valorRaw==='object' && valorRaw!==null ? (valorRaw.v ?? valorRaw.f) : valorRaw));
+      if(!valor) return null;
+    } else {
+      const dataVenc = tipoLancamento==='pagar' ? readDateCol(r,'data de vencimento') : readDateCol(r,'data prevista');
+      const dataPagto = readDateCol(r,'data do ultimo pagamento');
+      if(!dataPagto && (!dataVenc || dataVenc < hoje)) return null; // vencida e não paga: fora do fluxo
+      date = dataPagto || dataVenc;
+      if(!date) return null;
+
+      const valorRealizado = Math.abs(parseMoneyBR(getColNormalized(r, tipoLancamento==='pagar' ? 'valor total pago da parcela (r$)' : 'valor total recebido da parcela (r$)')));
+      const valorOriginal = Math.abs(parseMoneyBR(getColNormalized(r, 'valor original da parcela (r$)')));
+      valor = valorRealizado > 0 ? valorRealizado : valorOriginal;
+      if(!valor) return null;
+    }
 
     const categoria = (getColNormalized(r, 'categoria 1') || 'Sem categoria').toString().trim();
     const grupo = tipoLancamento==='pagar' ? 'PAGAMENTOS' : 'RECEBIMENTOS';
@@ -587,7 +613,7 @@ function renderDebugStats(){
   const totalRec = scoped.filter(isRecebimento).length;
   const totalPag = scoped.filter(isPagamento).length;
   const totalAjustes = scoped.filter(r=>r.grupo==='AJUSTES_MANUAIS').length;
-  wrap.textContent = `🔍 Diagnóstico (só GPS): ${scoped.length} linhas no escopo atual (${empresaFiltro}) · Empoderamento: ${totalEmp} · Mister Wiz: ${totalMW} · Recebimentos: ${totalRec} · Pagamentos: ${totalPag} · Lançamentos manuais: ${totalAjustes}`;
+  wrap.textContent = `🔍 Diagnóstico (só GPS): ${scoped.length} linhas no escopo atual (${empresaFiltro}) · Empoderamento: ${totalEmp} · Mister Wiz: ${totalMW} · Recebimentos: ${totalRec} · Pagamentos: ${totalPag} · Lançamentos manuais: ${totalAjustes} · CAP modo: ${debugModoCapCar.CAP||'?'} · CAR modo: ${debugModoCapCar.CAR||'?'}`;
 }
 
 function renderColumnHeader(c){
