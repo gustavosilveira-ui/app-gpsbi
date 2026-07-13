@@ -265,6 +265,15 @@ const REGRAS_FALLBACK_GRUPO = [
   { grupo:'6. Despesas Com Infra-Estrutura', palavras:['aluguel','condominio','energia','manutencao'] },
   { grupo:'7. Despesas Logísticas', palavras:['frete','correio','combustivel','estacionamento','pedagio'] },
 ];
+const CATEGORIAS_EXCLUIDAS_NORM = new Set([
+  'entre contas empoderamento',
+  'entre contas empoderamento-despesa',
+  'transferencia entre contas',
+].map(normalizeTxt));
+function categoriaExcluida(categoria){
+  return CATEGORIAS_EXCLUIDAS_NORM.has(normalizeTxt(categoria));
+}
+
 function resolveGrupoPagamento(categoria){
   const key = normalizeTxt(categoria);
   if(CATEGORIA_GRUPO_NORM[key]) return CATEGORIA_GRUPO_NORM[key];
@@ -306,6 +315,7 @@ function rowsFromHistoricoEmpoderamento(){
     for(const key in entry){
       if(key.indexOf('TOTAL||')===0) continue; // só os totais de saldo/soma, não viram linha
       const [grupo, categoria] = key.split('||');
+      if(categoriaExcluida(categoria)) continue; // transferência entre contas próprias, não é caixa real
       const valor = entry[key];
       if(!valor) continue;
       const grupoDisplay = grupo==='PAGAMENTOS' ? resolveGrupoPagamento(categoria) : null;
@@ -354,6 +364,7 @@ function rowsFromCapCar(table, tipoLancamento){
     if(date <= HISTORICO_CUTOFF_EMPODERAMENTO) return null; // período já congelado pelo histórico da planilha antiga
 
     const categoria = (getColNormalized(r, 'categoria 1') || 'Sem categoria').toString().trim();
+    if(categoriaExcluida(categoria)) return null; // transferência entre contas próprias, não é caixa real
     const grupo = tipoLancamento==='pagar' ? 'PAGAMENTOS' : 'RECEBIMENTOS';
     const grupoDisplay = grupo==='PAGAMENTOS' ? resolveGrupoPagamento(categoria) : null;
     const signedValor = grupo==='RECEBIMENTOS' ? valor : -valor;
@@ -611,7 +622,7 @@ function buildRowTree(){
   const scoped = rowsInScope();
 
   const recebimentosNode = { type:'recebimentos', level:0, label:'RECEBIMENTOS', signHint:'pos', filter:isRecebimento, expanded:false, children: buildRecebimentosChildren(scoped) };
-  const pagamentosNode = { type:'pagamentos', level:0, label:'PAGAMENTOS', signHint:'neg', filter:isPagamento, expanded:false, children: buildPagamentosChildren(scoped) };
+  const pagamentosNode = { type:'pagamentos', level:0, label:'PAGAMENTOS', signHint:'neg', filter:isPagamento, expanded:true, children: buildPagamentosChildren(scoped) };
 
   const nodes = [
     { type:'saldo', level:0, label:'SALDO ACUMULADO', special:'saldo', expanded:false, children:[] },
