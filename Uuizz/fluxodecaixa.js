@@ -12,11 +12,9 @@
      estrutura usada na Tangram/Mebrasi). Só linhas com
      Situação = "Conciliado" contam como caixa real.
 
-   ESCOPO DESTA VERSÃO:
-   - realizado pela Data Real;
-   - projeções futuras pela data prevista/vencimento;
-   - vencidos sem baixa ficam fora do fluxo;
-   - o Hub recria em memória as fórmulas das colunas de apoio "Data Real" e "Valor".
+   ESCOPO DESTA VERSÃO: mostra apenas o realizado (Quitado/Conciliado).
+   Itens em aberto/atrasados/perdidos não aparecem aqui — combinar com
+   o Gustavo se depois quiserem uma visão "Em Aberto" separada.
    ================================================================ */
 
 // TODO (Gustavo): preencher com os valores reais antes do deploy.
@@ -85,31 +83,13 @@ function parseGvizRows(table){
   });
 }
 function parseDateCell(v){
-  if(v===null || v===undefined || v==='') return null;
-
-  if(v instanceof Date && !isNaN(v)){
-    return `${v.getFullYear()}-${String(v.getMonth()+1).padStart(2,'0')}-${String(v.getDate()).padStart(2,'0')}`;
+  if(!v) return null;
+  if(typeof v==='string'){
+    if(/^\d{4}-\d{2}-\d{2}/.test(v)) return v.slice(0,10);
+    if(v.includes('/')){ const [d,m,y]=v.split('/'); return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`; }
+    const dm = v.match(/Date\((\d+),(\d+),(\d+)\)/);
+    if(dm){ const y=dm[1], m=String(parseInt(dm[2])+1).padStart(2,'0'), d=dm[3].padStart(2,'0'); return `${y}-${m}-${d}`; }
   }
-
-  if(typeof v==='number'){
-    const epoch = new Date(Date.UTC(1899,11,30));
-    const d = new Date(epoch.getTime() + v * 86400000);
-    if(!isNaN(d)) return d.toISOString().slice(0,10);
-  }
-
-  const s = String(v).trim();
-  if(!s || normalizeTxt(s)==='em aberto') return null;
-
-  const gviz = s.match(/Date\((\d+),(\d+),(\d+)\)/);
-  if(gviz){
-    return `${gviz[1]}-${String(Number(gviz[2])+1).padStart(2,'0')}-${String(gviz[3]).padStart(2,'0')}`;
-  }
-
-  if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
-
-  const br = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-  if(br) return `${br[3]}-${br[2].padStart(2,'0')}-${br[1].padStart(2,'0')}`;
-
   return null;
 }
 function extractCellValue(cell){
@@ -126,140 +106,162 @@ function readDateCol(r, colName){
   return parseDateCell(typeof raw==='object' && raw!==null ? (raw.v||raw) : raw);
 }
 
+/* ================== Mapa Categoria → Grupo (Pagamentos) ==================
+   Extraído diretamente da planilha real "Fluxo de caixa | Emp. Adolescente"
+   (linhas 51–192 da aba "Caixa Emp."). É o mesmo plano de contas que o
+   Gustavo já usa — cada Categoria 1 de Pagamentos pertence a um destes
+   11 grupos. Categorias novas que não estiverem aqui caem em heurística
+   por palavra-chave e, na falta de match, em "Outros". */
+const CATEGORIA_GRUPO_PAGAMENTOS = {
+  'Investimento CDB': '1. Investimentos',
+  'Consultoria/Mentoria': '1. Investimentos',
+  'ISS sobre Faturamento': 'Deduções Da Receita',
+  'Alvará de Funcionamento': 'Deduções Da Receita',
+  'Comissões de Vendedores': 'Deduções Da Receita',
+  'PIS': 'Deduções Da Receita',
+  'Cofins': 'Deduções Da Receita',
+  'CSLL': 'Deduções Da Receita',
+  'IRPJ': 'Deduções Da Receita',
+  'Estorno para clientes': 'Deduções Da Receita',
+  'DARE - SC': 'Deduções Da Receita',
+  'Teen Power Impostos': 'Deduções Da Receita',
+  'Simples Nacional - DAS': 'Deduções Da Receita',
+  'Bonificações': 'Deduções Da Receita',
+  'Embalagens/Caixa de envio': '2. Fornecedores',
+  'Equipe - Prestadores de serviços': '2. Fornecedores',
+  'Mentoria': '2. Fornecedores',
+  'Embalagens/Caixas de envio': '2. Fornecedores',
+  'Transferência- Mister Wiz': '2. Fornecedores',
+  'Freelancer': '2. Fornecedores',
+  'Gráfica': '2. Fornecedores',
+  'Despesas com cartão de crédito': '3. Despesas Financeiras',
+  'Tarifas de Boletos': '3. Despesas Financeiras',
+  'Tarifas Bancárias': '3. Despesas Financeiras',
+  'Juros pagos': '3. Despesas Financeiras',
+  'Juros sobre empréstimo': '3. Despesas Financeiras',
+  'IOF': '3. Despesas Financeiras',
+  'Empréstimos de Bancos': '3. Despesas Financeiras',
+  'Empréstimos de Sócios': '3. Despesas Financeiras',
+  'Adiantamento a Sócios': '3. Despesas Financeiras',
+  'Empréstimos de Outras Instituições': '3. Despesas Financeiras',
+  'Entre Contas Empoderamento-Despesa': '3. Despesas Financeiras',
+  'Despesas Médicas': '4. Despesas Com Pessoal',
+  'Capacitação e Cursos': '4. Despesas Com Pessoal',
+  'Exames Médicos': '4. Despesas Com Pessoal',
+  'FGTS e Multa de FGTS': '4. Despesas Com Pessoal',
+  'Transporte Ônibus': '4. Despesas Com Pessoal',
+  '13º Salário - 2ª Parcela': '4. Despesas Com Pessoal',
+  'Roupas/Acessórios': '4. Despesas Com Pessoal',
+  'IRRF': '4. Despesas Com Pessoal',
+  'INSS sobre Pró-labore - GPS': '4. Despesas Com Pessoal',
+  'INSS sobre Salários - GPS': '4. Despesas Com Pessoal',
+  'Darf': '4. Despesas Com Pessoal',
+  'GRU Judicial': '4. Despesas Com Pessoal',
+  'Lanches e Refeições': '4. Despesas Com Pessoal',
+  'Plano de Saúde Sócios': '4. Despesas Com Pessoal',
+  'Plano de saúde': '4. Despesas Com Pessoal',
+  'Pró-labore': '4. Despesas Com Pessoal',
+  'Apoio': '4. Despesas Com Pessoal',
+  'Salários': '4. Despesas Com Pessoal',
+  'Recrutamento': '4. Despesas Com Pessoal',
+  'Segurança do Trabalho': '4. Despesas Com Pessoal',
+  'Teen Power Salarios': '4. Despesas Com Pessoal',
+  'Transporte (táxi, uber, gasolina e estac.)': '4. Despesas Com Pessoal',
+  'Vale-Transporte': '4. Despesas Com Pessoal',
+  'Despesas Pessoais dos Sócios': '5. Despesas Administrativas',
+  'Confraternizações': '5. Despesas Administrativas',
+  '13º Salário - 1ª Parcela': '5. Despesas Administrativas',
+  'Teen Power-Honorários contábeis': '5. Despesas Administrativas',
+  'Coworking': '5. Despesas Administrativas',
+  'Reembolso': '5. Despesas Administrativas',
+  'Assessoria Jurídica': '5. Despesas Administrativas',
+  'Honorários Contábeis': '5. Despesas Administrativas',
+  'Certificado Digital': '5. Despesas Administrativas',
+  'Materiais de Escritório': '5. Despesas Administrativas',
+  'Limpeza': '5. Despesas Administrativas',
+  'Telefonia': '5. Despesas Administrativas',
+  'Hospedagem': '4.8 Despesas com Viagem',
+  'Passagem aérea': '4.8 Despesas com Viagem',
+  'Aluguel': '6. Despesas Com Infra-Estrutura',
+  'Condomínio': '6. Despesas Com Infra-Estrutura',
+  'Consertos/Reposição de peças': '6. Despesas Com Infra-Estrutura',
+  'Benfeitorias em Bens de Terceiros': '6. Despesas Com Infra-Estrutura',
+  'manutenção e reforma': '6. Despesas Com Infra-Estrutura',
+  'Manutenção de Equipamentos': '6. Despesas Com Infra-Estrutura',
+  'Energia Elétrica': '6. Despesas Com Infra-Estrutura',
+  'Combustíveis': '7. Despesas Logísticas',
+  'Transporte Urbano (táxi, Uber)': '7. Despesas Logísticas',
+  'Frete/Correios/Motoboy': '7. Despesas Logísticas',
+  'Correios/Frete/Motoboy': '7. Despesas Logísticas',
+  'Estacionamento': '7. Despesas Logísticas',
+  'Pedágios': '7. Despesas Logísticas',
+  'ware': 'Despesa com TI',
+  'Memberkit - Plataforma CGP - SM': 'Despesa com TI',
+  'Streamyard - SM': 'Despesa com TI',
+  'Equipamentos eletrônicos - SM': 'Despesa com TI',
+  'Nuvem - Drive - SM': 'Despesa com TI',
+  'Sistema operacional - SM': 'Despesa com TI',
+  'Hospedagem SM': 'Despesa com TI',
+  'Teen Power SM': 'Despesa com TI',
+  'Vimeo - SM': 'Despesa com TI',
+  'Soundcloud - SM': 'Despesa com TI',
+  'Clickup SM': 'Despesa com TI',
+  'Telefonia SM': 'Despesa com TI',
+  'Programa/Ferramenta SM': 'Despesa com TI',
+  'Socialeds - SM': 'Despesa com TI',
+  'Agenda online - sistema op. SM': 'Despesa com TI',
+  'Guru': 'Despesa com TI',
+  'CRM SM': 'Despesa com TI',
+  'CRM': 'Despesa com TI',
+  'Computadores': 'Despesa com TI',
+  'Desplugados': 'Despesa com TI',
+  'Equipamentos eletrônicos': 'Despesa com TI',
+  'Internet': 'Despesa com TI',
+  'Plataforma ZOOM': 'Despesa com TI',
+  'Recarga/Plano Móvel': 'Despesa com TI',
+  'Software': 'Despesa com TI',
+  'Sistema operacional': 'Despesa com TI',
+  'Ferramenta comercial': 'Despesas Com Marketing',
+  'Ferramenta de Tecnologia': 'Despesas Com Marketing',
+  'Ferramenta de MKT': 'Despesas Com Marketing',
+  'Agência de Marketing': 'Despesas Com Marketing',
+  'Produção de vídeo': 'Despesas Com Marketing',
+  'Assessoria de imprensa': 'Despesas Com Marketing',
+  'Brindes para Clientes': 'Despesas Com Marketing',
+  'Doação': 'Despesas Com Marketing',
+  'Edição de vídeos': 'Despesas Com Marketing',
+  'Evento presencial': 'Despesas Com Marketing',
+  'Foto e Filmagem': 'Despesas Com Marketing',
+  'Influencers': 'Despesas Com Marketing',
+  'Make/Cabelo': 'Despesas Com Marketing',
+  'Presentes/bonificações': 'Despesas Com Marketing',
+  'Produtos Eventos': 'Despesas Com Marketing',
+  'Registros de Marca': 'Despesas Com Marketing',
+  'Teen Power-Acate': 'Despesas Com Marketing',
+  'Tráfego Pago': 'Despesas Com Marketing',
+  '07. Distribuição de Lucros': 'Despesas Com Marketing',
+  'Distribuição de Lucros': 'Despesas Com Marketing',
+};
+const CATEGORIA_GRUPO_NORM = {};
+Object.entries(CATEGORIA_GRUPO_PAGAMENTOS).forEach(([k,v])=>{ CATEGORIA_GRUPO_NORM[normalizeTxt(k)] = v; });
 
-const CAP_CATEGORIA_PAI = new Map([
-  [normalizeTxt('Investimento CDB'), '1. Investimentos'],
-  [normalizeTxt('Consultoria/Mentoria'), '1. Investimentos'],
-  [normalizeTxt('ISS sobre Faturamento'), 'Deduções Da Receita'],
-  [normalizeTxt('Alvará de Funcionamento'), 'Deduções Da Receita'],
-  [normalizeTxt('Comissões de Vendedores'), 'Deduções Da Receita'],
-  [normalizeTxt('PIS'), 'Deduções Da Receita'],
-  [normalizeTxt('Cofins'), 'Deduções Da Receita'],
-  [normalizeTxt('CSLL'), 'Deduções Da Receita'],
-  [normalizeTxt('IRPJ'), 'Deduções Da Receita'],
-  [normalizeTxt('Estorno para clientes'), 'Deduções Da Receita'],
-  [normalizeTxt('DARE - SC'), 'Deduções Da Receita'],
-  [normalizeTxt('Teen Power Impostos'), 'Deduções Da Receita'],
-  [normalizeTxt('Simples Nacional - DAS'), 'Deduções Da Receita'],
-  [normalizeTxt('Bonificações'), 'Deduções Da Receita'],
-  [normalizeTxt('Embalagens/Caixa de envio'), '2. Fornecedores'],
-  [normalizeTxt('Equipe - Prestadores de serviços'), '2. Fornecedores'],
-  [normalizeTxt('Mentoria'), '2. Fornecedores'],
-  [normalizeTxt('Embalagens/Caixas de envio'), '2. Fornecedores'],
-  [normalizeTxt('Transferência- Mister Wiz'), '2. Fornecedores'],
-  [normalizeTxt('Freelancer'), '2. Fornecedores'],
-  [normalizeTxt('Gráfica'), '2. Fornecedores'],
-  [normalizeTxt('Despesas com cartão de crédito'), '3. Despesas Financeiras'],
-  [normalizeTxt('Tarifas de Boletos'), '3. Despesas Financeiras'],
-  [normalizeTxt('Tarifas Bancárias'), '3. Despesas Financeiras'],
-  [normalizeTxt('Juros pagos'), '3. Despesas Financeiras'],
-  [normalizeTxt('Juros sobre empréstimo'), '3. Despesas Financeiras'],
-  [normalizeTxt('IOF'), '3. Despesas Financeiras'],
-  [normalizeTxt('Empréstimos de Bancos'), '3. Despesas Financeiras'],
-  [normalizeTxt('Empréstimos de Sócios'), '3. Despesas Financeiras'],
-  [normalizeTxt('Adiantamento a Sócios'), '3. Despesas Financeiras'],
-  [normalizeTxt('Empréstimos de Outras Instituições'), '3. Despesas Financeiras'],
-  [normalizeTxt('Entre Contas Empoderamento-Despesa'), '3. Despesas Financeiras'],
-  [normalizeTxt('Despesas Médicas'), '4. Despesas Com Pessoal'],
-  [normalizeTxt('Capacitação e Cursos'), '4. Despesas Com Pessoal'],
-  [normalizeTxt('Exames Médicos'), '4. Despesas Com Pessoal'],
-  [normalizeTxt('FGTS e Multa de FGTS'), '4. Despesas Com Pessoal'],
-  [normalizeTxt('Transporte Ônibus'), '4. Despesas Com Pessoal'],
-  [normalizeTxt('13º Salário - 2ª Parcela'), '4. Despesas Com Pessoal'],
-  [normalizeTxt('Roupas/Acessórios'), '4. Despesas Com Pessoal'],
-  [normalizeTxt('IRRF'), '4. Despesas Com Pessoal'],
-  [normalizeTxt('INSS sobre Pró-labore - GPS'), '4. Despesas Com Pessoal'],
-  [normalizeTxt('INSS sobre Salários - GPS'), '4. Despesas Com Pessoal'],
-  [normalizeTxt('Darf'), '4. Despesas Com Pessoal'],
-  [normalizeTxt('GRU Judicial'), '4. Despesas Com Pessoal'],
-  [normalizeTxt('Lanches e Refeições'), '4. Despesas Com Pessoal'],
-  [normalizeTxt('Plano de Saúde Sócios'), '4. Despesas Com Pessoal'],
-  [normalizeTxt('Plano de saúde'), '4. Despesas Com Pessoal'],
-  [normalizeTxt('Pró-labore'), '4. Despesas Com Pessoal'],
-  [normalizeTxt('Apoio'), '4. Despesas Com Pessoal'],
-  [normalizeTxt('Salários'), '4. Despesas Com Pessoal'],
-  [normalizeTxt('Recrutamento'), '4. Despesas Com Pessoal'],
-  [normalizeTxt('Segurança do Trabalho'), '4. Despesas Com Pessoal'],
-  [normalizeTxt('Teen Power Salarios'), '4. Despesas Com Pessoal'],
-  [normalizeTxt('Transporte (táxi, uber, gasolina e estac.)'), '4. Despesas Com Pessoal'],
-  [normalizeTxt('Vale-Transporte'), '4. Despesas Com Pessoal'],
-  [normalizeTxt('Despesas Pessoais dos Sócios'), '5. Despesas Administrativas'],
-  [normalizeTxt('Confraternizações'), '5. Despesas Administrativas'],
-  [normalizeTxt('13º Salário - 1ª Parcela'), '5. Despesas Administrativas'],
-  [normalizeTxt('Teen Power-Honorários contábeis'), '5. Despesas Administrativas'],
-  [normalizeTxt('Coworking'), '5. Despesas Administrativas'],
-  [normalizeTxt('Reembolso'), '5. Despesas Administrativas'],
-  [normalizeTxt('Assessoria Jurídica'), '5. Despesas Administrativas'],
-  [normalizeTxt('Honorários Contábeis'), '5. Despesas Administrativas'],
-  [normalizeTxt('Certificado Digital'), '5. Despesas Administrativas'],
-  [normalizeTxt('Materiais de Escritório'), '5. Despesas Administrativas'],
-  [normalizeTxt('Limpeza'), '5. Despesas Administrativas'],
-  [normalizeTxt('Telefonia'), '5. Despesas Administrativas'],
-  [normalizeTxt('Hospedagem'), '4.8 Despesas com Viagem'],
-  [normalizeTxt('Passagem aérea'), '4.8 Despesas com Viagem'],
-  [normalizeTxt('Aluguel'), '6. Despesas Com Infra-Estrutura'],
-  [normalizeTxt('Condomínio'), '6. Despesas Com Infra-Estrutura'],
-  [normalizeTxt('Consertos/Reposição de peças'), '6. Despesas Com Infra-Estrutura'],
-  [normalizeTxt('Benfeitorias em Bens de Terceiros'), '6. Despesas Com Infra-Estrutura'],
-  [normalizeTxt('manutenção e reforma'), '6. Despesas Com Infra-Estrutura'],
-  [normalizeTxt('Manutenção de Equipamentos'), '6. Despesas Com Infra-Estrutura'],
-  [normalizeTxt('Energia Elétrica'), '6. Despesas Com Infra-Estrutura'],
-  [normalizeTxt('Combustíveis'), '7. Despesas Logísticas'],
-  [normalizeTxt('Transporte Urbano (táxi, Uber)'), '7. Despesas Logísticas'],
-  [normalizeTxt('Frete/Correios/Motoboy'), '7. Despesas Logísticas'],
-  [normalizeTxt('Correios/Frete/Motoboy'), '7. Despesas Logísticas'],
-  [normalizeTxt('Estacionamento'), '7. Despesas Logísticas'],
-  [normalizeTxt('Pedágios'), '7. Despesas Logísticas'],
-  [normalizeTxt('ware'), 'Despesa com TI'],
-  [normalizeTxt('Memberkit - Plataforma CGP - SM'), 'Despesa com TI'],
-  [normalizeTxt('Streamyard - SM'), 'Despesa com TI'],
-  [normalizeTxt('Equipamentos eletrônicos - SM'), 'Despesa com TI'],
-  [normalizeTxt('Nuvem - Drive - SM'), 'Despesa com TI'],
-  [normalizeTxt('Sistema operacional - SM'), 'Despesa com TI'],
-  [normalizeTxt('Hospedagem SM'), 'Despesa com TI'],
-  [normalizeTxt('Teen Power SM'), 'Despesa com TI'],
-  [normalizeTxt('Vimeo - SM'), 'Despesa com TI'],
-  [normalizeTxt('Soundcloud - SM'), 'Despesa com TI'],
-  [normalizeTxt('Clickup SM'), 'Despesa com TI'],
-  [normalizeTxt('Telefonia SM'), 'Despesa com TI'],
-  [normalizeTxt('Programa/Ferramenta SM'), 'Despesa com TI'],
-  [normalizeTxt('Socialeds - SM'), 'Despesa com TI'],
-  [normalizeTxt('Agenda online - sistema op. SM'), 'Despesa com TI'],
-  [normalizeTxt('Guru'), 'Despesa com TI'],
-  [normalizeTxt('CRM SM'), 'Despesa com TI'],
-  [normalizeTxt('CRM'), 'Despesa com TI'],
-  [normalizeTxt('Computadores'), 'Despesa com TI'],
-  [normalizeTxt('Desplugados'), 'Despesa com TI'],
-  [normalizeTxt('Equipamentos eletrônicos'), 'Despesa com TI'],
-  [normalizeTxt('Internet'), 'Despesa com TI'],
-  [normalizeTxt('Plataforma ZOOM'), 'Despesa com TI'],
-  [normalizeTxt('Recarga/Plano Móvel'), 'Despesa com TI'],
-  [normalizeTxt('Software'), 'Despesa com TI'],
-  [normalizeTxt('Sistema operacional'), 'Despesa com TI'],
-  [normalizeTxt('Ferramenta comercial'), 'Despesas Com Marketing'],
-  [normalizeTxt('Ferramenta de Tecnologia'), 'Despesas Com Marketing'],
-  [normalizeTxt('Ferramenta de MKT'), 'Despesas Com Marketing'],
-  [normalizeTxt('Agência de Marketing'), 'Despesas Com Marketing'],
-  [normalizeTxt('Produção de vídeo'), 'Despesas Com Marketing'],
-  [normalizeTxt('Assessoria de imprensa'), 'Despesas Com Marketing'],
-  [normalizeTxt('Brindes para Clientes'), 'Despesas Com Marketing'],
-  [normalizeTxt('Doação'), 'Despesas Com Marketing'],
-  [normalizeTxt('Edição de vídeos'), 'Despesas Com Marketing'],
-  [normalizeTxt('Evento presencial'), 'Despesas Com Marketing'],
-  [normalizeTxt('Foto e Filmagem'), 'Despesas Com Marketing'],
-  [normalizeTxt('Influencers'), 'Despesas Com Marketing'],
-  [normalizeTxt('Make/Cabelo'), 'Despesas Com Marketing'],
-  [normalizeTxt('Presentes/bonificações'), 'Despesas Com Marketing'],
-  [normalizeTxt('Produtos Eventos'), 'Despesas Com Marketing'],
-  [normalizeTxt('Registros de Marca'), 'Despesas Com Marketing'],
-  [normalizeTxt('Teen Power-Acate'), 'Despesas Com Marketing'],
-  [normalizeTxt('Tráfego Pago'), 'Despesas Com Marketing'],
-  [normalizeTxt('07. Distribuição de Lucros'), 'Despesas Com Marketing'],
-  [normalizeTxt('Distribuição de Lucros'), 'Despesas Com Marketing'],
-]);
-
-function categoriaPaiCap(categoria){
-  return CAP_CATEGORIA_PAI.get(normalizeTxt(categoria)) || 'Outros';
+// Heurística de reserva pra categorias novas que ainda não estão no mapa acima.
+const REGRAS_FALLBACK_GRUPO = [
+  { grupo:'4. Despesas Com Pessoal', palavras:['salario','pro-labore','prolabore','inss','fgts','vale-transporte','plano de saude','ferias','13'] },
+  { grupo:'3. Despesas Financeiras', palavras:['juros','tarifa','iof','emprestimo','cartao de credito'] },
+  { grupo:'Deduções Da Receita', palavras:['imposto','iss','pis','cofins','csll','irpj','das','darf'] },
+  { grupo:'Despesa com TI', palavras:['software','sistema','plataforma','hospedagem','servidor','app','tecnologia'] },
+  { grupo:'Despesas Com Marketing', palavras:['marketing','trafego','influencer','midia','anuncio','video'] },
+  { grupo:'6. Despesas Com Infra-Estrutura', palavras:['aluguel','condominio','energia','manutencao'] },
+  { grupo:'7. Despesas Logísticas', palavras:['frete','correio','combustivel','estacionamento','pedagio'] },
+];
+function resolveGrupoPagamento(categoria){
+  const key = normalizeTxt(categoria);
+  if(CATEGORIA_GRUPO_NORM[key]) return CATEGORIA_GRUPO_NORM[key];
+  for(const regra of REGRAS_FALLBACK_GRUPO){
+    if(regra.palavras.some(p=>key.includes(p))) return regra.grupo;
+  }
+  return 'Outros';
 }
 
 /* ================== Ingestão: CAP / CAR (Empoderamento — Conta Azul) ==================
@@ -273,118 +275,45 @@ function categoriaPaiCap(categoria){
      só o Saldo Acumulado é o líquido (Recebimentos − Pagamentos).
    - Categoria 1 / Categoria 2: dois níveis de agrupamento, iguais aos da planilha. */
 // tipoLancamento: 'pagar' (CAP) ou 'receber' (CAR)
+/* ================== Ingestão: CAP / CAR (Empoderamento — Conta Azul) ==================
+   O Gustavo já mantém, na própria planilha, colunas de apoio calculadas:
+   "Data Real" e "Valor" (é exatamente o que as fórmulas SOMASES dele leem —
+   $AK/$AX e $AN/$AY). Ler essas colunas prontas é mais robusto do que recalcular
+   a partir de Data de Vencimento/Situação/Data do Último Pagamento aqui no JS
+   (evita qualquer divergência de nome de coluna ou de fórmula).
+   - "Data Real": texto "Em aberto" quando vencida e não paga (fora do fluxo);
+     senão a data (de pagamento, se já paga; de vencimento/prevista, se ainda não).
+   - "Valor": total pago/recebido se já pago; senão o valor original da parcela.
+   - Categoria 1 é a categoria específica (ex: "Pró-labore"). O agrupamento visual
+     (ex: "4. Despesas Com Pessoal") vem do mapa fixo CATEGORIA_GRUPO_PAGAMENTOS,
+     que reflete o plano de contas real que o Gustavo já usa no Google Sheets. */
+// tipoLancamento: 'pagar' (CAP) ou 'receber' (CAR)
 function rowsFromCapCar(table, tipoLancamento){
   const raw = parseGvizRows(table);
-  const hoje = todayISO();
-
   return raw.map(r=>{
-    /*
-      O Hub recria internamente as colunas de apoio da planilha:
+    const dataRealRaw = getColNormalized(r, 'data real');
+    if(!dataRealRaw) return null;
+    if(typeof dataRealRaw === 'string' && normalizeTxt(dataRealRaw) === 'em aberto') return null; // vencida e não paga: fora do fluxo
 
-      CAR:
-        Data Real = SE(E(Z="";F<HOJE());"Em aberto";SE(Z>0;Z;F))
-        Valor     = SE(S>0;S;M)
-
-      CAP:
-        Data Real = SE(E(Z="";E<HOJE());"Em aberto";SE(Z<>"";Z;E))
-        Valor     = SE(S>0;S;M)
-
-      Portanto, não dependemos das colunas auxiliares Data Real/Valor.
-    */
-    const dataPrevista = tipoLancamento==='pagar'
-      ? readDateCol(r,'data de vencimento')
-      : readDateCol(r,'data prevista');
-
-    const dataBaixa = readDateCol(r,'data do ultimo pagamento');
-
-    // Vencido sem baixa = "Em aberto" e fica fora do fluxo.
-    if(!dataBaixa && (!dataPrevista || dataPrevista < hoje)) return null;
-
-    const date = dataBaixa || dataPrevista;
+    const date = parseDateCell(typeof dataRealRaw==='object' && dataRealRaw!==null ? (dataRealRaw.v||dataRealRaw.f) : dataRealRaw);
     if(!date) return null;
 
-    const valorRealizado = Math.abs(parseMoneyBR(
-      getColNormalized(
-        r,
-        tipoLancamento==='pagar'
-          ? 'valor total pago da parcela (r$)'
-          : 'valor total recebido da parcela (r$)'
-      )
-    ));
-    const valorOriginal = Math.abs(parseMoneyBR(
-      getColNormalized(r,'valor original da parcela (r$)')
-    ));
-    const valor = valorRealizado > 0 ? valorRealizado : valorOriginal;
+    const valorRaw = getColNormalized(r, 'valor');
+    const valor = Math.abs(parseMoneyBR(typeof valorRaw==='object' && valorRaw!==null ? (valorRaw.v ?? valorRaw.f) : valorRaw));
     if(!valor) return null;
 
-    const categoriaOrigem = (getColNormalized(r,'categoria 1') || 'Sem categoria').toString().trim();
-    const categoria2Origem = (getColNormalized(r,'categoria 2') || '').toString().trim();
-
-    const conta = (
-      getColNormalized(r,'conta bancaria') ||
-      getColNormalized(r,'conta') ||
-      'Não informada'
-    ).toString().trim();
-
-    // O CAP original soma somente Inter, Sicredi e Teen Power-Sicredi.
-    if(tipoLancamento==='pagar'){
-      const contaNorm = normalizeTxt(conta);
-      const permitidas = new Set(['inter','sicredi','teen power-sicredi']);
-      if(!permitidas.has(contaNorm)) return null;
-    }
-
+    const categoria = (getColNormalized(r, 'categoria 1') || 'Sem categoria').toString().trim();
     const grupo = tipoLancamento==='pagar' ? 'PAGAMENTOS' : 'RECEBIMENTOS';
+    const grupoDisplay = grupo==='PAGAMENTOS' ? resolveGrupoPagamento(categoria) : null;
     const signedValor = grupo==='RECEBIMENTOS' ? valor : -valor;
-
+    const conta = (getColNormalized(r,'conta bancaria')||'Não informada').toString().trim();
     const nome = (
-      getColNormalized(
-        r,
-        tipoLancamento==='pagar'
-          ? 'nome do fornecedor'
-          : 'nome do cliente'
-      ) || ''
+      getColNormalized(r, tipoLancamento==='pagar' ? 'nome do fornecedor' : 'nome do cliente') || ''
     ).toString().trim();
+    const documento = (getColNormalized(r,'nota fiscal') || getColNormalized(r,'codigo de referencia') || '').toString().trim();
+    const historico = (getColNormalized(r,'descricao') || getColNormalized(r,'observacoes') || '').toString().trim();
 
-    const documento = (
-      getColNormalized(r,'nota fiscal') ||
-      getColNormalized(r,'codigo de referencia') ||
-      ''
-    ).toString().trim();
-
-    const historico = (
-      getColNormalized(r,'descricao') ||
-      getColNormalized(r,'observacoes') ||
-      ''
-    ).toString().trim();
-
-    /*
-      No CAR, Categoria 1 aparece diretamente dentro de RECEBIMENTOS.
-      No CAP, Categoria 1 é a categoria detalhada e a conta-pai é a
-      estrutura gerencial do fluxo atual da Empoderamento.
-    */
-    const contaContabil = tipoLancamento==='pagar'
-      ? categoriaPaiCap(categoriaOrigem)
-      : categoriaOrigem;
-    const categoriaDetalhe = tipoLancamento==='pagar'
-      ? categoriaOrigem
-      : categoria2Origem;
-
-    return {
-      date,
-      categoria1:categoriaOrigem,
-      categoria2:categoria2Origem,
-      contaContabil,
-      categoriaDetalhe,
-      grupo,
-      valor,
-      signedValor,
-      conta,
-      empresa:'Empoderamento',
-      fonte: tipoLancamento==='pagar' ? 'CAP' : 'CAR',
-      nome,
-      documento,
-      historico
-    };
+    return { date, categoria, grupoDisplay, grupo, valor, signedValor, conta, empresa:'Empoderamento', fonte: tipoLancamento==='pagar'?'CAP':'CAR', nome, documento, historico };
   }).filter(Boolean);
 }
 
@@ -405,32 +334,30 @@ function rowsFromMovimentacao(table){
     const date = readDateCol(r, 'data');
     if(!date) return null;
 
-    const categoria1 = (getColNormalized(r, 'categoria') || 'Sem categoria').toString().trim();
+    const categoria = (getColNormalized(r, 'categoria') || 'Sem categoria').toString().trim();
     const valorRaw = getColNormalized(r, 'valor (r$)');
     const rawValor = parseMoneyBR(typeof valorRaw==='object' && valorRaw!==null ? (valorRaw.v ?? valorRaw.f) : valorRaw);
     if(!rawValor) return null;
 
     const grupo = rawValor >= 0 ? 'RECEBIMENTOS' : 'PAGAMENTOS';
+    const grupoDisplay = grupo==='PAGAMENTOS' ? resolveGrupoPagamento(categoria) : null; // sem plano de contas próprio do Mister Wiz ainda; usa o mesmo mapa + heurística
     const valor = Math.abs(rawValor);
     const signedValor = rawValor;
     const conta = (getColNormalized(r, 'conta corrente')||'Não informada').toString().trim();
     const documento = (getColNormalized(r,'documento') || getColNormalized(r,'nota fiscal') || '').toString().trim();
     const historico = (getColNormalized(r,'observacoes') || '').toString().trim();
 
-    return { date, categoria1, categoria2:'', contaContabil:categoria1, categoriaDetalhe:'', grupo, valor, signedValor, conta, empresa:'Mister Wiz', fonte:'Movimentação', nome: clienteFornecedor, documento, historico };
+    return { date, categoria, grupoDisplay, grupo, valor, signedValor, conta, empresa:'Mister Wiz', fonte:'Movimentação', nome: clienteFornecedor, documento, historico };
   }).filter(Boolean);
 }
 
 
 /* ================== Estado global ================== */
-let rows = []; // { date, categoria1, categoria2, contaContabil, categoriaDetalhe, grupo, valor, signedValor, conta, empresa, fonte, nome, documento, historico }
+let rows = []; // { date, categoria, grupoDisplay, grupo, valor, signedValor, conta, empresa, fonte, nome, documento, historico }
 let currentUser = null;
 let gpsStaff = false;
 let empresaFiltro = 'global'; // 'global' | 'Empoderamento' | 'Mister Wiz'
-const LIMITES_POR_EMPRESA = {
-  'Empoderamento': 0,
-  'Mister Wiz': 80000
-};
+const LIMITE_CONTA = 0; // nenhuma das duas empresas pode operar no vermelho
 
 function rowsInScope(){
   return empresaFiltro==='global' ? rows : rows.filter(r=>r.empresa===empresaFiltro);
@@ -571,53 +498,47 @@ const isPagamento = r => r.grupo==='PAGAMENTOS';
    ex: "2. Fornecedores") e, dentro dela, Categoria 2 — igual à planilha e ao
    padrão homologado da Tangram. Tudo fechado por padrão (nada explodido). */
 let rowTree = [];
-function buildGrupoChildren(scoped, grupo, signHint){
-  const rowsGrupo = scoped.filter(r=>r.grupo===grupo);
-
-  const contas = Array.from(new Set(
-    rowsGrupo.map(r=>r.contaContabil || r.categoria1 || 'Sem categoria')
-  )).sort((a,b)=>a.localeCompare(b,'pt-BR'));
-
-  return contas.map(contaLabel=>{
-    const rowsConta = rowsGrupo.filter(r=>
-      (r.contaContabil || r.categoria1 || 'Sem categoria')===contaLabel
-    );
-
-    const categorias = Array.from(new Set(
-      rowsConta.map(r=>r.categoriaDetalhe || r.categoria2 || '').filter(Boolean)
-    )).sort((a,b)=>a.localeCompare(b,'pt-BR'));
-
-    const children = categorias.map(categoriaLabel=>({
-      type:'categoria',
-      level:2,
-      label:categoriaLabel,
-      signHint,
-      filter:r=>
-        r.grupo===grupo &&
-        (r.contaContabil || r.categoria1 || 'Sem categoria')===contaLabel &&
-        (r.categoriaDetalhe || r.categoria2 || '')===categoriaLabel,
-      expanded:false,
-      children:[]
+/* RECEBIMENTOS: plano por categoria (Categoria 1), igual a planilha real —
+   sem um "grupo" intermediário, cada categoria é sua própria linha. */
+function buildRecebimentosChildren(scoped){
+  const rowsGrupo = scoped.filter(isRecebimento);
+  const categorias = Array.from(new Set(rowsGrupo.map(r=>r.categoria))).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  return categorias.map(c=>({
+    type:'cat', level:1, label:c, signHint:'pos',
+    filter: r=>r.grupo==='RECEBIMENTOS' && r.categoria===c,
+    expanded:false, children:[]
+  }));
+}
+/* PAGAMENTOS: 2 níveis — Grupo (plano de contas fixo, ex: "4. Despesas Com
+   Pessoal") -> Categoria (Categoria 1, ex: "Pró-labore"). Fechado por padrão. */
+function buildPagamentosChildren(scoped){
+  const rowsGrupo = scoped.filter(isPagamento);
+  const gruposPresentes = Array.from(new Set(rowsGrupo.map(r=>r.grupoDisplay || 'Outros')));
+  const ordemGrupos = ['1. Investimentos','Deduções Da Receita','2. Fornecedores','3. Despesas Financeiras','4. Despesas Com Pessoal','5. Despesas Administrativas','4.8 Despesas com Viagem','6. Despesas Com Infra-Estrutura','7. Despesas Logísticas','Despesa com TI','Despesas Com Marketing','Outros'];
+  gruposPresentes.sort((a,b)=>{
+    const ia = ordemGrupos.indexOf(a), ib = ordemGrupos.indexOf(b);
+    return (ia<0?999:ia) - (ib<0?999:ib);
+  });
+  return gruposPresentes.map(g=>{
+    const rowsG = rowsGrupo.filter(r=>(r.grupoDisplay||'Outros')===g);
+    const categorias = Array.from(new Set(rowsG.map(r=>r.categoria))).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+    const children = categorias.map(c=>({
+      type:'cat', level:2, label:c, signHint:'neg',
+      filter: r=>r.grupo==='PAGAMENTOS' && (r.grupoDisplay||'Outros')===g && r.categoria===c,
+      expanded:false, children:[]
     }));
-
     return {
-      type:'conta',
-      level:1,
-      label:contaLabel,
-      signHint,
-      filter:r=>
-        r.grupo===grupo &&
-        (r.contaContabil || r.categoria1 || 'Sem categoria')===contaLabel,
-      expanded:false,
-      children
+      type:'grupo', level:1, label:g, signHint:'neg',
+      filter: r=>r.grupo==='PAGAMENTOS' && (r.grupoDisplay||'Outros')===g,
+      expanded:false, children
     };
   });
 }
 function buildRowTree(){
   const scoped = rowsInScope();
 
-  const recebimentosNode = { type:'recebimentos', level:0, label:'RECEBIMENTOS', signHint:'pos', filter:isRecebimento, expanded:false, children: buildGrupoChildren(scoped, 'RECEBIMENTOS', 'pos') };
-  const pagamentosNode = { type:'pagamentos', level:0, label:'PAGAMENTOS', signHint:'neg', filter:isPagamento, expanded:false, children: buildGrupoChildren(scoped, 'PAGAMENTOS', 'neg') };
+  const recebimentosNode = { type:'recebimentos', level:0, label:'RECEBIMENTOS', signHint:'pos', filter:isRecebimento, expanded:false, children: buildRecebimentosChildren(scoped) };
+  const pagamentosNode = { type:'pagamentos', level:0, label:'PAGAMENTOS', signHint:'neg', filter:isPagamento, expanded:false, children: buildPagamentosChildren(scoped) };
 
   const nodes = [
     { type:'saldo', level:0, label:'SALDO ACUMULADO', special:'saldo', expanded:false, children:[] },
@@ -626,11 +547,11 @@ function buildRowTree(){
   ];
 
   const ajustesRows = scoped.filter(r=>r.grupo==='AJUSTES_MANUAIS');
-  const ajustesCats = Array.from(new Set(ajustesRows.map(r=>r.categoria1))).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  const ajustesCats = Array.from(new Set(ajustesRows.map(r=>r.categoria))).sort((a,b)=>a.localeCompare(b,'pt-BR'));
   if(ajustesCats.length){
     nodes.push({
       type:'ajustes', level:0, label:'LANÇAMENTOS MANUAIS (GPS)', filter:r=>r.grupo==='AJUSTES_MANUAIS', expanded:false,
-      children: ajustesCats.map(c=>({ type:'cat1', level:1, label:c, filter: r=>r.grupo==='AJUSTES_MANUAIS'&&r.categoria1===c, expanded:false, children:[] }))
+      children: ajustesCats.map(c=>({ type:'cat', level:1, label:c, filter: r=>r.grupo==='AJUSTES_MANUAIS'&&r.categoria===c, expanded:false, children:[] }))
     });
   }
   return nodes;
@@ -788,7 +709,7 @@ function openFluxoFicha(rowId,colId){
 
   const detalheHtml = linhas.slice(0,120).map(r=>{
     const pct = total ? Math.abs(r.valor)/Math.abs(total)*100 : 0;
-    const nome = r.nome || r.historico || r.categoria2 || r.categoria1 || 'Sem nome';
+    const nome = r.nome || r.historico || r.categoria || 'Sem nome';
     const doc = r.documento || r.fonte || '';
     return `<tr>
       <td>${formatDateBR(r.date)}</td>
@@ -843,7 +764,7 @@ function toggleRowNode(label, level){
 }
 async function doLogout(){ await sb.auth.signOut(); window.location.href = LOGIN_URL; }
 
-/* ================== Limite da Conta ================== */
+/* ================== Limite da Conta (fixo em R$ 0 pras duas empresas) ================== */
 function openSaldoInicialModal(){ el('saldoInicialModal').classList.add('show'); }
 function closeSaldoInicialModal(){ el('saldoInicialModal').classList.remove('show'); }
 function openAjustesManuaisModal(){ el('ajustesManuaisModal').classList.add('show'); }
@@ -862,53 +783,17 @@ function nextDateStr(dstr){
 function escapeHtml(s){
   return String(s||'').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]));
 }
-function getLimiteAplicavel(){
-  if(empresaFiltro==='Empoderamento') return LIMITES_POR_EMPRESA['Empoderamento'];
-  if(empresaFiltro==='Mister Wiz') return LIMITES_POR_EMPRESA['Mister Wiz'];
-
-  // No consolidado, somente Mister Wiz possui limite disponível.
-  return LIMITES_POR_EMPRESA['Mister Wiz'];
-}
-
 function getLimiteContaHeaderInfo(c){
   if(!c || c.type!=='day') return null;
-
-  const limite = getLimiteAplicavel();
   const saldo = runningBalance(c.end);
-
-  if(saldo < -limite){
-    const excesso = Math.abs(saldo) - limite;
-    return {
-      tipo:'alerta',
-      severidade:getLimiteSeverity(excesso),
-      titulo:'⚠ Limite bancário ultrapassado',
-      data:c.end,
-      saldo,
-      excesso,
-      mensagem: limite > 0
-        ? `Limite considerado: ${fmtBRL(limite)}. Excesso: ${fmtBRL(excesso)}.`
-        : 'Sem limite bancário disponível para esta empresa.'
-    };
+  if(saldo < -LIMITE_CONTA){
+    return { tipo:'alerta', severidade: getLimiteSeverity(Math.abs(saldo)), titulo:'⚠ Conta no vermelho', data:c.end, saldo, excesso: Math.abs(saldo), mensagem:'Sem limite de cheque especial — esse saldo negativo precisa de atenção.' };
   }
-
   const amanha = nextDateStr(c.end);
   const saldoAmanha = runningBalance(amanha);
-
-  if(saldo >= -limite && saldoAmanha < -limite){
-    const excessoAmanha = Math.abs(saldoAmanha) - limite;
-    return {
-      tipo:'previo',
-      severidade:'previo',
-      titulo:'⚠ Alerta para amanhã',
-      data:amanha,
-      saldo:saldoAmanha,
-      excesso:excessoAmanha,
-      mensagem: limite > 0
-        ? `Amanhã o saldo ultrapassa o limite de ${fmtBRL(limite)}.`
-        : 'Amanhã o saldo ficará negativo e não há limite disponível.'
-    };
+  if(saldo >= -LIMITE_CONTA && saldoAmanha < -LIMITE_CONTA){
+    return { tipo:'previo', severidade:'previo', titulo:'⚠ Alerta para amanhã', data:amanha, saldo:saldoAmanha, excesso: Math.abs(saldoAmanha), mensagem:'Amanhã o saldo fica negativo.' };
   }
-
   return null;
 }
 function getLimiteSeverity(excesso){
@@ -972,7 +857,7 @@ async function loadAjustesManuais(){
   ajustesManuais = (!error && data) ? data : [];
   rows = rows.filter(r=>r.grupo!=='AJUSTES_MANUAIS');
   ajustesManuais.forEach(a=>{
-  rows.push({ date:a.data, categoria1: a.descricao || 'Lançamento manual', categoria2:'', grupo:'AJUSTES_MANUAIS', valor:a.valor, signedValor:a.valor, conta:'Lançamentos manuais', empresa:a.empresa, fonte:'Manual' });
+  rows.push({ date:a.data, categoria: a.descricao || 'Lançamento manual', grupoDisplay:null, grupo:'AJUSTES_MANUAIS', valor:a.valor, signedValor:a.valor, conta:'Lançamentos manuais', empresa:a.empresa, fonte:'Manual' });
   });
   rows.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
   renderAjustesManuaisList();
