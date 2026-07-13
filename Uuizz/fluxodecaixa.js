@@ -12,9 +12,11 @@
      estrutura usada na Tangram/Mebrasi). Só linhas com
      Situação = "Conciliado" contam como caixa real.
 
-   ESCOPO DESTA VERSÃO: mostra apenas o realizado (Quitado/Conciliado).
-   Itens em aberto/atrasados/perdidos não aparecem aqui — combinar com
-   o Gustavo se depois quiserem uma visão "Em Aberto" separada.
+   ESCOPO DESTA VERSÃO:
+   - realizado pela Data Real;
+   - projeções futuras pela data prevista/vencimento;
+   - vencidos sem baixa ficam fora do fluxo;
+   - valores seguem as colunas de apoio homologadas "Data Real" e "Valor".
    ================================================================ */
 
 // TODO (Gustavo): preencher com os valores reais antes do deploy.
@@ -83,13 +85,31 @@ function parseGvizRows(table){
   });
 }
 function parseDateCell(v){
-  if(!v) return null;
-  if(typeof v==='string'){
-    if(/^\d{4}-\d{2}-\d{2}/.test(v)) return v.slice(0,10);
-    if(v.includes('/')){ const [d,m,y]=v.split('/'); return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`; }
-    const dm = v.match(/Date\((\d+),(\d+),(\d+)\)/);
-    if(dm){ const y=dm[1], m=String(parseInt(dm[2])+1).padStart(2,'0'), d=dm[3].padStart(2,'0'); return `${y}-${m}-${d}`; }
+  if(v===null || v===undefined || v==='') return null;
+
+  if(v instanceof Date && !isNaN(v)){
+    return `${v.getFullYear()}-${String(v.getMonth()+1).padStart(2,'0')}-${String(v.getDate()).padStart(2,'0')}`;
   }
+
+  if(typeof v==='number'){
+    const epoch = new Date(Date.UTC(1899,11,30));
+    const d = new Date(epoch.getTime() + v * 86400000);
+    if(!isNaN(d)) return d.toISOString().slice(0,10);
+  }
+
+  const s = String(v).trim();
+  if(!s || normalizeTxt(s)==='em aberto') return null;
+
+  const gviz = s.match(/Date\((\d+),(\d+),(\d+)\)/);
+  if(gviz){
+    return `${gviz[1]}-${String(Number(gviz[2])+1).padStart(2,'0')}-${String(gviz[3]).padStart(2,'0')}`;
+  }
+
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+
+  const br = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(br) return `${br[3]}-${br[2].padStart(2,'0')}-${br[1].padStart(2,'0')}`;
+
   return null;
 }
 function extractCellValue(cell){
@@ -120,32 +140,134 @@ function readDateCol(r, colName){
 function rowsFromCapCar(table, tipoLancamento){
   const raw = parseGvizRows(table);
   const hoje = todayISO();
-  return raw.map(r=>{
-    const dataVenc = tipoLancamento==='pagar' ? readDateCol(r,'data de vencimento') : readDateCol(r,'data prevista');
-    const dataPagto = readDateCol(r,'data do ultimo pagamento');
 
-    if(!dataPagto && (!dataVenc || dataVenc < hoje)) return null; // vencida e não paga: fora do fluxo
-    const date = dataPagto || dataVenc;
+  return raw.map(r=>{
+    /*
+      Regra homologada na planilha:
+      CAP:
+        Data Real = se sem pagamento e vencida -> "Em aberto";
+                    senão, data do pagamento; se não houver, vencimento.
+        Valor = valor pago, senão valor original.
+
+      CAR:
+        Data Real = se sem recebimento e vencida -> "Em aberto";
+                    senão, data do recebimento; se não houver, prevista.
+        Valor = valor recebido, senão valor original.
+
+      O Hub usa prioritariamente as colunas de apoio "Data Real" e "Valor".
+    */
+    let date = parseDateCell(getColNormalized(r,'data real'));
+
+    const dataVenc = tipoLancamento==='pagar'
+      ? (readDateCol(r,'data de vencimento') || readDateCol(r,'data prevista'))
+      : (readDateCol(r,'data prevista') || readDateCol(r,'data de vencimento'));
+
+    const dataBaixa =
+      readDateCol(r,'data do ultimo pagamento') ||
+      readDateCol(r,'data do último pagamento');
+
+    if(!date){
+      if(!dataBaixa && (!dataVenc || dataVenc < hoje)) return null;
+      date = dataBaixa || dataVenc;
+    }
+
     if(!date) return null;
 
-    const categoria1 = (getColNormalized(r, 'categoria 1') || 'Sem categoria').toString().trim();
-    const categoria2 = (getColNormalized(r, 'categoria 2') || '').toString().trim();
+    const categoria1 = (getColNormalized(r,'categoria 1') || 'Sem categoria').toString().trim();
+    const categoria2 = (getColNormalized(r,'categoria 2') || '').toString().trim();
 
-    const valorRealizado = Math.abs(parseMoneyBR(getColNormalized(r, tipoLancamento==='pagar' ? 'valor total pago da parcela (r$)' : 'valor total recebido da parcela (r$)')));
-    const valorOriginal = Math.abs(parseMoneyBR(getColNormalized(r, 'valor original da parcela (r$)')));
-    const valor = valorRealizado > 0 ? valorRealizado : valorOriginal;
+    const valorApoio = Math.abs(parseMoneyBR(getColNormalized(r,'valor')));
+    const valorRealizado = Math.abs(parseMoneyBR(
+      getColNormalized(
+        r,
+        tipoLancamento==='pagar'
+          ? 'valor total pago da parcela (r$)'
+          : 'valor total recebido da parcela (r$)'
+      )
+    ));
+    const valorOriginal = Math.abs(parseMoneyBR(
+      getColNormalized(r,'valor original da parcela (r$)') ??
+      getColNormalized(r,'valor original da parcela')
+    ));
+
+    const valor = valorApoio > 0
+      ? valorApoio
+      : (valorRealizado > 0 ? valorRealizado : valorOriginal);
+
     if(!valor) return null;
+
+    const conta = (
+      getColNormalized(r,'conta bancaria') ||
+      getColNormalized(r,'conta bancária') ||
+      getColNormalized(r,'conta') ||
+      'Não informada'
+    ).toString().trim();
+
+    /*
+      O CAP original soma somente estas contas:
+      Inter, Sicredi e Teen Power-Sicredi.
+    */
+    if(tipoLancamento==='pagar'){
+      const contaNorm = normalizeTxt(conta);
+      const permitidas = new Set(['inter','sicredi','teen power-sicredi']);
+      if(!permitidas.has(contaNorm)) return null;
+    }
 
     const grupo = tipoLancamento==='pagar' ? 'PAGAMENTOS' : 'RECEBIMENTOS';
     const signedValor = grupo==='RECEBIMENTOS' ? valor : -valor;
-    const conta = (getColNormalized(r,'conta bancaria')||'Não informada').toString().trim();
-    const nome = (
-      getColNormalized(r, tipoLancamento==='pagar' ? 'nome do fornecedor' : 'nome do cliente') || ''
-    ).toString().trim();
-    const documento = (getColNormalized(r,'nota fiscal') || getColNormalized(r,'codigo de referencia') || '').toString().trim();
-    const historico = (getColNormalized(r,'descricao') || getColNormalized(r,'observacoes') || '').toString().trim();
 
-    return { date, categoria1, categoria2, grupo, valor, signedValor, conta, empresa:'Empoderamento', fonte: tipoLancamento==='pagar'?'CAP':'CAR', nome, documento, historico };
+    const nome = (
+      getColNormalized(
+        r,
+        tipoLancamento==='pagar'
+          ? 'nome do fornecedor'
+          : 'nome do cliente'
+      ) || ''
+    ).toString().trim();
+
+    const documento = (
+      getColNormalized(r,'nota fiscal') ||
+      getColNormalized(r,'codigo de referencia') ||
+      getColNormalized(r,'código de referência') ||
+      ''
+    ).toString().trim();
+
+    const historico = (
+      getColNormalized(r,'descricao') ||
+      getColNormalized(r,'descrição') ||
+      getColNormalized(r,'observacoes') ||
+      getColNormalized(r,'observações') ||
+      ''
+    ).toString().trim();
+
+    /*
+      Hierarquia:
+      RECEBIMENTOS/PAGAMENTOS
+        Conta contábil (Categoria 1)
+          Categoria detalhada (Categoria 2)
+
+      Mantemos Categoria 1 como grupo principal porque é assim que o fluxo
+      original da Empoderamento está estruturado.
+    */
+    const contaContabil = categoria1 || 'Sem categoria';
+    const categoriaDetalhe = categoria2 || '';
+
+    return {
+      date,
+      categoria1,
+      categoria2,
+      contaContabil,
+      categoriaDetalhe,
+      grupo,
+      valor,
+      signedValor,
+      conta,
+      empresa:'Empoderamento',
+      fonte: tipoLancamento==='pagar' ? 'CAP' : 'CAR',
+      nome,
+      documento,
+      historico
+    };
   }).filter(Boolean);
 }
 
@@ -178,17 +300,20 @@ function rowsFromMovimentacao(table){
     const documento = (getColNormalized(r,'documento') || getColNormalized(r,'nota fiscal') || '').toString().trim();
     const historico = (getColNormalized(r,'observacoes') || '').toString().trim();
 
-    return { date, categoria1, categoria2:'', grupo, valor, signedValor, conta, empresa:'Mister Wiz', fonte:'Movimentação', nome: clienteFornecedor, documento, historico };
+    return { date, categoria1, categoria2:'', contaContabil:categoria1, categoriaDetalhe:'', grupo, valor, signedValor, conta, empresa:'Mister Wiz', fonte:'Movimentação', nome: clienteFornecedor, documento, historico };
   }).filter(Boolean);
 }
 
 
 /* ================== Estado global ================== */
-let rows = []; // { date, categoria1, categoria2, grupo, valor, signedValor, conta, empresa, fonte, nome, documento, historico }
+let rows = []; // { date, categoria1, categoria2, contaContabil, categoriaDetalhe, grupo, valor, signedValor, conta, empresa, fonte, nome, documento, historico }
 let currentUser = null;
 let gpsStaff = false;
 let empresaFiltro = 'global'; // 'global' | 'Empoderamento' | 'Mister Wiz'
-const LIMITE_CONTA = 0; // nenhuma das duas empresas pode operar no vermelho
+const LIMITES_POR_EMPRESA = {
+  'Empoderamento': 0,
+  'Mister Wiz': 80000
+};
 
 function rowsInScope(){
   return empresaFiltro==='global' ? rows : rows.filter(r=>r.empresa===empresaFiltro);
@@ -331,27 +456,43 @@ const isPagamento = r => r.grupo==='PAGAMENTOS';
 let rowTree = [];
 function buildGrupoChildren(scoped, grupo, signHint){
   const rowsGrupo = scoped.filter(r=>r.grupo===grupo);
-  const cat1s = Array.from(new Set(rowsGrupo.map(r=>r.categoria1))).sort((a,b)=>a.localeCompare(b,'pt-BR'));
-  return cat1s.map(c1=>{
-    const rowsC1 = rowsGrupo.filter(r=>r.categoria1===c1);
-    const cat2s = Array.from(new Set(rowsC1.map(r=>r.categoria2).filter(Boolean))).sort((a,b)=>a.localeCompare(b,'pt-BR'));
-    const temSemSubcategoria = rowsC1.some(r=>!r.categoria2);
-    const children = cat2s.map(c2=>({
-      type:'cat2', level:2, label:c2, signHint,
-      filter: r=>r.grupo===grupo && r.categoria1===c1 && r.categoria2===c2,
-      expanded:false, children:[]
+
+  const contas = Array.from(new Set(
+    rowsGrupo.map(r=>r.contaContabil || r.categoria1 || 'Sem categoria')
+  )).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+
+  return contas.map(contaLabel=>{
+    const rowsConta = rowsGrupo.filter(r=>
+      (r.contaContabil || r.categoria1 || 'Sem categoria')===contaLabel
+    );
+
+    const categorias = Array.from(new Set(
+      rowsConta.map(r=>r.categoriaDetalhe || r.categoria2 || '').filter(Boolean)
+    )).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+
+    const children = categorias.map(categoriaLabel=>({
+      type:'categoria',
+      level:2,
+      label:categoriaLabel,
+      signHint,
+      filter:r=>
+        r.grupo===grupo &&
+        (r.contaContabil || r.categoria1 || 'Sem categoria')===contaLabel &&
+        (r.categoriaDetalhe || r.categoria2 || '')===categoriaLabel,
+      expanded:false,
+      children:[]
     }));
-    if(temSemSubcategoria && cat2s.length){
-      children.push({
-        type:'cat2', level:2, label:'(sem subcategoria)', signHint,
-        filter: r=>r.grupo===grupo && r.categoria1===c1 && !r.categoria2,
-        expanded:false, children:[]
-      });
-    }
+
     return {
-      type:'cat1', level:1, label:c1, signHint,
-      filter: r=>r.grupo===grupo && r.categoria1===c1,
-      expanded:false, children
+      type:'conta',
+      level:1,
+      label:contaLabel,
+      signHint,
+      filter:r=>
+        r.grupo===grupo &&
+        (r.contaContabil || r.categoria1 || 'Sem categoria')===contaLabel,
+      expanded:false,
+      children
     };
   });
 }
@@ -604,17 +745,53 @@ function nextDateStr(dstr){
 function escapeHtml(s){
   return String(s||'').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]));
 }
+function getLimiteAplicavel(){
+  if(empresaFiltro==='Empoderamento') return LIMITES_POR_EMPRESA['Empoderamento'];
+  if(empresaFiltro==='Mister Wiz') return LIMITES_POR_EMPRESA['Mister Wiz'];
+
+  // No consolidado, somente Mister Wiz possui limite disponível.
+  return LIMITES_POR_EMPRESA['Mister Wiz'];
+}
+
 function getLimiteContaHeaderInfo(c){
   if(!c || c.type!=='day') return null;
+
+  const limite = getLimiteAplicavel();
   const saldo = runningBalance(c.end);
-  if(saldo < -LIMITE_CONTA){
-    return { tipo:'alerta', severidade: getLimiteSeverity(Math.abs(saldo)), titulo:'⚠ Conta no vermelho', data:c.end, saldo, excesso: Math.abs(saldo), mensagem:'Sem limite de cheque especial — esse saldo negativo precisa de atenção.' };
+
+  if(saldo < -limite){
+    const excesso = Math.abs(saldo) - limite;
+    return {
+      tipo:'alerta',
+      severidade:getLimiteSeverity(excesso),
+      titulo:'⚠ Limite bancário ultrapassado',
+      data:c.end,
+      saldo,
+      excesso,
+      mensagem: limite > 0
+        ? `Limite considerado: ${fmtBRL(limite)}. Excesso: ${fmtBRL(excesso)}.`
+        : 'Sem limite bancário disponível para esta empresa.'
+    };
   }
+
   const amanha = nextDateStr(c.end);
   const saldoAmanha = runningBalance(amanha);
-  if(saldo >= -LIMITE_CONTA && saldoAmanha < -LIMITE_CONTA){
-    return { tipo:'previo', severidade:'previo', titulo:'⚠ Alerta para amanhã', data:amanha, saldo:saldoAmanha, excesso: Math.abs(saldoAmanha), mensagem:'Amanhã o saldo fica negativo.' };
+
+  if(saldo >= -limite && saldoAmanha < -limite){
+    const excessoAmanha = Math.abs(saldoAmanha) - limite;
+    return {
+      tipo:'previo',
+      severidade:'previo',
+      titulo:'⚠ Alerta para amanhã',
+      data:amanha,
+      saldo:saldoAmanha,
+      excesso:excessoAmanha,
+      mensagem: limite > 0
+        ? `Amanhã o saldo ultrapassa o limite de ${fmtBRL(limite)}.`
+        : 'Amanhã o saldo ficará negativo e não há limite disponível.'
+    };
   }
+
   return null;
 }
 function getLimiteSeverity(excesso){
