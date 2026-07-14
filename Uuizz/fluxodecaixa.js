@@ -315,12 +315,12 @@ function rowsFromHistoricoEmpoderamento(){
     for(const key in entry){
       if(key.indexOf('TOTAL||')===0) continue; // só os totais de saldo/soma, não viram linha
       const [grupo, categoria] = key.split('||');
-      if(categoriaExcluida(categoria)) continue; // transferência entre contas próprias, não é caixa real
+      const excluida = categoriaExcluida(categoria); // transferência entre contas próprias: aparece, mas não conta
       const valor = entry[key];
       if(!valor) continue;
       const grupoDisplay = grupo==='PAGAMENTOS' ? resolveGrupoPagamento(categoria) : null;
       const signedValor = grupo==='RECEBIMENTOS' ? valor : -valor;
-      out.push({ date:dia, categoria, grupoDisplay, grupo, valor, signedValor, conta:'Histórico', empresa:'Empoderamento', fonte:'Histórico' });
+      out.push({ date:dia, categoria, grupoDisplay, grupo, valor, signedValor, excluida, conta:'Histórico', empresa:'Empoderamento', fonte:'Histórico' });
     }
   }
   return out;
@@ -364,7 +364,7 @@ function rowsFromCapCar(table, tipoLancamento){
     if(date <= HISTORICO_CUTOFF_EMPODERAMENTO) return null; // período já congelado pelo histórico da planilha antiga
 
     const categoria = (getColNormalized(r, 'categoria 1') || 'Sem categoria').toString().trim();
-    if(categoriaExcluida(categoria)) return null; // transferência entre contas próprias, não é caixa real
+    const excluida = categoriaExcluida(categoria); // transferência entre contas próprias: aparece, mas não conta
     const grupo = tipoLancamento==='pagar' ? 'PAGAMENTOS' : 'RECEBIMENTOS';
     const grupoDisplay = grupo==='PAGAMENTOS' ? resolveGrupoPagamento(categoria) : null;
     const signedValor = grupo==='RECEBIMENTOS' ? valor : -valor;
@@ -375,7 +375,7 @@ function rowsFromCapCar(table, tipoLancamento){
     const documento = (getColNormalized(r,'nota fiscal') || getColNormalized(r,'codigo de referencia') || '').toString().trim();
     const historico = (getColNormalized(r,'descricao') || getColNormalized(r,'observacoes') || '').toString().trim();
 
-    return { date, categoria, grupoDisplay, grupo, valor, signedValor, conta, empresa:'Empoderamento', fonte: tipoLancamento==='pagar'?'CAP':'CAR', nome, documento, historico };
+    return { date, categoria, grupoDisplay, grupo, valor, signedValor, excluida, conta, empresa:'Empoderamento', fonte: tipoLancamento==='pagar'?'CAP':'CAR', nome, documento, historico };
   }).filter(Boolean);
 }
 
@@ -551,13 +551,13 @@ function runningBalanceForEmpresa(empresaKey, uptoDate){
     const base = HISTORICO_SALDO_EMPODERAMENTO[HISTORICO_CUTOFF_EMPODERAMENTO] || 0;
     let s = base;
     for(const r of rows){
-      if(r.empresa==='Empoderamento' && r.date > HISTORICO_CUTOFF_EMPODERAMENTO && r.date <= uptoDate) s += r.signedValor;
+      if(r.empresa==='Empoderamento' && !r.excluida && r.date > HISTORICO_CUTOFF_EMPODERAMENTO && r.date <= uptoDate) s += r.signedValor;
     }
     return s;
   }
 
   const override = saldoInicialOverrides[empresaKey];
-  const relevantRows = rows.filter(r=>r.empresa===empresaKey);
+  const relevantRows = rows.filter(r=>r.empresa===empresaKey && !r.excluida);
   if(override && uptoDate >= override.data_referencia){
     let s = override.valor;
     for(const r of relevantRows){ if(r.date > override.data_referencia && r.date<=uptoDate) s += r.signedValor; }
@@ -576,6 +576,9 @@ function runningBalance(uptoDate){
 
 const isRecebimento = r => r.grupo==='RECEBIMENTOS';
 const isPagamento = r => r.grupo==='PAGAMENTOS';
+const contaNoTotal = r => !r.excluida;
+const isRecebimentoTotal = r => r.grupo==='RECEBIMENTOS' && contaNoTotal(r);
+const isPagamentoTotal = r => r.grupo==='PAGAMENTOS' && contaNoTotal(r);
 
 /* ================== ÁRVORE DE LINHAS ==================
    RECEBIMENTOS e PAGAMENTOS em dois níveis — Categoria 1 (a "conta"/grupo,
@@ -584,11 +587,25 @@ const isPagamento = r => r.grupo==='PAGAMENTOS';
 let rowTree = [];
 /* RECEBIMENTOS: plano por categoria (Categoria 1), igual a planilha real —
    sem um "grupo" intermediário, cada categoria é sua própria linha. */
+function ordenarCategoriasPorAno(categorias, rowsGrupo, categoriaDeCada){
+  const anoAtual = String(new Date().getFullYear());
+  const totalAno = {};
+  rowsGrupo.forEach(r=>{
+    if(!r.date || !r.date.startsWith(anoAtual)) return;
+    totalAno[r.categoria] = (totalAno[r.categoria]||0) + r.valor;
+  });
+  const normais = categorias.filter(c=>!categoriaDeCada(c));
+  const excluidas = categorias.filter(c=>categoriaDeCada(c));
+  normais.sort((a,b)=> (totalAno[b]||0) - (totalAno[a]||0));
+  excluidas.sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  return [...normais, ...excluidas];
+}
 function buildRecebimentosChildren(scoped){
   const rowsGrupo = scoped.filter(isRecebimento);
-  const categorias = Array.from(new Set(rowsGrupo.map(r=>r.categoria))).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  let categorias = Array.from(new Set(rowsGrupo.map(r=>r.categoria)));
+  categorias = ordenarCategoriasPorAno(categorias, rowsGrupo, c=>categoriaExcluida(c));
   return categorias.map(c=>({
-    type:'cat', level:1, label:c, signHint:'pos',
+    type:'cat', level:1, label:c, signHint:'pos', mostrarComoTransferencia:categoriaExcluida(c),
     filter: r=>r.grupo==='RECEBIMENTOS' && r.categoria===c,
     expanded:false, children:[]
   }));
@@ -606,15 +623,16 @@ function buildPagamentosChildren(scoped){
   return gruposPresentes.map(g=>{
     const rowsG = rowsGrupo.filter(r=>(r.grupoDisplay||'Outros')===g);
     const ehManual = g === 'Lançamentos Manuais (GPS)';
-    const categorias = Array.from(new Set(rowsG.map(r=>r.categoria))).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+    let categorias = Array.from(new Set(rowsG.map(r=>r.categoria)));
+    categorias = ordenarCategoriasPorAno(categorias, rowsG, c=>categoriaExcluida(c));
     const children = categorias.map(c=>({
-      type:'cat', level:2, label:c, signHint:'neg', mostrarNegativo:ehManual,
+      type:'cat', level:2, label:c, signHint:'neg', mostrarNegativo:ehManual, mostrarComoTransferencia:categoriaExcluida(c),
       filter: r=>r.grupo==='PAGAMENTOS' && (r.grupoDisplay||'Outros')===g && r.categoria===c,
       expanded:false, children:[]
     }));
     return {
       type:'grupo', level:1, label:g, signHint:'neg', mostrarNegativo:ehManual,
-      filter: r=>r.grupo==='PAGAMENTOS' && (r.grupoDisplay||'Outros')===g,
+      filter: r=>r.grupo==='PAGAMENTOS' && (r.grupoDisplay||'Outros')===g && contaNoTotal(r),
       expanded:false, children
     };
   });
@@ -622,8 +640,8 @@ function buildPagamentosChildren(scoped){
 function buildRowTree(){
   const scoped = rowsInScope();
 
-  const recebimentosNode = { type:'recebimentos', level:0, label:'RECEBIMENTOS', signHint:'pos', filter:isRecebimento, expanded:false, children: buildRecebimentosChildren(scoped) };
-  const pagamentosNode = { type:'pagamentos', level:0, label:'PAGAMENTOS', signHint:'neg', filter:isPagamento, expanded:true, children: buildPagamentosChildren(scoped) };
+  const recebimentosNode = { type:'recebimentos', level:0, label:'RECEBIMENTOS', signHint:'pos', filter:isRecebimentoTotal, expanded:false, children: buildRecebimentosChildren(scoped) };
+  const pagamentosNode = { type:'pagamentos', level:0, label:'PAGAMENTOS', signHint:'neg', filter:isPagamentoTotal, expanded:true, children: buildPagamentosChildren(scoped) };
 
   const nodes = [
     { type:'saldo', level:0, label:'SALDO ACUMULADO', special:'saldo', expanded:false, children:[] },
@@ -701,7 +719,7 @@ function renderTable(){
   visibleRows.forEach((rNode,rowIdx)=>{
     const rowId = 'r'+rowIdx;
     fcRowDetailRefs[rowId] = rNode;
-    const cls = `fc-lvl-${rNode.level}`;
+    const cls = `fc-lvl-${rNode.level}${rNode.mostrarComoTransferencia ? ' fc-linha-transferencia' : ''}`;
     const hasChildren = rNode.children && rNode.children.length;
     const arrow = hasChildren ? `<span class="fc-toggle">${rNode.expanded?'▾':'▸'}</span> ` : (rNode.level>0 ? '<span class="fc-toggle"></span> ' : '');
     const labelClick = hasChildren ? `toggleRowNode('${rNode.label.replace(/'/g,"\\'")}', ${rNode.level})` : '';
