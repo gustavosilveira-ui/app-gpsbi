@@ -622,6 +622,7 @@ function ordenarCategoriasPorAno(categorias, rowsGrupo, categoriaDeCada){
 function buildRecebimentosChildren(scoped){
   const rowsGrupo = scoped.filter(isRecebimento);
   let categorias = Array.from(new Set(rowsGrupo.map(r=>r.categoria)));
+  categorias = categorias.filter(c=>rowsGrupo.some(r=>r.categoria===c && Math.abs(r.valor||0)>0));
   categorias = ordenarCategoriasPorAno(categorias, rowsGrupo, c=>categoriaExcluida(c));
   return categorias.map(c=>({
     type:'cat', level:1, label:c, signHint:'pos', mostrarComoTransferencia:categoriaExcluida(c),
@@ -633,16 +634,31 @@ function buildRecebimentosChildren(scoped){
    Pessoal") -> Categoria (Categoria 1, ex: "Pró-labore"). Fechado por padrão. */
 function buildPagamentosChildren(scoped){
   const rowsGrupo = scoped.filter(isPagamento);
-  const gruposPresentes = Array.from(new Set(rowsGrupo.map(r=>r.grupoDisplay || 'Outros')));
-  const ordemGrupos = ['1. Investimentos','Deduções Da Receita','2. Fornecedores','3. Despesas Financeiras','4. Despesas Com Pessoal','5. Despesas Administrativas','4.8 Despesas com Viagem','6. Despesas Com Infra-Estrutura','7. Despesas Logísticas','Despesa com TI','Despesas Com Marketing','Outros','Lançamentos Manuais (GPS)'];
+  const anoAtual = String(new Date().getFullYear());
+  let gruposPresentes = Array.from(new Set(rowsGrupo.map(r=>r.grupoDisplay || 'Outros')));
+  // remove grupo que não tem nenhum lançamento de verdade (soma total = 0)
+  gruposPresentes = gruposPresentes.filter(g=>{
+    const total = rowsGrupo.filter(r=>(r.grupoDisplay||'Outros')===g).reduce((s,r)=>s+Math.abs(r.valor||0),0);
+    return total > 0;
+  });
+  const totalAnoGrupo = {};
+  rowsGrupo.forEach(r=>{
+    if(!r.date || !r.date.startsWith(anoAtual)) return;
+    const g = r.grupoDisplay || 'Outros';
+    totalAnoGrupo[g] = (totalAnoGrupo[g]||0) + r.valor;
+  });
+  // ordena por valor do ano (maior pro menor); "Lançamentos Manuais (GPS)" sempre por último
   gruposPresentes.sort((a,b)=>{
-    const ia = ordemGrupos.indexOf(a), ib = ordemGrupos.indexOf(b);
-    return (ia<0?999:ia) - (ib<0?999:ib);
+    if(a==='Lançamentos Manuais (GPS)') return 1;
+    if(b==='Lançamentos Manuais (GPS)') return -1;
+    return (totalAnoGrupo[b]||0) - (totalAnoGrupo[a]||0);
   });
   return gruposPresentes.map(g=>{
     const rowsG = rowsGrupo.filter(r=>(r.grupoDisplay||'Outros')===g);
     const ehManual = g === 'Lançamentos Manuais (GPS)';
     let categorias = Array.from(new Set(rowsG.map(r=>r.categoria)));
+    // remove categoria sem nenhum valor real (não deveria acontecer, mas por segurança)
+    categorias = categorias.filter(c=>rowsG.some(r=>r.categoria===c && Math.abs(r.valor||0)>0));
     categorias = ordenarCategoriasPorAno(categorias, rowsG, c=>categoriaExcluida(c));
     const children = categorias.map(c=>({
       type:'cat', level:2, label:c, signHint:'neg', mostrarNegativo:ehManual, mostrarComoTransferencia:categoriaExcluida(c),
@@ -701,7 +717,9 @@ function renderDebugStats(){
   const totalRec = scoped.filter(isRecebimento).length;
   const totalPag = scoped.filter(isPagamento).length;
   const totalAjustes = scoped.filter(r=>r.fonte==='Manual').length;
-  wrap.textContent = `🔍 Diagnóstico (só GPS): ${scoped.length} linhas no escopo atual (${empresaFiltro}) · Empoderamento: ${totalEmp} · Mister Wiz: ${totalMW} · Recebimentos: ${totalRec} · Pagamentos: ${totalPag} · Lançamentos manuais: ${totalAjustes} · CAP modo: ${debugModoCapCar.CAP||'?'} · CAR modo: ${debugModoCapCar.CAR||'?'}`;
+  const categoriasOutros = Array.from(new Set(scoped.filter(r=>r.grupo==='PAGAMENTOS' && (r.grupoDisplay||'Outros')==='Outros').map(r=>r.categoria)));
+  const avisoOutros = categoriasOutros.length ? ` · ⚠️ Ainda em "Outros": ${categoriasOutros.join(', ')}` : '';
+  wrap.textContent = `🔍 Diagnóstico (só GPS): ${scoped.length} linhas no escopo atual (${empresaFiltro}) · Empoderamento: ${totalEmp} · Mister Wiz: ${totalMW} · Recebimentos: ${totalRec} · Pagamentos: ${totalPag} · Lançamentos manuais: ${totalAjustes} · CAP modo: ${debugModoCapCar.CAP||'?'} · CAR modo: ${debugModoCapCar.CAR||'?'}${avisoOutros}`;
 }
 
 function renderColumnHeader(c){
