@@ -37,7 +37,8 @@ const HISTORICO_VALORES_EMPODERAMENTO = {"2024-01-01":{"TOTAL||SALDO ACUMULADO":
 
 
 function normalizeTxt(s){
-  return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+  return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()
+    .replace(/[-_]/g,' ').replace(/\s+/g,' ').trim();
 }
 // Busca o valor de uma coluna pelo nome "normalizado" (sem acento/maiúscula),
 // pra não depender de bater a grafia exata do cabeçalho vindo do Google Sheets.
@@ -250,6 +251,22 @@ const CATEGORIA_GRUPO_PAGAMENTOS = {
   'Teen Power-Acate': 'Despesas Com Marketing',
   'Tráfego Pago': 'Despesas Com Marketing',
   '07. Distribuição de Lucros': 'Despesas Com Marketing',
+  'Distrato De Franquia': '5. Despesas Administrativas',
+  'Pro Labore': '4. Despesas Com Pessoal',
+  'Compras de Mercadorias para Revenda': '2. Fornecedores',
+  'Advogados': '5. Despesas Administrativas',
+  'ERP': 'Despesa com TI',
+  'Vale Refeição': '4. Despesas Com Pessoal',
+  'Compra de Serviços': '2. Fornecedores',
+  'Pagamento de fatura do cartão Asaas': '3. Despesas Financeiras',
+  'Material de Escritório': '5. Despesas Administrativas',
+  'ICMS': 'Deduções Da Receita',
+  'Segurança': '4. Despesas Com Pessoal',
+  'Rescisões': '4. Despesas Com Pessoal',
+  'Premiação': 'Deduções Da Receita',
+  'Seguro de Vida': '4. Despesas Com Pessoal',
+  'Contabilidade': '5. Despesas Administrativas',
+  'Transferência EA': '3. Despesas Financeiras',
   'Distribuição de Lucros': 'Despesas Com Marketing',
 };
 const CATEGORIA_GRUPO_NORM = {};
@@ -257,13 +274,15 @@ Object.entries(CATEGORIA_GRUPO_PAGAMENTOS).forEach(([k,v])=>{ CATEGORIA_GRUPO_NO
 
 // Heurística de reserva pra categorias novas que ainda não estão no mapa acima.
 const REGRAS_FALLBACK_GRUPO = [
-  { grupo:'4. Despesas Com Pessoal', palavras:['salario','pro-labore','prolabore','inss','fgts','vale-transporte','plano de saude','ferias','13'] },
-  { grupo:'3. Despesas Financeiras', palavras:['juros','tarifa','iof','emprestimo','cartao de credito'] },
-  { grupo:'Deduções Da Receita', palavras:['imposto','iss','pis','cofins','csll','irpj','das','darf'] },
-  { grupo:'Despesa com TI', palavras:['software','sistema','plataforma','hospedagem','servidor','app','tecnologia'] },
+  { grupo:'4. Despesas Com Pessoal', palavras:['salario','pro labore','prolabore','inss','fgts','vale transporte','vale refeicao','plano de saude','ferias','13','rescisao','seguro de vida','seguranca','funcionario','colaborador','equipe interna'] },
+  { grupo:'3. Despesas Financeiras', palavras:['juros','tarifa','iof','emprestimo','cartao de credito','financiamento','transferencia'] },
+  { grupo:'Deduções Da Receita', palavras:['imposto','iss','pis','cofins','csll','irpj','das','darf','icms','premiacao','comissao'] },
+  { grupo:'Despesa com TI', palavras:['software','sistema','plataforma','hospedagem','servidor','app','tecnologia','erp','crm'] },
   { grupo:'Despesas Com Marketing', palavras:['marketing','trafego','influencer','midia','anuncio','video'] },
   { grupo:'6. Despesas Com Infra-Estrutura', palavras:['aluguel','condominio','energia','manutencao'] },
   { grupo:'7. Despesas Logísticas', palavras:['frete','correio','combustivel','estacionamento','pedagio'] },
+  { grupo:'5. Despesas Administrativas', palavras:['advogado','juridic','contabil','contador','material de escritorio','escritorio','franquia','distrato'] },
+  { grupo:'2. Fornecedores', palavras:['fornecedor','revenda','mercadoria','servico prestado','prestador'] },
 ];
 const CATEGORIAS_EXCLUIDAS_NORM = new Set([
   'entre contas empoderamento',
