@@ -768,9 +768,11 @@ function renderTable(){
     const hasChildren = rNode.children && rNode.children.length;
     const arrow = hasChildren ? `<span class="fc-toggle">${rNode.expanded?'▾':'▸'}</span> ` : (rNode.level>0 ? '<span class="fc-toggle"></span> ' : '');
     const labelClick = hasChildren ? `toggleRowNode('${rNode.label.replace(/'/g,"\\'")}', ${rNode.level})` : '';
-    const iconTransferencia = rNode.mostrarComoTransferencia ? ' <span title="Transferência interna entre contas próprias — não conta no total" style="font-style:normal;opacity:.7;">↔️</span>' : '';
+    const tituloTooltip = rNode.mostrarComoTransferencia
+      ? `${rNode.label} (transferência interna entre contas próprias — não conta no total)`
+      : rNode.label;
     tbody += `<tr class="${cls}">`;
-    tbody += `<td class="fc-row-label" onclick="${labelClick}">${arrow}${rNode.label}${iconTransferencia}</td>`;
+    tbody += `<td class="fc-row-label" onclick="${labelClick}" title="${escapeHtml(tituloTooltip)}">${arrow}${rNode.label}</td>`;
     cols.forEach((c,colIdx)=>{
       const colId = 'c'+colIdx;
       fcColDetailRefs[colId] = c;
