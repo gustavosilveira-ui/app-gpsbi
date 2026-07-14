@@ -740,7 +740,7 @@ function renderTable(){
         const hoverCls = negativo ? ' fc-hover-despesa' : ' fc-hover-receita';
         const cellCls = `${c.isToday?'fc-today':''}${clickable?(' fc-clickable-cell'+hoverCls):''}`.trim();
         const onClick = clickable ? ` onclick="openFluxoFicha('${rowId}','${colId}')"` : '';
-        const valExibido = rNode.mostrarNegativo ? -Math.abs(val) : val;
+        const valExibido = rNode.signHint === 'neg' ? -Math.abs(val) : val;
         tbody += `<td class="${cellCls}"${onClick}>${fmtBRL(valExibido)}</td>`;
       }
     });
@@ -776,7 +776,7 @@ function openFluxoFicha(rowId,colId){
 
   const negativo = rNode.signHint === 'neg';
   const corValor = negativo ? 'var(--red)' : '#4F8F3A';
-  const sinal = rNode.mostrarNegativo ? -1 : 1;
+  const sinal = rNode.signHint === 'neg' ? -1 : 1;
 
   const detailRows = rowsForFicha(rNode,col.start,col.end);
   const total = detailRows.reduce((s,r)=>s+r.valor,0) * sinal;
