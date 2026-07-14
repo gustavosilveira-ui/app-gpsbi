@@ -621,8 +621,13 @@ function ordenarCategoriasPorAno(categorias, rowsGrupo, categoriaDeCada){
 }
 function buildRecebimentosChildren(scoped){
   const rowsGrupo = scoped.filter(isRecebimento);
+  const anoAtual = String(new Date().getFullYear());
   let categorias = Array.from(new Set(rowsGrupo.map(r=>r.categoria)));
-  categorias = categorias.filter(c=>rowsGrupo.some(r=>r.categoria===c && Math.abs(r.valor||0)>0));
+  // esconde categoria com total do ano atual zerado (mesmo que tenha tido histórico em anos anteriores)
+  categorias = categorias.filter(c=>{
+    const totalAno = rowsGrupo.filter(r=>r.categoria===c && r.date && r.date.startsWith(anoAtual)).reduce((s,r)=>s+Math.abs(r.valor||0),0);
+    return totalAno > 0;
+  });
   categorias = ordenarCategoriasPorAno(categorias, rowsGrupo, c=>categoriaExcluida(c));
   return categorias.map(c=>({
     type:'cat', level:1, label:c, signHint:'pos', mostrarComoTransferencia:categoriaExcluida(c),
@@ -636,10 +641,10 @@ function buildPagamentosChildren(scoped){
   const rowsGrupo = scoped.filter(isPagamento);
   const anoAtual = String(new Date().getFullYear());
   let gruposPresentes = Array.from(new Set(rowsGrupo.map(r=>r.grupoDisplay || 'Outros')));
-  // remove grupo que não tem nenhum lançamento de verdade (soma total = 0)
+  // remove grupo sem nenhum valor no ano atual (mesmo que tenha tido histórico em anos anteriores)
   gruposPresentes = gruposPresentes.filter(g=>{
-    const total = rowsGrupo.filter(r=>(r.grupoDisplay||'Outros')===g).reduce((s,r)=>s+Math.abs(r.valor||0),0);
-    return total > 0;
+    const totalAno = rowsGrupo.filter(r=>(r.grupoDisplay||'Outros')===g && r.date && r.date.startsWith(anoAtual)).reduce((s,r)=>s+Math.abs(r.valor||0),0);
+    return totalAno > 0;
   });
   const totalAnoGrupo = {};
   rowsGrupo.forEach(r=>{
@@ -657,8 +662,11 @@ function buildPagamentosChildren(scoped){
     const rowsG = rowsGrupo.filter(r=>(r.grupoDisplay||'Outros')===g);
     const ehManual = g === 'Lançamentos Manuais (GPS)';
     let categorias = Array.from(new Set(rowsG.map(r=>r.categoria)));
-    // remove categoria sem nenhum valor real (não deveria acontecer, mas por segurança)
-    categorias = categorias.filter(c=>rowsG.some(r=>r.categoria===c && Math.abs(r.valor||0)>0));
+    // esconde categoria com total do ano atual zerado
+    categorias = categorias.filter(c=>{
+      const totalAno = rowsG.filter(r=>r.categoria===c && r.date && r.date.startsWith(anoAtual)).reduce((s,r)=>s+Math.abs(r.valor||0),0);
+      return totalAno > 0;
+    });
     categorias = ordenarCategoriasPorAno(categorias, rowsG, c=>categoriaExcluida(c));
     const children = categorias.map(c=>({
       type:'cat', level:2, label:c, signHint:'neg', mostrarNegativo:ehManual, mostrarComoTransferencia:categoriaExcluida(c),
@@ -760,8 +768,9 @@ function renderTable(){
     const hasChildren = rNode.children && rNode.children.length;
     const arrow = hasChildren ? `<span class="fc-toggle">${rNode.expanded?'▾':'▸'}</span> ` : (rNode.level>0 ? '<span class="fc-toggle"></span> ' : '');
     const labelClick = hasChildren ? `toggleRowNode('${rNode.label.replace(/'/g,"\\'")}', ${rNode.level})` : '';
+    const iconTransferencia = rNode.mostrarComoTransferencia ? ' <span title="Transferência interna entre contas próprias — não conta no total" style="font-style:normal;opacity:.7;">↔️</span>' : '';
     tbody += `<tr class="${cls}">`;
-    tbody += `<td class="fc-row-label" onclick="${labelClick}">${arrow}${rNode.label}</td>`;
+    tbody += `<td class="fc-row-label" onclick="${labelClick}">${arrow}${rNode.label}${iconTransferencia}</td>`;
     cols.forEach((c,colIdx)=>{
       const colId = 'c'+colIdx;
       fcColDetailRefs[colId] = c;
@@ -1030,6 +1039,53 @@ async function removeAjusteManual(id){
   await sb.from('fluxo_ajustes_manuais').delete().eq('id', id);
   await loadAjustesManuais();
   buildAndRenderTable();
+}
+
+/* ================== Simulador de Impacto no Saldo ==================
+   100% em memória (some ao recarregar a página) — nunca grava nada no
+   Supabase nem mexe na base real. Só um "e se" pra visualizar o efeito
+   no Saldo Acumulado dos próximos dias. */
+let fcSimEntries = [];
+function addFcSimEntry(){
+  const descricao = el('fcSimDesc').value.trim();
+  const valor = parseFloat(el('fcSimValor').value);
+  const data = el('fcSimData').value;
+  if(!descricao || !valor || !data){ alert('Preencha descrição, valor e data.'); return; }
+  fcSimEntries.push({ descricao, valor, data });
+  el('fcSimDesc').value=''; el('fcSimValor').value=''; el('fcSimData').value='';
+  renderFcSim();
+}
+function removeFcSimEntry(idx){ fcSimEntries.splice(idx,1); renderFcSim(); }
+function renderFcSim(){
+  const wrap = el('fcSimList');
+  if(!wrap) return;
+  wrap.innerHTML = fcSimEntries.length ? fcSimEntries.map((e,i)=>`
+    <div class="fc-sim-entry">
+      <span class="desc">${escapeHtml(e.descricao)}</span>
+      <span class="data">${new Date(e.data+'T00:00:00').toLocaleDateString('pt-BR')}</span>
+      <span class="valor" style="color:${e.valor>=0?'#98C47C':'var(--red)'}">${fmtBRL(e.valor)}</span>
+      <button class="del" onclick="removeFcSimEntry(${i})">✕</button>
+    </div>`).join('') : '<div style="color:var(--text3);font-size:12.5px;">Nenhuma simulação adicionada ainda.</div>';
+
+  const tableWrap = el('fcSimTableWrap');
+  if(!fcSimEntries.length){ tableWrap.style.display='none'; return; }
+  tableWrap.style.display='block';
+
+  const minDate = fcSimEntries.map(e=>e.data).sort()[0];
+  const dias = [];
+  const start = new Date(minDate+'T00:00:00');
+  for(let i=0;i<15;i++){
+    const d = new Date(start); d.setDate(start.getDate()+i);
+    dias.push(d.toISOString().slice(0,10));
+  }
+  el('fcSimTableBody').innerHTML = dias.map(dstr=>{
+    const saldoReal = runningBalance(dstr);
+    const impacto = fcSimEntries.filter(e=>e.data<=dstr).reduce((s,e)=>s+e.valor,0);
+    const saldoSim = saldoReal + impacto;
+    const diffCls = impacto>=0 ? 'style="color:#98C47C"' : 'style="color:var(--red)"';
+    const dateLabel = new Date(dstr+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
+    return `<tr><td>${dateLabel}</td><td>${fmtBRL(saldoReal)}</td><td style="font-weight:700">${fmtBRL(saldoSim)}</td><td ${diffCls}>${impacto>=0?'+':''}${fmtBRL(impacto)}</td></tr>`;
+  }).join('');
 }
 
 init();
