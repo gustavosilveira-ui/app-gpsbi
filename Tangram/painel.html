@@ -1250,10 +1250,24 @@ function gerarAnaliseTexto(){
   const metaMes = vendFilter ? getMeta(mes, vendFilter) : allVendors.reduce((s,v)=>s+getMeta(mes,v),0);
   const pctMetaBatido = metaMes>0 ? (capAtual/metaMes*100) : null;
 
-  // Projeção de fechamento no ritmo atual — só faz sentido se o mês ainda está em andamento (parcial)
+  // Projeção de fechamento no ritmo atual — só faz sentido se o mês ainda está em andamento (parcial).
+  // Esse cliente só trabalha em dias úteis, então: projeta sobre dias úteis do mês (não dias corridos),
+  // e usa como base a média dos dias que realmente tiveram receita (não todos os dias decorridos —
+  // fins de semana sem venda não devem "diluir" a média).
   const [anoMes, numMes] = mes.split('-').map(Number);
   const diasNoMes = new Date(anoMes, numMes, 0).getDate();
-  const projecao = (info.dayLimit && info.dayLimit < diasNoMes && capAtual>0) ? (capAtual / info.dayLimit * diasNoMes) : null;
+  function contarDiasUteis(ano, mesNum, ateDia){
+    let count = 0;
+    for(let d=1; d<=ateDia; d++){
+      const dow = new Date(ano, mesNum-1, d).getDay(); // 0=domingo, 6=sábado
+      if(dow!==0 && dow!==6) count++;
+    }
+    return count;
+  }
+  const diasUteisNoMes = contarDiasUteis(anoMes, numMes, diasNoMes);
+  const rowsPeriodoAtual = rowsUntilDay(captadaRows, mes, vendFilter, canalFilter, info.dayLimit);
+  const diasComReceita = new Set(rowsPeriodoAtual.filter(r=>r.total>0).map(r=>r.date)).size;
+  const projecao = (info.dayLimit && info.dayLimit < diasNoMes && diasComReceita>0) ? (capAtual / diasComReceita * diasUteisNoMes) : null;
 
   const linhaMes = pctMes===null ? '*📈 Crescimento vs Mês:* —' : `*📈 Crescimento vs Mês:* ${Math.round(pctMes)}% (${fmtBRLFull(capAtual-capMesAnterior)})`;
   const linhaAno = pctAno===null ? '*📈 Crescimento vs Ano:* —' : `*📈 Crescimento vs Ano:* ${Math.round(pctAno)}% (${fmtBRLFull(capAtual-capAnoAnterior)})`;
