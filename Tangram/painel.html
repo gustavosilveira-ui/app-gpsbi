@@ -990,7 +990,14 @@ async function loadData(){
     setLoading('Carregando metas...');
     await fetchMetas();
 
-    allVendors = Array.from(new Set(captadaRows.map(r=>r.vendedor).filter(Boolean))).sort();
+    allVendors = Array.from(
+      captadaRows.reduce((map, r)=>{
+        if(!r.vendedor) return map;
+        const key = r.vendedor.trim().toLowerCase();
+        if(!map.has(key)) map.set(key, r.vendedor.trim());
+        return map;
+      }, new Map()).values()
+    ).sort();
     allCanais = Array.from(new Set(captadaRows.map(r=>r.canal).filter(Boolean))).sort();
 
     const months = Array.from(new Set(captadaRows.map(r=>r.mes))).sort().reverse();
