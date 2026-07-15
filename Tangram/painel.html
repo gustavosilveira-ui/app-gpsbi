@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
-html{zoom:.8;}
+body{transform:scale(.8);transform-origin:top left;width:125%;}
 html{visibility:hidden;}
 :root{
   --navy:#06172D; --navy2:#071B33; --navy3:#0B2545; --navy4:#123C68;
@@ -1975,6 +1975,21 @@ let _fitFiltersBarTimer = null;
 window.addEventListener('resize', ()=>{ clearTimeout(_fitFiltersBarTimer); _fitFiltersBarTimer = setTimeout(fitFiltersBar, 120); });
 
 initAuth();
+
+// Compensa a altura do documento pro transform:scale(.8) do body não deixar
+// espaço em branco sobrando embaixo (o transform não encolhe o espaço ocupado
+// no fluxo normal do documento, só o visual — então ajustamos na mão).
+(function ajustarAlturaComScale(){
+  function fixHeight(){
+    const rect = document.body.getBoundingClientRect();
+    document.documentElement.style.height = rect.height + 'px';
+  }
+  window.addEventListener('load', fixHeight);
+  window.addEventListener('resize', fixHeight);
+  if(window.ResizeObserver){ new ResizeObserver(fixHeight).observe(document.body); }
+  setTimeout(fixHeight, 300);
+  setTimeout(fixHeight, 1200);
+})();
 </script>
 </body>
 </html>
