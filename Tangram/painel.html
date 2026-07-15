@@ -810,7 +810,7 @@ function renderDebugStats(){
   const wrap = el('evolutionDebug');
   if(!wrap) return;
   if(userRole!=='owner' || !debugStats.totalRawFat){ wrap.textContent=''; return; }
-  wrap.textContent = `🔍 Diagnóstico: Captada carregou ${debugStats.totalCap} linhas · Faturada: ${debugStats.totalRawFat} linhas na base, ${debugStats.totalFat} depois dos filtros (Situação + Operação) · Situações encontradas: ${debugStats.situacoesFat.join(', ')||'—'} · Operações encontradas: ${debugStats.operacoesFat.join(', ')||'—'}`;
+  wrap.textContent = `🔍 Diagnóstico: Captada carregou ${debugStats.totalRawCap} linhas na base, ${debugStats.totalCap} depois do filtro de Situação · Situações encontradas na Captada: ${debugStats.situacoesCap.join(', ')||'—'} · Faturada: ${debugStats.totalRawFat} linhas na base, ${debugStats.totalFat} depois dos filtros (Situação + Operação) · Situações encontradas: ${debugStats.situacoesFat.join(', ')||'—'} · Operações encontradas: ${debugStats.operacoesFat.join(', ')||'—'}`;
 }
 
 async function fetchMetas(){
@@ -973,7 +973,8 @@ async function loadData(){
   try{
     setLoading('Buscando pedidos incluídos...');
     const tableCap = await fetchGviz(GID_CAPTADA);
-    captadaRows = parseGvizRows(tableCap).map(r=>rowToRecord(r,'captada')).filter(Boolean)
+    const rawCap = parseGvizRows(tableCap).map(r=>rowToRecord(r,'captada')).filter(Boolean);
+    captadaRows = rawCap
       .filter(r=>situacaoOk(r.situacao,'captada'))
       .filter(r=>!PEDIDOS_EXCLUIDOS_CAPTADA.has(String(r.pedido).trim()));
 
@@ -987,9 +988,11 @@ async function loadData(){
 
     // Diagnóstico (só pra owner): ajuda a achar rápido se uma coluna/filtro está zerando a base.
     debugStats = {
-      totalRawFat: rawFat.length,
+      totalRawCap: rawCap.length,
       totalFat: faturadaRows.length,
+      totalRawFat: rawFat.length,
       situacoesFat: Array.from(new Set(rawFat.map(r=>r.situacao))).slice(0,15),
+      situacoesCap: Array.from(new Set(rawCap.map(r=>r.situacao))).slice(0,20),
       operacoesFat: Array.from(new Set(rawFat.map(r=>r.operacao))).slice(0,15),
       totalCap: captadaRows.length
     };
