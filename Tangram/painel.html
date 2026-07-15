@@ -1246,8 +1246,19 @@ function gerarAnaliseTexto(){
   const pedidosUnicos = new Set(rowsUntilDay(captadaRows, mes, vendFilter, canalFilter, info.dayLimit).map(r=>r.pedido)).size;
   const ticketMedio = pedidosUnicos>0 ? capAtual/pedidosUnicos : 0;
 
+  // Meta do mês (soma de todos os vendedores, ou só do vendedor filtrado) e % batido
+  const metaMes = vendFilter ? getMeta(mes, vendFilter) : allVendors.reduce((s,v)=>s+getMeta(mes,v),0);
+  const pctMetaBatido = metaMes>0 ? (capAtual/metaMes*100) : null;
+
+  // Projeção de fechamento no ritmo atual — só faz sentido se o mês ainda está em andamento (parcial)
+  const [anoMes, numMes] = mes.split('-').map(Number);
+  const diasNoMes = new Date(anoMes, numMes, 0).getDate();
+  const projecao = (info.dayLimit && info.dayLimit < diasNoMes && capAtual>0) ? (capAtual / info.dayLimit * diasNoMes) : null;
+
   const linhaMes = pctMes===null ? '*📈 Crescimento vs Mês:* —' : `*📈 Crescimento vs Mês:* ${Math.round(pctMes)}% (${fmtBRLFull(capAtual-capMesAnterior)})`;
   const linhaAno = pctAno===null ? '*📈 Crescimento vs Ano:* —' : `*📈 Crescimento vs Ano:* ${Math.round(pctAno)}% (${fmtBRLFull(capAtual-capAnoAnterior)})`;
+  const linhaMeta = metaMes>0 ? [``, `*🎯 Meta do mês:* ${fmtBRLFull(metaMes)} (${Math.round(pctMetaBatido)}% batido)`] : [];
+  const linhaProjecao = projecao!==null ? [``, `*🔮 Projeção de fechamento:* ${fmtBRLFull(projecao)} (no ritmo atual)`] : [];
 
   return [
     `*📊 Análise de Resultados de Vendas – ${mesLabelFull(mes).toLowerCase()}*`,
@@ -1262,9 +1273,12 @@ function gerarAnaliseTexto(){
     linhaMes,
     ``,
     linhaAno,
+    ...linhaMeta,
+    ...linhaProjecao,
     ``,
     `*🛒 Ticket Médio:* ${fmtBRLFull(ticketMedio)}`,
     ``,
+    `👉 Confira todos os detalhes no seu Hub:`,
     `https://tangram.gpsbi.com.br/`
   ].join('\n');
 }
@@ -1999,17 +2013,19 @@ initAuth();
 // espaço em branco sobrando embaixo (o transform não encolhe o espaço ocupado
 // no fluxo normal do documento, só o visual — então ajustamos na mão).
 (function ajustarAlturaComScale(){
-  let ultimaAltura = 0;
+  const SCALE = 0.8;
   function fixHeight(){
     const mc = document.getElementById('mainContent');
     if(!mc || mc.style.display === 'none') return;
-    const rect = mc.getBoundingClientRect();
-    // trava de segurança: nunca deixa a altura "explodir" (evita loop de re-render com os gráficos)
-    if(ultimaAltura && rect.height > ultimaAltura * 1.5) return;
-    ultimaAltura = rect.height;
-    document.documentElement.style.height = rect.height + 'px';
+    // offsetHeight reflete o tamanho "real" (antes do transform) — diferente do
+    // getBoundingClientRect, que já vem escalado. É a partir dele que calculamos
+    // quanto espaço sobra reservado no layout da página.
+    const alturaReal = mc.offsetHeight;
+    const colapso = alturaReal * (1 - SCALE);
+    mc.style.marginBottom = (-colapso) + 'px';
   }
   window.addEventListener('load', fixHeight);
+  window.addEventListener('resize', fixHeight);
   setTimeout(fixHeight, 300);
   setTimeout(fixHeight, 1200);
   setTimeout(fixHeight, 3000);
