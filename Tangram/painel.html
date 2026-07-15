@@ -1993,16 +1993,17 @@ initAuth();
 // espaço em branco sobrando embaixo (o transform não encolhe o espaço ocupado
 // no fluxo normal do documento, só o visual — então ajustamos na mão).
 (function ajustarAlturaComScale(){
+  let ultimaAltura = 0;
   function fixHeight(){
     const mc = document.getElementById('mainContent');
     if(!mc || mc.style.display === 'none') return;
     const rect = mc.getBoundingClientRect();
+    // trava de segurança: nunca deixa a altura "explodir" (evita loop de re-render com os gráficos)
+    if(ultimaAltura && rect.height > ultimaAltura * 1.5) return;
+    ultimaAltura = rect.height;
     document.documentElement.style.height = rect.height + 'px';
   }
   window.addEventListener('load', fixHeight);
-  window.addEventListener('resize', fixHeight);
-  const mcEl = document.getElementById('mainContent');
-  if(window.ResizeObserver && mcEl){ new ResizeObserver(fixHeight).observe(mcEl); }
   setTimeout(fixHeight, 300);
   setTimeout(fixHeight, 1200);
   setTimeout(fixHeight, 3000);
