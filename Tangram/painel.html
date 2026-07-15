@@ -3,14 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<script>
-// Modo TV: acesse com painel.html?tv=1 (ex: bookmark fixo na Smart TV/monitor de parede)
-// pra encolher a página e caber tudo sem precisar rolar. NÃO ativa no uso normal
-// (sem o parâmetro), porque o zoom quebra o clique/tooltip dos gráficos Chart.js.
-if(new URLSearchParams(window.location.search).get('tv')){
-  document.write('<style>html{zoom:.72;}</style>');
-}
-</script>
 <title>Hub GPSBI · Tangram Personalizados</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -19,6 +11,7 @@ if(new URLSearchParams(window.location.search).get('tv')){
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
+html{zoom:.8;}
 html{visibility:hidden;}
 :root{
   --navy:#06172D; --navy2:#071B33; --navy3:#0B2545; --navy4:#123C68;
