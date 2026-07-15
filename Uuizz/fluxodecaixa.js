@@ -24,6 +24,7 @@ const SHEET_ID = '1eFzTg4nqZecn7fqjcvFOOQOhcE0cl5iAR1U1p_gKO2s'; // extrair de h
 const GID_CAP = '193110136';                         // aba "CAP" — Empoderamento (Conta Azul)
 const GID_CAR = '14079185';                         // aba "CAR" — Empoderamento (Conta Azul)
 const GID_MOVIMENTACAO_UUIZZ = '1752090986'; // aba "Movimentação da Conta Uuizz" — Mister Wiz (Omie)
+const GID_VINDI = '{{GID_VINDI}}';           // aba "Vindi" — Mister Wiz (recebimentos via gateway de pagamento)
 const LOGIN_URL = 'index.html';
 
 /* ===== Histórico congelado — Empoderamento até 30/06/2026 =====
@@ -433,6 +434,45 @@ function rowsFromMovimentacao(table){
 }
 
 
+/* ================== Ingestão: Vindi (Mister Wiz — gateway de pagamento) ==================
+   Data: usa "Crédito" quando preenchida (data real em que o valor caiu na conta,
+   já ajustada pela Vindi pra pular fim de semana/feriado); se "Crédito" estiver
+   vazia ("-"), usa "Previsto". Se "Cancelado" tiver qualquer data preenchida,
+   a linha é uma transação cancelada/bloqueada e fica fora do fluxo. */
+function valorPreenchido(raw){
+  const v = (raw && typeof raw==='object') ? (raw.v ?? raw.f) : raw;
+  if(v===null || v===undefined) return false;
+  const s = String(v).trim();
+  return s !== '' && s !== '-';
+}
+function rowsFromVindi(table){
+  const raw = parseGvizRows(table);
+  return raw.map(r=>{
+    const canceladoRaw = getColNormalized(r, 'cancelado');
+    if(valorPreenchido(canceladoRaw)) return null; // cancelado/bloqueado, fora do fluxo
+
+    const creditoRaw = getColNormalized(r, 'credito');
+    const previstoRaw = getColNormalized(r, 'previsto');
+    const dataRaw = valorPreenchido(creditoRaw) ? creditoRaw : previstoRaw;
+    const date = parseDateCell(typeof dataRaw==='object' && dataRaw!==null ? (dataRaw.v||dataRaw.f) : dataRaw);
+    if(!date) return null;
+
+    const valorRaw = getColNormalized(r, 'valor');
+    const rawValor = parseMoneyBR(typeof valorRaw==='object' && valorRaw!==null ? (valorRaw.v ?? valorRaw.f) : valorRaw);
+    if(!rawValor) return null;
+
+    const grupo = rawValor >= 0 ? 'RECEBIMENTOS' : 'PAGAMENTOS';
+    const grupoDisplay = grupo==='PAGAMENTOS' ? resolveGrupoPagamento('Vindi') : null;
+    const valor = Math.abs(rawValor);
+    const signedValor = rawValor;
+    const descricao = (getColNormalized(r,'descricao')||'').toString().trim();
+    const formaPagamento = (getColNormalized(r,'forma de pagamento')||'').toString().trim();
+    const documento = (getColNormalized(r,'nsu') || getColNormalized(r,'transacao') || getColNormalized(r,'pedido') || '').toString().trim();
+
+    return { date, categoria:'Vindi', grupoDisplay, grupo, valor, signedValor, conta: formaPagamento || 'Vindi', empresa:'Mister Wiz', fonte:'Vindi', nome: descricao || 'Vindi', documento, historico: formaPagamento };
+  }).filter(Boolean);
+}
+
 /* ================== Estado global ================== */
 let rows = []; // { date, categoria, grupoDisplay, grupo, valor, signedValor, conta, empresa, fonte, nome, documento, historico }
 let currentUser = null;
@@ -469,15 +509,17 @@ async function init(){
 
 async function loadData(){
   try{
-    const [tableCap, tableCar, tableMov] = await Promise.all([
+    const [tableCap, tableCar, tableMov, tableVindi] = await Promise.all([
       fetchGviz(GID_CAP),
       fetchGviz(GID_CAR),
       fetchGviz(GID_MOVIMENTACAO_UUIZZ),
+      fetchGviz(GID_VINDI),
     ]);
     rows = [
       ...rowsFromCapCar(tableCap, 'pagar'),
       ...rowsFromCapCar(tableCar, 'receber'),
       ...rowsFromMovimentacao(tableMov),
+      ...rowsFromVindi(tableVindi),
       ...rowsFromHistoricoEmpoderamento(),
     ];
     rows.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
