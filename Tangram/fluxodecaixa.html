@@ -196,6 +196,14 @@ html.light .fc-day-num{color:#1f2a3d;}
       </div>
     </div>
 
+    <!-- Análise pronta pra WhatsApp — só time GPS -->
+    <div class="card" id="analiseFluxoWhatsCard" style="display:none;">
+      <div class="card-title">📋 Análise pronta pra WhatsApp</div>
+      <div class="card-sub">Texto pronto com o saldo e a previsão do fluxo — cole direto no grupo do cliente. Visível só pro time GPS.</div>
+      <pre id="analiseFluxoWhatsTexto" style="white-space:pre-wrap;font-family:'Sora',sans-serif;font-size:13px;line-height:1.7;background:var(--navy3);border-radius:10px;padding:14px 16px;margin-bottom:12px;"></pre>
+      <button id="analiseFluxoWhatsBtn" style="padding:9px 18px;border-radius:9px;border:none;font-weight:700;cursor:pointer;color:#fff;background:linear-gradient(90deg,var(--blue),var(--cyan));font-family:'Sora',sans-serif;font-size:12.5px;">📋 Copiar texto</button>
+    </div>
+
     <!-- Modal: histórico do Saldo Inicial -->
     <div class="modal-overlay" id="saldoInicialModal">
       <div class="modal-box">
@@ -618,6 +626,7 @@ async function loadData(){
     document.documentElement.style.visibility='visible';
     el('fcSimData').value = new Date().toISOString().slice(0,10);
     await loadFcMsgs();
+    if(gpsStaff) renderAnaliseFluxoWhats();
   }catch(e){
     console.error(e);
     el('loadingMsg').textContent = 'Erro ao carregar a base. Verifique o acesso à planilha.';
@@ -728,6 +737,70 @@ function runningBalance(uptoDate){
 const isRecebimento = r => r.grupo==='RECEBIMENTOS';
 const isPagamento = r => r.grupo!=='RECEBIMENTOS' && r.grupo!=='DUPLICATAS_DESCONTADAS' && r.grupo!=='AJUSTES_MANUAIS';
 const isDuplicataDescontada = r => r.grupo==='DUPLICATAS_DESCONTADAS';
+
+/* ---- Análise do Fluxo de Caixa pronta pra WhatsApp (só GPS) ---- */
+let analiseFluxoWhatsBound = false;
+function gerarAnaliseFluxoTexto(){
+  const hoje = new Date();
+  const hojeStr = hoje.toISOString().slice(0,10);
+  const saldoHoje = runningBalance(hojeStr);
+
+  const ano = hoje.getFullYear(), mesNum = hoje.getMonth()+1;
+  const ultimoDiaMes = new Date(ano, mesNum, 0).getDate();
+  const fimMesStr = `${ano}-${String(mesNum).padStart(2,'0')}-${String(ultimoDiaMes).padStart(2,'0')}`;
+
+  const amanha = new Date(hoje); amanha.setDate(amanha.getDate()+1);
+  const amanhaStr = amanha.toISOString().slice(0,10);
+  const temPeriodo = amanhaStr <= fimMesStr;
+
+  const despesasPrevistas = temPeriodo ? Math.abs(sumInRange(isPagamento, amanhaStr, fimMesStr)) : 0;
+  const recebimentosPrevistos = temPeriodo ? sumInRange(isRecebimento, amanhaStr, fimMesStr) : 0;
+  const saldoPrevisto = runningBalance(fimMesStr);
+
+  const fmtDataCurta = d => { const [,m,dd] = d.split('-'); return `${dd}/${m}`; };
+  const mesNomes = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const nomeMes = mesNomes[mesNum-1];
+  const hojeFmt = `${String(hoje.getDate()).padStart(2,'0')}/${String(mesNum).padStart(2,'0')}/${ano}`;
+
+  const linhasPeriodo = temPeriodo ? [
+    `📉 Previsões para ${nomeMes}`,
+    `Despesas Totais (${fmtDataCurta(amanhaStr)} a ${fmtDataCurta(fimMesStr)}): ${fmtBRL(despesasPrevistas)}`,
+    ``,
+    `📈 Recebimentos previstos (${fmtDataCurta(amanhaStr)} a ${fmtDataCurta(fimMesStr)}): ${fmtBRL(recebimentosPrevistos)}`,
+    ``,
+    `➡️ Saldo Previsto para o período: ${fmtBRL(saldoPrevisto)}`,
+  ] : [`✅ Hoje já é o último dia do mês — sem período restante pra prever.`];
+
+  return [
+    `Fluxo de Caixa · Tangram`,
+    `🗓️ ${hojeFmt}`,
+    `💰 Saldo: ${fmtBRL(saldoHoje)}`,
+    ``,
+    ...linhasPeriodo,
+    ``,
+    `👉 https://tangram.gpsbi.com.br/`
+  ].join('\n');
+}
+function renderAnaliseFluxoWhats(){
+  const card = el('analiseFluxoWhatsCard');
+  if(!card) return;
+  card.style.display = 'block';
+  el('analiseFluxoWhatsTexto').textContent = gerarAnaliseFluxoTexto();
+  if(!analiseFluxoWhatsBound){
+    analiseFluxoWhatsBound = true;
+    el('analiseFluxoWhatsBtn').addEventListener('click', async ()=>{
+      const texto = el('analiseFluxoWhatsTexto').textContent;
+      try{
+        await navigator.clipboard.writeText(texto);
+        const btn = el('analiseFluxoWhatsBtn');
+        const original = btn.textContent;
+        btn.textContent = '✅ Copiado!';
+        setTimeout(()=>{ btn.textContent = original; }, 1800);
+      }catch(e){ alert('Não consegui copiar automaticamente. Selecione o texto acima e copie manualmente.'); }
+    });
+  }
+}
+
 const isGrupo = g => r => r.grupo===g;
 const isCategoria = c => r => r.categoria===c;
 const isContaRecebimento = conta => r => r.grupo==='RECEBIMENTOS' && r.conta===conta && r.date > HISTORICO_CUTOFF;
