@@ -998,6 +998,7 @@ function openFluxoFicha(rowId,colId){
   el('fluxoFichaModal').classList.add('show');
 }
 function closeFluxoFicha(){ el('fluxoFichaModal').classList.remove('show'); }
+el('fluxoFichaModal').addEventListener('click', e=>{ if(e.target.id==='fluxoFichaModal') closeFluxoFicha(); });
 
 function scrollToToday(){
   const todayTh = document.querySelector('.fc-table th.fc-today');
@@ -1037,8 +1038,10 @@ async function doLogout(){ await sb.auth.signOut(); window.location.href = LOGIN
 
 function openSaldoInicialModal(){ el('saldoInicialModal').classList.add('show'); }
 function closeSaldoInicialModal(){ el('saldoInicialModal').classList.remove('show'); }
+el('saldoInicialModal').addEventListener('click', e=>{ if(e.target.id==='saldoInicialModal') closeSaldoInicialModal(); });
 function openAjustesManuaisModal(){ el('ajustesManuaisModal').classList.add('show'); }
 function closeAjustesManuaisModal(){ el('ajustesManuaisModal').classList.remove('show'); }
+el('ajustesManuaisModal').addEventListener('click', e=>{ if(e.target.id==='ajustesManuaisModal') closeAjustesManuaisModal(); });
 
 /* ================== NOVO: Limite da Conta ================== */
 function loadLimiteConta(){
