@@ -1165,7 +1165,7 @@ function render(){
 
   renderEvolution();
   renderProjetoChart(filterRowsYears(captadaRows, vendFilter, canalFilter, true));
-  renderDailyWeekly(capPeriodo);
+  renderDailyWeekly(capMes);
   renderMonthlyHistory();
   renderMap(capMes);
   renderTopClientes(capPeriodo);
@@ -1215,13 +1215,13 @@ function gerarAnaliseTexto(){
   const mes = selectedMes || `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`;
   const info = periodoAtualInfo(mes);
 
-  const capAtual = calcMonthTotalSamePeriod(mes, vendFilter, canalFilter, info.currentYm, captadaRows);
-  const fatAtual = calcMonthTotalSamePeriod(mes, vendFilter, canalFilter, info.currentYm, faturadaRows);
+  const capAtual = calcMonthTotalSamePeriod(mes, vendFilter, canalFilter, info.dayLimit, captadaRows);
+  const fatAtual = calcMonthTotalSamePeriod(mes, vendFilter, canalFilter, info.dayLimit, faturadaRows);
 
   const mesAnterior = monthAdd(mes,-1);
   const anoAnterior = monthAdd(mes,-12);
-  const capMesAnterior = calcMonthTotalSamePeriod(mesAnterior, vendFilter, canalFilter, mes===info.currentYm ? info.currentYm : null, captadaRows);
-  const capAnoAnterior = calcMonthTotalSamePeriod(anoAnterior, vendFilter, canalFilter, mes===info.currentYm ? info.currentYm : null, captadaRows);
+  const capMesAnterior = calcMonthTotalSamePeriod(mesAnterior, vendFilter, canalFilter, info.dayLimit, captadaRows);
+  const capAnoAnterior = calcMonthTotalSamePeriod(anoAnterior, vendFilter, canalFilter, info.dayLimit, captadaRows);
 
   const pctMes = capMesAnterior>0 ? (capAtual-capMesAnterior)/capMesAnterior*100 : null;
   const pctAno = capAnoAnterior>0 ? (capAtual-capAnoAnterior)/capAnoAnterior*100 : null;
@@ -1296,15 +1296,8 @@ function rowsUntilDay(rows, mes, vendedor, canal, dayLimit){
     return true;
   });
 }
-function calcMonthTotalSamePeriod(mes, vendedor, canal, referenceMes, rows){
+function calcMonthTotalSamePeriod(mes, vendedor, canal, dayLimit, rows){
   rows = rows || captadaRows;
-  let dayLimit = null;
-  // Para o mês corrente, compara somente a mesma quantidade de dias faturados até hoje.
-  // Ex.: julho até dia 02 compara junho até dia 02.
-  if(referenceMes && mes===referenceMes){
-    const today = new Date();
-    dayLimit = today.getDate();
-  }
   return rowsUntilDay(rows, mes, vendedor, canal, dayLimit).reduce((s,r)=>s+r.total,0);
 }
 
@@ -1458,12 +1451,13 @@ function renderEvolution(){
   evolutionMonths = allMonths;
 
   const currentYm = `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`;
-  const capByMes = allMonths.map(m=>calcMonthTotalSamePeriod(m,vendFilter,canalFilter,currentYm,captadaRows));
-  const fatByMes = allMonths.map(m=>calcMonthTotalSamePeriod(m,vendFilter,canalFilter,currentYm,faturadaRows));
+  const todayDate = new Date().getDate();
+  const capByMes = allMonths.map(m=>calcMonthTotalSamePeriod(m,vendFilter,canalFilter, m===currentYm ? todayDate : null, captadaRows));
+  const fatByMes = allMonths.map(m=>calcMonthTotalSamePeriod(m,vendFilter,canalFilter, m===currentYm ? todayDate : null, faturadaRows));
   const pctVsPrev = allMonths.map((m,i)=>{
     const prevMes = monthAdd(m,-1);
     const atual = capByMes[i] || 0;
-    const prev = calcMonthTotalSamePeriod(prevMes,vendFilter,canalFilter, m===currentYm ? currentYm : null, captadaRows);
+    const prev = calcMonthTotalSamePeriod(prevMes,vendFilter,canalFilter, m===currentYm ? todayDate : null, captadaRows);
     if(!prev) return null;
     return (atual-prev)/prev*100;
   });
@@ -1680,7 +1674,7 @@ function renderDailyWeekly(rows){
       render();
     },
     onHover:(evt, elements)=>{ evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; },
-    scales:{ x:{grid:{display:false},ticks:{color:textColor,font:{size:9},maxTicksLimit:14,autoSkip:true}}, y:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10},callback:v=>fmtBRL(v)}} }
+    scales:{ x:{grid:{display:false},ticks:{color:textColor,font:{size:9},maxTicksLimit:14,autoSkip:true}}, y:{grid:{color:gridColor},ticks:{display:false}} }
   };
 
   const wLabels = weekKeys.map(k=>{ const [y,w]=k.split('-W'); return 'S'+w+'/'+y.slice(2); });
@@ -1698,7 +1692,7 @@ function renderDailyWeekly(rows){
       render();
     },
     onHover:(evt, elements)=>{ evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; },
-    scales:{ x:{grid:{display:false},ticks:{color:textColor,font:{size:9},maxTicksLimit:14,autoSkip:true}}, y:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10},callback:v=>fmtBRL(v)}} }
+    scales:{ x:{grid:{display:false},ticks:{color:textColor,font:{size:9},maxTicksLimit:14,autoSkip:true}}, y:{grid:{color:gridColor},ticks:{display:false}} }
   };
 
   if(dailyChart){dailyChart.data=dData;dailyChart.options=dOpts;dailyChart.update();} else dailyChart=new Chart(el('dailyChart'),{type:'line',data:dData,options:dOpts});
