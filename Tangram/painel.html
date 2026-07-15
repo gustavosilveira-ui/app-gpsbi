@@ -1361,6 +1361,8 @@ function renderMatrix(){
   const canalFilter = selectedCanal;
   const vendorsBase = selectedVendedor ? [selectedVendedor] : allVendors;
   const grandTotalCap = filterRows(captadaRows, selectedMes, selectedVendedor, canalFilter).reduce((s,r)=>s+r.total,0);
+  const grandTotalFat = filterRows(faturadaRows, selectedMes, selectedVendedor, canalFilter).reduce((s,r)=>s+r.total,0);
+  const grandComp = matrixComparativos(captadaRows, selectedMes, selectedVendedor, canalFilter, null);
 
   // Pré-calcula pra poder filtrar (sem receita) e ordenar (maior pro menor) antes de desenhar
   const vendorsCalc = vendorsBase.map(v=>{
@@ -1372,7 +1374,11 @@ function renderMatrix(){
   const vendors = vendorsCalc.map(x=>x.v);
 
   const body = el('matrixBody'); body.innerHTML = '';
-  let totCap=0, totFat=0, totMeta=0, totMA=0, totAA=0, totPedidosUnicos=0;
+  // Total agora vem do cálculo independente (grandComp/grandTotalCap/grandTotalFat),
+  // não da soma dos vendedores exibidos — um vendedor sem atividade no mês atual
+  // (mas com atividade em M.A/A.A) não pode mais fazer o comparativo sumir do Total.
+  let totMeta=0, totPedidosUnicos=0;
+  const totCap = grandTotalCap, totFat = grandTotalFat, totMA = grandComp.ma, totAA = grandComp.aa;
 
   vendorsCalc.forEach((pre, vi)=>{
     const v = pre.v;
@@ -1384,7 +1390,7 @@ function renderMatrix(){
     const pedidosUnicos = new Set(filterRows(captadaRows, selectedMes, v, canalFilter).map(r=>r.pedido)).size;
     const ticket = pedidosUnicos>0 ? compCap.atual/pedidosUnicos : 0;
 
-    totCap+=compCap.atual; totFat+=fatAtual; totMeta+=meta; totMA+=compCap.ma; totAA+=compCap.aa; totPedidosUnicos+=pedidosUnicos;
+    totMeta+=meta; totPedidosUnicos+=pedidosUnicos;
 
     const rowId = 'mrow_'+vi;
     const trV = document.createElement('tr'); trV.className='vendor-row';
