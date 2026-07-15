@@ -763,18 +763,20 @@ function gerarAnaliseFluxoTexto(){
   const hojeFmt = `${String(hoje.getDate()).padStart(2,'0')}/${String(mesNum).padStart(2,'0')}/${ano}`;
 
   const linhasPeriodo = temPeriodo ? [
-    `📉 Previsões para ${nomeMes}`,
-    `Despesas Totais (${fmtDataCurta(amanhaStr)} a ${fmtDataCurta(fimMesStr)}): ${fmtBRL(despesasPrevistas)}`,
+    `*📊 Previsões para ${nomeMes}*`,
     ``,
-    `📈 Recebimentos previstos (${fmtDataCurta(amanhaStr)} a ${fmtDataCurta(fimMesStr)}): ${fmtBRL(recebimentosPrevistos)}`,
+    `📉 *Despesas Totais (${fmtDataCurta(amanhaStr)} a ${fmtDataCurta(fimMesStr)}):* ${fmtBRL(despesasPrevistas)}`,
     ``,
-    `➡️ Saldo Previsto para o período: ${fmtBRL(saldoPrevisto)}`,
+    `📈 *Recebimentos previstos (${fmtDataCurta(amanhaStr)} a ${fmtDataCurta(fimMesStr)}):* ${fmtBRL(recebimentosPrevistos)}`,
+    ``,
+    `➡️ *Saldo Previsto para o período:* ${fmtBRL(saldoPrevisto)}`,
   ] : [`✅ Hoje já é o último dia do mês — sem período restante pra prever.`];
 
   return [
-    `Fluxo de Caixa · Tangram`,
-    `🗓️ ${hojeFmt}`,
-    `💰 Saldo: ${fmtBRL(saldoHoje)}`,
+    `*Fluxo de Caixa · Tangram*`,
+    `🗓️ *${hojeFmt}*`,
+    ``,
+    `💰 *Saldo:* ${fmtBRL(saldoHoje)}`,
     ``,
     ...linhasPeriodo,
     ``,
