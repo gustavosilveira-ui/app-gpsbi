@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
-body{transform:scale(.8);transform-origin:top left;width:125%;}
+#mainContent{transform:scale(.8);transform-origin:top left;width:125%;}
 html{visibility:hidden;}
 :root{
   --navy:#06172D; --navy2:#071B33; --navy3:#0B2545; --navy4:#123C68;
@@ -221,7 +221,7 @@ html.light .topbar{background:rgba(255,255,255,.92);backdrop-filter:blur(16px)}
 .clickable-name:hover{color:var(--cyan)}
 
 /* Modal de Ficha do Cliente */
-.client-modal-box{background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius);padding:26px;width:720px;max-width:94vw;max-height:88vh;overflow-y:auto;box-shadow:0 30px 70px rgba(0,0,0,.5)}
+.client-modal-box{background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius);padding:26px;width:1180px;max-width:96vw;max-height:88vh;overflow-y:auto;box-shadow:0 30px 70px rgba(0,0,0,.5)}
 .client-modal-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px}
 .client-modal-head h2{font-size:19px;font-weight:800}
 .client-modal-head p{font-size:11.5px;color:var(--text3);margin-top:3px}
@@ -790,7 +790,14 @@ function rowToRecord(row, tipo){
 
 function situacaoOk(situacao, tipo){
   const s = (situacao||'').trim().toLowerCase();
-  const list = tipo==='captada' ? SITUACOES_CAPTADA : SITUACOES_FATURADA;
+  if(tipo==='captada'){
+    // Só exclui Cancelado e Faturado com NF-e rejeitada — tudo o mais conta
+    // (inclusive faturamento atrasado, que antes ficava de fora por engano).
+    if(s.includes('cancelado')) return false;
+    if(s.includes('rejeitada')) return false;
+    return true;
+  }
+  const list = SITUACOES_FATURADA;
   return list.includes(s);
 }
 // No Faturado (Faturamento de Pedidos), o BI só considera a Operação "Orçamento" —
@@ -1849,6 +1856,7 @@ function openModal(){
   el('metaMonthSelect').addEventListener('change', ()=>{ const m=el('metaMonthSelect').value; tbody.querySelectorAll('.meta-input').forEach(inp=>{ inp.value=getMeta(m,inp.dataset.vendedor)||''; }); });
 }
 function closeModal(){ el('metaModal').classList.remove('show'); el('saveFeedback').classList.remove('show'); }
+el('metaModal').addEventListener('click', e=>{ if(e.target.id==='metaModal') closeModal(); });
 async function saveMetas(){
   const mes = el('metaMonthSelect').value;
   const inputs = el('metaTableBody').querySelectorAll('.meta-input');
@@ -1916,6 +1924,7 @@ function openClientModal(cliente){
   el('clientModal').classList.add('show');
 }
 function closeClientModal(){ el('clientModal').classList.remove('show'); }
+el('clientModal').addEventListener('click', e=>{ if(e.target.id==='clientModal') closeClientModal(); });
 function cssVarClient(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 
 async function loadClientCrmData(cliente){
@@ -1982,14 +1991,18 @@ initAuth();
 // no fluxo normal do documento, só o visual — então ajustamos na mão).
 (function ajustarAlturaComScale(){
   function fixHeight(){
-    const rect = document.body.getBoundingClientRect();
+    const mc = document.getElementById('mainContent');
+    if(!mc || mc.style.display === 'none') return;
+    const rect = mc.getBoundingClientRect();
     document.documentElement.style.height = rect.height + 'px';
   }
   window.addEventListener('load', fixHeight);
   window.addEventListener('resize', fixHeight);
-  if(window.ResizeObserver){ new ResizeObserver(fixHeight).observe(document.body); }
+  const mcEl = document.getElementById('mainContent');
+  if(window.ResizeObserver && mcEl){ new ResizeObserver(fixHeight).observe(mcEl); }
   setTimeout(fixHeight, 300);
   setTimeout(fixHeight, 1200);
+  setTimeout(fixHeight, 3000);
 })();
 </script>
 </body>
