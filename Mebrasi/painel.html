@@ -356,6 +356,14 @@ table.tabela-simples tr.linha-total td{font-weight:800;border-top:2px solid var(
       </div>
     </div>
 
+    <div class="charts-grid full" style="margin-top:18px;">
+      <div class="chart-box">
+        <div class="chart-title">Faturamento por Vendedor</div>
+        <div class="chart-sub">Faturamento por representante comercial no período (Online não incluído — não tem vendedor atribuído). Clique em uma barra para filtrar.</div>
+        <div class="chart-canvas-wrap"><canvas id="chartVendedor"></canvas></div>
+      </div>
+    </div>
+
     <div class="card" id="analiseWhatsCard" style="display:none;">
       <div class="card-title">📋 Análise pronta pra WhatsApp</div>
       <div class="card-sub">Texto pronto pra colar direto no grupo do cliente. Visível só pro time GPS.</div>
@@ -403,6 +411,23 @@ const GID_VENDAS = '1984037897';
 
 const EMPRESAS = ['Gymis','Multicopos','Ryngavi','Especial','Online'];
 const EMPRESA_COR = { Gymis:'#071B33', Multicopos:'#2D70B8', Ryngavi:'#008D90', Especial:'#36E2C9', Online:'#9FD8E6' };
+
+// Código do vendedor (Cod Vendedor) -> nome do representante, conforme
+// planilha "Relação de Representação" do Gustavo. Online não tem código
+// de vendedor (é venda direta de marketplace, sem representante).
+const VENDEDOR_NOME = {
+  '42':'ARLINDO', '307':'ANA PAULA', '304':'ARNALDO', '234':'BAIAO',
+  '34':'CARLOS (PR)', '40':'CHRISTIAN', '31':'ELAINE/FRANCISCO', '36':'EGBERTO',
+  '37':'FELISBERTO', '308':'FLÁVIO', '248':'MARRON', '47':'MEBRASI',
+  '35':'MESQUITA', '39':'MENEZES', '312':'MICHELLE', '32':'NELSON',
+  '170':'NOBRE', '238':'REGIS', '214':'RITA', '144':'SÉRGIO',
+  '30':'SILVIO', '41':'SUELI',
+};
+function nomeVendedor(codVendedor){
+  const cod = (codVendedor||'').toString().trim();
+  if(!cod) return '(Sem vendedor)';
+  return VENDEDOR_NOME[cod] || `Cód. ${cod}`;
+}
 
 function el(id){ return document.getElementById(id); }
 function normalizeTxt(s){ return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim(); }
@@ -490,8 +515,8 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let currentUser=null, gpsStaff=false;
 let rows = []; // linhas normalizadas da FatoVendas
-let selectedEmpresa = '', selectedAno = '', selectedMes = '', selectedEstado = '', selectedFamilia = '';
-let chartDiario=null, chartSemanal=null, chartFarol=null, chartEmpresa=null, chartEstado=null, chartFamilia=null, chartEvolucao=null;
+let selectedEmpresa = '', selectedAno = '', selectedMes = '', selectedEstado = '', selectedFamilia = '', selectedVendedor = '';
+let chartDiario=null, chartSemanal=null, chartFarol=null, chartEmpresa=null, chartEstado=null, chartFamilia=null, chartVendedor=null, chartEvolucao=null;
 
 async function fetchGvizVendas(){
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID_VENDAS}/gviz/tq?tqx=out:json&gid=${GID_VENDAS}&headers=1`;
@@ -586,6 +611,7 @@ function rowsInScope(){
     if(selectedMes && r.data.slice(5,7) !== selectedMes) return false;
     if(selectedEstado && r.estado !== selectedEstado) return false;
     if(selectedFamilia && (r.familiaComercial || '(sem família)') !== selectedFamilia) return false;
+    if(selectedVendedor && nomeVendedor(r.codVendedor) !== selectedVendedor) return false;
     return true;
   });
 }
@@ -607,7 +633,7 @@ function popularFiltrosAnoMes(){
 }
 
 function limparFiltros(){
-  selectedEmpresa=''; selectedAno=''; selectedMes=''; selectedEstado=''; selectedFamilia='';
+  selectedEmpresa=''; selectedAno=''; selectedMes=''; selectedEstado=''; selectedFamilia=''; selectedVendedor='';
   el('empresaSelect').value=''; el('anoSelect').value=''; el('mesSelect').value='';
   renderTudo();
 }
@@ -861,6 +887,26 @@ function renderChartFamilia(){
   };
   if(chartFamilia){ chartFamilia.data=cfg.data; chartFamilia.options=cfg.options; chartFamilia.update(); }
   else chartFamilia = new Chart(ctx, cfg);
+}
+
+// Faturamento por Vendedor — sempre exclui o Online (canal não tem
+// representante atribuído, é venda direta de marketplace).
+function renderChartVendedor(){
+  const scoped = rowsInScope().filter(r=>r.fonte!=='Online');
+  const porVendedor = {};
+  scoped.forEach(r=>{ const nome = nomeVendedor(r.codVendedor); porVendedor[nome] = (porVendedor[nome]||0) + r.faturamento; });
+  const top = Object.entries(porVendedor).sort((a,b)=>b[1]-a[1]);
+  const ctx = el('chartVendedor');
+  const cfg = {
+    type:'bar',
+    data:{ labels:top.map(t=>t[0]), datasets:[{ data:top.map(t=>t[1]), backgroundColor:'#9b7fe8', borderRadius:5, maxBarThickness:26 }] },
+    options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      onClick:(evt,els)=>{if(!els.length)return;const vend=top[els[0].index][0];selectedVendedor=selectedVendedor===vend?'':vend;renderTudo();},
+      plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:c=>fmtBRLFull(c.parsed.x) } } },
+      scales:{ x:{ grid:{color:corGrid()}, ticks:{color:corTexto(), font:{size:10}, callback:v=>fmtBRL(v)} }, y:{ grid:{display:false}, ticks:{color:corTexto(), font:{size:10.5}} } } }
+  };
+  if(chartVendedor){ chartVendedor.data=cfg.data; chartVendedor.options=cfg.options; chartVendedor.update(); }
+  else chartVendedor = new Chart(ctx, cfg);
 }
 
 function shiftYearMonth(year, month, deltaMonths){
@@ -1162,7 +1208,7 @@ function renderDebug(){
   const scoped = rowsInScope();
   const porFonte = {};
   scoped.forEach(r=>{ porFonte[r.fonte] = (porFonte[r.fonte]||0)+1; });
-  wrap.textContent = `🔍 Diagnóstico (só GPS): ${rows.length} linhas carregadas no total · ${scoped.length} no escopo atual (${selectedEmpresa||'Global'} · ${selectedAno||'todos anos'}${selectedMes?'/'+selectedMes:''}${selectedEstado?' · UF '+selectedEstado:''}${selectedFamilia?' · Família '+selectedFamilia:''}) · Por fonte: ${Object.entries(porFonte).map(([f,n])=>`${f}: ${n}`).join(', ')}`;
+  wrap.textContent = `🔍 Diagnóstico (só GPS): ${rows.length} linhas carregadas no total · ${scoped.length} no escopo atual (${selectedEmpresa||'Global'} · ${selectedAno||'todos anos'}${selectedMes?'/'+selectedMes:''}${selectedEstado?' · UF '+selectedEstado:''}${selectedFamilia?' · Família '+selectedFamilia:''}${selectedVendedor?' · Vendedor '+selectedVendedor:''}) · Por fonte: ${Object.entries(porFonte).map(([f,n])=>`${f}: ${n}`).join(', ')}`;
 }
 
 function renderTudo(){
@@ -1174,6 +1220,7 @@ function renderTudo(){
   renderChartEmpresa();
   renderChartEstado();
   renderChartFamilia();
+  renderChartVendedor();
   renderTabelaEmpresas();
   renderAnaliseWhats();
   renderDebug();
