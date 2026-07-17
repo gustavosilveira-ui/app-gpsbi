@@ -957,10 +957,8 @@ function dadosDetalheEmpresa(empresa){
 
   rowsInScope()
     .filter(r => {
-      const familia = normalizeTxt(r.familiaComercial).replace(/\s+/g,' ').trim();
       return (
         r.empresa !== 'Online' &&
-        familia === 'copo' &&
         !isProdutoGsl(r) &&
         (incluirTodas || r.empresa === empresa)
       );
@@ -999,7 +997,7 @@ function abrirDetalheEmpresa(empresa){
     : `Detalhamento de produtos · ${empresa}`;
 
   const mesTxt = selectedMes ? el('mesSelect').selectedOptions[0]?.textContent : 'Todos os meses';
-  el('detalheSub').textContent = `${mesTxt}${selectedAno ? ' · '+selectedAno : ''} · Somente família COPO · Sem códigos GSL/GSN · Online não incluído`;
+  el('detalheSub').textContent = `${mesTxt}${selectedAno ? ' · '+selectedAno : ''} · Todas as famílias · Sem códigos GSL/GSN · Online não incluído`;
 
   el('detalheResumo').innerHTML = `
     <div class="modal-summary-item"><span>Faturamento</span><b>${fmtBRLFull(totalFat)}</b></div>
