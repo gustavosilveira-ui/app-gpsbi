@@ -417,6 +417,33 @@ function getFirstCol(rowObj, aliases){
   }
   return '';
 }
+function extrairCodigoProduto(rowObj){
+  const direto = getFirstCol(rowObj,[
+    'Cod Produto','Cód Produto','Codigo Produto','Código Produto',
+    'Codigo do Produto','Código do Produto','Cod. Produto','cod_produto'
+  ]);
+  if(String(direto ?? '').trim() !== '') return String(direto).trim();
+
+  for(const chave in rowObj){
+    const nk = normalizeTxt(chave).replace(/[^a-z0-9]+/g,' ');
+    if(nk.includes('cod') && nk.includes('produto')){
+      const valor = rowObj[chave];
+      if(valor !== undefined && valor !== null && String(valor).trim() !== ''){
+        return String(valor).trim();
+      }
+    }
+  }
+  return '';
+}
+
+function codigoContemGsl(codigo){
+  const texto = String(codigo ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g,'')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g,'');
+  return texto.includes('GSL') || texto.includes('GSN');
+}
 function canAccessFluxo(email){
   email = (email||'').toLowerCase();
   return email.endsWith('@gpsbi.com.br') || email.endsWith('@mebrasi.com.br');
@@ -498,12 +525,7 @@ function isClienteMulticopos(r){
   return normalizeTxt(r.cliente).includes('multicopos');
 }
 function isProdutoGsl(r){
-  const codigo = normalizeTxt(r?.codProduto)
-    .replace(/[._/\\-]+/g,'')
-    .replace(/\s+/g,'')
-    .trim();
-
-  return codigo.includes('gsl') || codigo.includes('gsn');
+  return Boolean(r?.produtoGsl) || codigoContemGsl(r?.codProduto);
 }
 
 // Faturamento = Valor Faturado + ICMS ST — exceto quando Tipo de
@@ -543,16 +565,7 @@ async function loadData(){
       grupoCliente: (getColNormalized(r,'grupo cliente')||'').toString().trim(),
       tipoContribuinte: (getColNormalized(r,'tipo de contribuinte')||'').toString().trim(),
       codVendedor: (getColNormalized(r,'cod vendedor')||'').toString().trim(),
-      codProduto: getFirstCol(r,[
-        'cod produto',
-        'cód produto',
-        'codigo produto',
-        'código produto',
-        'codigo do produto',
-        'código do produto',
-        'cod. produto',
-        'cod_produto'
-      ]).toString().trim(),
+      codProduto: extrairCodigoProduto(r),
       descComercial: (getColNormalized(r,'desc comercial')||'').toString().trim(),
       familiaComercial: (getColNormalized(r,'familia comercial')||'').toString().trim(),
       qtdFaturada: parseMoneyBR(getColNormalized(r,'qtd faturada')),
@@ -560,6 +573,7 @@ async function loadData(){
       icmsSt: parseMoneyBR(getColNormalized(r,'icms st')),
       valorLiquido: parseMoneyBR(getColNormalized(r,'valor liquido')),
     };
+    item.produtoGsl = codigoContemGsl(item.codProduto);
     item.faturamento = calcularFaturamento(item);
     return item;
   }).filter(Boolean);
@@ -675,7 +689,7 @@ function renderKpis(){
   const clientesMebrasi = new Set(scoped.filter(r=>r.empresa!=='Online').map(r=>r.cliente).filter(Boolean)).size;
   const clientesOnline = new Set(scoped.filter(r=>r.empresa==='Online').map(r=>r.cliente).filter(Boolean)).size;
   const pedidos = new Set(scoped.map(r=>r.codPedido).filter(Boolean)).size;
-  const itens = scoped.filter(r=>!isProdutoGsl(r)).reduce((s,r)=>s+(r.qtdFaturada||0),0);
+  const itens = scoped.reduce((s,r)=>s+(!isProdutoGsl(r) ? (r.qtdFaturada||0) : 0),0);
   const precoMedio = itens>0 ? faturamento/itens : 0;
   const ticketMedio = pedidos>0 ? faturamento/pedidos : 0;
 
@@ -881,7 +895,7 @@ function renderTabelaEmpresas(){
     const clientes = emp==='Online' ? 0 : new Set(rs.map(r=>r.cliente).filter(Boolean)).size;
     const pedidos = new Set(rs.map(r=>r.codPedido).filter(Boolean)).size;
     const ticket = pedidos>0 ? faturamento/pedidos : 0;
-    const itens = emp==='Online' ? 0 : rs.filter(r=>!isProdutoGsl(r)).reduce((s,r)=>s+r.qtdFaturada,0);
+    const itens = emp==='Online' ? 0 : rs.reduce((s,r)=>s+(!isProdutoGsl(r) ? (r.qtdFaturada||0) : 0),0);
     const precoMedio = itens>0 ? faturamento/itens : 0;
     const participacao = totalFatEscopo ? faturamento/totalFatEscopo : 0;
 
@@ -891,7 +905,7 @@ function renderTabelaEmpresas(){
   const fisico = scoped.filter(r=>r.empresa!=='Online');
   const totalClientes = new Set(fisico.map(r=>r.cliente).filter(Boolean)).size;
   const totalPedidos = new Set(scoped.map(r=>r.codPedido).filter(Boolean)).size;
-  const totalItens = fisico.filter(r=>!isProdutoGsl(r)).reduce((s,r)=>s+r.qtdFaturada,0);
+  const totalItens = fisico.reduce((s,r)=>s+(!isProdutoGsl(r) ? (r.qtdFaturada||0) : 0),0);
   const totalTicket = totalPedidos ? totalFatEscopo/totalPedidos : 0;
   const totalPreco = totalItens ? totalFatEscopo/totalItens : 0;
   const totalM1 = linhas.reduce((s,l)=>s+l.fatM1,0);
