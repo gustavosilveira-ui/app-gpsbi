@@ -405,11 +405,18 @@ body{
       </div>
 
       <div class="app-actions">
-        <button class="app-action primary" type="button" onclick="openMainPanel()">
+        <button class="app-action primary" type="button" onclick="abrirPagina('painel.html')">
           <span class="app-action-icon">📊</span>
           <span>
-            <span class="app-action-title">Acessar meu Painel</span>
-            <span class="app-action-sub">Abrir o painel BI de Grupo Mebrasi.</span>
+            <span class="app-action-title">Bi Comercial</span>
+            <span class="app-action-sub">Faturamento, clientes e pedidos do Grupo Mebrasi.</span>
+          </span>
+        </button>
+        <button class="app-action primary" type="button" onclick="abrirPagina('fluxodecaixa.html')">
+          <span class="app-action-icon">💰</span>
+          <span>
+            <span class="app-action-title">Fluxo de Caixa</span>
+            <span class="app-action-sub">Saldo, recebimentos e pagamentos dia a dia.</span>
           </span>
         </button>
       </div>
@@ -679,13 +686,8 @@ function enterApp(user){
 // Quando tiver o link real do Power BI, substitua o # abaixo pela URL do relatório.
 const CLIENT_PANEL_URL = 'fluxodecaixa.html';
 
-function openMainPanel(){
-  if(CLIENT_PANEL_URL && CLIENT_PANEL_URL !== '#'){
-    window.location.href = CLIENT_PANEL_URL;
-    return;
-  }
-  const panel = document.getElementById('panelPlaceholder');
-  if(panel) panel.classList.add('show');
+function abrirPagina(url){
+  window.location.href = url;
 }
 
 function openDocuments(){
