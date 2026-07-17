@@ -300,13 +300,20 @@ function parseGvizRows(table){
   });
 }
 
-// Situações que contam como venda de verdade (Faturamento). Cancelado,
-// Orçamento e Pedido (ainda não faturado) ficam fora — confirmado com
-// o Gustavo comparando contra o Power BI.
-const SITUACOES_VALIDAS = ['faturado (nf)', 'finalizado', 'enviado'];
+// Situações que NÃO contam como venda de verdade — denylist em vez de
+// whitelist (mais robusto: não trava se aparecer um status novo na base
+// que o código não previa). Corrigido em 17/07/2026: a whitelist antiga
+// (['faturado (nf)','finalizado','enviado']) só reconhecia "Faturado (NF)",
+// e a Especial (+ parte da Multicopos/Ryngavi) fatura como "Faturado" puro,
+// sem o "(NF)" — isso derrubava ~34% do faturamento real de julho.
+// Confirmado com o Gustavo: "APP Mebrasi" e "Separado Total" TAMBÉM contam
+// como venda, então ficam de fora da denylist (ou seja, contam).
+const SITUACOES_INVALIDAS = [
+  'cancelado', 'orcamento', 'pedido', 'pedido aprovado', 'pendente',
+];
 
 function situacaoValida(situacao){
-  return SITUACOES_VALIDAS.includes(normalizeTxt(situacao));
+  return !SITUACOES_INVALIDAS.includes(normalizeTxt(situacao));
 }
 
 // Faturamento = Valor Faturado + ICMS ST — exceto quando Tipo de
