@@ -6,6 +6,7 @@
 <title>Bi Comercial · Mebrasi</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 /* ===== theme.css embutido (igual ao Fluxo de Caixa da Mebrasi) ===== */
 @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
@@ -114,6 +115,32 @@ tr.row-clickable:hover td{background:rgba(54,226,201,.06);}
 @media(max-width:1100px){.charts-grid.triple{grid-template-columns:1fr 1fr;}.charts-grid.triple .chart-box:last-child{grid-column:1/-1;}}
 @media(max-width:900px){.charts-grid,.charts-grid.hero,.charts-grid.triple{grid-template-columns:1fr;}.charts-grid.triple .chart-box:last-child{grid-column:auto;}.charts-grid.hero .chart-canvas-wrap,.charts-grid.hero .chart-box:last-child .chart-canvas-wrap{height:280px;}}
 
+
+.dashboard-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:14px;}
+.dashboard-head-copy{min-width:280px;}
+.dashboard-head .card-sub{margin-bottom:0;}
+.dashboard-head .filtros-bar{margin:0;justify-content:flex-end;flex-wrap:wrap;}
+.faturamento-link{color:var(--blue);font-weight:700;cursor:pointer;text-decoration:none;border-bottom:1px dashed rgba(45,112,184,.45);}
+.faturamento-link:hover{color:var(--cyan);border-bottom-color:var(--cyan);}
+.modal-overlay-detalhe{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:20px;z-index:500;}
+.modal-overlay-detalhe.show{display:flex;}
+.modal-detalhe{width:min(1180px,96vw);max-height:80vh;background:var(--navy2);border:1px solid var(--border2);border-radius:18px;box-shadow:0 30px 80px rgba(0,0,0,.35);display:flex;flex-direction:column;overflow:hidden;}
+.modal-detalhe-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:20px 22px 14px;border-bottom:1px solid var(--border2);}
+.modal-detalhe-title{font-size:17px;font-weight:800;}
+.modal-detalhe-sub{font-size:11px;color:var(--text3);margin-top:4px;}
+.modal-close{width:32px;height:32px;border-radius:50%;border:1px solid var(--border2);background:var(--navy3);color:var(--text);cursor:pointer;font-size:18px;line-height:1;}
+.modal-toolbar{display:flex;gap:8px;padding:12px 22px;border-bottom:1px solid var(--border);}
+.modal-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:14px 22px;}
+.modal-summary-item{background:var(--navy3);border:1px solid var(--border);border-radius:10px;padding:10px 12px;}
+.modal-summary-item span{display:block;font-size:9px;text-transform:uppercase;color:var(--text3);font-weight:700;}
+.modal-summary-item b{display:block;margin-top:3px;font-family:'DM Mono',monospace;font-size:14px;}
+.modal-table-wrap{overflow:auto;padding:0 22px 22px;}
+.modal-table{width:100%;border-collapse:collapse;font-size:12px;}
+.modal-table th{position:sticky;top:0;background:var(--navy2);z-index:2;text-align:left;padding:10px;border-bottom:1px solid var(--border2);font-size:9px;text-transform:uppercase;color:var(--text3);}
+.modal-table td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:top;}
+.modal-table td:nth-child(3),.modal-table td:nth-child(4){text-align:right;font-family:'DM Mono',monospace;white-space:nowrap;}
+@media(max-width:980px){.dashboard-head{flex-direction:column}.dashboard-head .filtros-bar{justify-content:flex-start}.modal-summary{grid-template-columns:1fr}.modal-toolbar{flex-wrap:wrap}}
+
 table.tabela-simples{width:100%;border-collapse:collapse;font-size:12.5px;}
 table.tabela-simples th{text-align:right;font-size:10px;color:var(--text3);text-transform:uppercase;padding:8px 10px;border-bottom:1px solid var(--border2);}
 table.tabela-simples th:first-child{text-align:left;}
@@ -166,23 +193,27 @@ table.tabela-simples tr.linha-total td{font-weight:800;border-top:2px solid var(
   <div class="content wide">
 
     <div class="card">
-      <div class="card-title">📊 Bi Comercial · Mebrasi</div>
-      <div class="card-sub">Faturamento, clientes e pedidos das 4 empresas (Gymis, Ryngavi, Especial, Multicopos) + canal Online.</div>
-      <div class="filtros-bar">
-        <span class="filtro-label">Empresa</span>
-        <select id="empresaSelect">
-          <option value="">🌐 Global (todas)</option>
-          <option value="Gymis">Gymis</option>
-          <option value="Ryngavi">Ryngavi</option>
-          <option value="Especial">Especial</option>
-          <option value="Multicopos">Multicopos</option>
-          <option value="Online">Online</option>
-        </select>
-        <span class="filtro-label">Ano</span>
-        <select id="anoSelect"></select>
-        <span class="filtro-label">Mês</span>
-        <select id="mesSelect"><option value="">Todos</option></select>
-        <button class="btn btn-ghost btn-sm" onclick="limparFiltros()">Limpar filtros</button>
+      <div class="dashboard-head">
+        <div class="dashboard-head-copy">
+          <div class="card-title">📊 Bi Comercial · Mebrasi</div>
+          <div class="card-sub">Faturamento, clientes e pedidos das 4 empresas (Gymis, Ryngavi, Especial, Multicopos) + canal Online.</div>
+        </div>
+        <div class="filtros-bar">
+          <span class="filtro-label">Empresa</span>
+          <select id="empresaSelect">
+            <option value="">🌐 Global (todas)</option>
+            <option value="Gymis">Gymis</option>
+            <option value="Ryngavi">Ryngavi</option>
+            <option value="Especial">Especial</option>
+            <option value="Multicopos">Multicopos</option>
+            <option value="Online">Online</option>
+          </select>
+          <span class="filtro-label">Ano</span>
+          <select id="anoSelect"></select>
+          <span class="filtro-label">Mês</span>
+          <select id="mesSelect"><option value="">Todos</option></select>
+          <button class="btn btn-ghost btn-sm" onclick="limparFiltros()">Limpar filtros</button>
+        </div>
       </div>
       <div id="kpiGrid" class="kpi-grid"></div>
     </div>
@@ -250,6 +281,29 @@ table.tabela-simples tr.linha-total td{font-weight:800;border-top:2px solid var(
 
     <div id="fcDebugStats" style="font-size:11px;color:var(--text3);margin-top:8px;"></div>
 
+  </div>
+</div>
+
+<div id="detalheOverlay" class="modal-overlay-detalhe" aria-hidden="true">
+  <div class="modal-detalhe" role="dialog" aria-modal="true" aria-labelledby="detalheTitulo">
+    <div class="modal-detalhe-head">
+      <div>
+        <div class="modal-detalhe-title" id="detalheTitulo">Detalhamento do faturamento</div>
+        <div class="modal-detalhe-sub" id="detalheSub"></div>
+      </div>
+      <button class="modal-close" id="detalheFechar" title="Fechar">×</button>
+    </div>
+    <div class="modal-toolbar">
+      <button class="btn btn-primary btn-sm" id="detalheExcel">⬇ Exportar Excel</button>
+      <button class="btn btn-ghost btn-sm" id="detalheImprimir">🖨 Imprimir</button>
+    </div>
+    <div class="modal-summary" id="detalheResumo"></div>
+    <div class="modal-table-wrap">
+      <table class="modal-table">
+        <thead><tr><th>Cliente</th><th>Produto</th><th>Faturamento</th><th>Volume</th></tr></thead>
+        <tbody id="detalheBody"></tbody>
+      </table>
+    </div>
   </div>
 </div>
 
@@ -394,6 +448,7 @@ async function loadData(){
       tipoContribuinte: (getColNormalized(r,'tipo de contribuinte')||'').toString().trim(),
       codVendedor: (getColNormalized(r,'cod vendedor')||'').toString().trim(),
       codProduto: (getColNormalized(r,'cod produto')||'').toString().trim(),
+      descComercial: (getColNormalized(r,'desc comercial')||'').toString().trim(),
       familiaComercial: (getColNormalized(r,'familia comercial')||'').toString().trim(),
       qtdFaturada: parseMoneyBR(getColNormalized(r,'qtd faturada')),
       valorFaturado: parseMoneyBR(getColNormalized(r,'valor faturado')),
@@ -752,7 +807,7 @@ function renderTabelaEmpresas(){
 
   linhas.forEach(l=>{
     html += `<tr class="row-clickable" data-empresa="${l.emp}">
-      <td>${l.emp}</td><td>${fmtBRLFull(l.faturamento)}</td><td>${fmtPct(l.participacao)}</td>
+      <td>${l.emp}</td><td><button class="faturamento-link" data-detalhe-empresa="${l.emp}" type="button">${fmtBRLFull(l.faturamento)}</button></td><td>${fmtPct(l.participacao)}</td>
       <td>${fmtBRLFull(l.fatM1)}</td><td class="${cellClass(l.difM1)}">${fmtSignedBRL(l.difM1)}</td><td class="${cellClass(l.pctM1)}">${fmtPct(l.pctM1)}</td>
       <td>${fmtBRLFull(l.fatY1)}</td><td class="${cellClass(l.difY1)}">${fmtSignedBRL(l.difY1)}</td><td class="${cellClass(l.pctY1)}">${fmtPct(l.pctY1)}</td>
       <td>${l.emp==='Online'?'—':fmtNum(l.clientes)}</td><td>${fmtNum(l.pedidos)}</td><td>${fmtBRLFull(l.ticket)}</td><td>${fmtBRLFull(l.precoMedio)}</td><td>${fmtNum(l.itens)}</td>
@@ -767,6 +822,58 @@ function renderTabelaEmpresas(){
   </tr></tbody>`;
   el('tabelaEmpresas').innerHTML = html;
   el('tabelaEmpresas').querySelectorAll('tr[data-empresa]').forEach(tr=>tr.addEventListener('click',()=>{const emp=tr.dataset.empresa;selectedEmpresa=selectedEmpresa===emp?'':emp;el('empresaSelect').value=selectedEmpresa;renderTudo();}));
+  el('tabelaEmpresas').querySelectorAll('[data-detalhe-empresa]').forEach(btn=>btn.addEventListener('click',e=>{e.stopPropagation();abrirDetalheEmpresa(btn.dataset.detalheEmpresa);}));
+}
+
+
+let detalheAtual = [];
+function dadosDetalheEmpresa(empresa){
+  const mapa = new Map();
+  rowsInScope().filter(r=>r.empresa===empresa).forEach(r=>{
+    const cliente = r.cliente || '(Cliente não informado)';
+    const produto = r.descComercial || r.codProduto || '(Produto não informado)';
+    const chave = `${cliente}|||${produto}`;
+    const atual = mapa.get(chave) || {cliente, produto, faturamento:0, volume:0};
+    atual.faturamento += r.faturamento || 0;
+    atual.volume += r.qtdFaturada || 0;
+    mapa.set(chave, atual);
+  });
+  return Array.from(mapa.values()).sort((a,b)=>a.cliente.localeCompare(b.cliente,'pt-BR') || b.faturamento-a.faturamento);
+}
+function abrirDetalheEmpresa(empresa){
+  detalheAtual = dadosDetalheEmpresa(empresa);
+  const totalFat = detalheAtual.reduce((s,r)=>s+r.faturamento,0);
+  const totalVol = detalheAtual.reduce((s,r)=>s+r.volume,0);
+  const clientes = new Set(detalheAtual.map(r=>r.cliente)).size;
+  el('detalheTitulo').textContent = `Faturamento detalhado · ${empresa}`;
+  const mesTxt = selectedMes ? el('mesSelect').selectedOptions[0]?.textContent : 'Todos os meses';
+  el('detalheSub').textContent = `${mesTxt}${selectedAno ? ' · '+selectedAno : ''} · ${fmtNum(detalheAtual.length)} combinações cliente/produto`;
+  el('detalheResumo').innerHTML = `
+    <div class="modal-summary-item"><span>Faturamento</span><b>${fmtBRLFull(totalFat)}</b></div>
+    <div class="modal-summary-item"><span>Clientes</span><b>${fmtNum(clientes)}</b></div>
+    <div class="modal-summary-item"><span>Volume</span><b>${fmtNum(totalVol)}</b></div>`;
+  el('detalheBody').innerHTML = detalheAtual.map(r=>`<tr><td>${escapeHtml(r.cliente)}</td><td>${escapeHtml(r.produto)}</td><td>${fmtBRLFull(r.faturamento)}</td><td>${fmtNum(r.volume)}</td></tr>`).join('') || '<tr><td colspan="4">Nenhum registro encontrado.</td></tr>';
+  el('detalheOverlay').classList.add('show');
+  el('detalheOverlay').setAttribute('aria-hidden','false');
+}
+function fecharDetalhe(){ el('detalheOverlay').classList.remove('show'); el('detalheOverlay').setAttribute('aria-hidden','true'); }
+function escapeHtml(v){ return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
+function exportarDetalheExcel(){
+  if(!detalheAtual.length) return;
+  const dados = detalheAtual.map(r=>({Cliente:r.cliente,Produto:r.produto,Faturamento:Number(r.faturamento.toFixed(2)),Volume:Number(r.volume.toFixed(2))}));
+  const ws = XLSX.utils.json_to_sheet(dados);
+  ws['!cols']=[{wch:34},{wch:48},{wch:18},{wch:12}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Detalhamento');
+  const empresa = el('detalheTitulo').textContent.split('·').pop().trim().replace(/[^a-z0-9_-]/gi,'_');
+  XLSX.writeFile(wb,`Mebrasi_Detalhamento_${empresa}_${selectedAno||'todos'}_${selectedMes||'todos'}.xlsx`);
+}
+function imprimirDetalhe(){
+  const titulo=el('detalheTitulo').textContent, sub=el('detalheSub').textContent;
+  const linhas=detalheAtual.map(r=>`<tr><td>${escapeHtml(r.cliente)}</td><td>${escapeHtml(r.produto)}</td><td style="text-align:right">${fmtBRLFull(r.faturamento)}</td><td style="text-align:right">${fmtNum(r.volume)}</td></tr>`).join('');
+  const w=window.open('','_blank','width=1100,height=750');
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(titulo)}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#071B33}h1{font-size:20px;margin:0 0 6px}p{color:#667085;margin:0 0 18px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:8px;border-bottom:1px solid #ddd;text-align:left}th{background:#f2f5f8}@media print{body{padding:0}}</style></head><body><h1>${escapeHtml(titulo)}</h1><p>${escapeHtml(sub)}</p><table><thead><tr><th>Cliente</th><th>Produto</th><th>Faturamento</th><th>Volume</th></tr></thead><tbody>${linhas}</tbody></table><script>window.onload=()=>{window.print();window.onafterprint=()=>window.close();}<\/script></body></html>`);
+  w.document.close();
 }
 
 let analiseWhatsBound = false;
@@ -872,6 +979,11 @@ async function init(){
   el('appBtnDark').addEventListener('click', ()=>appApplyTheme('dark'));
   el('appBtnLight').addEventListener('click', ()=>appApplyTheme('light'));
   appApplyTheme(localStorage.getItem('mebrasi_theme') || 'light', true);
+  el('detalheFechar').addEventListener('click', fecharDetalhe);
+  el('detalheOverlay').addEventListener('click', e=>{ if(e.target===el('detalheOverlay')) fecharDetalhe(); });
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape') fecharDetalhe(); });
+  el('detalheExcel').addEventListener('click', exportarDetalheExcel);
+  el('detalheImprimir').addEventListener('click', imprimirDetalhe);
 
   el('empresaSelect').addEventListener('change', e=>{ selectedEmpresa = e.target.value; renderTudo(); });
   el('anoSelect').addEventListener('change', e=>{ selectedAno = e.target.value; renderTudo(); });
