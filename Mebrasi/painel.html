@@ -197,7 +197,7 @@ table.tabela-simples tr.linha-total td{font-weight:800;border-top:2px solid var(
 
     <div class="card" style="margin-top:18px;">
       <div class="card-title">🏆 Comparativo por Empresa</div>
-      <div class="card-sub">Faturamento, clientes, pedidos e ticket médio de cada empresa no período filtrado.</div>
+      <div class="card-sub">Faturamento, participação, comparativos, clientes, pedidos, ticket, preço médio e itens por empresa.</div>
       <div style="overflow-x:auto;">
         <table class="tabela-simples" id="tabelaEmpresas"></table>
       </div>
@@ -225,8 +225,8 @@ const LOGIN_URL = 'index.html';
 const SHEET_ID_VENDAS = '13OtxBYO-XXPgf_L5cjXU7odzfQHmPNuniej1EktFt_I';
 const GID_VENDAS = '1984037897';
 
-const EMPRESAS = ['Gymis','Ryngavi','Especial','Multicopos'];
-const EMPRESA_COR = { Gymis:'#2D70B8', Ryngavi:'#36E2C9', Especial:'#f5b942', Multicopos:'#9b7fe8' };
+const EMPRESAS = ['Gymis','Multicopos','Ryngavi','Especial','Online'];
+const EMPRESA_COR = { Gymis:'#2D70B8', Multicopos:'#9b7fe8', Ryngavi:'#36E2C9', Especial:'#f5b942', Online:'#EF6A6A' };
 
 function el(id){ return document.getElementById(id); }
 function normalizeTxt(s){ return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim(); }
@@ -570,28 +570,89 @@ function renderChartFamilia(){
   else chartFamilia = new Chart(ctx, cfg);
 }
 
+function shiftYearMonth(year, month, deltaMonths){
+  const d = new Date(Number(year), Number(month)-1 + deltaMonths, 1);
+  return { ano:String(d.getFullYear()), mes:String(d.getMonth()+1).padStart(2,'0') };
+}
+
+function rowsForPeriod(ano, mes, empresa){
+  return rows.filter(r=>
+    (!empresa || r.empresa===empresa) &&
+    (!ano || r.data.slice(0,4)===String(ano)) &&
+    (!mes || r.data.slice(5,7)===String(mes))
+  );
+}
+
 function renderTabelaEmpresas(){
   const scoped = rowsInScope();
+  const anoAtual = selectedAno || (scoped[0]?.data || '').slice(0,4);
+  const mesAtual = selectedMes || (scoped[0]?.data || '').slice(5,7);
+  const periodoAnterior = anoAtual && mesAtual ? shiftYearMonth(anoAtual, mesAtual, -1) : null;
+  const anoAnterior = anoAtual ? String(Number(anoAtual)-1) : '';
+
+  const totalFatEscopo = scoped.reduce((s,r)=>s+r.faturamento,0);
+
   const linhas = EMPRESAS.map(emp=>{
     const rs = scoped.filter(r=>r.empresa===emp);
+    const rsM1 = periodoAnterior ? rowsForPeriod(periodoAnterior.ano, periodoAnterior.mes, emp) : [];
+    const rsY1 = (anoAnterior && mesAtual) ? rowsForPeriod(anoAnterior, mesAtual, emp) : [];
+
     const faturamento = rs.reduce((s,r)=>s+r.faturamento,0);
-    const clientes = new Set(rs.map(r=>r.cliente)).size;
-    const pedidos = new Set(rs.map(r=>r.codPedido)).size;
+    const fatM1 = rsM1.reduce((s,r)=>s+r.faturamento,0);
+    const fatY1 = rsY1.reduce((s,r)=>s+r.faturamento,0);
+    const difM1 = faturamento-fatM1;
+    const pctM1 = fatM1 ? difM1/fatM1 : 0;
+    const difY1 = faturamento-fatY1;
+    const pctY1 = fatY1 ? difY1/fatY1 : 0;
+
+    // No Power BI, clientes do canal Online não entram no indicador de clientes Mebrasi.
+    const clientes = emp==='Online' ? 0 : new Set(rs.map(r=>r.cliente).filter(Boolean)).size;
+    const pedidos = new Set(rs.map(r=>r.codPedido).filter(Boolean)).size;
     const ticket = pedidos>0 ? faturamento/pedidos : 0;
-    return { emp, faturamento, clientes, pedidos, ticket };
-  }).filter(l=>l.faturamento>0 || l.clientes>0);
+    const itens = emp==='Online' ? 0 : rs.filter(r=>!isProdutoGsl(r)).reduce((s,r)=>s+r.qtdFaturada,0);
+    const precoMedio = itens>0 ? faturamento/itens : 0;
+    const participacao = totalFatEscopo ? faturamento/totalFatEscopo : 0;
 
-  const totalFat = linhas.reduce((s,l)=>s+l.faturamento,0);
-  const totalClientes = new Set(scoped.map(r=>r.cliente)).size;
-  const totalPedidos = new Set(scoped.map(r=>r.codPedido)).size;
-  const totalTicket = totalPedidos>0 ? totalFat/totalPedidos : 0;
+    return { emp, faturamento, participacao, fatM1, difM1, pctM1, fatY1, difY1, pctY1, clientes, pedidos, ticket, precoMedio, itens };
+  }).filter(l=>l.faturamento>0 || l.pedidos>0 || l.itens>0);
 
-  let html = `<thead><tr><th>Empresa</th><th>Faturamento</th><th>Clientes</th><th>Pedidos</th><th>Ticket Médio</th></tr></thead><tbody>`;
-  linhas.sort((a,b)=>b.faturamento-a.faturamento).forEach(l=>{
-    html += `<tr><td>${l.emp}</td><td>${fmtBRLFull(l.faturamento)}</td><td>${fmtNum(l.clientes)}</td><td>${fmtNum(l.pedidos)}</td><td>${fmtBRLFull(l.ticket)}</td></tr>`;
+  const fisico = scoped.filter(r=>r.empresa!=='Online');
+  const totalClientes = new Set(fisico.map(r=>r.cliente).filter(Boolean)).size;
+  const totalPedidos = new Set(scoped.map(r=>r.codPedido).filter(Boolean)).size;
+  const totalItens = fisico.filter(r=>!isProdutoGsl(r)).reduce((s,r)=>s+r.qtdFaturada,0);
+  const totalTicket = totalPedidos ? totalFatEscopo/totalPedidos : 0;
+  const totalPreco = totalItens ? totalFatEscopo/totalItens : 0;
+  const totalM1 = linhas.reduce((s,l)=>s+l.fatM1,0);
+  const totalY1 = linhas.reduce((s,l)=>s+l.fatY1,0);
+  const totalDifM1 = totalFatEscopo-totalM1;
+  const totalDifY1 = totalFatEscopo-totalY1;
+
+  const fmtPct = v => `${(v*100).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%`;
+  const fmtSignedBRL = v => `${v<0?'-':''}${fmtBRLFull(Math.abs(v))}`;
+  const cellClass = v => v<0 ? 'negativo' : (v>0 ? 'positivo' : '');
+
+  let html = `<thead><tr>
+    <th>Empresa</th><th>Faturamento</th><th>% Faturamento</th>
+    <th>M-1</th><th>MTD vs M-1</th><th>MTD vs M-1 %</th>
+    <th>YTD-1</th><th>YTD vs Y-1</th><th>YTD vs Y-1 %</th>
+    <th>Clientes</th><th>Pedidos</th><th>Ticket Médio</th><th>Preço Médio (Item)</th><th>Itens</th>
+  </tr></thead><tbody>`;
+
+  linhas.forEach(l=>{
+    html += `<tr>
+      <td>${l.emp}</td><td>${fmtBRLFull(l.faturamento)}</td><td>${fmtPct(l.participacao)}</td>
+      <td>${fmtBRLFull(l.fatM1)}</td><td class="${cellClass(l.difM1)}">${fmtSignedBRL(l.difM1)}</td><td class="${cellClass(l.pctM1)}">${fmtPct(l.pctM1)}</td>
+      <td>${fmtBRLFull(l.fatY1)}</td><td class="${cellClass(l.difY1)}">${fmtSignedBRL(l.difY1)}</td><td class="${cellClass(l.pctY1)}">${fmtPct(l.pctY1)}</td>
+      <td>${l.emp==='Online'?'—':fmtNum(l.clientes)}</td><td>${fmtNum(l.pedidos)}</td><td>${fmtBRLFull(l.ticket)}</td><td>${fmtBRLFull(l.precoMedio)}</td><td>${fmtNum(l.itens)}</td>
+    </tr>`;
   });
-  html += `<tr class="linha-total"><td>Total</td><td>${fmtBRLFull(totalFat)}</td><td>${fmtNum(totalClientes)}</td><td>${fmtNum(totalPedidos)}</td><td>${fmtBRLFull(totalTicket)}</td></tr>`;
-  html += `</tbody>`;
+
+  html += `<tr class="linha-total">
+    <td>Total</td><td>${fmtBRLFull(totalFatEscopo)}</td><td>100,0%</td>
+    <td>${fmtBRLFull(totalM1)}</td><td class="${cellClass(totalDifM1)}">${fmtSignedBRL(totalDifM1)}</td><td class="${cellClass(totalDifM1)}">${fmtPct(totalM1?totalDifM1/totalM1:0)}</td>
+    <td>${fmtBRLFull(totalY1)}</td><td class="${cellClass(totalDifY1)}">${fmtSignedBRL(totalDifY1)}</td><td class="${cellClass(totalDifY1)}">${fmtPct(totalY1?totalDifY1/totalY1:0)}</td>
+    <td>${fmtNum(totalClientes)}</td><td>${fmtNum(totalPedidos)}</td><td>${fmtBRLFull(totalTicket)}</td><td>${fmtBRLFull(totalPreco)}</td><td>${fmtNum(totalItens)}</td>
+  </tr></tbody>`;
   el('tabelaEmpresas').innerHTML = html;
 }
 
