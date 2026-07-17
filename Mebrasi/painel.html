@@ -7,6 +7,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 /* ===== theme.css embutido (igual ao Fluxo de Caixa da Mebrasi) ===== */
 @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
@@ -123,16 +125,13 @@ tr.row-clickable:hover td{background:rgba(54,226,201,.06);}
 .tm-tile-label{font-size:11px;font-weight:800;color:#fff;line-height:1.3;text-shadow:0 1px 2px rgba(0,0,0,.35);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
 .tm-tile-value{font-size:9.5px;font-weight:600;color:rgba(255,255,255,.85);font-family:'DM Mono',monospace;margin-top:2px;}
 
-/* ---- Mapa de UF (tile grid map do Brasil) ---- */
-.ufmap-wrap{position:relative;height:280px;display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(9,1fr);gap:3px;}
-.uf-tile{position:relative;border-radius:5px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;border:1px solid var(--border2);transition:filter .12s, transform .12s;min-width:0;min-height:0;}
-.uf-tile:hover{filter:brightness(1.25);transform:scale(1.06);z-index:5;}
-.uf-tile.uf-selected{outline:2px solid var(--cyan);outline-offset:-1px;z-index:6;}
-.uf-tile-label{font-size:9.5px;font-weight:800;color:var(--text);}
-.uf-tile-empty{background:transparent!important;border:none!important;cursor:default;}
-.uf-tile-empty:hover{filter:none;transform:none;}
+/* ---- Mapa de Região (Leaflet, igual padrão da Tangram) ---- */
+.ufmap-wrap{position:relative;height:280px;border-radius:12px;overflow:hidden;background:var(--navy3);}
+.leaflet-container{font-family:'Sora',sans-serif;background:var(--navy3);}
+.pulse-glow{animation:mapPulseGlow 1.8s ease-in-out infinite;}
+@keyframes mapPulseGlow{0%,100%{filter:drop-shadow(0 0 2px #36E2C9);}50%{filter:drop-shadow(0 0 10px #36E2C9) drop-shadow(0 0 18px #36E2C9);}}
 
-/* ---- Tooltip flutuante compartilhado (treemap + mapa) ---- */
+/* ---- Tooltip flutuante compartilhado (treemap) ---- */
 .gpsbi-tooltip{position:fixed;pointer-events:none;background:var(--navy4);border:1px solid var(--border2);border-radius:8px;padding:7px 11px;font-size:11.5px;font-weight:700;color:var(--text);box-shadow:var(--shadow);z-index:999;display:none;white-space:nowrap;}
 .gpsbi-tooltip small{display:block;font-weight:500;color:var(--text3);font-size:10px;margin-top:2px;}
 
@@ -385,7 +384,7 @@ table.tabela-simples tr.linha-total td{font-weight:800;border-top:2px solid var(
       </div>
       <div class="chart-box">
         <div class="chart-title">Análise por Região</div>
-        <div class="chart-sub">Faturamento por estado — intensidade da cor é proporcional ao valor. Clique numa célula pra filtrar.</div>
+        <div class="chart-sub">Interativo: zoom, clique e tooltip. Bolhas maiores pulsam. Clique numa bolha pra filtrar.</div>
         <div class="ufmap-wrap" id="mapaRegiao"></div>
       </div>
     </div>
@@ -454,6 +453,16 @@ function nomeVendedor(codVendedor){
   if(!cod) return '(Sem vendedor)';
   return VENDEDOR_NOME[cod] || `Cód. ${cod}`;
 }
+
+// UF principal de cada representante, conforme a planilha "Relação de
+// Representação". MEBRASI é interno (não tem UF de representação).
+const VENDEDOR_UF = {
+  'ARLINDO':'SP', 'ANA PAULA':'SP', 'ARNALDO':'PI', 'BAIAO':'MG',
+  'CARLOS (PR)':'PR', 'CHRISTIAN':'PE', 'ELAINE/FRANCISCO':'RJ', 'EGBERTO':'SP',
+  'FELISBERTO':'SE', 'FLÁVIO':'RN', 'MARRON':'BA', 'MESQUITA':'MT',
+  'MENEZES':'AM', 'MICHELLE':'MG', 'NELSON':'RO', 'NOBRE':'CE',
+  'REGIS':'AM', 'RITA':'RS', 'SÉRGIO':'BA', 'SILVIO':'RJ', 'SUELI':'MG',
+};
 
 function el(id){ return document.getElementById(id); }
 function normalizeTxt(s){ return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim(); }
@@ -1035,55 +1044,54 @@ function renderTreemapVendedor(){
     const nome = tile.dataset.vendedor;
     const valor = Number(tile.dataset.valor);
     tile.addEventListener('click', ()=>{ selectedVendedor = selectedVendedor===nome ? '' : nome; renderTudo(); });
-    tile.addEventListener('mouseenter', e=>tooltipShow(e, nome, fmtBRLFull(valor)));
+    tile.addEventListener('mouseenter', e=>{
+      const uf = VENDEDOR_UF[nome];
+      tooltipShow(e, nome, `${fmtBRLFull(valor)}${uf ? ' - '+uf : ''}`);
+    });
     tile.addEventListener('mousemove', tooltipMove);
     tile.addEventListener('mouseleave', tooltipHide);
   });
 }
 
-// ---- Análise por Região (mapa em grade do Brasil) ----
-// Posição aproximada de cada UF numa grade 8x9 (col,row 0-indexed),
-// respeitando a posição relativa real dentro do país. Não é geografia
-// de precisão — é um "tile grid map", o mesmo estilo usado em vários
-// dashboards de referência pra evitar distorção de área/zoom de mapa
-// real e manter os rótulos sempre legíveis.
-const UF_GRID = {
-  RR:[3,0], AP:[5,0],
-  AM:[2,1], PA:[4,1], MA:[6,1], CE:[7,1],
-  AC:[1,2], RO:[2,2], TO:[4,2], PI:[6,2], RN:[7,2],
-  MT:[2,3], BA:[5,3], PB:[7,3], PE:[6,3],
-  MS:[2,4], DF:[4,3], GO:[4,4], AL:[7,4], SE:[6,4], MG:[5,4],
-  SP:[3,5], ES:[6,5], RJ:[5,5],
-  PR:[3,6], SC:[3,7], RS:[3,8],
-};
+// ---- Análise por Região (mapa Leaflet, mesmo padrão da Tangram) ----
+const UF_COORDS = {AC:[-9.97,-67.81],AL:[-9.62,-36.82],AP:[0.03,-51.05],AM:[-3.10,-60.02],BA:[-12.97,-38.50],CE:[-3.73,-38.52],DF:[-15.79,-47.88],ES:[-20.31,-40.31],GO:[-16.68,-49.25],MA:[-2.53,-44.30],MT:[-15.60,-56.10],MS:[-20.45,-54.62],MG:[-19.92,-43.94],PA:[-1.45,-48.49],PB:[-7.12,-34.86],PR:[-25.43,-49.27],PE:[-8.05,-34.90],PI:[-5.09,-42.80],RJ:[-22.91,-43.17],RN:[-5.79,-35.21],RS:[-30.03,-51.23],RO:[-8.76,-63.90],RR:[2.82,-60.67],SC:[-27.59,-48.55],SP:[-23.55,-46.63],SE:[-10.91,-37.07],TO:[-10.18,-48.33]};
+let leafletMapaRegiao = null, leafletLayerRegiao = null;
 function renderMapaRegiao(){
+  if(!window.L || !el('mapaRegiao')) return;
   const scoped = rowsInScope();
   const porEstado = {};
-  scoped.forEach(r=>{ const uf = (r.estado||'').toUpperCase().trim(); if(!uf) return; porEstado[uf] = (porEstado[uf]||0) + r.faturamento; });
-  const maxValor = Math.max(1, ...Object.values(porEstado));
+  scoped.forEach(r=>{ const uf = (r.estado||'').toUpperCase().trim(); if(!uf || !UF_COORDS[uf]) return; porEstado[uf] = (porEstado[uf]||0) + r.faturamento; });
 
-  const wrap = el('mapaRegiao');
-  wrap.innerHTML = Object.keys(UF_GRID).map(uf=>{
-    const [col,row] = UF_GRID[uf];
-    const valor = porEstado[uf] || 0;
-    const ratio = valor / maxValor; // 0..1
-    const alpha = valor>0 ? (0.16 + 0.74*ratio) : 0.05;
-    const selecionado = selectedEstado === uf;
-    return `<div class="uf-tile${valor===0?' uf-tile-empty':''}${selecionado?' uf-selected':''}"
-      style="grid-column:${col+1};grid-row:${row+1};background:rgba(54,226,201,${alpha.toFixed(3)});"
-      data-uf="${uf}" data-valor="${valor}">
-      <div class="uf-tile-label">${uf}</div>
-    </div>`;
-  }).join('');
+  if(!leafletMapaRegiao){
+    leafletMapaRegiao = L.map('mapaRegiao', {zoomControl:true, scrollWheelZoom:true}).setView([-14.2,-51.9], 4);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {maxZoom:18, subdomains:'abcd', attribution:'© OpenStreetMap © CARTO'}).addTo(leafletMapaRegiao);
+    leafletLayerRegiao = L.layerGroup().addTo(leafletMapaRegiao);
+  }
+  leafletLayerRegiao.clearLayers();
 
-  wrap.querySelectorAll('.uf-tile').forEach(tile=>{
-    const uf = tile.dataset.uf;
-    const valor = Number(tile.dataset.valor);
-    tile.addEventListener('click', ()=>{ selectedEstado = selectedEstado===uf ? '' : uf; renderTudo(); });
-    tile.addEventListener('mouseenter', e=>tooltipShow(e, uf, valor>0 ? fmtBRLFull(valor) : 'Sem faturamento no período'));
-    tile.addEventListener('mousemove', tooltipMove);
-    tile.addEventListener('mouseleave', tooltipHide);
+  const ranked = Object.entries(porEstado).sort((a,b)=>b[1]-a[1]);
+  const max = Math.max(...Object.values(porEstado), 1);
+  const topUFs = new Set(ranked.slice(0,3).map(e=>e[0]));
+
+  ranked.forEach(([uf,val])=>{
+    const [lat,lng] = UF_COORDS[uf];
+    const radius = 6 + (val/max)*22;
+    const isTop = topUFs.has(uf);
+    const isSelected = selectedEstado === uf;
+    L.circleMarker([lat,lng], {
+      radius,
+      fillColor: isSelected ? '#f5b942' : (isTop ? '#36E2C9' : '#2D70B8'),
+      color: isSelected ? '#f5b942' : (isTop ? '#98F2E5' : '#5BA8E0'),
+      weight: isTop || isSelected ? 2 : 1,
+      opacity:.9,
+      fillOpacity: isTop || isSelected ? .75 : .55,
+      className: (isTop ? 'state-marker pulse-glow' : 'state-marker'),
+    })
+    .bindTooltip(`${uf}: ${fmtBRLFull(val)}`)
+    .on('click', ()=>{ selectedEstado = selectedEstado===uf ? '' : uf; renderTudo(); })
+    .addTo(leafletLayerRegiao);
   });
+  setTimeout(()=>leafletMapaRegiao.invalidateSize(), 100);
 }
 
 function shiftYearMonth(year, month, deltaMonths){
