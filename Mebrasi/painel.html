@@ -95,6 +95,17 @@ a{color:inherit;text-decoration:none;}
 .farol-item{background:var(--navy3);border:1px solid var(--border);border-radius:9px;padding:7px 8px;text-align:center;}
 .farol-item b{display:block;font-family:'DM Mono',monospace;font-size:11px;}
 .farol-item span{font-size:9px;color:var(--text3);}
+.farol-item{cursor:pointer;transition:transform .2s,border-color .2s,box-shadow .2s;}
+.farol-item:hover{transform:translateY(-2px);border-color:rgba(54,226,201,.45);}
+.farol-item.farol-bloqueado{border-color:rgba(209,73,91,.72);background:rgba(209,73,91,.09);animation:farolPulse 1.25s ease-in-out infinite;}
+.farol-item.farol-critico{border-color:rgba(201,135,31,.58);background:rgba(201,135,31,.08);}
+.farol-alerta{display:none;margin-top:10px;padding:10px 12px;border-radius:10px;border:1px solid rgba(209,73,91,.52);background:rgba(209,73,91,.10);color:var(--red);font-size:10.5px;font-weight:800;line-height:1.45;animation:alertGlow 1.4s ease-in-out infinite;}
+.farol-alerta.show{display:block;}
+@keyframes farolPulse{0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(209,73,91,.05)}50%{transform:scale(1.035);box-shadow:0 0 0 7px rgba(209,73,91,.10)}}
+@keyframes alertGlow{0%,100%{box-shadow:0 0 0 0 rgba(209,73,91,.05)}50%{box-shadow:0 0 0 5px rgba(209,73,91,.10)}}
+.chart-box canvas{cursor:pointer;}
+tr.row-clickable{cursor:pointer;transition:background .15s;}
+tr.row-clickable:hover td{background:rgba(54,226,201,.06);}
 .chart-box{background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);}
 .chart-title{font-size:13.5px;font-weight:800;margin-bottom:2px;}
 .chart-sub{font-size:11px;color:var(--text3);margin-bottom:12px;}
@@ -164,6 +175,7 @@ table.tabela-simples tr.linha-total td{font-weight:800;border-top:2px solid var(
           <option value="Ryngavi">Ryngavi</option>
           <option value="Especial">Especial</option>
           <option value="Multicopos">Multicopos</option>
+          <option value="Online">Online</option>
         </select>
         <span class="filtro-label">Ano</span>
         <select id="anoSelect"></select>
@@ -203,27 +215,28 @@ table.tabela-simples tr.linha-total td{font-weight:800;border-top:2px solid var(
         <div class="chart-sub">Acompanhamento do faturamento frente ao teto de R$ 450 mil.</div>
         <div class="chart-canvas-wrap"><canvas id="chartFarol"></canvas></div>
         <div id="farolResumo" class="farol-resumo"></div>
+        <div id="farolAlerta" class="farol-alerta"></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:18px;">
+      <div class="card-title">🏆 Comparativo por Empresa</div>
+      <div class="card-sub">Faturamento, participação, comparativos, clientes, pedidos, ticket, preço médio e itens por empresa. Clique em uma empresa para filtrar o painel.</div>
+      <div style="overflow-x:auto;">
+        <table class="tabela-simples" id="tabelaEmpresas"></table>
       </div>
     </div>
 
     <div class="charts-grid" style="margin-top:18px;">
       <div class="chart-box">
         <div class="chart-title">Faturamento por Estado</div>
-        <div class="chart-sub">Top 12 estados por faturamento no período.</div>
+        <div class="chart-sub">Top 12 estados por faturamento no período. Clique em uma barra para filtrar.</div>
         <div class="chart-canvas-wrap"><canvas id="chartEstado"></canvas></div>
       </div>
       <div class="chart-box">
         <div class="chart-title">Faturamento por Família Comercial</div>
-        <div class="chart-sub">Top 10 famílias de produto por faturamento.</div>
+        <div class="chart-sub">Top 10 famílias de produto por faturamento. Clique em uma barra para filtrar.</div>
         <div class="chart-canvas-wrap"><canvas id="chartFamilia"></canvas></div>
-      </div>
-    </div>
-
-    <div class="card" style="margin-top:18px;">
-      <div class="card-title">🏆 Comparativo por Empresa</div>
-      <div class="card-sub">Faturamento, participação, comparativos, clientes, pedidos, ticket, preço médio e itens por empresa.</div>
-      <div style="overflow-x:auto;">
-        <table class="tabela-simples" id="tabelaEmpresas"></table>
       </div>
     </div>
 
@@ -304,7 +317,7 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let currentUser=null, gpsStaff=false;
 let rows = []; // linhas normalizadas da FatoVendas
-let selectedEmpresa = '', selectedAno = '', selectedMes = '';
+let selectedEmpresa = '', selectedAno = '', selectedMes = '', selectedEstado = '', selectedFamilia = '';
 let chartDiario=null, chartSemanal=null, chartFarol=null, chartEmpresa=null, chartEstado=null, chartFamilia=null, chartEvolucao=null;
 
 async function fetchGvizVendas(){
@@ -396,6 +409,8 @@ function rowsInScope(){
     if(selectedEmpresa && r.empresa !== selectedEmpresa) return false;
     if(selectedAno && r.data.slice(0,4) !== selectedAno) return false;
     if(selectedMes && r.data.slice(5,7) !== selectedMes) return false;
+    if(selectedEstado && r.estado !== selectedEstado) return false;
+    if(selectedFamilia && (r.familiaComercial || '(sem família)') !== selectedFamilia) return false;
     return true;
   });
 }
@@ -417,7 +432,7 @@ function popularFiltrosAnoMes(){
 }
 
 function limparFiltros(){
-  selectedEmpresa=''; selectedAno=''; selectedMes='';
+  selectedEmpresa=''; selectedAno=''; selectedMes=''; selectedEstado=''; selectedFamilia='';
   el('empresaSelect').value=''; el('anoSelect').value=''; el('mesSelect').value='';
   renderTudo();
 }
@@ -480,6 +495,7 @@ function renderChartEvolucao(){
     options:{
       responsive:true, maintainAspectRatio:false, animation:{duration:300},
       layout:{ padding:{top:40} },
+      onClick:(evt,els)=>{ if(!els.length) return; const key=meses[els[0].index]; const [a,m]=key.split('-'); selectedAno=a; selectedMes=m; el('anoSelect').value=a; el('mesSelect').value=m; renderTudo(); },
       plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:c=>fmtBRLFull(c.parsed.y) } } },
       scales:{
         x:{ grid:{display:false}, ticks:{color:textColor, font:{size:11}} },
@@ -597,9 +613,15 @@ function renderChartFarol(){
   const cfg={type:'doughnut',data:{labels:['Utilizado','Disponível'],datasets},options:{responsive:true,maintainAspectRatio:false,cutout:'35%',
     plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${fmtBRLFull(totais[c.datasetIndex])} (${(totais[c.datasetIndex]/teto*100).toFixed(1).replace('.',',')}%)`}}}
   }};
+  cfg.options.onClick=(evt,els)=>{ if(!els.length) return; const emp=empresas[els[0].datasetIndex]; selectedEmpresa=selectedEmpresa===emp?'':emp; el('empresaSelect').value=selectedEmpresa; renderTudo(); };
   if(chartFarol){chartFarol.data=cfg.data;chartFarol.options=cfg.options;chartFarol.update();}
   else chartFarol=new Chart(el('chartFarol'),cfg);
-  el('farolResumo').innerHTML=empresas.map(emp=>{const st=status(totais[emp]);const p=totais[emp]/teto*100;return `<div class="farol-item"><b>${st.icone} ${emp}</b><span>${p.toFixed(1).replace('.',',')}% · ${fmtBRL(totais[emp])}</span></div>`;}).join('');
+  const bloqueadas=empresas.filter(emp=>totais[emp]/teto>1.05);
+  el('farolResumo').innerHTML=empresas.map(emp=>{const st=status(totais[emp]);const p=totais[emp]/teto*100;const cls=p>105?'farol-bloqueado':(p>95?'farol-critico':'');return `<div class="farol-item ${cls}" data-empresa="${emp}"><b>${st.icone} ${emp}</b><span>${p.toFixed(1).replace('.',',')}% · ${fmtBRL(totais[emp])}</span></div>`;}).join('');
+  el('farolResumo').querySelectorAll('[data-empresa]').forEach(node=>node.addEventListener('click',()=>{const emp=node.dataset.empresa;selectedEmpresa=selectedEmpresa===emp?'':emp;el('empresaSelect').value=selectedEmpresa;renderTudo();}));
+  const alerta=el('farolAlerta');
+  if(bloqueadas.length){alerta.classList.add('show');alerta.textContent=`🚨 ATENÇÃO: ${bloqueadas.join(' e ')} acima do limite. Solicitar aprovação da diretoria antes de novos cadastros.`;}
+  else{alerta.classList.remove('show');alerta.textContent='';}
 }
 
 function renderChartEmpresa(){
@@ -612,6 +634,7 @@ function renderChartEmpresa(){
     type:'doughnut',
     data:{ labels:empresasComDado, datasets:[{ data:empresasComDado.map(e=>porEmpresa[e]), backgroundColor:empresasComDado.map(e=>EMPRESA_COR[e]), borderWidth:0 }] },
     options:{ responsive:true, maintainAspectRatio:false, cutout:'62%',
+      onClick:(evt,els)=>{if(!els.length)return;const emp=empresasComDado[els[0].index];selectedEmpresa=selectedEmpresa===emp?'':emp;el('empresaSelect').value=selectedEmpresa;renderTudo();},
       plugins:{ legend:{position:'right', labels:{color:corTexto(), font:{size:11}, boxWidth:10}}, tooltip:{ callbacks:{ label:c=>` ${c.label}: ${fmtBRLFull(c.parsed)}` } } } }
   };
   if(chartEmpresa){ chartEmpresa.data=cfg.data; chartEmpresa.options=cfg.options; chartEmpresa.update(); }
@@ -628,6 +651,7 @@ function renderChartEstado(){
     type:'bar',
     data:{ labels:top.map(t=>t[0]), datasets:[{ data:top.map(t=>t[1]), backgroundColor:'#36E2C9', borderRadius:5, maxBarThickness:26 }] },
     options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      onClick:(evt,els)=>{if(!els.length)return;const uf=top[els[0].index][0];selectedEstado=selectedEstado===uf?'':uf;renderTudo();},
       plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:c=>fmtBRLFull(c.parsed.x) } } },
       scales:{ x:{ grid:{color:corGrid()}, ticks:{color:corTexto(), font:{size:10}, callback:v=>fmtBRL(v)} }, y:{ grid:{display:false}, ticks:{color:corTexto(), font:{size:10.5}} } } }
   };
@@ -645,6 +669,7 @@ function renderChartFamilia(){
     type:'bar',
     data:{ labels:top.map(t=>t[0]), datasets:[{ data:top.map(t=>t[1]), backgroundColor:'#f5b942', borderRadius:5, maxBarThickness:26 }] },
     options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      onClick:(evt,els)=>{if(!els.length)return;const fam=top[els[0].index][0];selectedFamilia=selectedFamilia===fam?'':fam;renderTudo();},
       plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:c=>fmtBRLFull(c.parsed.x) } } },
       scales:{ x:{ grid:{color:corGrid()}, ticks:{color:corTexto(), font:{size:10}, callback:v=>fmtBRL(v)} }, y:{ grid:{display:false}, ticks:{color:corTexto(), font:{size:10.5}} } } }
   };
@@ -721,7 +746,7 @@ function renderTabelaEmpresas(){
   </tr></thead><tbody>`;
 
   linhas.forEach(l=>{
-    html += `<tr>
+    html += `<tr class="row-clickable" data-empresa="${l.emp}">
       <td>${l.emp}</td><td>${fmtBRLFull(l.faturamento)}</td><td>${fmtPct(l.participacao)}</td>
       <td>${fmtBRLFull(l.fatM1)}</td><td class="${cellClass(l.difM1)}">${fmtSignedBRL(l.difM1)}</td><td class="${cellClass(l.pctM1)}">${fmtPct(l.pctM1)}</td>
       <td>${fmtBRLFull(l.fatY1)}</td><td class="${cellClass(l.difY1)}">${fmtSignedBRL(l.difY1)}</td><td class="${cellClass(l.pctY1)}">${fmtPct(l.pctY1)}</td>
@@ -736,6 +761,7 @@ function renderTabelaEmpresas(){
     <td>${fmtNum(totalClientes)}</td><td>${fmtNum(totalPedidos)}</td><td>${fmtBRLFull(totalTicket)}</td><td>${fmtBRLFull(totalPreco)}</td><td>${fmtNum(totalItens)}</td>
   </tr></tbody>`;
   el('tabelaEmpresas').innerHTML = html;
+  el('tabelaEmpresas').querySelectorAll('tr[data-empresa]').forEach(tr=>tr.addEventListener('click',()=>{const emp=tr.dataset.empresa;selectedEmpresa=selectedEmpresa===emp?'':emp;el('empresaSelect').value=selectedEmpresa;renderTudo();}));
 }
 
 let analiseWhatsBound = false;
@@ -794,7 +820,7 @@ function renderDebug(){
   const scoped = rowsInScope();
   const porFonte = {};
   scoped.forEach(r=>{ porFonte[r.fonte] = (porFonte[r.fonte]||0)+1; });
-  wrap.textContent = `🔍 Diagnóstico (só GPS): ${rows.length} linhas carregadas no total · ${scoped.length} no escopo atual (${selectedEmpresa||'Global'} · ${selectedAno||'todos anos'}${selectedMes?'/'+selectedMes:''}) · Por fonte: ${Object.entries(porFonte).map(([f,n])=>`${f}: ${n}`).join(', ')}`;
+  wrap.textContent = `🔍 Diagnóstico (só GPS): ${rows.length} linhas carregadas no total · ${scoped.length} no escopo atual (${selectedEmpresa||'Global'} · ${selectedAno||'todos anos'}${selectedMes?'/'+selectedMes:''}${selectedEstado?' · UF '+selectedEstado:''}${selectedFamilia?' · Família '+selectedFamilia:''}) · Por fonte: ${Object.entries(porFonte).map(([f,n])=>`${f}: ${n}`).join(', ')}`;
 }
 
 function renderTudo(){
