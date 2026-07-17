@@ -84,12 +84,16 @@ a{color:inherit;text-decoration:none;}
 @media(max-width:700px){.kpi-grid{grid-template-columns:repeat(2,1fr);}}
 
 .charts-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:18px;}
+.charts-grid.hero{grid-template-columns:minmax(0,3fr) minmax(280px,1fr);align-items:stretch;margin-bottom:18px;}
+.charts-grid.hero .chart-box{margin-bottom:0;}
+.charts-grid.hero .chart-canvas-wrap{height:320px;}
+.charts-grid.hero .chart-box:last-child .chart-canvas-wrap{height:320px;}
 .charts-grid.full{grid-template-columns:1fr;}
 .chart-box{background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);}
 .chart-title{font-size:13.5px;font-weight:800;margin-bottom:2px;}
 .chart-sub{font-size:11px;color:var(--text3);margin-bottom:12px;}
 .chart-canvas-wrap{position:relative;height:280px;}
-@media(max-width:900px){.charts-grid{grid-template-columns:1fr;}}
+@media(max-width:900px){.charts-grid,.charts-grid.hero{grid-template-columns:1fr;}.charts-grid.hero .chart-canvas-wrap,.charts-grid.hero .chart-box:last-child .chart-canvas-wrap{height:280px;}}
 
 table.tabela-simples{width:100%;border-collapse:collapse;font-size:12.5px;}
 table.tabela-simples th{text-align:right;font-size:10px;color:var(--text3);text-transform:uppercase;padding:8px 10px;border-bottom:1px solid var(--border2);}
@@ -163,22 +167,24 @@ table.tabela-simples tr.linha-total td{font-weight:800;border-top:2px solid var(
       <div id="kpiGrid" class="kpi-grid"></div>
     </div>
 
-    <div class="chart-box" style="margin-bottom:18px;">
-      <div class="chart-title">Evolução do Faturamento</div>
-      <div class="chart-sub">Variação referente ao mês anterior. Considera a empresa filtrada, mas todos os meses disponíveis.</div>
-      <div class="chart-canvas-wrap" style="height:320px;"><canvas id="chartEvolucao"></canvas></div>
-    </div>
-
-    <div class="charts-grid">
+    <div class="charts-grid hero">
       <div class="chart-box">
-        <div class="chart-title">Faturamento por Dia</div>
-        <div class="chart-sub">Soma de Valor Faturado + ICMS ST (Suframa usa Valor Líquido) por dia de entrega solicitada.</div>
-        <div class="chart-canvas-wrap"><canvas id="chartDiario"></canvas></div>
+        <div class="chart-title">Evolução do Faturamento</div>
+        <div class="chart-sub">Variação referente ao mês anterior. Considera a empresa filtrada, mas todos os meses disponíveis.</div>
+        <div class="chart-canvas-wrap"><canvas id="chartEvolucao"></canvas></div>
       </div>
       <div class="chart-box">
         <div class="chart-title">Faturamento por Empresa</div>
         <div class="chart-sub">Participação de cada empresa no período filtrado.</div>
         <div class="chart-canvas-wrap"><canvas id="chartEmpresa"></canvas></div>
+      </div>
+    </div>
+
+    <div class="charts-grid full">
+      <div class="chart-box">
+        <div class="chart-title">Faturamento por Dia</div>
+        <div class="chart-sub">Soma de Valor Faturado + ICMS ST (Suframa usa Valor Líquido) por dia de entrega solicitada.</div>
+        <div class="chart-canvas-wrap"><canvas id="chartDiario"></canvas></div>
       </div>
     </div>
 
@@ -226,7 +232,7 @@ const SHEET_ID_VENDAS = '13OtxBYO-XXPgf_L5cjXU7odzfQHmPNuniej1EktFt_I';
 const GID_VENDAS = '1984037897';
 
 const EMPRESAS = ['Gymis','Multicopos','Ryngavi','Especial','Online'];
-const EMPRESA_COR = { Gymis:'#2D70B8', Multicopos:'#9b7fe8', Ryngavi:'#36E2C9', Especial:'#f5b942', Online:'#EF6A6A' };
+const EMPRESA_COR = { Gymis:'#071B33', Multicopos:'#2D70B8', Ryngavi:'#008D90', Especial:'#36E2C9', Online:'#9FD8E6' };
 
 function el(id){ return document.getElementById(id); }
 function normalizeTxt(s){ return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim(); }
