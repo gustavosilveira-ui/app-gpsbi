@@ -57,7 +57,7 @@ a{color:inherit;text-decoration:none;}
 .app-logout svg{width:14px;height:14px;}
 
 .content{max-width:1200px;margin:0 auto;padding:24px;}
-.content.wide{max-width:1600px;}
+.content.wide{max-width:100%;padding:24px 32px;}
 .card{background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);margin-bottom:18px;}
 .card-title{font-size:16px;font-weight:800;margin-bottom:4px;}
 .card-sub{font-size:12px;color:var(--text3);margin-bottom:16px;}
@@ -163,6 +163,12 @@ table.tabela-simples tr.linha-total td{font-weight:800;border-top:2px solid var(
       <div id="kpiGrid" class="kpi-grid"></div>
     </div>
 
+    <div class="chart-box" style="margin-bottom:18px;">
+      <div class="chart-title">Evolução do Faturamento</div>
+      <div class="chart-sub">Variação referente ao mês anterior. Considera a empresa filtrada, mas todos os meses disponíveis.</div>
+      <div class="chart-canvas-wrap" style="height:320px;"><canvas id="chartEvolucao"></canvas></div>
+    </div>
+
     <div class="charts-grid">
       <div class="chart-box">
         <div class="chart-title">Faturamento por Dia</div>
@@ -244,6 +250,24 @@ function fmtBRLFull(n){
   return 'R$ ' + Number(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 }
 function fmtNum(n){ return n===null||n===undefined||isNaN(n) ? '0' : Math.round(n).toLocaleString('pt-BR'); }
+// O Google Sheets pode reconhecer a coluna "Data" como tipo Data de verdade
+// (mesmo a gente escrevendo texto "AAAA-MM-DD" via Apps Script) — nesse caso
+// o gviz devolve algo tipo "Date(2026,6,14)" (mês começa em 0!), não o texto
+// puro. Essa função trata os formatos possíveis e sempre devolve AAAA-MM-DD.
+function parseDateCell(v){
+  if(v===null || v===undefined || v==='') return null;
+  const s = String(v).trim();
+  const gviz = s.match(/^Date\((\d+),(\d+),(\d+)/);
+  if(gviz){
+    const y = +gviz[1], mo = +gviz[2]+1, d = +gviz[3];
+    return `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  }
+  const iso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(iso) return `${iso[1]}-${iso[2].padStart(2,'0')}-${iso[3].padStart(2,'0')}`;
+  const br = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(br) return `${br[3]}-${br[2].padStart(2,'0')}-${br[1].padStart(2,'0')}`;
+  return null;
+}
 function parseMoneyBR(v){
   if(v===null||v===undefined||v==='') return 0;
   if(typeof v==='number') return v;
@@ -257,7 +281,7 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let currentUser=null, gpsStaff=false;
 let rows = []; // linhas normalizadas da FatoVendas
 let selectedEmpresa = '', selectedAno = '', selectedMes = '';
-let chartDiario=null, chartEmpresa=null, chartEstado=null, chartFamilia=null;
+let chartDiario=null, chartEmpresa=null, chartEstado=null, chartFamilia=null, chartEvolucao=null;
 
 async function fetchGvizVendas(){
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID_VENDAS}/gviz/tq?tqx=out:json&gid=${GID_VENDAS}&headers=1`;
@@ -299,13 +323,13 @@ async function loadData(){
   rows = raw.map(r=>{
     const situacao = getColNormalized(r,'situacao') || '';
     if(!situacaoValida(situacao)) return null;
-    const data = getColNormalized(r,'data') || '';
+    const data = parseDateCell(getColNormalized(r,'data'));
     if(!data) return null;
     const empresa = (getColNormalized(r,'empresa')||'').toString().trim();
     const item = {
       empresa, fonte: getColNormalized(r,'fonte')||'',
       canal: getColNormalized(r,'canal')||'',
-      data: String(data).slice(0,10),
+      data,
       situacao,
       codPedido: (getColNormalized(r,'cod pedido')||'').toString().trim(),
       cliente: (getColNormalized(r,'nome cliente')||'').toString().trim(),
@@ -354,6 +378,76 @@ function limparFiltros(){
   selectedEmpresa=''; selectedAno=''; selectedMes='';
   el('empresaSelect').value=''; el('anoSelect').value=''; el('mesSelect').value='';
   renderTudo();
+}
+
+// Evolução mensal (só barras — na Mebrasi não existe a distinção
+// Captado x Faturado que a Tangram tem, então não tem linha aqui).
+// Considera a empresa filtrada, mas SEMPRE todos os meses (ignora o
+// filtro de Ano/Mês) — é uma visão de tendência, não do período pontual.
+function renderChartEvolucao(){
+  const rowsEmpresa = rows.filter(r=> !selectedEmpresa || r.empresa===selectedEmpresa);
+  const porMes = {};
+  rowsEmpresa.forEach(r=>{ const m = r.data.slice(0,7); porMes[m] = (porMes[m]||0) + r.faturamento; });
+  const meses = Object.keys(porMes).sort();
+  const valores = meses.map(m=>porMes[m]);
+  const pctVsAnterior = meses.map((m,i)=>{
+    if(i===0) return null;
+    const prev = valores[i-1];
+    if(!prev) return null;
+    return (valores[i]-prev)/prev*100;
+  });
+  const mesNomesAbrev = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  const labels = meses.map(m=>{ const [y,mm] = m.split('-'); return mesNomesAbrev[parseInt(mm,10)-1] + (mm==='01' ? '\n'+y : ''); });
+
+  const textColor = corTexto();
+  const gridColor = corGrid();
+  const green = '#2fd6b8', red = getComputedStyle(document.documentElement).getPropertyValue('--red').trim() || '#ef6a6a';
+  const blue = '#2D70B8', cyan = '#36E2C9';
+  const mesAtualKey = new Date().toISOString().slice(0,7);
+  const barColors = meses.map(m=>m===mesAtualKey ? cyan : blue);
+
+  const pctLabelPlugin = {
+    id:'pctLabelPluginMebrasi',
+    afterDatasetsDraw(chart){
+      const {ctx} = chart;
+      const meta = chart.getDatasetMeta(0);
+      if(!meta || meta.hidden) return;
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      valores.forEach((val,i)=>{
+        if(!meta.data[i]) return;
+        const p = meta.data[i].getProps(['x','y'], true);
+        ctx.font = '700 11px "DM Mono", monospace';
+        ctx.fillStyle = textColor;
+        ctx.fillText(fmtBRL(val), p.x, p.y - 8);
+        const v = pctVsAnterior[i];
+        if(v===null || v===undefined) return;
+        ctx.font = '700 11px Sora, sans-serif';
+        ctx.fillStyle = v>=0 ? green : red;
+        const arrow = v>=0 ? '↗' : '↘';
+        ctx.fillText(`${v>=0?'+':''}${v.toFixed(1).replace('.',',')}% ${arrow}`, p.x, p.y - 21);
+      });
+      ctx.restore();
+    }
+  };
+
+  const cfg = {
+    type:'bar',
+    data:{ labels, datasets:[{ label:'Faturamento', data:valores, backgroundColor:barColors, borderRadius:5, maxBarThickness:36 }] },
+    options:{
+      responsive:true, maintainAspectRatio:false, animation:{duration:300},
+      layout:{ padding:{top:40} },
+      plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:c=>fmtBRLFull(c.parsed.y) } } },
+      scales:{
+        x:{ grid:{display:false}, ticks:{color:textColor, font:{size:11}} },
+        y:{ grid:{color:gridColor}, ticks:{color:textColor, font:{size:11}, callback:v=>fmtBRL(v)} }
+      }
+    },
+    plugins:[pctLabelPlugin]
+  };
+  if(chartEvolucao){ chartEvolucao.data=cfg.data; chartEvolucao.options=cfg.options; chartEvolucao.update(); }
+  else chartEvolucao = new Chart(el('chartEvolucao'), cfg);
 }
 
 function renderKpis(){
@@ -543,6 +637,7 @@ function renderDebug(){
 
 function renderTudo(){
   renderKpis();
+  renderChartEvolucao();
   renderChartDiario();
   renderChartEmpresa();
   renderChartEstado();
