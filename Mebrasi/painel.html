@@ -691,7 +691,14 @@ function renderKpis(){
   const pedidos = new Set(scoped.map(r=>r.codPedido).filter(Boolean)).size;
   const itens = scoped.reduce((s,r)=>s+(!isProdutoGsl(r) ? (r.qtdFaturada||0) : 0),0);
   const precoMedio = itens>0 ? faturamento/itens : 0;
-  const ticketMedio = pedidos>0 ? faturamento/pedidos : 0;
+  // Ticket Médio não pode considerar o Online — o volume alto de pedidos
+  // pequenos do canal Online distorce a média pra baixo. Usa só o físico
+  // (Gymis/Ryngavi/Especial/Multicopos) tanto no faturamento quanto na
+  // contagem de pedidos.
+  const scopedFisicoTicket = scoped.filter(r=>r.empresa!=='Online');
+  const faturamentoFisicoTicket = scopedFisicoTicket.reduce((s,r)=>s+r.faturamento,0);
+  const pedidosFisicoTicket = new Set(scopedFisicoTicket.map(r=>r.codPedido).filter(Boolean)).size;
+  const ticketMedio = pedidosFisicoTicket>0 ? faturamentoFisicoTicket/pedidosFisicoTicket : 0;
 
   const kpis = [
     { icon:'💰', cor:'var(--blue)', label:'Faturamento', valor:fmtBRL(faturamento), sub:'Valor Faturado + ICMS ST' },
@@ -906,7 +913,12 @@ function renderTabelaEmpresas(){
   const totalClientes = new Set(fisico.map(r=>r.cliente).filter(Boolean)).size;
   const totalPedidos = new Set(scoped.map(r=>r.codPedido).filter(Boolean)).size;
   const totalItens = fisico.reduce((s,r)=>s+(!isProdutoGsl(r) ? (r.qtdFaturada||0) : 0),0);
-  const totalTicket = totalPedidos ? totalFatEscopo/totalPedidos : 0;
+  // Ticket Médio do Total não pode considerar o Online (faturamento nem
+  // pedidos) — senão o volume de pedidos pequenos do Online distorce a
+  // média pra baixo. Usa só as empresas físicas.
+  const totalFatFisico = fisico.reduce((s,r)=>s+r.faturamento,0);
+  const totalPedidosFisico = new Set(fisico.map(r=>r.codPedido).filter(Boolean)).size;
+  const totalTicket = totalPedidosFisico ? totalFatFisico/totalPedidosFisico : 0;
   const totalPreco = totalItens ? totalFatEscopo/totalItens : 0;
   const totalM1 = linhas.reduce((s,l)=>s+l.fatM1,0);
   const totalY1 = linhas.reduce((s,l)=>s+l.fatY1,0);
@@ -957,8 +969,10 @@ function dadosDetalheEmpresa(empresa){
 
   rowsInScope()
     .filter(r => {
+      const familia = normalizeTxt(r.familiaComercial).replace(/\s+/g,' ').trim();
       return (
         r.empresa !== 'Online' &&
+        familia === 'copo' &&
         !isProdutoGsl(r) &&
         (incluirTodas || r.empresa === empresa)
       );
@@ -997,7 +1011,7 @@ function abrirDetalheEmpresa(empresa){
     : `Detalhamento de produtos · ${empresa}`;
 
   const mesTxt = selectedMes ? el('mesSelect').selectedOptions[0]?.textContent : 'Todos os meses';
-  el('detalheSub').textContent = `${mesTxt}${selectedAno ? ' · '+selectedAno : ''} · Todas as famílias · Sem códigos GSL/GSN · Online não incluído`;
+  el('detalheSub').textContent = `${mesTxt}${selectedAno ? ' · '+selectedAno : ''} · Somente família COPO · Sem códigos GSL/GSN · Online não incluído`;
 
   el('detalheResumo').innerHTML = `
     <div class="modal-summary-item"><span>Faturamento</span><b>${fmtBRLFull(totalFat)}</b></div>
@@ -1094,7 +1108,11 @@ function gerarAnaliseTexto(){
   const faturamento = scoped.reduce((s,r)=>s+r.faturamento,0);
   const clientes = new Set(scoped.map(r=>r.cliente).filter(Boolean)).size;
   const pedidos = new Set(scoped.map(r=>r.codPedido).filter(Boolean)).size;
-  const ticketMedio = pedidos>0 ? faturamento/pedidos : 0;
+  // Mesma regra do card e da tabela: Ticket Médio não considera o Online.
+  const scopedFisicoTicket = scoped.filter(r=>r.empresa!=='Online');
+  const faturamentoFisicoTicket = scopedFisicoTicket.reduce((s,r)=>s+r.faturamento,0);
+  const pedidosFisicoTicket = new Set(scopedFisicoTicket.map(r=>r.codPedido).filter(Boolean)).size;
+  const ticketMedio = pedidosFisicoTicket>0 ? faturamentoFisicoTicket/pedidosFisicoTicket : 0;
   const mesNomes = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
   const periodoLabel = selectedMes ? `${mesNomes[parseInt(selectedMes)-1]} de ${selectedAno||''}` : (selectedAno || 'Todo o período');
   const empresaLabel = selectedEmpresa || 'Grupo Mebrasi (todas as empresas)';
