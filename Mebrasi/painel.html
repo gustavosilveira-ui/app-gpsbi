@@ -946,7 +946,7 @@ function dadosDetalheEmpresa(empresa){
       const familia = normalizeTxt(r.familiaComercial).replace(/\s+/g,' ').trim();
       return (
         r.empresa !== 'Online' &&
-        familia === 'cop' &&
+        familia === 'copo' &&
         !isProdutoGsl(r) &&
         (incluirTodas || r.empresa === empresa)
       );
