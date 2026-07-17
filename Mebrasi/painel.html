@@ -89,11 +89,18 @@ a{color:inherit;text-decoration:none;}
 .charts-grid.hero .chart-canvas-wrap{height:320px;}
 .charts-grid.hero .chart-box:last-child .chart-canvas-wrap{height:320px;}
 .charts-grid.full{grid-template-columns:1fr;}
+.charts-grid.triple{grid-template-columns:minmax(0,1.45fr) minmax(0,1fr) minmax(280px,.82fr);margin-bottom:18px;}
+.charts-grid.triple .chart-canvas-wrap{height:270px;}
+.farol-resumo{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px;}
+.farol-item{background:var(--navy3);border:1px solid var(--border);border-radius:9px;padding:7px 8px;text-align:center;}
+.farol-item b{display:block;font-family:'DM Mono',monospace;font-size:11px;}
+.farol-item span{font-size:9px;color:var(--text3);}
 .chart-box{background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);}
 .chart-title{font-size:13.5px;font-weight:800;margin-bottom:2px;}
 .chart-sub{font-size:11px;color:var(--text3);margin-bottom:12px;}
 .chart-canvas-wrap{position:relative;height:280px;}
-@media(max-width:900px){.charts-grid,.charts-grid.hero{grid-template-columns:1fr;}.charts-grid.hero .chart-canvas-wrap,.charts-grid.hero .chart-box:last-child .chart-canvas-wrap{height:280px;}}
+@media(max-width:1100px){.charts-grid.triple{grid-template-columns:1fr 1fr;}.charts-grid.triple .chart-box:last-child{grid-column:1/-1;}}
+@media(max-width:900px){.charts-grid,.charts-grid.hero,.charts-grid.triple{grid-template-columns:1fr;}.charts-grid.triple .chart-box:last-child{grid-column:auto;}.charts-grid.hero .chart-canvas-wrap,.charts-grid.hero .chart-box:last-child .chart-canvas-wrap{height:280px;}}
 
 table.tabela-simples{width:100%;border-collapse:collapse;font-size:12.5px;}
 table.tabela-simples th{text-align:right;font-size:10px;color:var(--text3);text-transform:uppercase;padding:8px 10px;border-bottom:1px solid var(--border2);}
@@ -180,11 +187,22 @@ table.tabela-simples tr.linha-total td{font-weight:800;border-top:2px solid var(
       </div>
     </div>
 
-    <div class="charts-grid full">
+    <div class="charts-grid triple">
       <div class="chart-box">
         <div class="chart-title">Faturamento por Dia</div>
-        <div class="chart-sub">Soma de Valor Faturado + ICMS ST (Suframa usa Valor Líquido) por dia de entrega solicitada.</div>
+        <div class="chart-sub">Evolução diária do faturamento no período filtrado.</div>
         <div class="chart-canvas-wrap"><canvas id="chartDiario"></canvas></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-title">Faturamento por Semana</div>
+        <div class="chart-sub">Semanas do mês em ordem cronológica.</div>
+        <div class="chart-canvas-wrap"><canvas id="chartSemanal"></canvas></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-title">Farol de Limites</div>
+        <div class="chart-sub">Acompanhamento do faturamento frente ao teto de R$ 450 mil.</div>
+        <div class="chart-canvas-wrap"><canvas id="chartFarol"></canvas></div>
+        <div id="farolResumo" class="farol-resumo"></div>
       </div>
     </div>
 
@@ -287,7 +305,7 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let currentUser=null, gpsStaff=false;
 let rows = []; // linhas normalizadas da FatoVendas
 let selectedEmpresa = '', selectedAno = '', selectedMes = '';
-let chartDiario=null, chartEmpresa=null, chartEstado=null, chartFamilia=null, chartEvolucao=null;
+let chartDiario=null, chartSemanal=null, chartFarol=null, chartEmpresa=null, chartEstado=null, chartFamilia=null, chartEvolucao=null;
 
 async function fetchGvizVendas(){
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID_VENDAS}/gviz/tq?tqx=out:json&gid=${GID_VENDAS}&headers=1`;
@@ -526,6 +544,64 @@ function renderChartDiario(){
   else chartDiario = new Chart(ctx, cfg);
 }
 
+
+function renderChartSemanal(){
+  const scoped = rowsInScope();
+  const porSemana = {};
+  scoped.forEach(r=>{
+    const dia = Number(r.data.slice(8,10));
+    const semana = Math.ceil(dia/7);
+    porSemana[semana] = (porSemana[semana]||0) + r.faturamento;
+  });
+  const semanas = Object.keys(porSemana).map(Number).sort((a,b)=>a-b);
+  const labels = semanas.map(s=>`Sem. ${s}`);
+  const valores = semanas.map(s=>porSemana[s]);
+  const cfg = {
+    type:'bar',
+    data:{labels,datasets:[{data:valores,backgroundColor:'#071B33',borderRadius:5,maxBarThickness:48}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      layout:{padding:{top:20}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmtBRLFull(c.parsed.y)}}},
+      scales:{x:{grid:{display:false},ticks:{color:corTexto(),font:{size:10}}},y:{grid:{color:corGrid()},ticks:{color:corTexto(),font:{size:9},callback:v=>fmtBRL(v)}}}
+    },
+    plugins:[{
+      id:'weeklyLabels',
+      afterDatasetsDraw(chart){
+        const {ctx}=chart, meta=chart.getDatasetMeta(0);
+        ctx.save();ctx.textAlign='center';ctx.textBaseline='bottom';ctx.fillStyle=corTexto();ctx.font='700 10px "DM Mono", monospace';
+        meta.data.forEach((bar,i)=>ctx.fillText(fmtBRL(valores[i]),bar.x,bar.y-6));ctx.restore();
+      }
+    }]
+  };
+  if(chartSemanal){chartSemanal.data=cfg.data;chartSemanal.options=cfg.options;chartSemanal.update();}
+  else chartSemanal=new Chart(el('chartSemanal'),cfg);
+}
+
+function renderChartFarol(){
+  const teto=450000;
+  const empresas=['Gymis','Ryngavi','Multicopos'];
+  const scoped=rowsInScope();
+  const totais={Gymis:0,Ryngavi:0,Multicopos:0};
+  scoped.forEach(r=>{if(totais[r.empresa]!==undefined) totais[r.empresa]+=r.faturamento;});
+  function status(valor){
+    const p=valor/teto;
+    if(p<=.90) return {icone:'🟡',cor:'#C9871F',txt:'Atenção'};
+    if(p<=.95) return {icone:'🔴',cor:'#D1495B',txt:'Alerta'};
+    if(p<=1.05) return {icone:'🔴🔴',cor:'#B4233A',txt:'Crítico'};
+    return {icone:'🚨',cor:'#6A52C9',txt:'Bloqueio'};
+  }
+  const datasets=empresas.map((emp,i)=>{
+    const val=totais[emp], st=status(val), usado=Math.min(val,teto), restante=Math.max(teto-usado,0);
+    return {label:emp,data:[usado,restante],backgroundColor:[st.cor,'rgba(102,112,133,.14)'],borderWidth:0,weight:1};
+  });
+  const cfg={type:'doughnut',data:{labels:['Utilizado','Disponível'],datasets},options:{responsive:true,maintainAspectRatio:false,cutout:'35%',
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${fmtBRLFull(totais[c.datasetIndex])} (${(totais[c.datasetIndex]/teto*100).toFixed(1).replace('.',',')}%)`}}}
+  }};
+  if(chartFarol){chartFarol.data=cfg.data;chartFarol.options=cfg.options;chartFarol.update();}
+  else chartFarol=new Chart(el('chartFarol'),cfg);
+  el('farolResumo').innerHTML=empresas.map(emp=>{const st=status(totais[emp]);const p=totais[emp]/teto*100;return `<div class="farol-item"><b>${st.icone} ${emp}</b><span>${p.toFixed(1).replace('.',',')}% · ${fmtBRL(totais[emp])}</span></div>`;}).join('');
+}
+
 function renderChartEmpresa(){
   const scoped = rowsInScope();
   const porEmpresa = {};
@@ -725,6 +801,8 @@ function renderTudo(){
   renderKpis();
   renderChartEvolucao();
   renderChartDiario();
+  renderChartSemanal();
+  renderChartFarol();
   renderChartEmpresa();
   renderChartEstado();
   renderChartFamilia();
