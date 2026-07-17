@@ -138,7 +138,8 @@ tr.row-clickable:hover td{background:rgba(54,226,201,.06);}
 .modal-table{width:100%;border-collapse:collapse;font-size:12px;}
 .modal-table th{position:sticky;top:0;background:var(--navy2);z-index:2;text-align:left;padding:10px;border-bottom:1px solid var(--border2);font-size:9px;text-transform:uppercase;color:var(--text3);}
 .modal-table td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:top;}
-.modal-table td:nth-child(3),.modal-table td:nth-child(4){text-align:right;font-family:'DM Mono',monospace;white-space:nowrap;}
+.modal-table td.num{text-align:right;font-family:'DM Mono',monospace;white-space:nowrap;}
+.modal-table td.code{font-family:'DM Mono',monospace;white-space:nowrap;}
 @media(max-width:980px){.dashboard-head{flex-direction:column}.dashboard-head .filtros-bar{justify-content:flex-start}.modal-summary{grid-template-columns:1fr}.modal-toolbar{flex-wrap:wrap}}
 
 table.tabela-simples{width:100%;border-collapse:collapse;font-size:12.5px;}
@@ -300,7 +301,7 @@ table.tabela-simples tr.linha-total td{font-weight:800;border-top:2px solid var(
     <div class="modal-summary" id="detalheResumo"></div>
     <div class="modal-table-wrap">
       <table class="modal-table">
-        <thead><tr><th>Cliente</th><th>Produto</th><th>Faturamento</th><th>Volume</th></tr></thead>
+        <thead id="detalheHead"></thead>
         <tbody id="detalheBody"></tbody>
       </table>
     </div>
@@ -807,7 +808,10 @@ function renderTabelaEmpresas(){
 
   linhas.forEach(l=>{
     html += `<tr class="row-clickable" data-empresa="${l.emp}">
-      <td>${l.emp}</td><td><button class="faturamento-link" data-detalhe-empresa="${l.emp}" type="button">${fmtBRLFull(l.faturamento)}</button></td><td>${fmtPct(l.participacao)}</td>
+      <td>${l.emp}</td><td>${l.emp==='Online'
+        ? fmtBRLFull(l.faturamento)
+        : `<button class="faturamento-link" data-detalhe-empresa="${l.emp}" type="button">${fmtBRLFull(l.faturamento)}</button>`
+      }</td><td>${fmtPct(l.participacao)}</td>
       <td>${fmtBRLFull(l.fatM1)}</td><td class="${cellClass(l.difM1)}">${fmtSignedBRL(l.difM1)}</td><td class="${cellClass(l.pctM1)}">${fmtPct(l.pctM1)}</td>
       <td>${fmtBRLFull(l.fatY1)}</td><td class="${cellClass(l.difY1)}">${fmtSignedBRL(l.difY1)}</td><td class="${cellClass(l.pctY1)}">${fmtPct(l.pctY1)}</td>
       <td>${l.emp==='Online'?'—':fmtNum(l.clientes)}</td><td>${fmtNum(l.pedidos)}</td><td>${fmtBRLFull(l.ticket)}</td><td>${fmtBRLFull(l.precoMedio)}</td><td>${fmtNum(l.itens)}</td>
@@ -815,7 +819,7 @@ function renderTabelaEmpresas(){
   });
 
   html += `<tr class="linha-total">
-    <td>Total</td><td>${fmtBRLFull(totalFatEscopo)}</td><td>100,0%</td>
+    <td>Total</td><td><button class="faturamento-link" data-detalhe-empresa="Total" type="button">${fmtBRLFull(totalFatEscopo)}</button></td><td>100,0%</td>
     <td>${fmtBRLFull(totalM1)}</td><td class="${cellClass(totalDifM1)}">${fmtSignedBRL(totalDifM1)}</td><td class="${cellClass(totalDifM1)}">${fmtPct(totalM1?totalDifM1/totalM1:0)}</td>
     <td>${fmtBRLFull(totalY1)}</td><td class="${cellClass(totalDifY1)}">${fmtSignedBRL(totalDifY1)}</td><td class="${cellClass(totalDifY1)}">${fmtPct(totalY1?totalDifY1/totalY1:0)}</td>
     <td>${fmtNum(totalClientes)}</td><td>${fmtNum(totalPedidos)}</td><td>${fmtBRLFull(totalTicket)}</td><td>${fmtBRLFull(totalPreco)}</td><td>${fmtNum(totalItens)}</td>
@@ -827,52 +831,136 @@ function renderTabelaEmpresas(){
 
 
 let detalheAtual = [];
+let detalheIncluiEmpresa = false;
+
 function dadosDetalheEmpresa(empresa){
+  const incluirTodas = empresa === 'Total';
   const mapa = new Map();
-  rowsInScope().filter(r=>r.empresa===empresa).forEach(r=>{
-    const cliente = r.cliente || '(Cliente não informado)';
-    const produto = r.descComercial || r.codProduto || '(Produto não informado)';
-    const chave = `${cliente}|||${produto}`;
-    const atual = mapa.get(chave) || {cliente, produto, faturamento:0, volume:0};
-    atual.faturamento += r.faturamento || 0;
-    atual.volume += r.qtdFaturada || 0;
-    mapa.set(chave, atual);
-  });
-  return Array.from(mapa.values()).sort((a,b)=>a.cliente.localeCompare(b.cliente,'pt-BR') || b.faturamento-a.faturamento);
+
+  rowsInScope()
+    .filter(r => r.empresa !== 'Online' && (incluirTodas || r.empresa === empresa))
+    .forEach(r=>{
+      const empresaLinha = r.empresa || '(Empresa não informada)';
+      const codigo = r.codProduto || '(Sem código)';
+      const produto = r.descComercial || '(Produto não informado)';
+      const familia = r.familiaComercial || '(Sem família)';
+      const chave = `${incluirTodas ? empresaLinha+'|||' : ''}${codigo}|||${produto}|||${familia}`;
+      const atual = mapa.get(chave) || {empresa:empresaLinha,codigo,produto,familia,quantidade:0,faturamento:0};
+      atual.quantidade += r.qtdFaturada || 0;
+      atual.faturamento += r.faturamento || 0;
+      mapa.set(chave, atual);
+    });
+
+  return Array.from(mapa.values()).sort((a,b)=>
+    (incluirTodas ? a.empresa.localeCompare(b.empresa,'pt-BR') : 0) ||
+    a.produto.localeCompare(b.produto,'pt-BR') ||
+    a.codigo.localeCompare(b.codigo,'pt-BR')
+  );
 }
+
 function abrirDetalheEmpresa(empresa){
+  if(empresa === 'Online') return;
+
+  detalheIncluiEmpresa = empresa === 'Total';
   detalheAtual = dadosDetalheEmpresa(empresa);
+
   const totalFat = detalheAtual.reduce((s,r)=>s+r.faturamento,0);
-  const totalVol = detalheAtual.reduce((s,r)=>s+r.volume,0);
-  const clientes = new Set(detalheAtual.map(r=>r.cliente)).size;
-  el('detalheTitulo').textContent = `Faturamento detalhado · ${empresa}`;
+  const totalQtd = detalheAtual.reduce((s,r)=>s+r.quantidade,0);
+  const produtos = new Set(detalheAtual.map(r=>`${r.codigo}|||${r.produto}`)).size;
+
+  el('detalheTitulo').textContent = detalheIncluiEmpresa
+    ? 'Detalhamento de produtos · Todas as empresas'
+    : `Detalhamento de produtos · ${empresa}`;
+
   const mesTxt = selectedMes ? el('mesSelect').selectedOptions[0]?.textContent : 'Todos os meses';
-  el('detalheSub').textContent = `${mesTxt}${selectedAno ? ' · '+selectedAno : ''} · ${fmtNum(detalheAtual.length)} combinações cliente/produto`;
+  el('detalheSub').textContent = `${mesTxt}${selectedAno ? ' · '+selectedAno : ''} · Online não incluído`;
+
   el('detalheResumo').innerHTML = `
     <div class="modal-summary-item"><span>Faturamento</span><b>${fmtBRLFull(totalFat)}</b></div>
-    <div class="modal-summary-item"><span>Clientes</span><b>${fmtNum(clientes)}</b></div>
-    <div class="modal-summary-item"><span>Volume</span><b>${fmtNum(totalVol)}</b></div>`;
-  el('detalheBody').innerHTML = detalheAtual.map(r=>`<tr><td>${escapeHtml(r.cliente)}</td><td>${escapeHtml(r.produto)}</td><td>${fmtBRLFull(r.faturamento)}</td><td>${fmtNum(r.volume)}</td></tr>`).join('') || '<tr><td colspan="4">Nenhum registro encontrado.</td></tr>';
+    <div class="modal-summary-item"><span>Produtos</span><b>${fmtNum(produtos)}</b></div>
+    <div class="modal-summary-item"><span>Quantidade</span><b>${fmtNum(totalQtd)}</b></div>`;
+
+  el('detalheHead').innerHTML = detalheIncluiEmpresa
+    ? `<tr><th>Empresa</th><th>Código do Produto</th><th>Produto</th><th>Família</th><th>Quantidade</th><th>Faturamento</th></tr>`
+    : `<tr><th>Código do Produto</th><th>Produto</th><th>Família</th><th>Quantidade</th><th>Faturamento</th></tr>`;
+
+  el('detalheBody').innerHTML = detalheAtual.map(r=>`
+    <tr>
+      ${detalheIncluiEmpresa ? `<td>${escapeHtml(r.empresa)}</td>` : ''}
+      <td class="code">${escapeHtml(r.codigo)}</td>
+      <td>${escapeHtml(r.produto)}</td>
+      <td>${escapeHtml(r.familia)}</td>
+      <td class="num">${fmtNum(r.quantidade)}</td>
+      <td class="num">${fmtBRLFull(r.faturamento)}</td>
+    </tr>`).join('') ||
+    `<tr><td colspan="${detalheIncluiEmpresa ? 6 : 5}">Nenhum registro encontrado.</td></tr>`;
+
   el('detalheOverlay').classList.add('show');
   el('detalheOverlay').setAttribute('aria-hidden','false');
 }
-function fecharDetalhe(){ el('detalheOverlay').classList.remove('show'); el('detalheOverlay').setAttribute('aria-hidden','true'); }
-function escapeHtml(v){ return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
+
+function fecharDetalhe(){
+  el('detalheOverlay').classList.remove('show');
+  el('detalheOverlay').setAttribute('aria-hidden','true');
+}
+
+function escapeHtml(v){
+  return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+}
+
 function exportarDetalheExcel(){
   if(!detalheAtual.length) return;
-  const dados = detalheAtual.map(r=>({Cliente:r.cliente,Produto:r.produto,Faturamento:Number(r.faturamento.toFixed(2)),Volume:Number(r.volume.toFixed(2))}));
+
+  const dados = detalheAtual.map(r=>{
+    const linha = {};
+    if(detalheIncluiEmpresa) linha.Empresa = r.empresa;
+    linha['Código do Produto'] = r.codigo;
+    linha.Produto = r.produto;
+    linha.Família = r.familia;
+    linha.Quantidade = Number(r.quantidade.toFixed(2));
+    linha.Faturamento = Number(r.faturamento.toFixed(2));
+    return linha;
+  });
+
   const ws = XLSX.utils.json_to_sheet(dados);
-  ws['!cols']=[{wch:34},{wch:48},{wch:18},{wch:12}];
+  ws['!cols'] = detalheIncluiEmpresa
+    ? [{wch:16},{wch:20},{wch:52},{wch:25},{wch:14},{wch:18}]
+    : [{wch:20},{wch:52},{wch:25},{wch:14},{wch:18}];
+
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,'Detalhamento');
-  const empresa = el('detalheTitulo').textContent.split('·').pop().trim().replace(/[^a-z0-9_-]/gi,'_');
-  XLSX.writeFile(wb,`Mebrasi_Detalhamento_${empresa}_${selectedAno||'todos'}_${selectedMes||'todos'}.xlsx`);
+  XLSX.utils.book_append_sheet(wb,ws,'Produtos');
+
+  const escopo = detalheIncluiEmpresa
+    ? 'Todas_Empresas'
+    : el('detalheTitulo').textContent.split('·').pop().trim().replace(/[^a-z0-9_-]/gi,'_');
+
+  XLSX.writeFile(wb,`Mebrasi_Produtos_${escopo}_${selectedAno||'todos'}_${selectedMes||'todos'}.xlsx`);
 }
+
 function imprimirDetalhe(){
-  const titulo=el('detalheTitulo').textContent, sub=el('detalheSub').textContent;
-  const linhas=detalheAtual.map(r=>`<tr><td>${escapeHtml(r.cliente)}</td><td>${escapeHtml(r.produto)}</td><td style="text-align:right">${fmtBRLFull(r.faturamento)}</td><td style="text-align:right">${fmtNum(r.volume)}</td></tr>`).join('');
-  const w=window.open('','_blank','width=1100,height=750');
-  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(titulo)}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#071B33}h1{font-size:20px;margin:0 0 6px}p{color:#667085;margin:0 0 18px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:8px;border-bottom:1px solid #ddd;text-align:left}th{background:#f2f5f8}@media print{body{padding:0}}</style></head><body><h1>${escapeHtml(titulo)}</h1><p>${escapeHtml(sub)}</p><table><thead><tr><th>Cliente</th><th>Produto</th><th>Faturamento</th><th>Volume</th></tr></thead><tbody>${linhas}</tbody></table><script>window.onload=()=>{window.print();window.onafterprint=()=>window.close();}<\/script></body></html>`);
+  const titulo = el('detalheTitulo').textContent;
+  const sub = el('detalheSub').textContent;
+
+  const cabecalho = detalheIncluiEmpresa
+    ? '<tr><th>Empresa</th><th>Código do Produto</th><th>Produto</th><th>Família</th><th>Quantidade</th><th>Faturamento</th></tr>'
+    : '<tr><th>Código do Produto</th><th>Produto</th><th>Família</th><th>Quantidade</th><th>Faturamento</th></tr>';
+
+  const linhas = detalheAtual.map(r=>`<tr>
+    ${detalheIncluiEmpresa ? `<td>${escapeHtml(r.empresa)}</td>` : ''}
+    <td>${escapeHtml(r.codigo)}</td>
+    <td>${escapeHtml(r.produto)}</td>
+    <td>${escapeHtml(r.familia)}</td>
+    <td style="text-align:right">${fmtNum(r.quantidade)}</td>
+    <td style="text-align:right">${fmtBRLFull(r.faturamento)}</td>
+  </tr>`).join('');
+
+  const w = window.open('','_blank','width=1200,height=800');
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(titulo)}</title>
+  <style>body{font-family:Arial,sans-serif;padding:24px;color:#071B33}h1{font-size:20px;margin:0 0 6px}p{color:#667085;margin:0 0 18px}table{width:100%;border-collapse:collapse;font-size:11px}th,td{padding:8px;border-bottom:1px solid #ddd;text-align:left}th{background:#f2f5f8}@media print{body{padding:0}}</style>
+  </head><body><h1>${escapeHtml(titulo)}</h1><p>${escapeHtml(sub)}</p>
+  <table><thead>${cabecalho}</thead><tbody>${linhas}</tbody></table>
+  <script>window.onload=()=>{window.print();window.onafterprint=()=>window.close();}<\/script>
+  </body></html>`);
   w.document.close();
 }
 
