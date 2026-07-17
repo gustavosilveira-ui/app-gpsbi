@@ -104,6 +104,7 @@ table.tabela-simples tr.linha-total td{font-weight:800;border-top:2px solid var(
   .content{padding:14px;}
   .kpi-grid{grid-template-columns:repeat(2,1fr);}
 }
+#mainContent{transform:scale(.8);transform-origin:top left;width:125%;}
 </style>
 </head>
 <body>
@@ -599,6 +600,25 @@ async function init(){
 }
 
 init();
+
+// Compensa a altura do documento pro transform:scale(.8) do #mainContent não
+// deixar espaço em branco sobrando embaixo (o transform não encolhe o espaço
+// ocupado no fluxo normal do documento, só o visual — corrigimos na mão).
+(function ajustarAlturaComScale(){
+  const SCALE = 0.8;
+  function fixHeight(){
+    const mc = document.getElementById('mainContent');
+    if(!mc || mc.style.display === 'none') return;
+    const alturaReal = mc.offsetHeight;
+    const colapso = alturaReal * (1 - SCALE);
+    mc.style.marginBottom = (-colapso) + 'px';
+  }
+  window.addEventListener('load', fixHeight);
+  window.addEventListener('resize', fixHeight);
+  setTimeout(fixHeight, 300);
+  setTimeout(fixHeight, 1200);
+  setTimeout(fixHeight, 3000);
+})();
 </script>
 </body>
 </html>
