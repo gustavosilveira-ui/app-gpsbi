@@ -300,20 +300,22 @@ function parseGvizRows(table){
   });
 }
 
-// Situações que NÃO contam como venda de verdade — denylist em vez de
-// whitelist (mais robusto: não trava se aparecer um status novo na base
-// que o código não previa). Corrigido em 17/07/2026: a whitelist antiga
-// (['faturado (nf)','finalizado','enviado']) só reconhecia "Faturado (NF)",
-// e a Especial (+ parte da Multicopos/Ryngavi) fatura como "Faturado" puro,
-// sem o "(NF)" — isso derrubava ~34% do faturamento real de julho.
-// Confirmado com o Gustavo: "APP Mebrasi" e "Separado Total" TAMBÉM contam
-// como venda, então ficam de fora da denylist (ou seja, contam).
-const SITUACOES_INVALIDAS = [
-  'cancelado', 'orcamento', 'pedido', 'pedido aprovado', 'pendente',
-];
+// Regra homologada contra o Power BI:
+// - Físico: somente Faturado e Faturado (NF)
+// - Online: somente FINALIZADO e ENVIADO
+// Status operacionais como Separado Total e APP Mebrasi não são faturamento.
+function situacaoValida(situacao, fonte){
+  const s = normalizeTxt(situacao);
+  const f = normalizeTxt(fonte);
+  if(f === 'online') return s === 'finalizado' || s === 'enviado';
+  return s === 'faturado' || s === 'faturado (nf)';
+}
 
-function situacaoValida(situacao){
-  return !SITUACOES_INVALIDAS.includes(normalizeTxt(situacao));
+function isClienteMulticopos(r){
+  return normalizeTxt(r.cliente).includes('multicopos');
+}
+function isProdutoGsl(r){
+  return normalizeTxt(r.codProduto).includes('gsl');
 }
 
 // Faturamento = Valor Faturado + ICMS ST — exceto quando Tipo de
@@ -329,12 +331,21 @@ async function loadData(){
   const raw = parseGvizRows(table);
   rows = raw.map(r=>{
     const situacao = getColNormalized(r,'situacao') || '';
-    if(!situacaoValida(situacao)) return null;
-    const data = parseDateCell(getColNormalized(r,'data'));
+    const fonte = (getColNormalized(r,'fonte')||'').toString().trim();
+    if(!situacaoValida(situacao, fonte)) return null;
+
+    // Mesmo calendário do Power BI: físico pela data de faturamento;
+    // Online pela data do pedido/negócio.
+    const dataOrigem = normalizeTxt(fonte) === 'online'
+      ? getColNormalized(r,'data')
+      : getColNormalized(r,'dt faturamento');
+    const data = parseDateCell(dataOrigem);
     if(!data) return null;
-    const empresa = (getColNormalized(r,'empresa')||'').toString().trim();
+
+    const empresaOrigem = (getColNormalized(r,'empresa')||'').toString().trim();
+    const empresa = normalizeTxt(fonte) === 'online' ? 'Online' : empresaOrigem;
     const item = {
-      empresa, fonte: getColNormalized(r,'fonte')||'',
+      empresa, fonte,
       canal: getColNormalized(r,'canal')||'',
       data,
       situacao,
@@ -458,17 +469,18 @@ function renderChartEvolucao(){
 }
 
 function renderKpis(){
-  const scoped = rowsInScope();
+  const scoped = rowsInScope().filter(r=>!isClienteMulticopos(r));
   const faturamento = scoped.reduce((s,r)=>s+r.faturamento,0);
-  const clientes = new Set(scoped.map(r=>r.cliente)).size;
-  const pedidos = new Set(scoped.map(r=>r.codPedido)).size;
-  const itens = scoped.reduce((s,r)=>s+(r.qtdFaturada||0),0);
+  const clientesMebrasi = new Set(scoped.filter(r=>r.empresa!=='Online').map(r=>r.cliente).filter(Boolean)).size;
+  const clientesOnline = new Set(scoped.filter(r=>r.empresa==='Online').map(r=>r.cliente).filter(Boolean)).size;
+  const pedidos = new Set(scoped.map(r=>r.codPedido).filter(Boolean)).size;
+  const itens = scoped.filter(r=>!isProdutoGsl(r)).reduce((s,r)=>s+(r.qtdFaturada||0),0);
   const precoMedio = itens>0 ? faturamento/itens : 0;
   const ticketMedio = pedidos>0 ? faturamento/pedidos : 0;
 
   const kpis = [
     { icon:'💰', cor:'var(--blue)', label:'Faturamento', valor:fmtBRL(faturamento), sub:'Valor Faturado + ICMS ST' },
-    { icon:'👥', cor:'var(--cyan)', label:'Clientes', valor:fmtNum(clientes), sub:'Clientes únicos no período' },
+    { icon:'👥', cor:'var(--cyan)', label:'Clientes', valor:`${fmtNum(clientesMebrasi)} / ${fmtNum(clientesOnline)}`, sub:'Clientes Mebrasi / Online' },
     { icon:'📦', cor:'var(--gold)', label:'Pedidos', valor:fmtNum(pedidos), sub:'Pedidos únicos' },
     { icon:'📊', cor:'var(--purple)', label:'Itens Faturados', valor:fmtNum(itens), sub:'Quantidade total' },
     { icon:'🏷️', cor:'#98C47C', label:'Preço Médio', valor:fmtBRLFull(precoMedio), sub:'Faturamento / Itens' },
@@ -585,10 +597,10 @@ function renderTabelaEmpresas(){
 
 let analiseWhatsBound = false;
 function gerarAnaliseTexto(){
-  const scoped = rowsInScope();
+  const scoped = rowsInScope().filter(r=>!isClienteMulticopos(r));
   const faturamento = scoped.reduce((s,r)=>s+r.faturamento,0);
-  const clientes = new Set(scoped.map(r=>r.cliente)).size;
-  const pedidos = new Set(scoped.map(r=>r.codPedido)).size;
+  const clientes = new Set(scoped.map(r=>r.cliente).filter(Boolean)).size;
+  const pedidos = new Set(scoped.map(r=>r.codPedido).filter(Boolean)).size;
   const ticketMedio = pedidos>0 ? faturamento/pedidos : 0;
   const mesNomes = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
   const periodoLabel = selectedMes ? `${mesNomes[parseInt(selectedMes)-1]} de ${selectedAno||''}` : (selectedAno || 'Todo o período');
