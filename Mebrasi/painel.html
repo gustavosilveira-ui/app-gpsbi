@@ -115,6 +115,27 @@ tr.row-clickable:hover td{background:rgba(54,226,201,.06);}
 @media(max-width:1100px){.charts-grid.triple{grid-template-columns:1fr 1fr;}.charts-grid.triple .chart-box:last-child{grid-column:1/-1;}}
 @media(max-width:900px){.charts-grid,.charts-grid.hero,.charts-grid.triple{grid-template-columns:1fr;}.charts-grid.triple .chart-box:last-child{grid-column:auto;}.charts-grid.hero .chart-canvas-wrap,.charts-grid.hero .chart-box:last-child .chart-canvas-wrap{height:280px;}}
 
+/* ---- Treemap de Representante ---- */
+.treemap-wrap{position:relative;height:280px;border-radius:10px;overflow:hidden;}
+.tm-tile{position:absolute;box-sizing:border-box;border:1.5px solid var(--navy2);border-radius:4px;display:flex;align-items:flex-start;justify-content:flex-start;padding:6px 8px;overflow:hidden;cursor:pointer;transition:filter .12s, transform .12s;}
+.tm-tile:hover{filter:brightness(1.18);z-index:5;}
+.tm-tile.tm-selected{outline:2px solid var(--cyan);outline-offset:-2px;z-index:6;}
+.tm-tile-label{font-size:11px;font-weight:800;color:#fff;line-height:1.3;text-shadow:0 1px 2px rgba(0,0,0,.35);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+.tm-tile-value{font-size:9.5px;font-weight:600;color:rgba(255,255,255,.85);font-family:'DM Mono',monospace;margin-top:2px;}
+
+/* ---- Mapa de UF (tile grid map do Brasil) ---- */
+.ufmap-wrap{position:relative;height:280px;display:grid;grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(9,1fr);gap:3px;}
+.uf-tile{position:relative;border-radius:5px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;border:1px solid var(--border2);transition:filter .12s, transform .12s;min-width:0;min-height:0;}
+.uf-tile:hover{filter:brightness(1.25);transform:scale(1.06);z-index:5;}
+.uf-tile.uf-selected{outline:2px solid var(--cyan);outline-offset:-1px;z-index:6;}
+.uf-tile-label{font-size:9.5px;font-weight:800;color:var(--text);}
+.uf-tile-empty{background:transparent!important;border:none!important;cursor:default;}
+.uf-tile-empty:hover{filter:none;transform:none;}
+
+/* ---- Tooltip flutuante compartilhado (treemap + mapa) ---- */
+.gpsbi-tooltip{position:fixed;pointer-events:none;background:var(--navy4);border:1px solid var(--border2);border-radius:8px;padding:7px 11px;font-size:11.5px;font-weight:700;color:var(--text);box-shadow:var(--shadow);z-index:999;display:none;white-space:nowrap;}
+.gpsbi-tooltip small{display:block;font-weight:500;color:var(--text3);font-size:10px;margin-top:2px;}
+
 
 .dashboard-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:14px;}
 .dashboard-head-copy{min-width:280px;}
@@ -356,11 +377,16 @@ table.tabela-simples tr.linha-total td{font-weight:800;border-top:2px solid var(
       </div>
     </div>
 
-    <div class="charts-grid full" style="margin-top:18px;">
+    <div class="charts-grid" style="margin-top:18px;">
       <div class="chart-box">
-        <div class="chart-title">Faturamento por Vendedor</div>
-        <div class="chart-sub">Faturamento por representante comercial no período (Online não incluído — não tem vendedor atribuído). Clique em uma barra para filtrar.</div>
-        <div class="chart-canvas-wrap"><canvas id="chartVendedor"></canvas></div>
+        <div class="chart-title">Análise por Representante</div>
+        <div class="chart-sub">Faturamento por representante comercial (área proporcional). Online não incluído. Clique num bloco pra filtrar.</div>
+        <div class="treemap-wrap" id="treemapVendedor"></div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-title">Análise por Região</div>
+        <div class="chart-sub">Faturamento por estado — intensidade da cor é proporcional ao valor. Clique numa célula pra filtrar.</div>
+        <div class="ufmap-wrap" id="mapaRegiao"></div>
       </div>
     </div>
 
@@ -516,7 +542,7 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let currentUser=null, gpsStaff=false;
 let rows = []; // linhas normalizadas da FatoVendas
 let selectedEmpresa = '', selectedAno = '', selectedMes = '', selectedEstado = '', selectedFamilia = '', selectedVendedor = '';
-let chartDiario=null, chartSemanal=null, chartFarol=null, chartEmpresa=null, chartEstado=null, chartFamilia=null, chartVendedor=null, chartEvolucao=null;
+let chartDiario=null, chartSemanal=null, chartFarol=null, chartEmpresa=null, chartEstado=null, chartFamilia=null, chartEvolucao=null;
 
 async function fetchGvizVendas(){
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID_VENDAS}/gviz/tq?tqx=out:json&gid=${GID_VENDAS}&headers=1`;
@@ -889,24 +915,175 @@ function renderChartFamilia(){
   else chartFamilia = new Chart(ctx, cfg);
 }
 
-// Faturamento por Vendedor — sempre exclui o Online (canal não tem
-// representante atribuído, é venda direta de marketplace).
-function renderChartVendedor(){
+// ================== Treemap (algoritmo squarified simplificado) ==================
+// Recebe [{name, value}] já ordenado (desc) e devolve retângulos em
+// PORCENTAGEM (0-100) de um container w0 x h0 — assim não precisa
+// remedir em pixel a cada resize, só usar left/top/width/height em %.
+function squarifyTreemap(items, w0, h0){
+  const total = items.reduce((s,i)=>s+i.value,0);
+  if(total<=0 || !items.length) return [];
+  const area = w0*h0;
+  const scaled = items.map(i=>({...i, a:(i.value/total)*area}));
+  const worstRatio = (row, length) => {
+    const sum = row.reduce((s,i)=>s+i.a,0);
+    const maxA = Math.max(...row.map(i=>i.a));
+    const minA = Math.min(...row.map(i=>i.a));
+    const s2 = length*length;
+    return Math.max((s2*maxA)/(sum*sum), (sum*sum)/(s2*minA));
+  };
+  const result = [];
+  let remaining = scaled.slice();
+  let x=0, y=0, w=w0, h=h0;
+  while(remaining.length){
+    const shortSide = Math.min(w,h);
+    let row = [remaining[0]];
+    let i = 1;
+    while(i < remaining.length){
+      const testRow = row.concat([remaining[i]]);
+      if(worstRatio(testRow, shortSide) <= worstRatio(row, shortSide)){ row = testRow; i++; }
+      else break;
+    }
+    if(w >= h){
+      const rowTotal = row.reduce((s,i)=>s+i.a,0);
+      const rowWidth = rowTotal / h;
+      let offset = 0;
+      row.forEach(item=>{
+        const ih = h;
+        const iw = item.a / ih;
+        result.push({name:item.name, value:item.value, x:x+offset, y, w:iw, h:ih});
+        offset += iw;
+      });
+      x += rowWidth; w -= rowWidth;
+    } else {
+      const rowTotal = row.reduce((s,i)=>s+i.a,0);
+      const rowHeight = rowTotal / w;
+      let offset = 0;
+      row.forEach(item=>{
+        const iw = w;
+        const ih = item.a / iw;
+        result.push({name:item.name, value:item.value, x, y:y+offset, w:iw, h:ih});
+        offset += ih;
+      });
+      y += rowHeight; h -= rowHeight;
+    }
+    remaining = remaining.slice(row.length);
+  }
+  return result;
+}
+
+// Paleta GPSBI pra treemap/mapa — ciclamos por essas cores em ordem
+// de valor (maior fatia = primeira cor), sempre com bom contraste
+// pro texto branco em cima.
+const PALETA_GPSBI = ['#2D70B8','#36E2C9','#9b7fe8','#f5b942','#008D90','#ef6a6a','#123C68','#78F2E5','#2fd6b8','#17395B'];
+
+// ---- Tooltip flutuante compartilhado ----
+function gpsbiTooltip(){
+  let el_ = document.getElementById('gpsbiTooltipShared');
+  if(!el_){
+    el_ = document.createElement('div');
+    el_.id = 'gpsbiTooltipShared';
+    el_.className = 'gpsbi-tooltip';
+    document.body.appendChild(el_);
+  }
+  return el_;
+}
+function tooltipShow(evt, titulo, sub){
+  const tt = gpsbiTooltip();
+  tt.innerHTML = `${titulo}${sub?`<small>${sub}</small>`:''}`;
+  tt.style.display = 'block';
+  tooltipMove(evt);
+}
+function tooltipMove(evt){
+  const tt = gpsbiTooltip();
+  const pad = 14;
+  let left = evt.clientX + pad;
+  let top = evt.clientY + pad;
+  if(left + 220 > window.innerWidth) left = evt.clientX - 220 - pad;
+  if(top + 60 > window.innerHeight) top = evt.clientY - 60 - pad;
+  tt.style.left = left + 'px';
+  tt.style.top = top + 'px';
+}
+function tooltipHide(){ gpsbiTooltip().style.display = 'none'; }
+
+// ---- Análise por Representante (treemap) ----
+// Sempre exclui o Online (canal não tem representante atribuído).
+function renderTreemapVendedor(){
   const scoped = rowsInScope().filter(r=>r.fonte!=='Online');
   const porVendedor = {};
   scoped.forEach(r=>{ const nome = nomeVendedor(r.codVendedor); porVendedor[nome] = (porVendedor[nome]||0) + r.faturamento; });
-  const top = Object.entries(porVendedor).sort((a,b)=>b[1]-a[1]);
-  const ctx = el('chartVendedor');
-  const cfg = {
-    type:'bar',
-    data:{ labels:top.map(t=>t[0]), datasets:[{ data:top.map(t=>t[1]), backgroundColor:'#9b7fe8', borderRadius:5, maxBarThickness:26 }] },
-    options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
-      onClick:(evt,els)=>{if(!els.length)return;const vend=top[els[0].index][0];selectedVendedor=selectedVendedor===vend?'':vend;renderTudo();},
-      plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:c=>fmtBRLFull(c.parsed.x) } } },
-      scales:{ x:{ grid:{color:corGrid()}, ticks:{color:corTexto(), font:{size:10}, callback:v=>fmtBRL(v)} }, y:{ grid:{display:false}, ticks:{color:corTexto(), font:{size:10.5}} } } }
-  };
-  if(chartVendedor){ chartVendedor.data=cfg.data; chartVendedor.options=cfg.options; chartVendedor.update(); }
-  else chartVendedor = new Chart(ctx, cfg);
+  const items = Object.entries(porVendedor)
+    .map(([name,value])=>({name,value}))
+    .filter(i=>i.value>0)
+    .sort((a,b)=>b.value-a.value);
+
+  const wrap = el('treemapVendedor');
+  if(!items.length){ wrap.innerHTML = `<div class="empty-state">Sem dados de vendedor no período.</div>`; return; }
+
+  const rects = squarifyTreemap(items, 100, 100);
+  wrap.innerHTML = rects.map((r,i)=>{
+    const cor = PALETA_GPSBI[i % PALETA_GPSBI.length];
+    const selecionado = selectedVendedor === r.name;
+    const mostraLabel = r.w > 8 && r.h > 8; // esconde texto em blocos minúsculos
+    return `<div class="tm-tile${selecionado?' tm-selected':''}"
+      style="left:${r.x}%;top:${r.y}%;width:${r.w}%;height:${r.h}%;background:${cor};"
+      data-vendedor="${escapeHtml(r.name)}" data-valor="${r.value}">
+      ${mostraLabel ? `<div><div class="tm-tile-label">${escapeHtml(r.name)}</div><div class="tm-tile-value">${fmtBRL(r.value)}</div></div>` : ''}
+    </div>`;
+  }).join('');
+
+  wrap.querySelectorAll('.tm-tile').forEach(tile=>{
+    const nome = tile.dataset.vendedor;
+    const valor = Number(tile.dataset.valor);
+    tile.addEventListener('click', ()=>{ selectedVendedor = selectedVendedor===nome ? '' : nome; renderTudo(); });
+    tile.addEventListener('mouseenter', e=>tooltipShow(e, nome, fmtBRLFull(valor)));
+    tile.addEventListener('mousemove', tooltipMove);
+    tile.addEventListener('mouseleave', tooltipHide);
+  });
+}
+
+// ---- Análise por Região (mapa em grade do Brasil) ----
+// Posição aproximada de cada UF numa grade 8x9 (col,row 0-indexed),
+// respeitando a posição relativa real dentro do país. Não é geografia
+// de precisão — é um "tile grid map", o mesmo estilo usado em vários
+// dashboards de referência pra evitar distorção de área/zoom de mapa
+// real e manter os rótulos sempre legíveis.
+const UF_GRID = {
+  RR:[3,0], AP:[5,0],
+  AM:[2,1], PA:[4,1], MA:[6,1], CE:[7,1],
+  AC:[1,2], RO:[2,2], TO:[4,2], PI:[6,2], RN:[7,2],
+  MT:[2,3], BA:[5,3], PB:[7,3], PE:[6,3],
+  MS:[2,4], DF:[4,3], GO:[4,4], AL:[7,4], SE:[6,4], MG:[5,4],
+  SP:[3,5], ES:[6,5], RJ:[5,5],
+  PR:[3,6], SC:[3,7], RS:[3,8],
+};
+function renderMapaRegiao(){
+  const scoped = rowsInScope();
+  const porEstado = {};
+  scoped.forEach(r=>{ const uf = (r.estado||'').toUpperCase().trim(); if(!uf) return; porEstado[uf] = (porEstado[uf]||0) + r.faturamento; });
+  const maxValor = Math.max(1, ...Object.values(porEstado));
+
+  const wrap = el('mapaRegiao');
+  wrap.innerHTML = Object.keys(UF_GRID).map(uf=>{
+    const [col,row] = UF_GRID[uf];
+    const valor = porEstado[uf] || 0;
+    const ratio = valor / maxValor; // 0..1
+    const alpha = valor>0 ? (0.16 + 0.74*ratio) : 0.05;
+    const selecionado = selectedEstado === uf;
+    return `<div class="uf-tile${valor===0?' uf-tile-empty':''}${selecionado?' uf-selected':''}"
+      style="grid-column:${col+1};grid-row:${row+1};background:rgba(54,226,201,${alpha.toFixed(3)});"
+      data-uf="${uf}" data-valor="${valor}">
+      <div class="uf-tile-label">${uf}</div>
+    </div>`;
+  }).join('');
+
+  wrap.querySelectorAll('.uf-tile').forEach(tile=>{
+    const uf = tile.dataset.uf;
+    const valor = Number(tile.dataset.valor);
+    tile.addEventListener('click', ()=>{ selectedEstado = selectedEstado===uf ? '' : uf; renderTudo(); });
+    tile.addEventListener('mouseenter', e=>tooltipShow(e, uf, valor>0 ? fmtBRLFull(valor) : 'Sem faturamento no período'));
+    tile.addEventListener('mousemove', tooltipMove);
+    tile.addEventListener('mouseleave', tooltipHide);
+  });
 }
 
 function shiftYearMonth(year, month, deltaMonths){
@@ -1220,7 +1397,8 @@ function renderTudo(){
   renderChartEmpresa();
   renderChartEstado();
   renderChartFamilia();
-  renderChartVendedor();
+  renderTreemapVendedor();
+  renderMapaRegiao();
   renderTabelaEmpresas();
   renderAnaliseWhats();
   renderDebug();
