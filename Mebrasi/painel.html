@@ -218,6 +218,27 @@ table.tabela-simples tr.linha-total td{font-weight:800;border-top:2px solid var(
   white-space:normal !important;
 }
 
+
+.detail-modal,
+.modal-box{
+  width:min(1380px,98vw) !important;
+  max-width:98vw !important;
+}
+.detail-modal-body,
+.modal-table-wrap{
+  overflow-x:hidden !important;
+}
+.modal-table{
+  width:100% !important;
+  table-layout:fixed !important;
+}
+.modal-table th,
+.modal-table td{
+  white-space:normal !important;
+  overflow-wrap:anywhere !important;
+  word-break:break-word !important;
+}
+
 </style>
 </head>
 <body>
@@ -478,10 +499,11 @@ function isClienteMulticopos(r){
 }
 function isProdutoGsl(r){
   const codigo = normalizeTxt(r?.codProduto)
-    .replace(/[._/\\-]+/g,' ')
-    .replace(/\s+/g,' ')
+    .replace(/[._/\\-]+/g,'')
+    .replace(/\s+/g,'')
     .trim();
-  return /(^|\s)gsl(\s|$)/.test(codigo) || codigo.includes('gsl');
+
+  return codigo.includes('gsl') || codigo.includes('gsn');
 }
 
 // Faturamento = Valor Faturado + ICMS ST — exceto quando Tipo de
@@ -661,8 +683,8 @@ function renderKpis(){
     { icon:'💰', cor:'var(--blue)', label:'Faturamento', valor:fmtBRL(faturamento), sub:'Valor Faturado + ICMS ST' },
     { icon:'👥', cor:'var(--cyan)', label:'Clientes', valor:`${fmtNum(clientesMebrasi)} / ${fmtNum(clientesOnline)}`, sub:'Clientes Mebrasi / Online' },
     { icon:'📦', cor:'var(--gold)', label:'Pedidos', valor:fmtNum(pedidos), sub:'Pedidos únicos' },
-    { icon:'📊', cor:'var(--purple)', label:'Itens Faturados', valor:fmtNum(itens), sub:'Quantidade sem códigos GSL' },
-    { icon:'🏷️', cor:'#98C47C', label:'Preço Médio', valor:fmtBRLFull(precoMedio), sub:'Faturamento / Itens sem GSL' },
+    { icon:'📊', cor:'var(--purple)', label:'Itens Faturados', valor:fmtNum(itens), sub:'Quantidade sem códigos GSL/GSN' },
+    { icon:'🏷️', cor:'#98C47C', label:'Preço Médio', valor:fmtBRLFull(precoMedio), sub:'Faturamento / Itens sem GSL/GSN' },
     { icon:'🧾', cor:'var(--red)', label:'Ticket Médio', valor:fmtBRLFull(ticketMedio), sub:'Faturamento / Pedidos' },
   ];
   el('kpiGrid').innerHTML = kpis.map(k=>`
@@ -920,12 +942,15 @@ function dadosDetalheEmpresa(empresa){
   const mapa = new Map();
 
   rowsInScope()
-    .filter(r =>
-      r.empresa !== 'Online' &&
-      !isProdutoGsl(r) &&
-      normalizeTxt(r.familiaComercial) === 'cop' &&
-      (incluirTodas || r.empresa === empresa)
-    )
+    .filter(r => {
+      const familia = normalizeTxt(r.familiaComercial).replace(/\s+/g,' ').trim();
+      return (
+        r.empresa !== 'Online' &&
+        familia === 'cop' &&
+        !isProdutoGsl(r) &&
+        (incluirTodas || r.empresa === empresa)
+      );
+    })
     .forEach(r=>{
       const empresaLinha = r.empresa || '(Empresa não informada)';
       const codigo = r.codProduto || '(Sem código)';
@@ -960,7 +985,7 @@ function abrirDetalheEmpresa(empresa){
     : `Detalhamento de produtos · ${empresa}`;
 
   const mesTxt = selectedMes ? el('mesSelect').selectedOptions[0]?.textContent : 'Todos os meses';
-  el('detalheSub').textContent = `${mesTxt}${selectedAno ? ' · '+selectedAno : ''} · Família COP · Sem códigos GSL · Online não incluído`;
+  el('detalheSub').textContent = `${mesTxt}${selectedAno ? ' · '+selectedAno : ''} · Somente família COPO · Sem códigos GSL/GSN · Online não incluído`;
 
   el('detalheResumo').innerHTML = `
     <div class="modal-summary-item"><span>Faturamento</span><b>${fmtBRLFull(totalFat)}</b></div>
