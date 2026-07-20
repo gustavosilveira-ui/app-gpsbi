@@ -655,10 +655,13 @@ async function loadData(){
     // derrubou o total da Gymis de R$ 622.376 pra R$ 629.417.
     const data = ehOnline ? dataEntrega : (ehPendente ? dataEntrega : dataFaturamento);
     if(!data) return null;
-    // Bi Comercial não pode mostrar nada com data futura (confirmado com
-    // o Gustavo em 20/07/2026) — essas linhas são justamente as que
-    // devem aparecer só no Pend M+1 da Visão Roberto/WhatsApp, não aqui.
-    if(data > HOJE_ISO) return null;
+    // Bi Comercial (Faturamento normal) não pode mostrar nada com data
+    // futura — mas isso NÃO vale pra Pendente: pedido ainda não entregue
+    // pode (e costuma) ter Dt Entrega no futuro, e precisa continuar
+    // contando no "Pend" do texto executivo (confirmado com o Gustavo
+    // em 20/07/2026 — antes essa linha também cortava os pendentes por
+    // engano, derrubando o Pend do WhatsApp em relação ao Depósitos).
+    if(!ehPendente && data > HOJE_ISO) return null;
 
     const empresaOrigem = (getColNormalized(r,'empresa')||'').toString().trim();
     const empresa = ehOnline ? 'Online' : empresaOrigem;
