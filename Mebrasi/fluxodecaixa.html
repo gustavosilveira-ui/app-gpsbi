@@ -790,14 +790,23 @@ function gerarAnaliseWhatsTextoFluxo(){
   const periodoTxt = `${formatDiaMes(amanhaIso)} a ${formatDiaMes(fimDoMesIso)}`;
   const mesNome = MES_NOMES_FC[hoje.getMonth()];
 
+  const ontem = new Date(hoje); ontem.setDate(hoje.getDate()-1);
+  const ontemIso = ontem.toISOString().slice(0,10);
+
   return [
     `*Fluxo de Caixa · Mebrasi${empresaTxt}*`,
-    `🗓️ *${formatDateBR(HOJE_ISO)}*`,
+    `🗓️ *${formatDateBR(ontemIso)}*`,
+    ``,
     `💰 *Saldo:* ${fmtBRL(saldoAtual)}`,
+    ``,
     `*📊 Previsões para ${mesNome}*`,
+    ``,
     `📉 *Despesas Totais (${periodoTxt}):* ${fmtBRL(despesasTotais)}`,
+    ``,
     `📈 *Recebimentos previstos (${periodoTxt}):* ${fmtBRL(recebimentosPrevistos)}`,
+    ``,
     `➡️ *Saldo Previsto para o período:* ${fmtBRL(saldoPrevisto)}`,
+    ``,
     `👉 https://mebrasi.gpsbi.com.br/`,
   ].join('\n');
 }
