@@ -121,6 +121,8 @@ html.light .fc-table th,html.light .fc-table td:first-child,html.light .fc-table
 .fc-lvl-0 td{background:var(--navy3);}
 html.light .fc-lvl-0 td{background:#eef1f6;}
 .fc-lvl-1{font-weight:700;padding-left:14px;}
+.fc-row-destaque td{background:rgba(245,185,66,.10);}
+.fc-row-destaque .fc-row-label{font-weight:800;}
 .fc-lvl-2{padding-left:28px;color:var(--text2);}
 .fc-saldo-pos{color:#4F8F3A;font-weight:800;}
 .fc-saldo-neg{color:var(--red);font-weight:800;background:rgba(239,106,106,.08);}
@@ -1017,7 +1019,7 @@ function renderTable(){
   visibleRows.forEach((rNode, rowIdx)=>{
     const rowId = 'r'+rowIdx;
     fcRowDetailRefs[rowId] = rNode;
-    const cls = `fc-lvl-${rNode.level}`;
+    const cls = `fc-lvl-${rNode.level}${rNode.label==='Títulos em Aberto' ? ' fc-row-destaque' : ''}`;
     const hasChildren = rNode.children && rNode.children.length;
     const arrow = hasChildren ? `<span class="fc-toggle">${rNode.expanded?'▾':'▸'}</span> ` : (rNode.level>0 ? '<span class="fc-toggle"></span> ' : '');
     const labelSafe = rNode.label.replace(/'/g,"\\'");
