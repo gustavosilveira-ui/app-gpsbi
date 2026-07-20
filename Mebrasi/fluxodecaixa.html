@@ -291,6 +291,12 @@ html.light .fc-day-num{color:#1f2a3d;}
       <div id="fcDebugStats" style="font-size:11px;color:var(--text3);margin-top:8px;"></div>
     </div>
 
+    <div class="card">
+      <div class="card-title">📋 Em Aberto</div>
+      <div class="card-sub">Contas a pagar (cap_) e a receber (venc_) ainda não baixadas — não entram no Saldo Acumulado acima, é só o que está previsto/pendente.</div>
+      <div id="abertoWrap" style="display:grid;grid-template-columns:1fr 1fr;gap:24px;"></div>
+    </div>
+
     <!-- ============ NOVO: Saldo Inicial + Lançamentos Manuais (compacto, lado a lado) ============ -->
     <div class="card" id="fcAjustesGpsCard">
       <div class="fc-ajustes-row">
@@ -526,6 +532,8 @@ function resolveGrupoCategoria(categoria, valor){
 }
 
 const GRUPOS_PAGAMENTO = [
+  { key:'TITULOS_ABERTO', label:'Títulos em Aberto' },
+  { key:'CHEQUE_TERCEIROS', label:'Cheque Terceiros (não conta no saldo)' },
   { key:'SOCIOS', label:'Sócios (Retiradas/Empréstimos)' },
   { key:'FORNECEDORES', label:'Fornecedores / Produção' },
   { key:'PESSOAL', label:'Despesas Com Pessoal' },
@@ -537,6 +545,29 @@ const GRUPOS_PAGAMENTO = [
   { key:'TRANSFERENCIAS', label:'Transferência Entre Empresas' },
   { key:'OUTROS', label:'Outros' },
 ];
+// Nome da categoria (linha única) usada tanto no lado Pagamentos quanto
+// Recebimentos pros títulos ainda em aberto (cap_/venc_) e pro Cheque de
+// Terceiros (que não conta no Saldo Acumulado — decisão de 20/07/2026).
+const CATEGORIA_TITULOS_ABERTO = 'Títulos em Aberto';
+const CATEGORIA_CHEQUE_TERCEIROS = 'Cheque Terceiros (não conta no saldo)';
+// Decide categoria/grupo/contaNoSaldo final de uma linha, depois de já
+// termos a categoria "natural" (Desc Conta / Plano de Conta) e a origem
+// (pg/cr = realizado; cap/venc = ainda em aberto). Cheque de Terceiros
+// tem prioridade sobre tudo: vira uma linha à parte que aparece no dia
+// mas não soma no saldo, não importa se veio de pg_/cr_ (já recebido)
+// ou cap_/venc_ (ainda em aberto).
+function finalizarLinha(categoriaOriginal, valor, formaPagto, origem){
+  const fp = normalizeTxt(formaPagto);
+  if(fp === 'cheque terceiros'){
+    const grupo = valor >= 0 ? 'RECEBIMENTOS' : 'CHEQUE_TERCEIROS';
+    return { categoria: CATEGORIA_CHEQUE_TERCEIROS, grupo, contaNoSaldo:false };
+  }
+  if(origem === 'cap' || origem === 'venc'){
+    const grupo = valor >= 0 ? 'RECEBIMENTOS' : 'TITULOS_ABERTO';
+    return { categoria: CATEGORIA_TITULOS_ABERTO, grupo, contaNoSaldo:true };
+  }
+  return { categoria: categoriaOriginal, grupo: resolveGrupoCategoria(categoriaOriginal, valor), contaNoSaldo:true };
+}
 
 let rowsByEmpresa = {}; // { empresa: [{date,categoria,grupo,valor}] }
 let abertoByEmpresa = {}; // { empresa: [{date,categoria,valor}] } (cap/venc só "Aberto")
@@ -647,10 +678,12 @@ function rowsFromCAP(table, empresa){
     const dateRaw = getColNormalized(r, 'data');
     const date = parseDateCell(typeof dateRaw==='object' && dateRaw!==null ? (dateRaw.v||dateRaw) : dateRaw);
     if(!date) return null;
-    const categoria = (getColNormalized(r,'desc conta')||'Sem categoria').toString().trim();
+    const categoriaOriginal = (getColNormalized(r,'desc conta')||'Sem categoria').toString().trim();
     const valorRaw = getColNormalized(r,'valor(r$)');
     const valor = -Math.abs(parseMoneyBR(valorRaw!==undefined && valorRaw!=='' && valorRaw!==null ? valorRaw : getColNormalized(r,'valor')));
-    return { date, categoria, grupo: resolveGrupoCategoria(categoria, valor), valor, empresa, origem:'cap', ...rowMeta(r) };
+    const formaPagto = getColNormalized(r,'forma pagto');
+    const { categoria, grupo, contaNoSaldo } = finalizarLinha(categoriaOriginal, valor, formaPagto, 'cap');
+    return { date, categoria, grupo, valor, empresa, origem:'cap', contaNoSaldo, ...rowMeta(r) };
   }).filter(Boolean);
 }
 // venc_<empresa> = contas a receber por vencimento (projetado/futuro)
@@ -661,9 +694,11 @@ function rowsFromVENC(table, empresa){
     const dateRaw = getColNormalized(r, 'dt venc');
     const date = parseDateCell(typeof dateRaw==='object' && dateRaw!==null ? (dateRaw.v||dateRaw) : dateRaw);
     if(!date) return null;
-    const categoria = (getColNormalized(r,'desc conta')||'Sem categoria').toString().trim();
+    const categoriaOriginal = (getColNormalized(r,'desc conta')||'Sem categoria').toString().trim();
     const valor = Math.abs(parseMoneyBR(getColNormalized(r,'vl total titulo')));
-    return { date, categoria, grupo: resolveGrupoCategoria(categoria, valor), valor, empresa, origem:'venc', ...rowMeta(r) };
+    const formaPagto = getColNormalized(r,'forma pagto');
+    const { categoria, grupo, contaNoSaldo } = finalizarLinha(categoriaOriginal, valor, formaPagto, 'venc');
+    return { date, categoria, grupo, valor, empresa, origem:'venc', contaNoSaldo, ...rowMeta(r) };
   }).filter(Boolean);
 }
 
@@ -679,10 +714,12 @@ function rowsFromPG(table, empresa){
     const dateRaw = getColNormalized(r, 'data');
     const date = parseDateCell(typeof dateRaw==='object' && dateRaw!==null ? (dateRaw.v||dateRaw) : dateRaw);
     if(!date) return null;
-    const categoria = (getColNormalized(r,'desc conta')||'Sem categoria').toString().trim();
+    const categoriaOriginal = (getColNormalized(r,'desc conta')||'Sem categoria').toString().trim();
     const valorRaw = getColNormalized(r,'valor(r$)');
     const valor = -Math.abs(parseMoneyBR(valorRaw!==undefined && valorRaw!=='' && valorRaw!==null ? valorRaw : getColNormalized(r,'valor')));
-    return { date, categoria, grupo: resolveGrupoCategoria(categoria, valor), valor, empresa, origem:'pg', ...rowMeta(r) };
+    const formaPagto = getColNormalized(r,'forma pagto');
+    const { categoria, grupo, contaNoSaldo } = finalizarLinha(categoriaOriginal, valor, formaPagto, 'pg');
+    return { date, categoria, grupo, valor, empresa, origem:'pg', contaNoSaldo, ...rowMeta(r) };
   }).filter(Boolean);
 }
 // cr_<empresa> = contas a receber JÁ RECEBIDAS — mesma estrutura do venc_,
@@ -697,9 +734,11 @@ function rowsFromCR(table, empresa){
     const dateRaw = getColNormalized(r, 'dt pagto');
     const date = parseDateCell(typeof dateRaw==='object' && dateRaw!==null ? (dateRaw.v||dateRaw) : dateRaw);
     if(!date) return null;
-    const categoria = (getColNormalized(r,'desc conta')||'Sem categoria').toString().trim();
+    const categoriaOriginal = (getColNormalized(r,'desc conta')||'Sem categoria').toString().trim();
     const valor = Math.abs(parseMoneyBR(getColNormalized(r,'valor pago')));
-    return { date, categoria, grupo: resolveGrupoCategoria(categoria, valor), valor, empresa, origem:'cr', ...rowMeta(r) };
+    const formaPagto = getColNormalized(r,'forma pagto');
+    const { categoria, grupo, contaNoSaldo } = finalizarLinha(categoriaOriginal, valor, formaPagto, 'cr');
+    return { date, categoria, grupo, valor, empresa, origem:'cr', contaNoSaldo, ...rowMeta(r) };
   }).filter(Boolean);
 }
 
@@ -842,7 +881,7 @@ let saldoIniciais = {}; // { empresa: {data_referencia, valor} }
 // Saldo acumulado de UMA empresa até uma data, respeitando o saldo inicial
 // dela (se houver). Os lançamentos manuais já estão dentro de rowsByEmpresa.
 function runningBalanceEmpresa(empresa, uptoDate){
-  const rowsEmp = rowsByEmpresa[empresa] || [];
+  const rowsEmp = (rowsByEmpresa[empresa] || []).filter(r=>r.contaNoSaldo !== false);
   const override = saldoIniciais[empresa];
   if(override && uptoDate >= override.data_referencia){
     let s = override.valor;
@@ -869,7 +908,12 @@ function buildRowTree(){
   const catsByGrupo = {};
   rows.forEach(r=>{ if(!catsByGrupo[r.grupo]) catsByGrupo[r.grupo]=new Set(); catsByGrupo[r.grupo].add(r.categoria); });
 
-  const recebimentoCats = Array.from(catsByGrupo['RECEBIMENTOS']||[]).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  const PRIORIDADE_RECEBIMENTO = [CATEGORIA_TITULOS_ABERTO, CATEGORIA_CHEQUE_TERCEIROS];
+  const recebimentoCats = Array.from(catsByGrupo['RECEBIMENTOS']||[]).sort((a,b)=>{
+    const pa = PRIORIDADE_RECEBIMENTO.indexOf(a), pb = PRIORIDADE_RECEBIMENTO.indexOf(b);
+    if(pa!==-1 || pb!==-1) return (pa===-1?99:pa) - (pb===-1?99:pb);
+    return a.localeCompare(b,'pt-BR');
+  });
   const recebimentosNode = {
     type:'recebimentos', level:0, label:'RECEBIMENTOS', filter:isRecebimento, expanded:false,
     children: recebimentoCats.map(c=>({ type:'cat', level:2, label:c, filter:isCategoria(c), expanded:false, children:[] }))
