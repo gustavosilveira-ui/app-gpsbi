@@ -927,7 +927,7 @@ function renderChartFarol(){
     return {label:emp,data:[usado,restante],backgroundColor:[st.cor,'rgba(102,112,133,.14)'],borderWidth:0,weight:1};
   });
   const cfg={type:'doughnut',data:{labels:['Utilizado','Disponível'],datasets},options:{responsive:true,maintainAspectRatio:false,cutout:'35%',
-    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${fmtBRLFull(totais[c.datasetIndex])} (${(totais[c.datasetIndex]/teto*100).toFixed(1).replace('.',',')}%)`}}}
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>{const emp=empresas[c.datasetIndex];return `${emp}: ${fmtBRLFull(totais[emp])} (${(totais[emp]/teto*100).toFixed(1).replace('.',',')}%)`;}}}}
   }};
   cfg.options.onClick=(evt,els)=>{ if(!els.length) return; const emp=empresas[els[0].datasetIndex]; selectedEmpresa=selectedEmpresa===emp?'':emp; el('empresaSelect').value=selectedEmpresa; renderTudo(); };
   if(chartFarol){chartFarol.data=cfg.data;chartFarol.options=cfg.options;chartFarol.update();}
