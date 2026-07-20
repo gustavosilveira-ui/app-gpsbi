@@ -483,8 +483,13 @@ async function carregarVendas(){
       valorFaturado: parseMoneyBR(getColNormalized(r,'valor faturado')),
       icmsSt: parseMoneyBR(getColNormalized(r,'icms st')),
       valorLiquido: parseMoneyBR(getColNormalized(r,'valor liquido')),
+      totalComIpi: parseMoneyBR(getColNormalized(r,'total com ipi')),
     };
     item.faturamento = calcularFaturamentoVendas(item);
+    // Pend usa "Total com IPI" (aproximação de "Total sem IPI" da medida
+    // DAX), não a fórmula normal de faturamento — pedido ainda não
+    // faturado tem "Valor Faturado" com número pequeno/placeholder.
+    item.valorPendente = item.totalComIpi;
     if(ehPendente){ pendentes.push(item); return null; }
     return item;
   }).filter(Boolean);
@@ -560,6 +565,15 @@ function faroEmoji(pct){
 
 // NF/F/Total/Pend/Chq Terc/Pend M+1 de uma empresa, respeitando o
 // filtro de Ano/Mês selecionado no topo.
+// "Pend" no Power BI usa uma janela ROLANTE de 4 meses (do 1º dia de 3
+// meses atrás até o último dia do mês selecionado), não só o mês
+// corrente — confirmado com o Gustavo em 20/07/2026.
+function janelaPend4M(anoBase, mesBase){
+  const anoNum = Number(anoBase), mesNum = Number(mesBase);
+  const fim = new Date(anoNum, mesNum, 0);
+  const ini = new Date(anoNum, mesNum-1-3, 1);
+  return { iniIso: ini.toISOString().slice(0,10), fimIso: fim.toISOString().slice(0,10) };
+}
 function indicadoresEmpresa(empresa){
   const nfRows = vendasRows.filter(r => r.empresa===empresa && ehSituacaoNfValida(r) && filtroAnoMes(r.data));
   const faturamentoBruto = nfRows.reduce((s,r)=>s+r.faturamento,0);
@@ -567,20 +581,23 @@ function indicadoresEmpresa(empresa){
   const nf = faturamentoBruto - fidelidade;
   const total = nf + fidelidade;
 
-  const pendPedidos = vendasPendentes.filter(r => r.empresa===empresa && filtroAnoMes(r.dataEntrega));
-  const pendSeparado = vendasRows.filter(r => r.empresa===empresa && normalizeTxt(r.situacao)==='separado total' && filtroAnoMes(r.dataEntrega));
-  const pendente = [...pendPedidos, ...pendSeparado].reduce((s,r)=>s+r.faturamento,0);
-
-  // Pendente M+1 — mesma lógica, só que olhando o mês seguinte ao filtrado
-  // (ou ao mês atual, se nenhum filtro estiver ativo).
   const hoje = new Date();
   const anoBase = selectedAno || String(hoje.getFullYear());
   const mesBase = selectedMes || String(hoje.getMonth()+1).padStart(2,'0');
+  const { iniIso, fimIso } = janelaPend4M(anoBase, mesBase);
+  const dentroDaJanela = d => d && d>=iniIso && d<=fimIso;
+
+  const pendPedidos = vendasPendentes.filter(r => r.empresa===empresa && dentroDaJanela(r.dataEntrega));
+  const pendSeparado = vendasRows.filter(r => r.empresa===empresa && normalizeTxt(r.situacao)==='separado total' && dentroDaJanela(r.dataEntrega));
+  const pendente = [...pendPedidos, ...pendSeparado].reduce((s,r)=>s+(r.valorPendente||0),0);
+
+  // Pendente M+1 — mesma lógica, só que olhando o mês seguinte ao filtrado
+  // (ou ao mês atual, se nenhum filtro estiver ativo).
   const { ano: anoM1, mes: mesM1 } = mesSeguinte(anoBase, mesBase);
   const filtroM1 = d => d && d.slice(0,4)===anoM1 && d.slice(5,7)===mesM1;
   const pendM1Pedidos = vendasPendentes.filter(r => r.empresa===empresa && filtroM1(r.dataEntrega));
   const pendM1Separado = vendasRows.filter(r => r.empresa===empresa && normalizeTxt(r.situacao)==='separado total' && filtroM1(r.dataEntrega));
-  const pendenteM1 = [...pendM1Pedidos, ...pendM1Separado].reduce((s,r)=>s+r.faturamento,0);
+  const pendenteM1 = [...pendM1Pedidos, ...pendM1Separado].reduce((s,r)=>s+(r.valorPendente||0),0);
 
   // Cheque de Terceiros — valor já recebido (cr) com essa forma de pagamento.
   const chqTerc = crRows
