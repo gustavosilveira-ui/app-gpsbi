@@ -1410,9 +1410,9 @@ function ehSituacaoNfValida(item){
 const TETO_FAROL = 450000;
 
 function faroEmoji(pct){
-  if(pct <= 0.90) return '🟡';
-  if(pct <= 0.95) return '🔴';
-  if(pct <= 1.05) return '🔴🔴';
+  if(pct < 0.90) return '🟢';
+  if(pct <= 0.95) return '🟡';
+  if(pct <= 1.05) return '🔴';
   return '🚨🚨🚨';
 }
 
@@ -1524,11 +1524,14 @@ function gerarAnaliseTexto(){
   const farolGymis = dadosFarolEmpresa('Gymis');
   const farolRyngavi = dadosFarolEmpresa('Ryngavi');
   const farolMulticopos = dadosFarolEmpresa('Multicopos');
-  const farolEspecial = dadosFarolEmpresa('Especial'); // só usamos o Pendente dela (linha "Esp:" dentro da Gymis)
+  const farolEspecial = dadosFarolEmpresa('Especial'); // Pendente dela vai na linha "Esp:" dentro da Gymis
 
-  // Gymis: o farol dela usa só a Fidelidade como base (regra confirmada
-  // com o Gustavo — Ryngavi/Multicopos usam NF Ajustada+Fidelidade+Pend).
-  const pctGymis = TETO_FAROL>0 ? farolGymis.fidelidade/TETO_FAROL : 0;
+  // Gymis: o "F:" dela mostra o faturamento TOTAL da Especial (não é bug
+  // nosso — é assim que o texto executivo original sempre mostrou,
+  // confirmado com o Gustavo em 20/07/2026). O farol da Gymis usa essa
+  // mesma base (Especial).
+  const fEspecialTotal = porEmpresa['Especial'] || 0;
+  const pctGymis = TETO_FAROL>0 ? fEspecialTotal/TETO_FAROL : 0;
   const pctRyngavi = TETO_FAROL>0 ? farolRyngavi.totalFarol/TETO_FAROL : 0;
   const pctMulticopos = TETO_FAROL>0 ? farolMulticopos.totalFarol/TETO_FAROL : 0;
 
@@ -1542,7 +1545,7 @@ function gerarAnaliseTexto(){
 
   const blocoGymis = porEmpresa['Gymis'] ? [
     `*Gymis:* ${fmtBRLFull(porEmpresa['Gymis'])}`,
-    `${faroEmoji(pctGymis)} F: ${fmtBRLFull(farolGymis.fidelidade)}`,
+    `${faroEmoji(pctGymis)} F: ${fmtBRLFull(fEspecialTotal)}`,
     `> Pend: ${fmtBRLFull(farolGymis.pendente)}`,
     `> Esp: ${fmtBRLFull(farolEspecial.pendente)}`,
   ].join('\n') : '';
@@ -1577,7 +1580,7 @@ function gerarAnaliseTexto(){
     ``,
     alertaDiretoria,
     `• Receita: *${fmtBRL(faturamento)}*`,
-    `🎯 *${(atingimento*100).toFixed(1).replace('.',',')}%* da meta (${fmtBRL(meta)})`,
+    `🎯 *${(atingimento*100).toFixed(1).replace('.',',')}%* meta (${fmtBRL(meta)})`,
     `🏁 PMI: *${fmtBRLFull(pmi)}*`,
     ``,
     `🧩 *Volume & Eficiência*`,

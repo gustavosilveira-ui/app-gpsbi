@@ -552,9 +552,9 @@ function mesSeguinte(ano, mes){
 
 const TETO_FAROL = 450000;
 function faroEmoji(pct){
-  if(pct <= 0.90) return '🟢';
+  if(pct < 0.90) return '🟢';
   if(pct <= 0.95) return '🟡';
-  if(pct <= 1.05) return '🔴🔴';
+  if(pct <= 1.05) return '🔴';
   return '🚨🚨🚨';
 }
 
@@ -588,9 +588,22 @@ function indicadoresEmpresa(empresa){
     .reduce((s,r)=>s+r.valorPago, 0);
 
   const totalFarol = nf + fidelidade + pendente;
-  const pct = TETO_FAROL>0 ? totalFarol/TETO_FAROL : 0;
 
-  return { nf, fidelidade, total, pendente, pendenteM1, chqTerc, pct };
+  // Base do farol da linha "Pend": Gymis usa só a Fidelidade; Ryngavi/
+  // Multicopos usam NF+F+Pend; Especial/Online não têm farol nessa linha
+  // (confirmado com o Gustavo em 20/07/2026, igual à medida do Power BI).
+  let pctPend = null;
+  if(empresa === 'Gymis') pctPend = TETO_FAROL>0 ? fidelidade/TETO_FAROL : 0;
+  else if(empresa === 'Ryngavi' || empresa === 'Multicopos') pctPend = TETO_FAROL>0 ? totalFarol/TETO_FAROL : 0;
+
+  // Base do farol da linha "Pend M+1": Ryngavi/Multicopos/Especial têm
+  // farol (base = só o Pend M+1); Gymis/Online não têm.
+  let pctPendM1 = null;
+  if(empresa === 'Ryngavi' || empresa === 'Multicopos' || empresa === 'Especial'){
+    pctPendM1 = TETO_FAROL>0 ? pendenteM1/TETO_FAROL : 0;
+  }
+
+  return { nf, fidelidade, total, pendente, pendenteM1, chqTerc, pctPend, pctPendM1 };
 }
 
 function renderTabelaIndicadores(){
@@ -600,13 +613,17 @@ function renderTabelaIndicadores(){
 
   let html = '<thead><tr><th style="text-align:left">Indicador</th>' + empresas.map(e=>`<th>${e}</th>`).join('') + '<th>Total</th></tr></thead><tbody>';
 
-  const linha = (label, campo, formatar, comFarol)=>{
+  const linha = (label, campo, formatar, campoFarol)=>{
     let total = 0;
     const celulas = empresas.map(e=>{
       if(e==='Online' || !dados[e]) return '<td>—</td>';
       const v = dados[e][campo] || 0;
       total += v;
-      const emoji = comFarol ? faroEmoji(dados[e].pct) + ' ' : '';
+      let emoji = '';
+      if(campoFarol){
+        const pct = dados[e][campoFarol];
+        if(pct !== null && pct !== undefined && v > 0) emoji = faroEmoji(pct) + ' ';
+      }
       return `<td>${emoji}${formatar(v)}</td>`;
     });
     return `<tr><td style="text-align:left">${label}</td>${celulas.join('')}<td><b>${formatar(total)}</b></td></tr>`;
@@ -615,9 +632,9 @@ function renderTabelaIndicadores(){
   html += linha('NF', 'nf', fmtBRL);
   html += linha('F', 'fidelidade', fmtBRL);
   html += linha('Total', 'total', fmtBRL);
-  html += linha('Pend', 'pendente', fmtBRL, true);
+  html += linha('Pend', 'pendente', fmtBRL, 'pctPend');
   html += linha('Chq Terc', 'chqTerc', fmtBRL);
-  html += linha('Pend M+1', 'pendenteM1', fmtBRL, true);
+  html += linha('Pend M+1', 'pendenteM1', fmtBRL, 'pctPendM1');
   html += '</tbody>';
   el('tabelaIndicadores').innerHTML = html;
 }
