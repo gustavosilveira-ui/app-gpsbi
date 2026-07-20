@@ -1419,10 +1419,14 @@ function ehSituacaoNfValida(item){
 }
 const TETO_FAROL = 450000;
 
+// Escala do farol do texto executivo — vem da medida DAX original
+// "Texto Analítico Executivo (Diário) vFinal", confirmada com o
+// Gustavo em 20/07/2026. É diferente da escala usada no Depósitos
+// (aquela tem 🟢 e usa 🔴 único; essa aqui não tem 🟢 e usa 🔴🔴).
 function faroEmoji(pct){
-  if(pct < 0.90) return '🟢';
-  if(pct <= 0.95) return '🟡';
-  if(pct <= 1.05) return '🔴';
+  if(pct <= 0.90) return '🟡';
+  if(pct <= 0.95) return '🔴';
+  if(pct <= 1.05) return '🔴🔴';
   return '🚨🚨🚨';
 }
 
