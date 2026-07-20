@@ -909,10 +909,12 @@ function renderChartSemanal(){
 
 function renderChartFarol(){
   const teto=450000;
-  const empresas=['Gymis','Ryngavi','Multicopos'];
-  const scoped=rowsInScope();
-  const totais={Gymis:0,Ryngavi:0,Multicopos:0};
-  scoped.forEach(r=>{if(totais[r.empresa]!==undefined) totais[r.empresa]+=r.faturamento;});
+  // Gymis não tem farol de limite (decisão de 20/07/2026) — só
+  // Ryngavi/Multicopos, e usando o Total Farol certo (NF Ajustada +
+  // Fidelidade + Pendente), não o faturamento bruto.
+  const empresas=['Ryngavi','Multicopos'];
+  const totais={};
+  empresas.forEach(emp=>{ totais[emp] = dadosFarolEmpresa(emp).totalFarol; });
   function status(valor){
     const p=valor/teto;
     if(p<=.90) return {icone:'🟡',cor:'#C9871F',txt:'Atenção'};
@@ -1560,7 +1562,6 @@ function gerarAnaliseTexto(){
   // confirmado com o Gustavo em 20/07/2026). O farol da Gymis usa essa
   // mesma base (Especial).
   const fEspecialTotal = porEmpresa['Especial'] || 0;
-  const pctGymis = TETO_FAROL>0 ? fEspecialTotal/TETO_FAROL : 0;
   const pctRyngavi = TETO_FAROL>0 ? farolRyngavi.totalFarol/TETO_FAROL : 0;
   const pctMulticopos = TETO_FAROL>0 ? farolMulticopos.totalFarol/TETO_FAROL : 0;
 
@@ -1574,7 +1575,7 @@ function gerarAnaliseTexto(){
 
   const blocoGymis = porEmpresa['Gymis'] ? [
     `*Gymis:* ${fmtBRLFull(porEmpresa['Gymis'])}`,
-    `${faroEmoji(pctGymis)} F: ${fmtBRLFull(fEspecialTotal)}`,
+    `F: ${fmtBRLFull(fEspecialTotal)}`,
     `> Pend: ${fmtBRLFull(farolGymis.pendente)}`,
     `> Esp: ${fmtBRLFull(farolEspecial.pendente)}`,
   ].join('\n') : '';
