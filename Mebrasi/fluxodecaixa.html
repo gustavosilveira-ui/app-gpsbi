@@ -123,6 +123,10 @@ html.light .fc-lvl-0 td{background:#eef1f6;}
 .fc-lvl-1{font-weight:700;padding-left:14px;}
 .fc-row-destaque td{background:rgba(245,185,66,.10);}
 .fc-row-destaque .fc-row-label{font-weight:800;}
+.fc-tag-aberto,.fc-tag-cheque,.fc-tag-realizado{display:inline-block;padding:3px 8px;border-radius:999px;font-size:10.5px;font-weight:700;white-space:nowrap;}
+.fc-tag-aberto{background:rgba(245,185,66,.15);color:#a67c00;}
+.fc-tag-cheque{background:rgba(239,106,106,.12);color:var(--red);}
+.fc-tag-realizado{background:rgba(152,196,124,.15);color:#4F8F3A;}
 .fc-lvl-2{padding-left:28px;color:var(--text2);}
 .fc-saldo-pos{color:#4F8F3A;font-weight:800;}
 .fc-saldo-neg{color:var(--red);font-weight:800;background:rgba(239,106,106,.08);}
@@ -1110,12 +1114,20 @@ function openFluxoFicha(rowId, colId){
     .map(r=>{
       const pct = total ? (Math.abs(r.valor) / Math.abs(total)) * 100 : 0;
       const doc = r.titulo || r.banco || r.forma || r.situacao || '';
+      const ehAberto = r.categoria === CATEGORIA_TITULOS_ABERTO;
+      const ehCheque = r.categoria === CATEGORIA_CHEQUE_TERCEIROS;
+      const tagCategoria = ehAberto
+        ? `<span class="fc-tag-aberto" title="Ainda não foi pago/recebido — só está previsto">⏳ Em aberto</span>`
+        : ehCheque
+        ? `<span class="fc-tag-cheque" title="Não entra no Saldo Acumulado">🚫 Cheque Terc.</span>`
+        : `<span class="fc-tag-realizado" title="Já foi pago/recebido de verdade">✓ Realizado</span>`;
       return `
       <tr>
         <td>${formatDateBR(r.date)}</td>
         <td>${escapeHtml(EMPRESA_LABEL[r.empresa] || r.empresa || 'Geral')}</td>
         <td class="wrap" title="${escapeHtml(r.nome || 'Sem nome')}">${escapeHtml(r.nome || 'Sem nome')}</td>
         <td class="small" title="${escapeHtml(doc)}">${escapeHtml(doc)}</td>
+        <td>${tagCategoria}</td>
         <td class="num">${pct.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%</td>
         <td class="valor-modal" style="color:${r.valor>=0?'#4F8F3A':'var(--red)'}">${fmtNumeroFicha(r.valor)}</td>
       </tr>`;
@@ -1135,8 +1147,8 @@ function openFluxoFicha(rowId, colId){
     <div style="font-size:12.5px;font-weight:800;margin:16px 0 6px;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;">Lançamentos</div>
     <div class="fc-detail-list">
       <table class="fc-detail-table" style="margin-top:0;">
-        <thead><tr><th>Data</th><th>Empresa</th><th>Nome</th><th>Documento</th><th class="num">%</th><th class="num">Valor</th></tr></thead>
-        <tbody>${detalheHtml || `<tr><td colspan="6" style="color:var(--text3);">Sem lançamentos.</td></tr>`}</tbody>
+        <thead><tr><th>Data</th><th>Empresa</th><th>Nome</th><th>Documento</th><th>Status</th><th class="num">%</th><th class="num">Valor</th></tr></thead>
+        <tbody>${detalheHtml || `<tr><td colspan="7" style="color:var(--text3);">Sem lançamentos.</td></tr>`}</tbody>
       </table>
     </div>
     ${detailRows.length>120 ? `<div class="fc-detail-muted">Mostrando os primeiros 120 lançamentos.</div>` : ``}
