@@ -123,6 +123,11 @@ html.light .fc-lvl-0 td{background:#eef1f6;}
 .fc-lvl-1{font-weight:700;padding-left:14px;}
 .fc-row-destaque td{background:rgba(245,185,66,.10);}
 .fc-row-destaque .fc-row-label{font-weight:800;}
+.fc-kpi-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;}
+.fc-kpi-mini{background:var(--navy3);border:1px solid var(--border2);border-radius:10px;padding:10px 12px;}
+.fc-kpi-mini-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.03em;font-weight:700;margin-bottom:3px;}
+.fc-kpi-mini-val{font-size:16px;font-weight:800;font-family:'DM Mono',monospace;}
+@media(max-width:900px){.fc-kpi-strip{grid-template-columns:repeat(2,1fr);}}
 .fc-tag-aberto,.fc-tag-cheque,.fc-tag-realizado{display:inline-block;padding:3px 8px;border-radius:999px;font-size:10.5px;font-weight:700;white-space:nowrap;}
 .fc-tag-aberto{background:rgba(245,185,66,.15);color:#a67c00;}
 .fc-tag-cheque{background:rgba(239,106,106,.12);color:var(--red);}
@@ -288,6 +293,7 @@ html.light .fc-day-num{color:#1f2a3d;}
       <div class="card-title">💰 Fluxo de Caixa</div>
       <div class="card-sub">Clique nas setinhas pra abrir/fechar anos, meses e dias — e as categorias dentro de Recebimentos e Pagamentos. Saldo acumulado dia a dia.</div>
       <div class="card-sub" id="empresaLabelSub" style="margin-top:-8px;font-weight:700;"></div>
+      <div class="fc-kpi-strip" id="fcKpiStrip"></div>
       <div class="fc-wrap"><table class="fc-table" id="fcTable"></table></div>
       <div class="fc-legend">
         <span><span class="fc-dot" style="background:#98C47C"></span> Saldo positivo</span>
@@ -367,6 +373,14 @@ html.light .fc-day-num{color:#1f2a3d;}
         </div>
         <div id="fluxoFichaBody"></div>
       </div>
+    </div>
+
+    <!-- ============ NOVO: Análise pronta pra WhatsApp (só GPS) ============ -->
+    <div class="card" id="fcAnaliseWhatsCard" style="display:none;">
+      <div class="card-title">📋 Análise pronta pra WhatsApp</div>
+      <div class="card-sub">Texto pronto com o saldo e a previsão do fluxo — cole direto no grupo do cliente. Visível só pro time GPS.</div>
+      <pre id="fcAnaliseWhatsTexto" style="white-space:pre-wrap;font-family:'Sora',sans-serif;font-size:13px;line-height:1.7;background:var(--navy3);border-radius:10px;padding:14px 16px;margin-bottom:12px;"></pre>
+      <button id="fcAnaliseWhatsBtn" class="btn btn-primary">📋 Copiar texto</button>
     </div>
 
     <!-- ============ NOVO: Simulador de impacto no saldo ============ -->
@@ -753,6 +767,58 @@ function rowsFromCR(table, empresa){
   }).filter(Boolean);
 }
 
+// ================== Análise pronta pra WhatsApp (mesmo padrão da Tangram) ==================
+const MES_NOMES_FC = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+function gerarAnaliseWhatsTextoFluxo(){
+  const hoje = new Date(HOJE_ISO+'T00:00:00');
+  const amanha = new Date(hoje); amanha.setDate(hoje.getDate()+1);
+  const amanhaIso = amanha.toISOString().slice(0,10);
+  const fimDoMes = new Date(hoje.getFullYear(), hoje.getMonth()+1, 0);
+  const fimDoMesIso = fimDoMes.toISOString().slice(0,10);
+
+  const rowsPeriodo = rows.filter(r=>r.date>=amanhaIso && r.date<=fimDoMesIso);
+  const despesasTotais = rowsPeriodo.filter(r=>r.valor<0).reduce((s,r)=>s+Math.abs(r.valor),0);
+  const recebimentosPrevistos = rowsPeriodo.filter(r=>r.valor>=0).reduce((s,r)=>s+r.valor,0);
+  const saldoAtual = runningBalance(HOJE_ISO);
+  const saldoPrevisto = saldoAtual + recebimentosPrevistos - despesasTotais;
+
+  const empresaTxt = selectedEmpresa ? ` · ${EMPRESA_LABEL[selectedEmpresa]}` : '';
+  const periodoTxt = `${formatDateBR(amanhaIso)} a ${formatDateBR(fimDoMesIso)}`;
+  const mesNome = MES_NOMES_FC[hoje.getMonth()];
+
+  return [
+    `*Fluxo de Caixa · Mebrasi${empresaTxt}*`,
+    `📅 *${formatDateBR(HOJE_ISO)}*`,
+    ``,
+    `💰 *Saldo:* ${fmtBRL(saldoAtual)}`,
+    ``,
+    `*📊 Previsões para ${mesNome}*`,
+    `📤 *Despesas Totais (${periodoTxt}):* ${fmtBRL(despesasTotais)}`,
+    `📥 *Recebimentos previstos (${periodoTxt}):* ${fmtBRL(recebimentosPrevistos)}`,
+    `📊 *Saldo Previsto para o período:* ${fmtBRL(saldoPrevisto)}`,
+    ``,
+    `👉 https://mebrasi.gpsbi.com.br/fluxodecaixa.html`,
+  ].join('\n');
+}
+let fcAnaliseWhatsBound = false;
+function renderFcAnaliseWhats(){
+  const card = el('fcAnaliseWhatsCard');
+  if(!card) return;
+  if(!gpsStaff){ card.style.display='none'; return; }
+  card.style.display='block';
+  el('fcAnaliseWhatsTexto').textContent = gerarAnaliseWhatsTextoFluxo();
+  if(!fcAnaliseWhatsBound){
+    fcAnaliseWhatsBound = true;
+    el('fcAnaliseWhatsBtn').addEventListener('click', async ()=>{
+      try{
+        await navigator.clipboard.writeText(el('fcAnaliseWhatsTexto').textContent);
+        const btn = el('fcAnaliseWhatsBtn'); const orig = btn.textContent;
+        btn.textContent = '✅ Copiado!'; setTimeout(()=>{ btn.textContent = orig; }, 1800);
+      }catch(e){ alert('Não consegui copiar automaticamente. Selecione o texto e copie manualmente.'); }
+    });
+  }
+}
+
 async function init(){
   const { data } = await sb.auth.getSession();
   if(!data.session){ window.location.replace(LOGIN_URL); return; }
@@ -771,7 +837,7 @@ async function init(){
   document.documentElement.style.visibility='visible'; // mostra o spinner (ou erro) já de cara
 
   el('userChip').textContent = nameFromEmail(email);
-  el('empresaSelect').addEventListener('change', e=>{ selectedEmpresa = e.target.value; rebuildRowsNoEscopo(); buildAndRenderTable(); });
+  el('empresaSelect').addEventListener('change', e=>{ selectedEmpresa = e.target.value; rebuildRowsNoEscopo(); buildAndRenderTable(); renderFcKpiStrip(); renderFcAnaliseWhats(); });
   el('appLogoutBtn').addEventListener('click', doLogout);
   el('appBtnDark').addEventListener('click', ()=>appApplyTheme('dark'));
   el('appBtnLight').addEventListener('click', ()=>appApplyTheme('light'));
@@ -824,6 +890,8 @@ async function loadData(){
     await loadAjustesManuais(); // injeta os lançamentos manuais como movimentação real
     loadLimiteConta();
     buildAndRenderTable();
+    renderFcKpiStrip();
+    renderFcAnaliseWhats();
     el('loadingScreen').style.display='none';
     el('mainContent').style.display='block';
     el('fcSimData').value = new Date().toISOString().slice(0,10);
@@ -976,6 +1044,30 @@ function flattenRows(nodes){
 }
 
 /* ================== RENDER ================== */
+// Cards discretos no topo: Pago/Recebido do mês vigente (realizado de
+// verdade) + A Pagar/A Receber em Aberto (todo título ainda pendente,
+// sem limite de data — é o total que falta resolver).
+function renderFcKpiStrip(){
+  const wrap = el('fcKpiStrip');
+  if(!wrap) return;
+  const mesAtual = HOJE_ISO.slice(0,7);
+  const pago = rows.filter(r=>r.origem==='pg' && r.date.slice(0,7)===mesAtual).reduce((s,r)=>s+Math.abs(r.valor),0);
+  const recebido = rows.filter(r=>r.origem==='cr' && r.date.slice(0,7)===mesAtual).reduce((s,r)=>s+Math.abs(r.valor),0);
+  const aPagarAberto = rows.filter(r=>r.origem==='cap').reduce((s,r)=>s+Math.abs(r.valor),0);
+  const aReceberAberto = rows.filter(r=>r.origem==='venc').reduce((s,r)=>s+Math.abs(r.valor),0);
+  const cards = [
+    { lbl:'Pago (mês vigente)', val:pago, cor:'var(--red)' },
+    { lbl:'Recebido (mês vigente)', val:recebido, cor:'#4F8F3A' },
+    { lbl:'A Pagar em Aberto', val:aPagarAberto, cor:'var(--red)' },
+    { lbl:'A Receber em Aberto', val:aReceberAberto, cor:'#4F8F3A' },
+  ];
+  wrap.innerHTML = cards.map(c=>`
+    <div class="fc-kpi-mini">
+      <div class="fc-kpi-mini-lbl">${c.lbl}</div>
+      <div class="fc-kpi-mini-val" style="color:${c.cor}">${fmtBRL(c.val)}</div>
+    </div>`).join('');
+}
+
 function buildAndRenderTable(){
   columnTree = buildColumnTree();
   rowTree = buildRowTree();
