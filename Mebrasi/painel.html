@@ -529,6 +529,11 @@ function fmtBRLFull(n){
   return 'R$ ' + Number(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 }
 function fmtNum(n){ return n===null||n===undefined||isNaN(n) ? '0' : Math.round(n).toLocaleString('pt-BR'); }
+function fmtDataBR(iso){
+  if(!iso) return '—';
+  const [y,m,d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+}
 // O Google Sheets pode reconhecer a coluna "Data" como tipo Data de verdade
 // (mesmo a gente escrevendo texto "AAAA-MM-DD" via Apps Script) — nesse caso
 // o gviz devolve algo tipo "Date(2026,6,14)" (mês começa em 0!), não o texto
@@ -559,6 +564,7 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let currentUser=null, gpsStaff=false;
 let rows = []; // linhas normalizadas da FatoVendas
+let pendingRows = []; // Pedido / Pedido Aprovado (ainda não faturado) — só pro texto executivo
 let selectedEmpresa = '', selectedAno = '', selectedMes = '', selectedEstado = '', selectedFamilia = '', selectedVendedor = '';
 let chartDiario=null, chartSemanal=null, chartFarol=null, chartEmpresa=null, chartEstado=null, chartFamilia=null, chartEvolucao=null;
 
@@ -583,11 +589,16 @@ function parseGvizRows(table){
 // - Físico: somente Faturado e Faturado (NF)
 // - Online: somente FINALIZADO e ENVIADO
 // Status operacionais como Separado Total e APP Mebrasi não são faturamento.
+// Denylist em vez de whitelist — mais robusto a status novos. Inclui
+// "APP Mebrasi" e "Separado Total" como vendas válidas (confirmado com
+// o Gustavo em 17/07/2026); a versão anterior tinha virado whitelist
+// de novo e derrubado essas duas categorias sem querer.
+const SITUACOES_INVALIDAS_FISICO = ['cancelado', 'orcamento', 'pedido', 'pedido aprovado', 'pendente'];
 function situacaoValida(situacao, fonte){
   const s = normalizeTxt(situacao);
   const f = normalizeTxt(fonte);
   if(f === 'online') return s === 'finalizado' || s === 'enviado';
-  return s === 'faturado' || s === 'faturado (nf)';
+  return !SITUACOES_INVALIDAS_FISICO.includes(s);
 }
 
 function isClienteMulticopos(r){
@@ -608,10 +619,13 @@ function calcularFaturamento(r){
 async function loadData(){
   const table = await fetchGvizVendas();
   const raw = parseGvizRows(table);
+  const pendentes = [];
   rows = raw.map(r=>{
     const situacao = getColNormalized(r,'situacao') || '';
     const fonte = (getColNormalized(r,'fonte')||'').toString().trim();
-    if(!situacaoValida(situacao, fonte)) return null;
+    const situacaoNorm = normalizeTxt(situacao);
+    const ehPendente = normalizeTxt(fonte) !== 'online' && (situacaoNorm === 'pedido' || situacaoNorm === 'pedido aprovado');
+    if(!situacaoValida(situacao, fonte) && !ehPendente) return null;
 
     // Mesmo calendário do Power BI: físico pela data de faturamento;
     // Online pela data do pedido/negócio.
@@ -644,8 +658,10 @@ async function loadData(){
     };
     item.produtoGsl = codigoContemGsl(item.codProduto);
     item.faturamento = calcularFaturamento(item);
+    if(ehPendente){ pendentes.push(item); return null; }
     return item;
   }).filter(Boolean);
+  pendingRows = pendentes;
 }
 
 function rowsInScope(){
@@ -656,6 +672,17 @@ function rowsInScope(){
     if(selectedEstado && r.estado !== selectedEstado) return false;
     if(selectedFamilia && (r.familiaComercial || '(sem família)') !== selectedFamilia) return false;
     if(selectedVendedor && nomeVendedor(r.codVendedor) !== selectedVendedor) return false;
+    return true;
+  });
+}
+// Mesmos filtros de empresa/ano/mês do rowsInScope(), mas sobre os
+// pedidos ainda não faturados (Pedido / Pedido Aprovado) — usado só
+// no texto executivo do WhatsApp.
+function pendingRowsInScope(){
+  return pendingRows.filter(r=>{
+    if(selectedEmpresa && r.empresa !== selectedEmpresa) return false;
+    if(selectedAno && r.data.slice(0,4) !== selectedAno) return false;
+    if(selectedMes && r.data.slice(5,7) !== selectedMes) return false;
     return true;
   });
 }
@@ -1343,41 +1370,116 @@ function imprimirDetalhe(){
 }
 
 let analiseWhatsBound = false;
+
+// Meta geral do Grupo Mebrasi: R$ 36.000.000/ano ÷ 12 (confirmado com o
+// Gustavo) — meta única pro grupo todo, sem teto por empresa.
+const META_MENSAL = 36000000 / 12;
+
+// Frases do dia — mesmo texto usado na medida DAX original do Power BI,
+// só trazidas pro Hub. Roda uma por dia do mês.
+const FRASES_DO_DIA = [
+  '💬 *Dados bem lidos evitam erros caros.*',
+  '💬 *Indicadores claros aceleram decisões inteligentes.*',
+  '💬 *Quem acompanha números, antecipa resultados.*',
+  '💬 *Vendas fortes nascem de dados confiáveis.*',
+  '💬 *Gestão sem indicadores é direção sem bússola.*',
+  '💬 *Performance se constrói com leitura diária dos números.*',
+  '💬 *O detalhe de hoje evita a perda de amanhã.*',
+  '💬 *Resultados consistentes começam no acompanhamento diário.*',
+  '💬 *Empresas que medem melhor, crescem mais rápido.*',
+  '💬 *Cada indicador conta uma oportunidade escondida.*',
+  '💬 *Decisões rápidas exigem dados bem organizados.*',
+  '💬 *A meta fica mais próxima quando os números são acompanhados.*',
+  '💬 *Controle comercial forte reduz desperdícios invisíveis.*',
+  '💬 *Quem domina os indicadores domina o mercado.*',
+  '💬 *O faturamento cresce quando a gestão acompanha o detalhe.*',
+  '💬 *Indicadores não vendem sozinhos, mas mostram onde vender mais.*',
+  '💬 *A análise certa transforma esforço em resultado.*',
+  '💬 *Monitorar resultados é proteger margem e crescimento.*',
+  '💬 *A inteligência comercial começa na leitura dos dados.*',
+  '💬 *Números bem interpretados geram vantagem competitiva.*',
+  '💬 *A operação evolui quando os dados falam com clareza.*',
+  '💬 *Resultados extraordinários deixam rastros nos indicadores.*',
+  '💬 *O acompanhamento diário reduz riscos e aumenta oportunidades.*',
+  '💬 *Boa gestão comercial nasce da consistência dos dados.*',
+  '💬 *Quem acompanha a carteira, protege o faturamento.*',
+  '💬 *Dados atualizados ajudam equipes a vender melhor.*',
+  '💬 *Crescimento sustentável exige visão analítica constante.*',
+  '💬 *Toda meta alcançada começou em um indicador monitorado.*',
+  '💬 *A performance comercial melhora quando os números são compreendidos.*',
+  '💬 *Gestão eficiente transforma informação em ação.*',
+];
+const FRASE_PADRAO = '💬 *Empresas orientadas por dados tomam decisões mais lucrativas.*';
+
 function gerarAnaliseTexto(){
   const scoped = rowsInScope().filter(r=>!isClienteMulticopos(r));
   const faturamento = scoped.reduce((s,r)=>s+r.faturamento,0);
-  const clientes = new Set(scoped.map(r=>r.cliente).filter(Boolean)).size;
   const pedidos = new Set(scoped.map(r=>r.codPedido).filter(Boolean)).size;
+  const itens = scoped.reduce((s,r)=>s+(!isProdutoGsl(r) ? (r.qtdFaturada||0) : 0),0);
+  const pmi = itens>0 ? faturamento/itens : 0;
+
   // Mesma regra do card e da tabela: Ticket Médio não considera o Online.
   const scopedFisicoTicket = scoped.filter(r=>r.empresa!=='Online');
   const faturamentoFisicoTicket = scopedFisicoTicket.reduce((s,r)=>s+r.faturamento,0);
   const pedidosFisicoTicket = new Set(scopedFisicoTicket.map(r=>r.codPedido).filter(Boolean)).size;
   const ticketMedio = pedidosFisicoTicket>0 ? faturamentoFisicoTicket/pedidosFisicoTicket : 0;
+
   const mesNomes = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-  const periodoLabel = selectedMes ? `${mesNomes[parseInt(selectedMes)-1]} de ${selectedAno||''}` : (selectedAno || 'Todo o período');
-  const empresaLabel = selectedEmpresa || 'Grupo Mebrasi (todas as empresas)';
+  const periodoLabel = selectedMes ? `${mesNomes[parseInt(selectedMes)-1].toLowerCase()} de ${selectedAno||''}` : (selectedAno || 'todo o período');
+
+  // Meta é geral do grupo — proporcional ao número de meses distintos
+  // dentro do escopo filtrado (1 mês selecionado = 1x a meta mensal).
+  const mesesDistintos = new Set(scoped.map(r=>r.data.slice(0,7))).size || 1;
+  const meta = META_MENSAL * mesesDistintos;
+  const atingimento = meta>0 ? faturamento/meta : 0;
+
+  // Período com faturamento de verdade (primeira/última data no escopo).
+  const datasOrdenadas = scoped.map(r=>r.data).sort();
+  const periodoFaturamentoTxt = datasOrdenadas.length
+    ? `${fmtDataBR(datasOrdenadas[0])} a ${fmtDataBR(datasOrdenadas[datasOrdenadas.length-1])}`
+    : '—';
 
   const porEmpresa = {};
   scoped.forEach(r=>{ porEmpresa[r.empresa] = (porEmpresa[r.empresa]||0) + r.faturamento; });
-  const linhasEmpresa = Object.entries(porEmpresa).sort((a,b)=>b[1]-a[1])
-    .map(([emp,val])=>`${emp}: ${fmtBRLFull(val)}`).join('\n');
+
+  // Pendente (Pedido / Pedido Aprovado, ainda não faturado) no mesmo escopo.
+  const pend = pendingRowsInScope().filter(r=>!isClienteMulticopos(r));
+  const porEmpresaPendente = {};
+  pend.forEach(r=>{ porEmpresaPendente[r.empresa] = (porEmpresaPendente[r.empresa]||0) + r.faturamento; });
+  const pendenteTotal = pend.reduce((s,r)=>s+r.faturamento,0);
+
+  const EMPRESAS_FISICAS = ['Gymis','Ryngavi','Multicopos','Especial'];
+  const blocosEmpresa = EMPRESAS_FISICAS
+    .filter(e=>porEmpresa[e])
+    .map(e=>`*${e}:* ${fmtBRLFull(porEmpresa[e]||0)}\n> Pend: ${fmtBRLFull(porEmpresaPendente[e]||0)}`)
+    .join('\n\n');
+  const onlineBloco = porEmpresa['Online'] ? `\n\n*Online:* ${fmtBRLFull(porEmpresa['Online'])}` : '';
+
+  const frase = FRASES_DO_DIA[new Date().getDate() - 1] || FRASE_PADRAO;
 
   return [
-    `*📊 Bi Comercial – ${periodoLabel}*`,
-    `*🌟 > ${empresaLabel}*`,
+    `📊 *Análise de Resultados de Vendas – ${periodoLabel}*`,
+    `🌟 *Grupo Mebrasi*`,
+    `📅 Período c/ faturamento: ${periodoFaturamentoTxt}`,
     ``,
-    `💰 *Faturamento:* ${fmtBRLFull(faturamento)}`,
+    `• Receita: *${fmtBRL(faturamento)}*`,
+    `🎯 *${(atingimento*100).toFixed(1).replace('.',',')}%* da meta (${fmtBRL(meta)})`,
+    `🏁 PMI: *${fmtBRLFull(pmi)}*`,
     ``,
-    `👥 *Clientes:* ${fmtNum(clientes)}`,
+    `🧩 *Volume & Eficiência*`,
+    `• Pedidos: *${fmtNum(pedidos)}*`,
+    `• Ticket médio: *${fmtBRLFull(ticketMedio)}*`,
     ``,
-    `📦 *Pedidos:* ${fmtNum(pedidos)}`,
+    `🏢 *Concentração por Empresa*`,
     ``,
-    `🧾 *Ticket Médio:* ${fmtBRLFull(ticketMedio)}`,
+    blocosEmpresa + onlineBloco,
     ``,
-    `*📍 Por empresa*`,
-    linhasEmpresa,
+    `🧭 *Executivo*`,
+    `• Pendente (Pedido/Aprovado): *${fmtBRLFull(pendenteTotal)}*`,
     ``,
-    `👉 https://hub.gpsbi.com.br/`
+    frase,
+    ``,
+    `🔗 Acesse o Hub: hub.gpsbi.com.br`
   ].join('\n');
 }
 function renderAnaliseWhats(){
