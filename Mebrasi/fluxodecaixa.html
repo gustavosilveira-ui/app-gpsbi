@@ -255,7 +255,10 @@ html.light .fc-day-num{color:#1f2a3d;}
     <div class="app-brand"><span class="dot"></span> Hub GPSBI</div>
     <nav class="app-nav">
       <a href="painel.html">📊 Bi Comercial</a>
-      <a href="fluxodecaixa.html" class="active">💰 Fluxo de Caixa</a>
+      <a href="fluxodecaixa.html" class="active" id="navFluxo">💰 Fluxo de Caixa</a>
+      <a href="agenda.html">🗓️ Agenda</a>
+      <a href="mural.html">📣 Mural</a>
+      <a href="aprovacoes.html">✅ Aprovações</a>
     </nav>
     <select class="empresa-select" id="empresaSelect" style="background:var(--field-bg);border:1px solid var(--border2);border-radius:9px;padding:8px 12px;color:var(--text);font-family:'Sora',sans-serif;font-size:13px;margin-right:auto;">
       <option value="">🌐 Global (4 empresas)</option>
@@ -437,6 +440,13 @@ function canAccessFluxo(email){
 // o Mebrasi acessa o Fluxo de Caixa, mas não esses controles.
 function isGpsStaff(email){
   return (email||'').toLowerCase().endsWith('@gpsbi.com.br');
+}
+// Fluxo de Caixa é restrito: time GPS inteiro + só o Roberto (Mebrasi).
+// Os demais @mebrasi.com.br continuam com acesso normal ao resto do Hub,
+// mas não a essa página específica.
+function podeVerFluxoCaixa(email){
+  const e = (email||'').toLowerCase();
+  return isGpsStaff(e) || e === 'roberto@mebrasi.com.br';
 }
 function nameFromEmail(email){ return email.split('@')[0].split('.').map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' '); }
 function el(id){ return document.getElementById(id); }
@@ -662,7 +672,7 @@ async function init(){
   currentUser = data.session.user;
   const email = currentUser.email;
 
-  if(!canAccessFluxo(email)){
+  if(!canAccessFluxo(email) || !podeVerFluxoCaixa(email)){
     el('loadingScreen').style.display='none';
     el('deniedScreen').style.display='block';
     document.documentElement.style.visibility='visible';
