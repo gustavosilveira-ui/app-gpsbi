@@ -783,21 +783,19 @@ function gerarAnaliseWhatsTextoFluxo(){
   const saldoPrevisto = saldoAtual + recebimentosPrevistos - despesasTotais;
 
   const empresaTxt = selectedEmpresa ? ` · ${EMPRESA_LABEL[selectedEmpresa]}` : '';
-  const periodoTxt = `${formatDateBR(amanhaIso)} a ${formatDateBR(fimDoMesIso)}`;
+  const formatDiaMes = dstr => formatDateBR(dstr).slice(0,5); // "21/07/2026" -> "21/07"
+  const periodoTxt = `${formatDiaMes(amanhaIso)} a ${formatDiaMes(fimDoMesIso)}`;
   const mesNome = MES_NOMES_FC[hoje.getMonth()];
 
   return [
     `*Fluxo de Caixa · Mebrasi${empresaTxt}*`,
-    `📅 *${formatDateBR(HOJE_ISO)}*`,
-    ``,
+    `🗓️ *${formatDateBR(HOJE_ISO)}*`,
     `💰 *Saldo:* ${fmtBRL(saldoAtual)}`,
-    ``,
     `*📊 Previsões para ${mesNome}*`,
-    `📤 *Despesas Totais (${periodoTxt}):* ${fmtBRL(despesasTotais)}`,
-    `📥 *Recebimentos previstos (${periodoTxt}):* ${fmtBRL(recebimentosPrevistos)}`,
-    `📊 *Saldo Previsto para o período:* ${fmtBRL(saldoPrevisto)}`,
-    ``,
-    `👉 https://mebrasi.gpsbi.com.br/fluxodecaixa.html`,
+    `📉 *Despesas Totais (${periodoTxt}):* ${fmtBRL(despesasTotais)}`,
+    `📈 *Recebimentos previstos (${periodoTxt}):* ${fmtBRL(recebimentosPrevistos)}`,
+    `➡️ *Saldo Previsto para o período:* ${fmtBRL(saldoPrevisto)}`,
+    `👉 https://mebrasi.gpsbi.com.br/`,
   ].join('\n');
 }
 let fcAnaliseWhatsBound = false;
