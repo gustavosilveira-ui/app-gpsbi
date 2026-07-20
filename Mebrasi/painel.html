@@ -283,6 +283,7 @@ table.tabela-simples tr.linha-total td{font-weight:800;border-top:2px solid var(
     <nav class="app-nav">
       <a href="painel.html" class="active">📊 Bi Comercial</a>
       <a href="fluxodecaixa.html" id="navFluxo">💰 Fluxo de Caixa</a>
+      <a href="depositos.html" id="navRoberto">🏦 Depósitos</a>
       <a href="agenda.html">🗓️ Agenda</a>
       <a href="mural.html">📣 Mural</a>
       <a href="aprovacoes.html">✅ Aprovações</a>
@@ -563,6 +564,10 @@ function parseMoneyBR(v){
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let currentUser=null, gpsStaff=false;
+// Data de hoje (AAAA-MM-DD) — teto pra nunca mostrar linha com data
+// futura no Bi Comercial. Pega na hora que a página carrega; se a
+// pessoa deixar a aba aberta virando o dia, um F5 resolve.
+const HOJE_ISO = new Date().toISOString().slice(0,10);
 let rows = []; // linhas normalizadas da FatoVendas
 let pendingRows = []; // Pedido / Pedido Aprovado (ainda não faturado) — só pro texto executivo
 let selectedEmpresa = '', selectedAno = '', selectedMes = '', selectedEstado = '', selectedFamilia = '', selectedVendedor = '';
@@ -641,8 +646,19 @@ async function loadData(){
     // data do pedido/negócio. Sem isso, pedido pendente (sem Dt
     // Faturamento) sumia da base inteira.
     const dataFaturamento = ehOnline ? null : parseDateCell(getColNormalized(r,'dt faturamento'));
-    const data = ehOnline ? dataEntrega : (dataFaturamento || dataEntrega);
+    // O fallback pra Dt Entrega SÓ vale pros pendentes de verdade
+    // (Pedido/Pedido Aprovado) — que legitimamente ainda não têm Dt
+    // Faturamento. Pra tudo que já conta como venda (inclusive
+    // Separado Total sem Dt Faturamento preenchida ainda), exige Dt
+    // Faturamento mesmo, senão o Faturamento de julho "vaza" pedidos
+    // que ainda não deveriam contar — foi exatamente isso que
+    // derrubou o total da Gymis de R$ 622.376 pra R$ 629.417.
+    const data = ehOnline ? dataEntrega : (ehPendente ? dataEntrega : dataFaturamento);
     if(!data) return null;
+    // Bi Comercial não pode mostrar nada com data futura (confirmado com
+    // o Gustavo em 20/07/2026) — essas linhas são justamente as que
+    // devem aparecer só no Pend M+1 da Visão Roberto/WhatsApp, não aqui.
+    if(data > HOJE_ISO) return null;
 
     const empresaOrigem = (getColNormalized(r,'empresa')||'').toString().trim();
     const empresa = ehOnline ? 'Online' : empresaOrigem;
@@ -1644,7 +1660,7 @@ async function init(){
   }
 
   gpsStaff = isGpsStaff(email);
-  if(!podeVerFluxoCaixa(email)){ const nf = el('navFluxo'); if(nf) nf.remove(); }
+  if(!podeVerFluxoCaixa(email)){ const nf = el('navFluxo'); if(nf) nf.remove(); const nr = el('navRoberto'); if(nr) nr.remove(); }
   document.documentElement.style.visibility='visible';
 
   el('userChip').textContent = nameFromEmail(email);

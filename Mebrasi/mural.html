@@ -143,6 +143,7 @@ html{zoom:.8;}
     <nav class="app-nav">
       <a href="painel.html">📊 Bi Comercial</a>
       <a href="fluxodecaixa.html" id="navFluxo">💰 Fluxo de Caixa</a>
+      <a href="depositos.html" id="navRoberto">🏦 Depósitos</a>
       <a href="agenda.html" id="navAgenda">🗓️ Agenda</a>
       <a href="mural.html" id="navMural" class="active">📣 Mural</a>
       <a href="aprovacoes.html" id="navAprovacoes">✅ Aprovações</a>
@@ -235,7 +236,7 @@ async function init(){
   el('appBtnDark').addEventListener('click', ()=>appApplyTheme('dark'));
   el('appBtnLight').addEventListener('click', ()=>appApplyTheme('light'));
   appApplyTheme(localStorage.getItem('mebrasi_theme') || 'light');
-  if(!podeVerFluxoCaixa(userEmail)){ const nf = el('navFluxo'); if(nf) nf.remove(); }
+  if(!podeVerFluxoCaixa(userEmail)){ const nf = el('navFluxo'); if(nf) nf.remove(); const nr = el('navRoberto'); if(nr) nr.remove(); }
   if(userRole==='owner') el('newPostCard').style.display='block';
 
   el('loadingScreen').style.display='none';
