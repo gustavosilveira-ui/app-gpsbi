@@ -667,6 +667,42 @@ function rowsFromVENC(table, empresa){
   }).filter(Boolean);
 }
 
+// pg_<empresa> = contas JÁ PAGAS — mesma estrutura do cap_, mas Situação
+// já vem "Pago". REALIZADO do lado de pagamentos (voltou a ser essa a
+// fonte, no lugar do fc_ — decisão de 20/07/2026). Data de referência =
+// "Data" (mesmo campo que o cap_ já usa pro vencimento).
+function rowsFromPG(table, empresa){
+  const raw = parseGvizRows(table);
+  return raw.filter(r=>!isSubtotalRow(r)).map(r=>{
+    const situacao = normalizeTxt(getColNormalized(r,'situacao'));
+    if(situacao.includes('cancel')) return null;
+    const dateRaw = getColNormalized(r, 'data');
+    const date = parseDateCell(typeof dateRaw==='object' && dateRaw!==null ? (dateRaw.v||dateRaw) : dateRaw);
+    if(!date) return null;
+    const categoria = (getColNormalized(r,'desc conta')||'Sem categoria').toString().trim();
+    const valorRaw = getColNormalized(r,'valor(r$)');
+    const valor = -Math.abs(parseMoneyBR(valorRaw!==undefined && valorRaw!=='' && valorRaw!==null ? valorRaw : getColNormalized(r,'valor')));
+    return { date, categoria, grupo: resolveGrupoCategoria(categoria, valor), valor, empresa, origem:'pg', ...rowMeta(r) };
+  }).filter(Boolean);
+}
+// cr_<empresa> = contas a receber JÁ RECEBIDAS — mesma estrutura do venc_,
+// troca "Vl Total Título" por "Valor Pago". REALIZADO do lado de
+// recebimentos. Data de referência = "Dt Pagto" (data que o dinheiro
+// entrou de fato, não a data de vencimento do título).
+function rowsFromCR(table, empresa){
+  const raw = parseGvizRows(table);
+  return raw.filter(r=>!isSubtotalRow(r)).map(r=>{
+    const situacao = normalizeTxt(getColNormalized(r,'situacao'));
+    if(situacao.includes('cancel')) return null;
+    const dateRaw = getColNormalized(r, 'dt pagto');
+    const date = parseDateCell(typeof dateRaw==='object' && dateRaw!==null ? (dateRaw.v||dateRaw) : dateRaw);
+    if(!date) return null;
+    const categoria = (getColNormalized(r,'desc conta')||'Sem categoria').toString().trim();
+    const valor = Math.abs(parseMoneyBR(getColNormalized(r,'valor pago')));
+    return { date, categoria, grupo: resolveGrupoCategoria(categoria, valor), valor, empresa, origem:'cr', ...rowMeta(r) };
+  }).filter(Boolean);
+}
+
 async function init(){
   const { data } = await sb.auth.getSession();
   if(!data.session){ window.location.replace(LOGIN_URL); return; }
@@ -717,18 +753,20 @@ async function loadData(){
   try{
     rowsByEmpresa = {}; abertoByEmpresa = {};
     for(const empresa of EMPRESAS){
-      const [tFc, tCap, tVenc] = await Promise.all([
-        fetchGvizSheet('fc_'+empresa),
+      const [tPg, tCr, tCap, tVenc] = await Promise.all([
+        fetchGvizSheet('pg_'+empresa), fetchGvizSheet('cr_'+empresa),
         fetchGvizSheet('cap_'+empresa), fetchGvizSheet('venc_'+empresa)
       ]);
-      const fcRows = rowsFromFC(tFc, empresa);
+      const pgRows = rowsFromPG(tPg, empresa);
+      const crRows = rowsFromCR(tCr, empresa);
       const capRows = rowsFromCAP(tCap, empresa);
       const vencRows = rowsFromVENC(tVenc, empresa);
-      // Realizado: fc_ (conciliação) pela data de vencimento/conciliação.
+      // Realizado: pg_ (pago) + cr_ (recebido) — voltou a ser essa a fonte
+      // (decisão de 20/07/2026, no lugar do fc_).
       // Projetado: cap_/venc_ pela data de vencimento, exceto pagos/baixados/cancelados.
-      // Só fc_ (realizado) conta no Saldo Acumulado. cap_/venc_ (aberto/previsto,
+      // Só pg_/cr_ (realizado) conta no Saldo Acumulado. cap_/venc_ (aberto/previsto,
       // mesmo retroativo) NUNCA soma no saldo — só aparece na seção "Em Aberto".
-      rowsByEmpresa[empresa] = fcRows;
+      rowsByEmpresa[empresa] = pgRows.concat(crRows);
       rowsByEmpresa[empresa].sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
       abertoByEmpresa[empresa] = capRows.concat(vencRows);
     }
