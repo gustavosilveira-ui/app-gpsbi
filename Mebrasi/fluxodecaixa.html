@@ -903,10 +903,19 @@ function runningBalance(uptoDate){
   const empresasNoEscopo = selectedEmpresa ? [selectedEmpresa] : EMPRESAS;
   return empresasNoEscopo.reduce((sum,emp)=>sum + runningBalanceEmpresa(emp, uptoDate), 0);
 }
-const isRecebimento = r => r.grupo==='RECEBIMENTOS';
-const isPagamento = r => r.grupo!=='RECEBIMENTOS' && r.grupo!=='AJUSTES_MANUAIS';
+// RECEBIMENTOS/PAGAMENTOS (linha de resumo) mostram só o que já foi
+// realizado de verdade — Títulos em Aberto e Cheque Terceiros ficam de
+// fora dessa soma (senão parece que já entrou/saiu dinheiro quando na
+// verdade só está previsto). Eles continuam com linha própria e ainda
+// contam no Saldo Acumulado — só não entram nesse resumo visual.
+const isRecebimento = r => r.grupo==='RECEBIMENTOS' && r.categoria!==CATEGORIA_TITULOS_ABERTO && r.categoria!==CATEGORIA_CHEQUE_TERCEIROS;
+const isPagamento = r => r.grupo!=='RECEBIMENTOS' && r.grupo!=='AJUSTES_MANUAIS' && r.grupo!=='TITULOS_ABERTO' && r.grupo!=='CHEQUE_TERCEIROS';
 const isGrupo = g => r => r.grupo===g;
-const isCategoria = c => r => r.categoria===c;
+// Categoria sozinha não basta pra identificar a linha — "Títulos em
+// Aberto" existe tanto do lado Recebimentos quanto do lado Pagamentos
+// com o mesmo nome, então precisa checar o grupo junto (senão o
+// "Ficha" de um lado misturava lançamento do outro lado).
+const isCategoria = (c, g) => r => r.categoria===c && (g===undefined || r.grupo===g);
 
 /* ================== ÁRVORE DE LINHAS ================== */
 let rowTree = [];
@@ -922,14 +931,14 @@ function buildRowTree(){
   });
   const recebimentosNode = {
     type:'recebimentos', level:0, label:'RECEBIMENTOS', filter:isRecebimento, expanded:false,
-    children: recebimentoCats.map(c=>({ type:'cat', level:2, label:c, filter:isCategoria(c), expanded:false, children:[] }))
+    children: recebimentoCats.map(c=>({ type:'cat', level:2, label:c, filter:isCategoria(c,'RECEBIMENTOS'), expanded:false, children:[] }))
   };
 
   const pagamentoSubgrupos = GRUPOS_PAGAMENTO.map(g=>{
     const cats = Array.from(catsByGrupo[g.key]||[]).sort((a,b)=>a.localeCompare(b,'pt-BR'));
     return {
       type:'subgrupo', level:1, label:g.label, filter:isGrupo(g.key), expanded:false,
-      children: cats.map(c=>({ type:'cat', level:2, label:c, filter:isCategoria(c), expanded:false, children:[] }))
+      children: cats.map(c=>({ type:'cat', level:2, label:c, filter:isCategoria(c,g.key), expanded:false, children:[] }))
     };
   }).filter(sg=>sg.children.length); // esconde grupo sem nenhuma categoria
 
@@ -947,7 +956,7 @@ function buildRowTree(){
   if(ajustesCats.length){
     nodes.push({
       type:'ajustes', level:0, label:'LANÇAMENTOS MANUAIS (GPS)', filter:r=>r.grupo==='AJUSTES_MANUAIS', expanded:false,
-      children: ajustesCats.map(c=>({ type:'cat', level:2, label:c, filter:isCategoria(c), expanded:false, children:[] }))
+      children: ajustesCats.map(c=>({ type:'cat', level:2, label:c, filter:isCategoria(c,'AJUSTES_MANUAIS'), expanded:false, children:[] }))
     });
   }
 
