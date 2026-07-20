@@ -622,26 +622,35 @@ async function loadData(){
   const pendentes = [];
   rows = raw.map(r=>{
     const situacao = getColNormalized(r,'situacao') || '';
+    const situacaoNf = getColNormalized(r,'situacao nf') || '';
     const fonte = (getColNormalized(r,'fonte')||'').toString().trim();
     const situacaoNorm = normalizeTxt(situacao);
-    const ehPendente = normalizeTxt(fonte) !== 'online' && (situacaoNorm === 'pedido' || situacaoNorm === 'pedido aprovado');
+    const ehOnline = normalizeTxt(fonte) === 'online';
+    const ehPendente = !ehOnline && (situacaoNorm === 'pedido' || situacaoNorm === 'pedido aprovado');
+    // "Separado Total" conta como venda de verdade (confirmado com o
+    // Gustavo) — fica em `rows` normalmente. Só Pedido/Pedido Aprovado
+    // são removidos daqui e vão pra `pendingRows`.
     if(!situacaoValida(situacao, fonte) && !ehPendente) return null;
 
-    // Mesmo calendário do Power BI: físico pela data de faturamento;
-    // Online pela data do pedido/negócio.
-    const dataOrigem = normalizeTxt(fonte) === 'online'
-      ? getColNormalized(r,'data')
-      : getColNormalized(r,'dt faturamento');
-    const data = parseDateCell(dataOrigem);
+    // Dt Entrega Solicitada — sempre existe, mesmo pra pedido ainda não
+    // faturado. Guardamos à parte porque o Farol usa ela pro Pendente,
+    // mesmo quando o item também tem Dt Faturamento (caso da Fidelidade).
+    const dataEntrega = parseDateCell(getColNormalized(r,'data'));
+    // Mesmo calendário do Power BI: físico pela data de faturamento
+    // (quando existir — pedido ainda não faturado não tem); Online pela
+    // data do pedido/negócio. Sem isso, pedido pendente (sem Dt
+    // Faturamento) sumia da base inteira.
+    const dataFaturamento = ehOnline ? null : parseDateCell(getColNormalized(r,'dt faturamento'));
+    const data = ehOnline ? dataEntrega : (dataFaturamento || dataEntrega);
     if(!data) return null;
 
     const empresaOrigem = (getColNormalized(r,'empresa')||'').toString().trim();
-    const empresa = normalizeTxt(fonte) === 'online' ? 'Online' : empresaOrigem;
+    const empresa = ehOnline ? 'Online' : empresaOrigem;
     const item = {
       empresa, fonte,
       canal: getColNormalized(r,'canal')||'',
-      data,
-      situacao,
+      data, dataEntrega, dataFaturamento,
+      situacao, situacaoNf,
       codPedido: (getColNormalized(r,'cod pedido')||'').toString().trim(),
       cliente: (getColNormalized(r,'nome cliente')||'').toString().trim(),
       estado: (getColNormalized(r,'estado')||'').toString().trim(),
@@ -1369,11 +1378,64 @@ function imprimirDetalhe(){
   w.document.close();
 }
 
-let analiseWhatsBound = false;
+// ================== Farol executivo (WhatsApp) ==================
+// "Fidelidade" = faturamento (mesma fórmula de sempre) das notas cuja
+// Situação NF = "No Impressa" — confirmado com o Gustavo em 20/07/2026,
+// direto da medida DAX do Power BI. É um subconjunto do faturamento
+// normal (Situação = Faturado/Faturado NF), não uma categoria à parte.
+function ehFidelidade(item){
+  const s = normalizeTxt(item.situacaoNf);
+  return s === 'no impressa' || s === 'nao impressa';
+}
+function ehSituacaoNfValida(item){
+  const s = normalizeTxt(item.situacao);
+  return s === 'faturado' || s === 'faturado (nf)';
+}
+const TETO_FAROL = 450000;
+
+function faroEmoji(pct){
+  if(pct <= 0.90) return '🟡';
+  if(pct <= 0.95) return '🔴';
+  if(pct <= 1.05) return '🔴🔴';
+  return '🚨🚨🚨';
+}
+
+// Mesmo filtro de Ano/Mês do resto do painel, mas ignorando Empresa —
+// o Farol sempre mostra as 4 empresas juntas, independente do filtro
+// de empresa selecionado no topo.
+function filtroAnoMes(item){
+  if(selectedAno && item.data.slice(0,4) !== selectedAno) return false;
+  if(selectedMes && item.data.slice(5,7) !== selectedMes) return false;
+  return true;
+}
+function filtroAnoMesEntrega(item){
+  if(!item.dataEntrega) return false;
+  if(selectedAno && item.dataEntrega.slice(0,4) !== selectedAno) return false;
+  if(selectedMes && item.dataEntrega.slice(5,7) !== selectedMes) return false;
+  return true;
+}
+
+// Dados de Farol de uma empresa física: NF Ajustada, Fidelidade,
+// Pendente e Total Farol (NF Ajustada + Fidelidade + Pendente).
+function dadosFarolEmpresa(empresa){
+  const nfRows = rows.filter(r => r.empresa===empresa && ehSituacaoNfValida(r) && filtroAnoMes(r));
+  const faturamentoBruto = nfRows.reduce((s,r)=>s+r.faturamento,0);
+  const fidelidade = nfRows.filter(ehFidelidade).reduce((s,r)=>s+r.faturamento,0);
+  const nfAjustada = faturamentoBruto - fidelidade;
+
+  const pendPedidos = pendingRows.filter(r => r.empresa===empresa && filtroAnoMesEntrega(r));
+  const pendSeparado = rows.filter(r => r.empresa===empresa && normalizeTxt(r.situacao)==='separado total' && filtroAnoMesEntrega(r));
+  const pendente = [...pendPedidos, ...pendSeparado].reduce((s,r)=>s+r.faturamento,0);
+
+  const totalFarol = nfAjustada + fidelidade + pendente;
+  return { faturamentoBruto, fidelidade, nfAjustada, pendente, totalFarol };
+}
+
 
 // Meta geral do Grupo Mebrasi: R$ 36.000.000/ano ÷ 12 (confirmado com o
 // Gustavo) — meta única pro grupo todo, sem teto por empresa.
 const META_MENSAL = 36000000 / 12;
+let analiseWhatsBound = false;
 
 // Frases do dia — mesmo texto usado na medida DAX original do Power BI,
 // só trazidas pro Hub. Roda uma por dia do mês.
@@ -1442,18 +1504,53 @@ function gerarAnaliseTexto(){
   const porEmpresa = {};
   scoped.forEach(r=>{ porEmpresa[r.empresa] = (porEmpresa[r.empresa]||0) + r.faturamento; });
 
-  // Pendente (Pedido / Pedido Aprovado, ainda não faturado) no mesmo escopo.
-  const pend = pendingRowsInScope().filter(r=>!isClienteMulticopos(r));
-  const porEmpresaPendente = {};
-  pend.forEach(r=>{ porEmpresaPendente[r.empresa] = (porEmpresaPendente[r.empresa]||0) + r.faturamento; });
-  const pendenteTotal = pend.reduce((s,r)=>s+r.faturamento,0);
+  // Farol de cada empresa física (NF Ajustada + Fidelidade + Pendente).
+  const farolGymis = dadosFarolEmpresa('Gymis');
+  const farolRyngavi = dadosFarolEmpresa('Ryngavi');
+  const farolMulticopos = dadosFarolEmpresa('Multicopos');
+  const farolEspecial = dadosFarolEmpresa('Especial'); // só usamos o Pendente dela (linha "Esp:" dentro da Gymis)
 
-  const EMPRESAS_FISICAS = ['Gymis','Ryngavi','Multicopos','Especial'];
-  const blocosEmpresa = EMPRESAS_FISICAS
-    .filter(e=>porEmpresa[e])
-    .map(e=>`*${e}:* ${fmtBRLFull(porEmpresa[e]||0)}\n> Pend: ${fmtBRLFull(porEmpresaPendente[e]||0)}`)
-    .join('\n\n');
+  // Gymis: o farol dela usa só a Fidelidade como base (regra confirmada
+  // com o Gustavo — Ryngavi/Multicopos usam NF Ajustada+Fidelidade+Pend).
+  const pctGymis = TETO_FAROL>0 ? farolGymis.fidelidade/TETO_FAROL : 0;
+  const pctRyngavi = TETO_FAROL>0 ? farolRyngavi.totalFarol/TETO_FAROL : 0;
+  const pctMulticopos = TETO_FAROL>0 ? farolMulticopos.totalFarol/TETO_FAROL : 0;
+
+  // Alerta no topo — só dispara pra Ryngavi/Multicopos acima de 105%.
+  const empresasBloqueadas = [];
+  if(pctRyngavi > 1.05) empresasBloqueadas.push('RYNGAVI');
+  if(pctMulticopos > 1.05) empresasBloqueadas.push('MULTICOPOS');
+  const alertaDiretoria = empresasBloqueadas.length
+    ? `🚨🚨🚨 ATENÇÃO, NÃO CADASTRAR MAIS PEDIDOS NAS EMPRESAS ${empresasBloqueadas.join(' E ')}, FAVOR SOLICITAR APROVAÇÃO DA DIRETORIA ANTES DE NOVOS CADASTROS 🚨🚨🚨\n\n`
+    : '';
+
+  const blocoGymis = porEmpresa['Gymis'] ? [
+    `*Gymis:* ${fmtBRLFull(porEmpresa['Gymis'])}`,
+    `${faroEmoji(pctGymis)} F: ${fmtBRLFull(farolGymis.fidelidade)}`,
+    `> Pend: ${fmtBRLFull(farolGymis.pendente)}`,
+    `> Esp: ${fmtBRLFull(farolEspecial.pendente)}`,
+  ].join('\n') : '';
+
+  const blocoRyngavi = porEmpresa['Ryngavi'] ? [
+    `*Ryngavi:* ${fmtBRLFull(porEmpresa['Ryngavi'])}`,
+    `> F: ${fmtBRLFull(farolRyngavi.fidelidade)}`,
+    `> Pend: ${fmtBRLFull(farolRyngavi.pendente)}`,
+    `${faroEmoji(pctRyngavi)} Total farol: ${fmtBRLFull(farolRyngavi.totalFarol)}`,
+  ].join('\n') : '';
+
+  const blocoMulticopos = porEmpresa['Multicopos'] ? [
+    `*Multicopos:* ${fmtBRLFull(porEmpresa['Multicopos'])}`,
+    `> F: ${fmtBRLFull(farolMulticopos.fidelidade)}`,
+    `> Pend: ${fmtBRLFull(farolMulticopos.pendente)}`,
+    `${faroEmoji(pctMulticopos)} Total farol: ${fmtBRLFull(farolMulticopos.totalFarol)}`,
+  ].join('\n') : '';
+
+  const blocosEmpresa = [blocoGymis, blocoRyngavi, blocoMulticopos].filter(Boolean).join('\n\n');
   const onlineBloco = porEmpresa['Online'] ? `\n\n*Online:* ${fmtBRLFull(porEmpresa['Online'])}` : '';
+
+  // Pendente executivo total (todas as empresas físicas, mesmo cálculo
+  // do Farol — Pedido/Pedido Aprovado/Separado Total por Dt Entrega).
+  const pendenteTotal = farolGymis.pendente + farolRyngavi.pendente + farolMulticopos.pendente + farolEspecial.pendente;
 
   const frase = FRASES_DO_DIA[new Date().getDate() - 1] || FRASE_PADRAO;
 
@@ -1462,6 +1559,7 @@ function gerarAnaliseTexto(){
     `🌟 *Grupo Mebrasi*`,
     `📅 Período c/ faturamento: ${periodoFaturamentoTxt}`,
     ``,
+    alertaDiretoria,
     `• Receita: *${fmtBRL(faturamento)}*`,
     `🎯 *${(atingimento*100).toFixed(1).replace('.',',')}%* da meta (${fmtBRL(meta)})`,
     `🏁 PMI: *${fmtBRLFull(pmi)}*`,
@@ -1475,7 +1573,7 @@ function gerarAnaliseTexto(){
     blocosEmpresa + onlineBloco,
     ``,
     `🧭 *Executivo*`,
-    `• Pendente (Pedido/Aprovado): *${fmtBRLFull(pendenteTotal)}*`,
+    `• Pendente (M): *${fmtBRLFull(pendenteTotal)}*`,
     ``,
     frase,
     ``,
