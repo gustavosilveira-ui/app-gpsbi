@@ -297,12 +297,6 @@ html.light .fc-day-num{color:#1f2a3d;}
       <div id="fcDebugStats" style="font-size:11px;color:var(--text3);margin-top:8px;"></div>
     </div>
 
-    <div class="card">
-      <div class="card-title">📋 Em Aberto</div>
-      <div class="card-sub">Contas a pagar (cap_) e a receber (venc_) ainda não baixadas — não entram no Saldo Acumulado acima, é só o que está previsto/pendente.</div>
-      <div id="abertoWrap" style="display:grid;grid-template-columns:1fr 1fr;gap:24px;"></div>
-    </div>
-
     <!-- ============ NOVO: Saldo Inicial + Lançamentos Manuais (compacto, lado a lado) ============ -->
     <div class="card" id="fcAjustesGpsCard">
       <div class="fc-ajustes-row">
@@ -562,15 +556,26 @@ const CATEGORIA_CHEQUE_TERCEIROS = 'Cheque Terceiros (não conta no saldo)';
 // tem prioridade sobre tudo: vira uma linha à parte que aparece no dia
 // mas não soma no saldo, não importa se veio de pg_/cr_ (já recebido)
 // ou cap_/venc_ (ainda em aberto).
-function finalizarLinha(categoriaOriginal, valor, formaPagto, origem){
+// Data de hoje (AAAA-MM-DD) — usada pra decidir se um título em aberto
+// (cap_/venc_) já venceu (entra na linha "Títulos em Aberto") ou ainda
+// não (entra na categoria real, hoje em diante) — decisão de 20/07/2026.
+const HOJE_ISO = new Date().toISOString().slice(0,10);
+function finalizarLinha(categoriaOriginal, valor, formaPagto, origem, date){
   const fp = normalizeTxt(formaPagto);
   if(fp === 'cheque terceiros'){
     const grupo = valor >= 0 ? 'RECEBIMENTOS' : 'CHEQUE_TERCEIROS';
     return { categoria: CATEGORIA_CHEQUE_TERCEIROS, grupo, contaNoSaldo:false };
   }
   if(origem === 'cap' || origem === 'venc'){
-    const grupo = valor >= 0 ? 'RECEBIMENTOS' : 'TITULOS_ABERTO';
-    return { categoria: CATEGORIA_TITULOS_ABERTO, grupo, contaNoSaldo:true };
+    // Vencido (antes de hoje) = ainda não sabemos se vai ser pago/recebido
+    // e já devia ter acontecido -> linha "Títulos em Aberto", fora do saldo.
+    // Hoje em diante = título normal, na categoria real, conta no saldo
+    // (é só uma previsão de curto prazo, tratamos como já esperado).
+    if(date < HOJE_ISO){
+      const grupo = valor >= 0 ? 'RECEBIMENTOS' : 'TITULOS_ABERTO';
+      return { categoria: CATEGORIA_TITULOS_ABERTO, grupo, contaNoSaldo:false };
+    }
+    return { categoria: categoriaOriginal, grupo: resolveGrupoCategoria(categoriaOriginal, valor), contaNoSaldo:true };
   }
   return { categoria: categoriaOriginal, grupo: resolveGrupoCategoria(categoriaOriginal, valor), contaNoSaldo:true };
 }
@@ -688,7 +693,7 @@ function rowsFromCAP(table, empresa){
     const valorRaw = getColNormalized(r,'valor(r$)');
     const valor = -Math.abs(parseMoneyBR(valorRaw!==undefined && valorRaw!=='' && valorRaw!==null ? valorRaw : getColNormalized(r,'valor')));
     const formaPagto = getColNormalized(r,'forma pagto');
-    const { categoria, grupo, contaNoSaldo } = finalizarLinha(categoriaOriginal, valor, formaPagto, 'cap');
+    const { categoria, grupo, contaNoSaldo } = finalizarLinha(categoriaOriginal, valor, formaPagto, 'cap', date);
     return { date, categoria, grupo, valor, empresa, origem:'cap', contaNoSaldo, ...rowMeta(r) };
   }).filter(Boolean);
 }
@@ -703,7 +708,7 @@ function rowsFromVENC(table, empresa){
     const categoriaOriginal = (getColNormalized(r,'desc conta')||'Sem categoria').toString().trim();
     const valor = Math.abs(parseMoneyBR(getColNormalized(r,'vl total titulo')));
     const formaPagto = getColNormalized(r,'forma pagto');
-    const { categoria, grupo, contaNoSaldo } = finalizarLinha(categoriaOriginal, valor, formaPagto, 'venc');
+    const { categoria, grupo, contaNoSaldo } = finalizarLinha(categoriaOriginal, valor, formaPagto, 'venc', date);
     return { date, categoria, grupo, valor, empresa, origem:'venc', contaNoSaldo, ...rowMeta(r) };
   }).filter(Boolean);
 }
@@ -766,7 +771,7 @@ async function init(){
   document.documentElement.style.visibility='visible'; // mostra o spinner (ou erro) já de cara
 
   el('userChip').textContent = nameFromEmail(email);
-  el('empresaSelect').addEventListener('change', e=>{ selectedEmpresa = e.target.value; rebuildRowsNoEscopo(); buildAndRenderTable(); renderAberto(); });
+  el('empresaSelect').addEventListener('change', e=>{ selectedEmpresa = e.target.value; rebuildRowsNoEscopo(); buildAndRenderTable(); });
   el('appLogoutBtn').addEventListener('click', doLogout);
   el('appBtnDark').addEventListener('click', ()=>appApplyTheme('dark'));
   el('appBtnLight').addEventListener('click', ()=>appApplyTheme('light'));
@@ -819,7 +824,6 @@ async function loadData(){
     await loadAjustesManuais(); // injeta os lançamentos manuais como movimentação real
     loadLimiteConta();
     buildAndRenderTable();
-    renderAberto();
     el('loadingScreen').style.display='none';
     el('mainContent').style.display='block';
     el('fcSimData').value = new Date().toISOString().slice(0,10);
@@ -1368,32 +1372,6 @@ async function removeAjusteManual(id){
 }
 
 /* ================== NOVO: Em Aberto (cap/venc só "Aberto") ================== */
-function renderAberto(){
-  const wrap = el('abertoWrap');
-  if(!wrap) return;
-  const empresasNoEscopo = selectedEmpresa ? [selectedEmpresa] : EMPRESAS;
-  let list = [];
-  empresasNoEscopo.forEach(emp => { list = list.concat(abertoByEmpresa[emp]||[]); });
-  const pagar = list.filter(r=>r.valor<0);
-  const receber = list.filter(r=>r.valor>0);
-  function porCategoria(l){
-    const map = {};
-    l.forEach(r=>{ map[r.categoria] = (map[r.categoria]||0) + r.valor; });
-    return Object.entries(map).sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]));
-  }
-  const catsPagar = porCategoria(pagar), catsReceber = porCategoria(receber);
-  const totalPagar = pagar.reduce((s,r)=>s+r.valor,0), totalReceber = receber.reduce((s,r)=>s+r.valor,0);
-  wrap.innerHTML = `
-    <div>
-      <div style="font-weight:800;color:var(--red);margin-bottom:8px;">A Pagar em Aberto: ${fmtBRL(Math.abs(totalPagar))}</div>
-      ${catsPagar.map(([c,v])=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12.5px;"><span>${c}</span><span style="color:var(--red)">${fmtBRL(Math.abs(v))}</span></div>`).join('') || '<div style="color:var(--text3);font-size:12.5px;">Nada em aberto.</div>'}
-    </div>
-    <div>
-      <div style="font-weight:800;color:#98C47C;margin-bottom:8px;">A Receber em Aberto: ${fmtBRL(totalReceber)}</div>
-      ${catsReceber.map(([c,v])=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12.5px;"><span>${c}</span><span style="color:#98C47C">${fmtBRL(v)}</span></div>`).join('') || '<div style="color:var(--text3);font-size:12.5px;">Nada em aberto.</div>'}
-    </div>`;
-}
-
 /* ================== NOVO: Simulador de impacto no saldo ================== */
 /* ================== NOVO: Simulador de impacto no saldo ================== */
 let fcSimEntries = [];
