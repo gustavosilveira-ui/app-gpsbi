@@ -776,11 +776,14 @@ function gerarAnaliseWhatsTextoFluxo(){
   const fimDoMes = new Date(hoje.getFullYear(), hoje.getMonth()+1, 0);
   const fimDoMesIso = fimDoMes.toISOString().slice(0,10);
 
-  const rowsPeriodo = rows.filter(r=>r.date>=amanhaIso && r.date<=fimDoMesIso);
+  // Só conta o que realmente afeta o saldo (mesmo critério do runningBalance
+  // — exclui Cheque Terceiros, que nunca conta no saldo mesmo já recebido).
+  // Sem esse filtro, o Saldo Previsto não batia com o saldo real da grade.
+  const rowsPeriodo = rows.filter(r=>r.date>=amanhaIso && r.date<=fimDoMesIso && r.contaNoSaldo!==false);
   const despesasTotais = rowsPeriodo.filter(r=>r.valor<0).reduce((s,r)=>s+Math.abs(r.valor),0);
   const recebimentosPrevistos = rowsPeriodo.filter(r=>r.valor>=0).reduce((s,r)=>s+r.valor,0);
   const saldoAtual = runningBalance(HOJE_ISO);
-  const saldoPrevisto = saldoAtual + recebimentosPrevistos - despesasTotais;
+  const saldoPrevisto = runningBalance(fimDoMesIso);
 
   const empresaTxt = selectedEmpresa ? ` · ${EMPRESA_LABEL[selectedEmpresa]}` : '';
   const formatDiaMes = dstr => formatDateBR(dstr).slice(0,5); // "21/07/2026" -> "21/07"
@@ -1049,8 +1052,8 @@ function renderFcKpiStrip(){
   const wrap = el('fcKpiStrip');
   if(!wrap) return;
   const mesAtual = HOJE_ISO.slice(0,7);
-  const pago = rows.filter(r=>r.origem==='pg' && r.date.slice(0,7)===mesAtual).reduce((s,r)=>s+Math.abs(r.valor),0);
-  const recebido = rows.filter(r=>r.origem==='cr' && r.date.slice(0,7)===mesAtual).reduce((s,r)=>s+Math.abs(r.valor),0);
+  const pago = rows.filter(r=>r.origem==='pg' && r.categoria!==CATEGORIA_CHEQUE_TERCEIROS && r.date.slice(0,7)===mesAtual).reduce((s,r)=>s+Math.abs(r.valor),0);
+  const recebido = rows.filter(r=>r.origem==='cr' && r.categoria!==CATEGORIA_CHEQUE_TERCEIROS && r.date.slice(0,7)===mesAtual).reduce((s,r)=>s+Math.abs(r.valor),0);
   const aPagarAberto = rows.filter(r=>r.origem==='cap').reduce((s,r)=>s+Math.abs(r.valor),0);
   const aReceberAberto = rows.filter(r=>r.origem==='venc').reduce((s,r)=>s+Math.abs(r.valor),0);
   const cards = [
