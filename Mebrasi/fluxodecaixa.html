@@ -782,16 +782,15 @@ function gerarAnaliseWhatsTextoFluxo(){
   const rowsPeriodo = rows.filter(r=>r.date>=amanhaIso && r.date<=fimDoMesIso && r.contaNoSaldo!==false);
   const despesasTotais = rowsPeriodo.filter(r=>r.valor<0).reduce((s,r)=>s+Math.abs(r.valor),0);
   const recebimentosPrevistos = rowsPeriodo.filter(r=>r.valor>=0).reduce((s,r)=>s+r.valor,0);
-  const saldoAtual = runningBalance(HOJE_ISO);
+  const ontem = new Date(hoje); ontem.setDate(hoje.getDate()-1);
+  const ontemIso = ontem.toISOString().slice(0,10);
+  const saldoAtual = runningBalance(ontemIso);
   const saldoPrevisto = runningBalance(fimDoMesIso);
 
   const empresaTxt = selectedEmpresa ? ` · ${EMPRESA_LABEL[selectedEmpresa]}` : '';
   const formatDiaMes = dstr => formatDateBR(dstr).slice(0,5); // "21/07/2026" -> "21/07"
   const periodoTxt = `${formatDiaMes(amanhaIso)} a ${formatDiaMes(fimDoMesIso)}`;
   const mesNome = MES_NOMES_FC[hoje.getMonth()];
-
-  const ontem = new Date(hoje); ontem.setDate(hoje.getDate()-1);
-  const ontemIso = ontem.toISOString().slice(0,10);
 
   return [
     `*Fluxo de Caixa · Mebrasi${empresaTxt}*`,
