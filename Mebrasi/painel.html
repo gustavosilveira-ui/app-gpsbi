@@ -9,6 +9,7 @@
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 <style>
 /* ===== theme.css embutido (igual ao Fluxo de Caixa da Mebrasi) ===== */
 @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
@@ -385,8 +386,12 @@ table.tabela-simples tr.linha-total td{font-weight:800;border-top:2px solid var(
     <div class="charts-grid" style="margin-top:18px;">
       <div class="chart-box">
         <div class="chart-title">Análise por Representante</div>
-        <div class="chart-sub">Faturamento por representante comercial. Online não incluído. Clique numa barra pra filtrar.</div>
-        <div class="chart-canvas-wrap chart-scroll"><div class="chart-canvas-tall"><canvas id="chartVendedor"></canvas></div></div>
+        <div class="chart-sub">Faturamento por representante comercial. Online e MEBRASI (conta casa, sem vendedor específico) não entram nas bolhas — aparecem à parte. Clique numa bolha pra filtrar.</div>
+        <div id="mebrasiDestaque" style="display:none;margin-bottom:10px;padding:10px 14px;border-radius:10px;background:var(--navy3);justify-content:space-between;align-items:center;">
+          <span style="font-weight:700;font-size:12.5px;color:var(--text2);">🏠 MEBRASI (sem representante)</span>
+          <span id="mebrasiDestaqueValor" style="font-weight:800;font-family:'DM Mono',monospace;"></span>
+        </div>
+        <div class="treemap-wrap" id="bolhaVendedor"></div>
       </div>
       <div class="chart-box">
         <div class="chart-title">Análise por Região</div>
@@ -1089,30 +1094,68 @@ function tooltipMove(evt){
 }
 function tooltipHide(){ gpsbiTooltip().style.display = 'none'; }
 
-// ---- Análise por Representante (barra horizontal) ----
+// ---- Análise por Representante (bolhas — D3 pack layout) ----
 // Sempre exclui o Online (canal não tem representante atribuído).
-let chartVendedor = null;
 function renderTreemapVendedor(){
   const scoped = rowsInScope().filter(r=>r.fonte!=='Online');
   const porVendedor = {};
   scoped.forEach(r=>{ const nome = nomeVendedor(r.codVendedor); porVendedor[nome] = (porVendedor[nome]||0) + r.faturamento; });
+
+  // MEBRASI é a conta "casa" (sem vendedor específico atribuído), não
+  // um representante de verdade — ela sempre esmagava a comparação
+  // visual com os representantes reais, então mostramos ela à parte.
+  const mebrasiValor = porVendedor['MEBRASI'] || 0;
+  const boxMebrasi = el('mebrasiDestaque');
+  if(mebrasiValor > 0){
+    boxMebrasi.style.display = 'flex';
+    el('mebrasiDestaqueValor').textContent = fmtBRLFull(mebrasiValor);
+  } else {
+    boxMebrasi.style.display = 'none';
+  }
+
   const items = Object.entries(porVendedor)
-    .filter(([,v])=>v>0)
-    .sort((a,b)=>b[1]-a[1]);
+    .filter(([nome,v])=>v>0 && nome!=='MEBRASI')
+    .map(([nome,valor])=>({ nome, valor, uf: VENDEDOR_UF[nome] || '' }));
 
-  const ctx = el('chartVendedor');
-  if(!items.length){ if(chartVendedor){chartVendedor.destroy();chartVendedor=null;} return; }
+  const wrap = el('bolhaVendedor');
+  wrap.innerHTML = '';
+  if(!items.length){ wrap.innerHTML = `<div class="empty-state">Sem dados de vendedor no período.</div>`; return; }
 
-  const cfg = {
-    type:'bar',
-    data:{ labels: items.map(i=>i[0]), datasets:[{ data: items.map(i=>i[1]), backgroundColor: items.map((_,i)=>PALETA_GPSBI[i % PALETA_GPSBI.length]), borderRadius:5, maxBarThickness:32, categoryPercentage:0.85, barPercentage:0.9 }] },
-    options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
-      onClick:(evt,els)=>{ if(!els.length) return; const nome = items[els[0].index][0]; selectedVendedor = selectedVendedor===nome ? '' : nome; renderTudo(); },
-      plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:c=>{ const nome=items[c.dataIndex][0]; const uf=VENDEDOR_UF[nome]; return `${fmtBRLFull(c.parsed.x)}${uf?' - '+uf:''}`; } } } },
-      scales:{ x:{ grid:{color:corGrid()}, ticks:{color:corTexto(), font:{size:10}, callback:v=>fmtBRL(v)} }, y:{ grid:{display:false}, ticks:{color:corTexto(), font:{size:10.5}} } } }
-  };
-  if(chartVendedor){ chartVendedor.data=cfg.data; chartVendedor.options=cfg.options; chartVendedor.update(); }
-  else chartVendedor = new Chart(ctx, cfg);
+  const width = wrap.clientWidth || 600, height = 280;
+  const root = d3.pack().size([width, height]).padding(5)(
+    d3.hierarchy({children:items}).sum(d=>d.valor)
+  );
+
+  const svg = d3.select(wrap).append('svg')
+    .attr('viewBox', `0 0 ${width} ${height}`).attr('width','100%').attr('height', height)
+    .attr('role','img').attr('aria-label','Faturamento por representante comercial, em bolhas proporcionais');
+
+  const nodes = svg.selectAll('g').data(root.leaves()).join('g')
+    .attr('transform', d=>`translate(${d.x},${d.y})`)
+    .style('cursor','pointer');
+
+  nodes.append('circle')
+    .attr('r', d=>d.r)
+    .attr('fill', (d,i)=>PALETA_GPSBI[i % PALETA_GPSBI.length])
+    .attr('stroke', d=>selectedVendedor===d.data.nome ? '#fff' : 'none')
+    .attr('stroke-width', 3);
+
+  nodes.each(function(d){
+    if(d.r < 18) return; // esconde texto em bolha minúscula
+    const g = d3.select(this);
+    const nomeUf = d.data.uf ? `${d.data.nome} (${d.data.uf})` : d.data.nome;
+    g.append('text').attr('text-anchor','middle').attr('dy','-0.2em')
+      .style('font-size', Math.max(10, d.r/5.5)+'px').style('font-weight','700').style('fill','#fff')
+      .text(nomeUf);
+    g.append('text').attr('text-anchor','middle').attr('dy','1.1em')
+      .style('font-size', Math.max(9, d.r/6.5)+'px').style('fill','#fff').style('opacity','0.9')
+      .text(fmtBRL(d.data.valor));
+  });
+
+  nodes.on('click', (evt,d)=>{ selectedVendedor = selectedVendedor===d.data.nome ? '' : d.data.nome; renderTudo(); })
+    .on('mouseenter', (evt,d)=>{ tooltipShow(evt, d.data.uf ? `${d.data.nome} (${d.data.uf})` : d.data.nome, fmtBRLFull(d.data.valor)); })
+    .on('mousemove', tooltipMove)
+    .on('mouseleave', tooltipHide);
 }
 
 // ---- Análise por Região (mapa Leaflet, mesmo padrão da Tangram) ----
