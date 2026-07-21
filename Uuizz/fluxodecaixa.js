@@ -897,12 +897,13 @@ function openFluxoFicha(rowId,colId){
   const detalheHtml = linhas.slice(0,120).map(r=>{
     const pct = total ? Math.abs(r.valor)/Math.abs(total)*100 : 0;
     const nome = r.nome || r.historico || r.categoria || 'Sem nome';
-    const doc = r.documento || r.fonte || '';
+    const obs = r.historico || '';
+    const categoria = r.categoria || r.fonte || '';
     return `<tr>
       <td>${formatDateBR(r.date)}</td>
       <td>${escapeFichaHtml((r.empresa?r.empresa+' · ':'')+(r.conta||r.fonte||'Não informada'))}</td>
-      <td class="wrap" title="${escapeFichaHtml(nome)}">${escapeFichaHtml(nome)}</td>
-      <td class="small" title="${escapeFichaHtml(doc)}">${escapeFichaHtml(doc)}</td>
+      <td class="wrap" title="${obs ? escapeFichaHtml(obs) : escapeFichaHtml(nome)}">${escapeFichaHtml(nome)}</td>
+      <td class="small" title="${escapeFichaHtml(categoria)}">${escapeFichaHtml(categoria)}</td>
       <td class="num">${pct.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%</td>
       <td class="valor-modal" style="color:${corValor}">${fmtNumeroFicha(r.valor*sinal)}</td>
     </tr>`;
@@ -915,7 +916,7 @@ function openFluxoFicha(rowId,colId){
       <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${qtd}</div><div class="fc-detail-kpi-lbl">Lançamentos</div></div>
     </div>
     <table class="fc-detail-table"><thead><tr><th>Conta</th><th class="num">Valor</th><th class="num">%</th><th class="num">Itens</th></tr></thead><tbody>${contasHtml}</tbody></table>
-    <div class="fc-detail-list"><table class="fc-detail-table" style="margin-top:0;"><thead><tr><th>Data</th><th>Conta</th><th>Nome</th><th>Documento</th><th class="num">%</th><th class="num">Valor</th></tr></thead><tbody>${detalheHtml||`<tr><td colspan="6" style="color:var(--text3);">Sem lançamentos.</td></tr>`}</tbody></table></div>
+    <div class="fc-detail-list"><table class="fc-detail-table" style="margin-top:0;"><thead><tr><th>Data</th><th>Conta</th><th>Nome</th><th>Categoria</th><th class="num">%</th><th class="num">Valor</th></tr></thead><tbody>${detalheHtml||`<tr><td colspan="6" style="color:var(--text3);">Sem lançamentos.</td></tr>`}</tbody></table></div>
     ${linhas.length>120?`<div class="fc-detail-muted">Mostrando os primeiros 120 lançamentos.</div>`:''}
   `;
   el('fluxoFichaModal').classList.add('show');
