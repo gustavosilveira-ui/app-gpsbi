@@ -721,28 +721,35 @@ function construirPedidos(){
     if(!porPedido[k]) return;
     porPedido[k].valorPago += c.valorPago;
     if(c.situacao) porPedido[k].situacoes.add(c.situacao);
+    if(c.dtPagto && (!porPedido[k].dtPagto || c.dtPagto > porPedido[k].dtPagto)) porPedido[k].dtPagto = c.dtPagto;
   });
 
   return Object.values(porPedido).map(p=>{
     const mesRefEntrega = pedidoParaDtEntrega[p.pedido] || null;
+    const dtPagtoTxt = p.dtPagto ? `${p.dtPagto.slice(8,10)}/${p.dtPagto.slice(5,7)}/${p.dtPagto.slice(0,4)}` : '—';
     return {
       ...p,
       valorADep: p.valorPed - p.valorPago,
       mesRefEntregaTxt: mesRefEntrega ? `${mesRefEntrega.slice(5,7)}/${mesRefEntrega.slice(0,4)}` : '—',
       mesRefEntregaISO: mesRefEntrega,
-      pagoTxt: [...p.situacoes].join(', ') || '—',
+      pagoTxt: dtPagtoTxt,
     };
   })
   .filter(p => filtroAnoMes(p.mesRefEntregaISO) || (!p.mesRefEntregaISO && !selectedAno && !selectedMes));
 }
 
 function renderTabelaPedidos(){
-  const pedidos = construirPedidos().sort((a,b)=> (b.mesRefEntregaISO||'').localeCompare(a.mesRefEntregaISO||''));
-  let html = '<thead><tr><th style="text-align:left">Pedido</th><th style="text-align:left">Cliente</th><th style="text-align:left">Empresa</th><th>Mês Ref Entrega</th><th style="text-align:left">Pago</th><th>Valor Ped.</th><th>Valor Pago</th><th>Valor a Dep.</th></tr></thead><tbody>';
+  const ORDEM_EMPRESA = { 'Gymis':1, 'Ryngavi':2, 'Multicopos':3, 'Especial':4 };
+  const pedidos = construirPedidos().sort((a,b)=>{
+    const oa = ORDEM_EMPRESA[a.empresa]||99, ob = ORDEM_EMPRESA[b.empresa]||99;
+    if(oa!==ob) return oa-ob;
+    return (b.mesRefEntregaISO||'').localeCompare(a.mesRefEntregaISO||'');
+  });
+  let html = '<thead><tr><th style="text-align:left">Pedido</th><th style="text-align:left">Cliente</th><th style="text-align:left">Empresa</th><th>Mês Ref Entrega</th><th style="text-align:center">Pago</th><th>Valor Ped.</th><th>Valor Pago</th><th>Valor a Dep.</th></tr></thead><tbody>';
   let totalPed=0, totalPago=0, totalADep=0;
   pedidos.forEach(p=>{
     totalPed+=p.valorPed; totalPago+=p.valorPago; totalADep+=p.valorADep;
-    html += `<tr><td style="text-align:left">${p.pedido}</td><td style="text-align:left">${p.cliente}</td><td style="text-align:left">${p.empresa}</td><td>${p.mesRefEntregaTxt}</td><td style="text-align:left">${p.pagoTxt}</td><td>${fmtBRLFull(p.valorPed)}</td><td>${fmtBRLFull(p.valorPago)}</td><td>${fmtBRLFull(p.valorADep)}</td></tr>`;
+    html += `<tr><td style="text-align:left">${p.pedido}</td><td style="text-align:left">${p.cliente}</td><td style="text-align:left">${p.empresa}</td><td>${p.mesRefEntregaTxt}</td><td style="text-align:center">${p.pagoTxt}</td><td>${fmtBRLFull(p.valorPed)}</td><td>${fmtBRLFull(p.valorPago)}</td><td>${fmtBRLFull(p.valorADep)}</td></tr>`;
   });
   html += `<tr class="linha-total"><td style="text-align:left" colspan="5">Total</td><td>${fmtBRLFull(totalPed)}</td><td>${fmtBRLFull(totalPago)}</td><td>${fmtBRLFull(totalADep)}</td></tr>`;
   html += '</tbody>';
