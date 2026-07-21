@@ -185,6 +185,9 @@ table.tabela-simples td{text-align:right;padding:8px 10px;font-family:'DM Mono',
 table.tabela-simples td:first-child{text-align:left;font-family:'Sora',sans-serif;font-weight:600;}
 table.tabela-simples tr:last-child td{border-bottom:none;}
 table.tabela-simples tr.linha-total td{font-weight:800;border-top:2px solid var(--border2);}
+#tabelaIndicadores{table-layout:fixed;}
+#tabelaIndicadores th:first-child, #tabelaIndicadores td:first-child{width:16%;}
+#tabelaIndicadores th:not(:first-child), #tabelaIndicadores td:not(:first-child){width:14%;}
 
 @media(max-width:760px){
   .app-topbar{padding:10px 14px;}
@@ -480,6 +483,7 @@ async function carregarVendas(){
       empresa, fonte, data, dataEntrega, dataFaturamento,
       situacao, situacaoNf,
       codPedido: (getColNormalized(r,'cod pedido')||'').toString().trim(),
+      nomeCliente: (getColNormalized(r,'nome cliente')||'').toString().trim(),
       condPagto: (getColNormalized(r,'cond pagto')||'').toString().trim(),
       tipoContribuinte: (getColNormalized(r,'tipo de contribuinte')||'').toString().trim(),
       valorFaturado: parseMoneyBR(getColNormalized(r,'valor faturado')),
@@ -681,24 +685,40 @@ function construirPedidos(){
   const porPedido = {};
   const chave = (empresa,pedido)=>empresa+'|'+pedido;
 
-  // A tabela só pode trazer pedido ainda PENDENTE (Situação = Pedido /
-  // Pedido Aprovado / Separado Total na venda) — não qualquer pedido
-  // com "Depósito Antecipado". Sem isso, pedido já pago/faturado
-  // (Situação = Pago, Faturado etc.) entrava também, e por isso a
-  // tabela vinha enorme mesmo depois do filtro de Cond Pagto.
-  const pedidosPendentesSet = new Set();
-  vendasPendentes.forEach(r=>{ if(r.codPedido) pedidosPendentesSet.add(r.codPedido); });
-  vendasRows.forEach(r=>{ if(r.codPedido && normalizeTxt(r.situacao)==='separado total') pedidosPendentesSet.add(r.codPedido); });
-
-  vencRows.forEach(v=>{
-    const k = chave(v.empresa, v.pedido);
-    if(!porPedido[k]) porPedido[k] = { empresa:v.empresa, pedido:v.pedido, cliente:v.cliente, valorPed:0, valorPago:0, situacoes:new Set() };
-    porPedido[k].valorPed += v.vlTotalTitulo;
-    if(v.situacao) porPedido[k].situacoes.add(v.situacao);
+  // A medida do Power BI monta a lista de pedidos a partir da VENDA
+  // (FatoVendas), não do financeiro — o financeiro (venc_/cr_) só é
+  // usado depois pra achar o Valor Pago. Um pedido pode não ter título
+  // gerado ainda no financeiro e mesmo assim precisa aparecer aqui.
+  // Critério (igual a medida "Pedidos_Vendas_DepAnt"): Situação IN
+  // (Pedido, Pedido Aprovado, Separado Total) E Cond Pagto = "Depósito
+  // Antecipado".
+  const todasAsLinhas = [...vendasRows, ...vendasPendentes];
+  const pedidosElegiveis = new Set();
+  todasAsLinhas.forEach(r=>{
+    if(!r.codPedido) return;
+    const s = normalizeTxt(r.situacao);
+    const cond = normalizeTxt(r.condPagto||'');
+    if(cond==='deposito antecipado' && (s==='pedido'||s==='pedido aprovado'||s==='separado total')){
+      pedidosElegiveis.add(chave(r.empresa, r.codPedido));
+    }
   });
+
+  // Valor Ped. = soma de TODAS as linhas daquele Cod Pedido (Valor
+  // Faturado + ICMS ST + Total com IPI — nossa aproximação de "Total
+  // sem IPI"), igual ALL(FatoVendas) da medida original.
+  todasAsLinhas.forEach(r=>{
+    if(!r.codPedido) return;
+    const k = chave(r.empresa, r.codPedido);
+    if(!pedidosElegiveis.has(k)) return;
+    if(!porPedido[k]) porPedido[k] = { empresa:r.empresa, pedido:r.codPedido, cliente:r.nomeCliente||'', valorPed:0, valorPago:0, situacoes:new Set() };
+    porPedido[k].valorPed += (r.valorFaturado||0) + (r.icmsSt||0) + (r.totalComIpi||0);
+    if(!porPedido[k].cliente && r.nomeCliente) porPedido[k].cliente = r.nomeCliente;
+  });
+
+  // Valor Pago vem do financeiro (cr_), só complementando quem já é elegível.
   crRows.forEach(c=>{
     const k = chave(c.empresa, c.pedido);
-    if(!porPedido[k]) porPedido[k] = { empresa:c.empresa, pedido:c.pedido, cliente:c.cliente, valorPed:0, valorPago:0, situacoes:new Set() };
+    if(!porPedido[k]) return;
     porPedido[k].valorPago += c.valorPago;
     if(c.situacao) porPedido[k].situacoes.add(c.situacao);
   });
@@ -713,16 +733,6 @@ function construirPedidos(){
       pagoTxt: [...p.situacoes].join(', ') || '—',
     };
   })
-  // Só entra na tabela quem tem Cond Pagto = "Depósito Antecipado" na
-  // venda (join pelo Cod Pedido) — mesmo filtro da medida
-  // Pedidos_Vendas_DepAnt do Power BI. Sem isso a tabela vinha com
-  // pedido demais (todo mundo com título em aberto, não só os de
-  // depósito antecipado).
-  .filter(p => {
-    const cond = normalizeTxt(pedidoParaCondPagto[p.pedido] || '');
-    return cond === 'deposito antecipado';
-  })
-  .filter(p => pedidosPendentesSet.has(p.pedido))
   .filter(p => filtroAnoMes(p.mesRefEntregaISO) || (!p.mesRefEntregaISO && !selectedAno && !selectedMes));
 }
 
