@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aprovações · Hub GPSBI Domine</title>
+<?!= include_('Theme'); ?>
+<style>
+.req-item{background:var(--navy3);border-radius:12px;padding:16px 18px;margin-bottom:12px;}
+.req-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;flex-wrap:wrap;}
+.req-titulo{font-size:14px;font-weight:800;}
+.req-meta{font-size:11.5px;color:var(--text3);margin-top:2px;}
+.req-descricao{font-size:12.5px;color:var(--text2);background:var(--navy4);padding:10px 12px;border-radius:8px;margin:10px 0;}
+.req-actions{display:flex;gap:8px;margin-top:8px;}
+.req-resposta{font-size:12px;color:var(--text2);margin-top:8px;padding-top:8px;border-top:1px solid var(--border);}
+.tabs{display:flex;gap:6px;margin-bottom:16px;}
+.tab-btn{padding:8px 16px;border-radius:999px;background:var(--navy3);border:1px solid var(--border2);color:var(--text2);font-size:12.5px;font-weight:700;cursor:pointer;}
+.tab-btn.active{background:linear-gradient(90deg,var(--blue),var(--cyan));color:#fff;border-color:transparent;}
+</style>
+</head>
+<body style="visibility:hidden;">
+
+<div class="loading-screen" id="loadingScreen"><div class="spinner"></div><p>Carregando aprovações...</p></div>
+
+<div id="mainContent" style="display:none;">
+  <div class="content">
+    <div class="card" id="newReqCard">
+      <div class="card-title">✅ Nova solicitação</div>
+      <div class="card-sub">Troca de rota, custo extra, ajuste de horário — o que precisar de aprovação do gestor.</div>
+      <div class="field-row">
+        <div class="field-group"><label class="field-label">Motorista relacionado (opcional)</label><input type="text" id="reqMotorista" placeholder="Nome do motorista"></div>
+        <div class="field-group"><label class="field-label">Tipo de solicitação</label><input type="text" id="reqTipo" placeholder="Ex: Troca de rota, custo extra..."></div>
+      </div>
+      <div class="field-group"><label class="field-label">Descrição</label><textarea id="reqDescricao" placeholder="Detalhe o que está pedindo e por quê..."></textarea></div>
+      <button class="btn btn-primary" onclick="submitRequest()">Enviar solicitação</button>
+    </div>
+    <div class="card">
+      <div class="card-title" id="listTitle">Minhas solicitações</div>
+      <div class="tabs" id="tabsWrap" style="display:none;">
+        <button class="tab-btn active" data-tab="pendente" onclick="setTab('pendente')">Pendentes</button>
+        <button class="tab-btn" data-tab="todos" onclick="setTab('todos')">Todos</button>
+      </div>
+      <div id="reqListWrap"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+window.TOKEN = "<?= token ?>";
+window.EMPRESA = "";
+window.ACTIVE_PAGE = "aprovacoes";
+</script>
+<?!= include_('NavScript'); ?>
+<script>
+let papelUsuario = 'comum';
+let currentTab = 'pendente';
+let listaCache = [];
+function el(id){ return document.getElementById(id); }
+
+function init(){
+  google.script.run.withSuccessHandler(usuario=>{
+    if(!usuario){ irParaLogin(); return; }
+    renderTopbar(usuario.nome);
+    papelUsuario = usuario.papel;
+    if(papelUsuario==='admin'){
+      el('newReqCard').style.display='none';
+      el('listTitle').textContent='Solicitações da equipe';
+      el('tabsWrap').style.display='flex';
+    }
+    document.body.style.visibility='visible';
+    el('loadingScreen').style.display='none';
+    el('mainContent').style.display='block';
+    carregarLista();
+  }).withFailureHandler(irParaLogin).getUsuarioLogado(window.TOKEN);
+}
+function irParaLogin(){ window.top.location.href = window.location.href.split('?')[0] + '?page=login'; }
+
+function setTab(t){
+  currentTab = t;
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.tab===t));
+  renderLista();
+}
+function carregarLista(){
+  google.script.run.withSuccessHandler(dados=>{ listaCache = dados.lista; renderLista(); }).withFailureHandler(e=>alert('Erro: '+e.message)).getAprovacoes(window.TOKEN);
+}
+function renderLista(){
+  let lista = listaCache;
+  if(papelUsuario==='admin' && currentTab==='pendente') lista = lista.filter(a=>a.status==='pendente');
+  if(!lista.length){ el('reqListWrap').innerHTML = `<div class="empty-state"><div class="icon">✅</div>${papelUsuario==='admin'&&currentTab==='pendente'?'Nenhuma pendente. Tudo em dia!':'Nenhuma solicitação ainda.'}</div>`; return; }
+  el('reqListWrap').innerHTML = lista.map(a=>{
+    const badgeClass = a.status==='aprovado'?'badge-aprovado':a.status==='recusado'?'badge-recusado':'badge-pendente';
+    const badgeLabel = a.status==='aprovado'?'✓ Aprovado':a.status==='recusado'?'✕ Recusado':'⏳ Pendente';
+    const actions = (papelUsuario==='admin' && a.status==='pendente') ? `
+      <div class="req-actions">
+        <button class="btn btn-primary btn-sm" onclick="responder('${a.id}','aprovado')">Aprovar</button>
+        <button class="btn btn-danger btn-sm" onclick="responder('${a.id}','recusado')">Recusar</button>
+      </div>` : '';
+    const resposta = a.resposta ? `<div class="req-resposta"><b>${a.respondidoPor} respondeu:</b> ${a.resposta}</div>` : '';
+    return `<div class="req-item">
+      <div class="req-head">
+        <div><div class="req-titulo">${a.tipo}${a.motorista?' · '+a.motorista:''}</div><div class="req-meta">${a.solicitante} · ${a.criadoEm}</div></div>
+        <span class="badge ${badgeClass}">${badgeLabel}</span>
+      </div>
+      <div class="req-descricao">${a.descricao}</div>
+      ${resposta}
+      ${actions}
+    </div>`;
+  }).join('');
+}
+function submitRequest(){
+  const motorista = el('reqMotorista').value.trim();
+  const tipo = el('reqTipo').value.trim();
+  const descricao = el('reqDescricao').value.trim();
+  if(!tipo || !descricao){ alert('Preencha ao menos o tipo e a descrição.'); return; }
+  google.script.run.withSuccessHandler(res=>{
+    if(!res.ok){ alert('Erro: '+res.erro); return; }
+    el('reqMotorista').value=''; el('reqTipo').value=''; el('reqDescricao').value='';
+    carregarLista();
+  }).criarAprovacao(window.TOKEN, motorista, tipo, descricao);
+}
+function responder(id, status){
+  const resposta = prompt(status==='aprovado' ? 'Alguma observação? (opcional)' : 'Motivo da recusa (opcional):') || '';
+  google.script.run.withSuccessHandler(res=>{
+    if(!res.ok){ alert('Erro: '+res.erro); return; }
+    carregarLista();
+  }).responderAprovacao(window.TOKEN, id, status, resposta);
+}
+init();
+</script>
+</body>
+</html>

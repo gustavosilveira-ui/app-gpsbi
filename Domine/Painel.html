@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel · Hub GPSBI Domine</title>
+<?!= include_('Theme'); ?>
+<style>
+.tabs{display:flex;gap:6px;margin-bottom:16px;}
+.tab-btn{padding:8px 16px;border-radius:999px;background:var(--navy3);border:1px solid var(--border2);color:var(--text2);font-size:12.5px;font-weight:700;cursor:pointer;}
+.tab-btn.active{background:linear-gradient(90deg,var(--blue),var(--cyan));color:#fff;border-color:transparent;}
+.page-section{display:none;}
+.page-section.active{display:block;}
+.tabela-scroll{overflow-x:auto;}
+.meta-dias-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-bottom:14px;}
+.meta-dias-grid label{font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:4px;display:block;}
+.vigencia-item{background:var(--navy3);border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:12px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;}
+.vigencia-item b{color:var(--text2);}
+</style>
+</head>
+<body style="visibility:hidden;">
+
+<div class="loading-screen" id="loadingScreen">
+  <div class="spinner"></div>
+  <p>Carregando o painel...</p>
+</div>
+
+<div id="mainContent" style="display:none;">
+  <div class="content wide">
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+        <div>
+          <div class="card-title">📊 Painel Operacional</div>
+          <div class="card-sub" id="periodoAtualLabel">Período atual: --</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <label class="field-label" style="margin:0;">Empresa</label>
+          <select id="empresaSelect" style="width:auto;min-width:140px;" onchange="trocarEmpresa()">
+            <option value="DC">DC</option>
+            <option value="BENASSI">BENASSI</option>
+            <option value="C&F">C&F</option>
+            <option value="YAMALOG">YAMALOG</option>
+            <option value="ROMANATO">ROMANATO</option>
+          </select>
+        </div>
+      </div>
+      <div class="tabs" style="margin-top:16px;">
+        <button class="tab-btn active" id="btnResumo" onclick="mostrarAba('resumo')">Resumo</button>
+        <button class="tab-btn" id="btnOperacao" onclick="mostrarAba('operacao')">Operação Detalhada</button>
+        <button class="tab-btn" id="btnMetas" onclick="mostrarAba('metas')">🎯 Definir Meta Semanal</button>
+      </div>
+    </div>
+
+    <div id="secResumo" class="page-section active">
+      <div class="kpi-grid">
+        <div class="kpi-card"><div class="kpi-label">Previsto</div><div class="kpi-value" id="kpiPrevisto">0</div></div>
+        <div class="kpi-card"><div class="kpi-label">Realizado</div><div class="kpi-value" id="kpiRealizado">0</div></div>
+        <div class="kpi-card" id="kpiMetaCard"><div class="kpi-label">% Meta</div><div class="kpi-value" id="kpiPercMeta">0%</div><div class="kpi-bar"><div class="kpi-bar-fill" id="kpiBarMeta" style="width:0%;"></div></div></div>
+        <div class="kpi-card"><div class="kpi-label">Total Frete TAC</div><div class="kpi-value" id="kpiFrete">R$ 0</div></div>
+        <div class="kpi-card"><div class="kpi-label">Ticket Médio Frete</div><div class="kpi-value" id="kpiTicket">R$ 0</div></div>
+        <div class="kpi-card"><div class="kpi-label">Qtd. com Frete</div><div class="kpi-value" id="kpiQtdFrete">0</div></div>
+      </div>
+
+      <div class="card" style="margin-top:18px;">
+        <div class="card-title">Resumo por Dia</div>
+        <table class="data-table">
+          <thead><tr><th>Dia</th><th>Realizado</th><th>Previsto</th><th>% Meta</th></tr></thead>
+          <tbody id="tabelaDias"></tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Resumo Semanal e Mensal</div>
+        <table class="data-table">
+          <thead><tr><th>Resumo</th><th>Realizado</th><th>Previsto</th><th>% Meta</th></tr></thead>
+          <tbody>
+            <tr><td>Semana</td><td id="semanaRealizado">0</td><td id="semanaPrevisto">0</td><td id="semanaPerc"></td></tr>
+            <tr><td>Mês</td><td id="mesRealizado">0</td><td id="mesPrevisto">0</td><td id="mesPerc"></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Resumo por Tipo de Frete</div>
+        <table class="data-table">
+          <thead><tr><th>Tipo de Frete</th><th>Qtd.</th><th>Valor Frete TAC</th><th>% Participação</th></tr></thead>
+          <tbody id="tabelaFrete"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="secOperacao" class="page-section">
+      <div class="card">
+        <div class="card-title">Operação Detalhada</div>
+        <div class="card-sub" id="periodoOperacaoLabel">Período atual: --</div>
+        <div class="tabela-scroll">
+          <table class="data-table">
+            <thead><tr id="operacaoHead"></tr></thead>
+            <tbody id="operacaoBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div id="secMetas" class="page-section">
+      <div class="card">
+        <div class="card-title">🎯 Definir Meta Semanal</div>
+        <div class="card-sub">Meta de saídas por dia da semana, pra empresa selecionada acima. Vale a partir da data de início escolhida — datas anteriores continuam usando a meta antiga (histórico preservado).</div>
+        <div class="field-group">
+          <label class="field-label">Data de início da vigência</label>
+          <input type="date" id="metaDataInicio">
+        </div>
+        <div class="meta-dias-grid">
+          <div><label>Domingo</label><input type="number" id="metaDom" value="0"></div>
+          <div><label>Segunda</label><input type="number" id="metaSeg" value="0"></div>
+          <div><label>Terça</label><input type="number" id="metaTer" value="0"></div>
+          <div><label>Quarta</label><input type="number" id="metaQua" value="0"></div>
+          <div><label>Quinta</label><input type="number" id="metaQui" value="0"></div>
+          <div><label>Sexta</label><input type="number" id="metaSex" value="0"></div>
+          <div><label>Sábado</label><input type="number" id="metaSab" value="0"></div>
+        </div>
+        <button class="btn btn-primary" onclick="salvarMeta()">Salvar meta semanal</button>
+      </div>
+      <div class="card">
+        <div class="card-title">Histórico de vigências — <span id="metaEmpresaLabel">DC</span></div>
+        <div id="vigenciasList"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+window.TOKEN = "<?= token ?>";
+window.EMPRESA = "<?= empresa ?>";
+window.ACTIVE_PAGE = "painel";
+</script>
+<?!= include_('NavScript'); ?>
+<script>
+let empresaAtual = window.EMPRESA || "DC";
+let abaAtual = "resumo";
+
+function el(id){ return document.getElementById(id); }
+function fmtBRL(n){ return Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL',minimumFractionDigits:2,maximumFractionDigits:2}); }
+
+function init(){
+  google.script.run.withSuccessHandler(usuario=>{
+    if(!usuario){ irParaLogin(); return; }
+    renderTopbar(usuario.nome);
+    document.body.style.visibility = 'visible';
+    el('empresaSelect').value = empresaAtual;
+    el('loadingScreen').style.display = 'none';
+    el('mainContent').style.display = 'block';
+    carregarDashboard();
+  }).withFailureHandler(irParaLogin).getUsuarioLogado(window.TOKEN);
+}
+function irParaLogin(){ window.top.location.href = window.location.href.split('?')[0] + '?page=login'; }
+
+function trocarEmpresa(){
+  empresaAtual = el('empresaSelect').value;
+  carregarDashboard();
+}
+function mostrarAba(aba){
+  abaAtual = aba;
+  ['resumo','operacao','metas'].forEach(a=>{
+    el('sec'+a.charAt(0).toUpperCase()+a.slice(1)).classList.toggle('active', a===aba);
+    el('btn'+a.charAt(0).toUpperCase()+a.slice(1)).classList.toggle('active', a===aba);
+  });
+  if(aba==='operacao') carregarOperacao();
+  if(aba==='metas') carregarMetas();
+}
+
+function carregarDashboard(){
+  google.script.run.withSuccessHandler(renderizarResumo).withFailureHandler(erroGenerico).getDashboardData(window.TOKEN, empresaAtual);
+}
+function carregarOperacao(){
+  google.script.run.withSuccessHandler(renderizarOperacao).withFailureHandler(erroGenerico).getDetalheOperacional(window.TOKEN, empresaAtual);
+}
+function erroGenerico(e){ alert('Erro: '+e.message); }
+
+function corFarol(pct){
+  if(pct>=100) return '#16a34a';
+  if(pct>=80) return '#eab308';
+  if(pct>0) return '#dc2626';
+  return '#586a89';
+}
+function farolHtml(pct){ return `<span class="farol-badge" style="background:${corFarol(pct)};">${pct}%</span>`; }
+
+function renderizarResumo(dados){
+  el('periodoAtualLabel').textContent = 'Período atual: ' + dados.periodoAtual;
+  el('kpiPrevisto').textContent = dados.previsto;
+  el('kpiRealizado').textContent = dados.realizado;
+  el('kpiPercMeta').textContent = dados.percMeta + '%';
+  el('kpiBarMeta').style.width = Math.min(dados.percMeta,100) + '%';
+  const cor = corFarol(dados.percMeta);
+  el('kpiBarMeta').style.background = cor;
+  el('kpiMetaCard').style.borderLeftColor = cor;
+
+  const frete = dados.frete || { totalFrete:0, ticketMedioFrete:0, qtdComFrete:0, porTipo:[] };
+  el('kpiFrete').textContent = fmtBRL(frete.totalFrete);
+  el('kpiTicket').textContent = fmtBRL(frete.ticketMedioFrete);
+  el('kpiQtdFrete').textContent = frete.qtdComFrete || 0;
+
+  const diaAtual = new Date().getDay();
+  el('tabelaDias').innerHTML = dados.diasSemana.map((item,idx)=>`
+    <tr>
+      <td>${idx===diaAtual?'<b>'+item.nome+'</b>':item.nome}</td>
+      <td>${item.realizado}</td>
+      <td>${item.previsto}</td>
+      <td>${farolHtml(item.percMeta)}</td>
+    </tr>`).join('');
+
+  el('tabelaFrete').innerHTML = (!frete.porTipo || !frete.porTipo.length)
+    ? `<tr><td colspan="4">Nenhuma informação de frete encontrada para este período.</td></tr>`
+    : frete.porTipo.map(item=>`<tr><td>${item.tipo}</td><td>${item.qtd}</td><td>${fmtBRL(item.valor)}</td><td>${item.percQtd}%</td></tr>`).join('');
+
+  el('semanaRealizado').textContent = dados.semana.realizado;
+  el('semanaPrevisto').textContent = dados.semana.previsto;
+  el('semanaPerc').innerHTML = farolHtml(dados.semana.percMeta);
+  el('mesRealizado').textContent = dados.mes.realizado;
+  el('mesPrevisto').textContent = dados.mes.previsto;
+  el('mesPerc').innerHTML = farolHtml(dados.mes.percMeta);
+}
+
+function renderizarOperacao(dados){
+  el('periodoOperacaoLabel').textContent = 'Período atual: ' + dados.periodoAtual;
+  el('operacaoHead').innerHTML = dados.colunas.map(c=>`<th>${c}</th>`).join('');
+  el('operacaoBody').innerHTML = !dados.linhas.length
+    ? `<tr><td colspan="${dados.colunas.length}">Nenhum registro encontrado para este período.</td></tr>`
+    : dados.linhas.map(linha=>`<tr>${linha.map(v=>`<td>${v}</td>`).join('')}</tr>`).join('');
+}
+
+/* ---- Meta semanal ---- */
+function carregarMetas(){
+  el('metaEmpresaLabel').textContent = empresaAtual;
+  el('metaDataInicio').value = new Date().toISOString().slice(0,10);
+  google.script.run.withSuccessHandler(renderizarVigencias).withFailureHandler(erroGenerico).getMetasVigentes(window.TOKEN, empresaAtual);
+}
+function renderizarVigencias(lista){
+  const nomesDias = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+  el('vigenciasList').innerHTML = !lista.length
+    ? '<div class="empty-state">Nenhuma meta cadastrada ainda pra essa empresa.</div>'
+    : lista.map(v=>`
+      <div class="vigencia-item">
+        <span><b>Desde ${v.dataInicioVigencia}:</b> ${v.valores.map((val,i)=>nomesDias[i]+'='+val).join(', ')}</span>
+        <span><b>Total semana: ${v.total}</b></span>
+      </div>`).join('');
+}
+function salvarMeta(){
+  const dataInicio = el('metaDataInicio').value;
+  const valores = [
+    Number(el('metaDom').value)||0, Number(el('metaSeg').value)||0, Number(el('metaTer').value)||0,
+    Number(el('metaQua').value)||0, Number(el('metaQui').value)||0, Number(el('metaSex').value)||0, Number(el('metaSab').value)||0
+  ];
+  if(!dataInicio){ alert('Escolha a data de início da vigência.'); return; }
+  google.script.run.withSuccessHandler(res=>{
+    if(!res.ok){ alert('Erro: '+res.erro); return; }
+    alert('Meta salva!');
+    carregarMetas();
+    carregarDashboard();
+  }).withFailureHandler(erroGenerico).salvarMetaSemanal(window.TOKEN, empresaAtual, dataInicio, valores);
+}
+
+init();
+</script>
+</body>
+</html>

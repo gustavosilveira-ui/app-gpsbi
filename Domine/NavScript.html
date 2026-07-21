@@ -1,0 +1,32 @@
+<script>
+// Espera que a página que incluir isso já tenha definido, antes desse
+// include: window.TOKEN, window.EMPRESA (pode ser vazio), window.ACTIVE_PAGE
+function renderTopbar(nomeUsuario){
+  const pages = [
+    { key:'painel', label:'📊 Painel', href:'?page=painel&token='+encodeURIComponent(window.TOKEN)+(window.EMPRESA?('&empresa='+encodeURIComponent(window.EMPRESA)):'') },
+    { key:'agenda', label:'🗓️ Agenda', href:'?page=agenda&token='+encodeURIComponent(window.TOKEN) },
+    { key:'mural', label:'📣 Mural', href:'?page=mural&token='+encodeURIComponent(window.TOKEN) },
+    { key:'aprovacoes', label:'✅ Aprovações', href:'?page=aprovacoes&token='+encodeURIComponent(window.TOKEN) },
+  ];
+  const navLinks = pages.map(p=>`<a class="${p.key===window.ACTIVE_PAGE?'active':''}" href="${p.href}">${p.label}</a>`).join('');
+  const initials = (nomeUsuario||'--').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+  const html = `
+  <div class="app-topbar">
+    <div class="app-brand"><span class="dot"></span> Hub GPSBI · Domine</div>
+    <nav class="app-nav">${navLinks}</nav>
+    <div class="app-right">
+      <div class="app-user-chip"><div class="app-user-avatar">${initials}</div><span>${nomeUsuario||''}</span></div>
+      <div class="app-logout" id="appLogoutBtn" title="Sair"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg></div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('afterbegin', html);
+  document.getElementById('appLogoutBtn').addEventListener('click', ()=>{
+    google.script.run.logout(window.TOKEN);
+    window.top.location.href = getBaseExecUrl_() + '?page=login';
+  });
+}
+// Descobre a URL base do próprio Web App (sem query string) a partir da localização atual.
+function getBaseExecUrl_(){
+  return window.location.href.split('?')[0];
+}
+</script>

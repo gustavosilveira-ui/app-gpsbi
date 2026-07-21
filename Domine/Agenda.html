@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agenda · Hub GPSBI Domine</title>
+<?!= include_('Theme'); ?>
+<style>
+.task-list{display:flex;flex-direction:column;gap:8px;}
+.task-item{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;background:var(--navy3);}
+.task-item.done{opacity:.5;}
+.task-item.done .task-title{text-decoration:line-through;}
+.task-check{width:20px;height:20px;flex:none;accent-color:var(--cyan);cursor:pointer;}
+.task-body{flex:1;min-width:0;}
+.task-title{font-size:13px;font-weight:600;}
+.task-date{font-size:11px;color:var(--text3);margin-top:2px;}
+.task-date.overdue{color:var(--neg);font-weight:700;}
+.task-del{flex:none;width:28px;height:28px;border-radius:8px;background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:15px;}
+.task-del:hover{background:rgba(239,106,106,.12);color:var(--neg);}
+.section-label{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);font-weight:700;margin:18px 0 8px;}
+.section-label:first-child{margin-top:0;}
+.new-task-row{display:flex;gap:10px;margin-bottom:6px;}
+.new-task-row input[type="text"]{flex:1;}
+.new-task-row input[type="date"]{width:160px;flex:none;}
+@media(max-width:600px){.new-task-row{flex-direction:column;}.new-task-row input[type="date"]{width:100%;}}
+</style>
+</head>
+<body style="visibility:hidden;">
+
+<div class="loading-screen" id="loadingScreen"><div class="spinner"></div><p>Carregando sua agenda...</p></div>
+
+<div id="mainContent" style="display:none;">
+  <div class="content">
+    <div class="card">
+      <div class="card-title">🗓️ Minha Agenda</div>
+      <div class="card-sub">Suas tarefas pessoais.</div>
+      <div class="new-task-row">
+        <input type="text" id="newTaskTitle" placeholder="O que você precisa fazer?">
+        <input type="date" id="newTaskDate">
+        <button class="btn btn-primary" onclick="addTask()">Adicionar</button>
+      </div>
+    </div>
+    <div class="card"><div id="taskListWrap"></div></div>
+  </div>
+</div>
+
+<script>
+window.TOKEN = "<?= token ?>";
+window.EMPRESA = "";
+window.ACTIVE_PAGE = "agenda";
+</script>
+<?!= include_('NavScript'); ?>
+<script>
+let tasksCache = [];
+function el(id){ return document.getElementById(id); }
+
+function init(){
+  google.script.run.withSuccessHandler(usuario=>{
+    if(!usuario){ irParaLogin(); return; }
+    renderTopbar(usuario.nome);
+    document.body.style.visibility='visible';
+    el('loadingScreen').style.display='none';
+    el('mainContent').style.display='block';
+    carregarTarefas();
+  }).withFailureHandler(irParaLogin).getUsuarioLogado(window.TOKEN);
+}
+function irParaLogin(){ window.top.location.href = window.location.href.split('?')[0] + '?page=login'; }
+
+function carregarTarefas(){
+  google.script.run.withSuccessHandler(dados=>{ tasksCache = dados; renderTasks(); }).withFailureHandler(e=>alert('Erro: '+e.message)).getTarefas(window.TOKEN);
+}
+function renderTasks(){
+  const todayStr = new Date().toISOString().slice(0,10);
+  const pendentes = tasksCache.filter(t=>!t.feito).sort((a,b)=>a.dataTarefa.localeCompare(b.dataTarefa));
+  const feitas = tasksCache.filter(t=>t.feito);
+  if(!tasksCache.length){ el('taskListWrap').innerHTML = '<div class="empty-state"><div class="icon">🗓️</div>Nenhuma tarefa ainda. Adicione a primeira acima!</div>'; return; }
+  const renderItem = (t)=>{
+    const overdue = !t.feito && t.dataTarefa < todayStr;
+    const dateLabel = new Date(t.dataTarefa+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'short'});
+    return `<div class="task-item ${t.feito?'done':''}">
+      <input type="checkbox" class="task-check" ${t.feito?'checked':''} onchange="toggleTask('${t.id}', this.checked)">
+      <div class="task-body"><div class="task-title">${t.titulo}</div><div class="task-date ${overdue?'overdue':''}">${overdue?'Atrasada · ':''}${dateLabel}</div></div>
+      <button class="task-del" onclick="deleteTask('${t.id}')" title="Excluir">✕</button>
+    </div>`;
+  };
+  let html = '';
+  if(pendentes.length) html += '<div class="section-label">Pendentes</div><div class="task-list">' + pendentes.map(renderItem).join('') + '</div>';
+  if(feitas.length) html += '<div class="section-label">Concluídas</div><div class="task-list">' + feitas.map(renderItem).join('') + '</div>';
+  el('taskListWrap').innerHTML = html;
+}
+function addTask(){
+  const titulo = el('newTaskTitle').value.trim();
+  const data = el('newTaskDate').value || new Date().toISOString().slice(0,10);
+  if(!titulo) return;
+  google.script.run.withSuccessHandler(res=>{
+    if(!res.ok){ alert('Erro: '+res.erro); return; }
+    el('newTaskTitle').value=''; el('newTaskDate').value='';
+    carregarTarefas();
+  }).addTarefa(window.TOKEN, titulo, data);
+}
+function toggleTask(id, feito){
+  google.script.run.withSuccessHandler(carregarTarefas).toggleTarefa(window.TOKEN, id, feito);
+}
+function deleteTask(id){
+  if(!confirm('Excluir essa tarefa?')) return;
+  google.script.run.withSuccessHandler(carregarTarefas).excluirTarefa(window.TOKEN, id);
+}
+init();
+</script>
+</body>
+</html>

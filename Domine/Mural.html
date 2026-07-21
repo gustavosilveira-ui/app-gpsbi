@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mural · Hub GPSBI Domine</title>
+<?!= include_('Theme'); ?>
+<style>
+.post-item{background:var(--navy3);border-radius:12px;padding:16px 18px;margin-bottom:12px;}
+.post-item.pinned{border:1px solid rgba(245,185,66,.4);}
+.post-head{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+.post-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),var(--blue));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff;flex:none;}
+.post-meta{flex:1;min-width:0;}
+.post-author{font-size:12.5px;font-weight:700;}
+.post-date{font-size:10.5px;color:var(--text3);}
+.pin-badge{font-size:10px;background:rgba(245,185,66,.15);color:var(--gold);padding:3px 8px;border-radius:999px;font-weight:700;flex:none;}
+.post-title{font-size:14px;font-weight:800;margin-bottom:4px;}
+.post-msg{font-size:13px;color:var(--text2);line-height:1.5;white-space:pre-wrap;margin-bottom:10px;}
+.post-actions{display:flex;align-items:center;gap:10px;}
+.like-btn{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:var(--navy4);border:1px solid var(--border2);cursor:pointer;font-size:12px;font-weight:700;color:var(--text2);}
+.like-btn.liked{background:rgba(58,233,209,.15);color:var(--cyan);border-color:rgba(58,233,209,.3);}
+.post-del{margin-left:auto;background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:12px;}
+.post-del:hover{color:var(--neg);}
+</style>
+</head>
+<body style="visibility:hidden;">
+
+<div class="loading-screen" id="loadingScreen"><div class="spinner"></div><p>Carregando o mural...</p></div>
+
+<div id="mainContent" style="display:none;">
+  <div class="content">
+    <div class="card" id="newPostCard" style="display:none;">
+      <div class="card-title">📣 Novo comunicado</div>
+      <div class="card-sub">Só administradores podem publicar — todo mundo vê.</div>
+      <div class="field-group"><label class="field-label">Título</label><input type="text" id="postTitulo" placeholder="Ex: Novo motorista na equipe, mudança de rota..."></div>
+      <div class="field-group"><label class="field-label">Mensagem</label><textarea id="postMensagem" placeholder="Escreva o comunicado..."></textarea></div>
+      <div class="field-group" style="display:flex;align-items:center;gap:8px;">
+        <input type="checkbox" id="postFixado" style="width:auto;">
+        <label for="postFixado" style="font-size:12.5px;color:var(--text2);">Fixar no topo</label>
+      </div>
+      <button class="btn btn-primary" onclick="submitPost()">Publicar</button>
+    </div>
+    <div class="card">
+      <div class="card-title">Mural da Equipe</div>
+      <div class="card-sub">Comunicados e avisos internos.</div>
+      <div id="postsWrap"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+window.TOKEN = "<?= token ?>";
+window.EMPRESA = "";
+window.ACTIVE_PAGE = "mural";
+</script>
+<?!= include_('NavScript'); ?>
+<script>
+let papelUsuario = 'comum';
+function el(id){ return document.getElementById(id); }
+
+function init(){
+  google.script.run.withSuccessHandler(usuario=>{
+    if(!usuario){ irParaLogin(); return; }
+    renderTopbar(usuario.nome);
+    papelUsuario = usuario.papel;
+    if(papelUsuario==='admin') el('newPostCard').style.display='block';
+    document.body.style.visibility='visible';
+    el('loadingScreen').style.display='none';
+    el('mainContent').style.display='block';
+    carregarMural();
+  }).withFailureHandler(irParaLogin).getUsuarioLogado(window.TOKEN);
+}
+function irParaLogin(){ window.top.location.href = window.location.href.split('?')[0] + '?page=login'; }
+
+function carregarMural(){
+  google.script.run.withSuccessHandler(renderPosts).withFailureHandler(e=>alert('Erro: '+e.message)).getMural(window.TOKEN);
+}
+function renderPosts(dados){
+  const posts = dados.posts;
+  if(!posts.length){ el('postsWrap').innerHTML = '<div class="empty-state"><div class="icon">📣</div>Nenhum comunicado ainda.</div>'; return; }
+  el('postsWrap').innerHTML = posts.map(p=>{
+    const initials = (p.autor||'--').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
+    return `<div class="post-item ${p.fixado?'pinned':''}">
+      <div class="post-head">
+        <div class="post-avatar">${initials}</div>
+        <div class="post-meta"><div class="post-author">${p.autor}</div><div class="post-date">${p.criadoEm}</div></div>
+        ${p.fixado ? '<span class="pin-badge">📌 Fixado</span>' : ''}
+      </div>
+      <div class="post-title">${p.titulo}</div>
+      <div class="post-msg">${(p.mensagem||'').replace(/</g,'&lt;')}</div>
+      <div class="post-actions">
+        <button class="like-btn ${p.jaLeu?'liked':''}" onclick="marcarLido('${p.id}')" ${p.jaLeu?'disabled':''}>${p.jaLeu?'✅ Lido, de acordo':'☑️ Marcar como lido'}</button>
+        <span style="font-size:11px;color:var(--text3);">${p.totalLeituras} leram</span>
+        ${papelUsuario==='admin' ? `<button class="post-del" onclick="excluirPost('${p.id}')">Excluir</button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+function marcarLido(id){
+  google.script.run.withSuccessHandler(carregarMural).marcarMuralLido(window.TOKEN, id);
+}
+function excluirPost(id){
+  if(!confirm('Excluir esse comunicado?')) return;
+  google.script.run.withSuccessHandler(carregarMural).excluirMural(window.TOKEN, id);
+}
+function submitPost(){
+  const titulo = el('postTitulo').value.trim();
+  const mensagem = el('postMensagem').value.trim();
+  const fixado = el('postFixado').checked;
+  if(!titulo || !mensagem) return;
+  google.script.run.withSuccessHandler(res=>{
+    if(!res.ok){ alert('Erro: '+res.erro); return; }
+    el('postTitulo').value=''; el('postMensagem').value=''; el('postFixado').checked=false;
+    carregarMural();
+  }).publicarMural(window.TOKEN, titulo, mensagem, fixado);
+}
+init();
+</script>
+</body>
+</html>
