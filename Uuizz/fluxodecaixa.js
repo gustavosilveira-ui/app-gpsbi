@@ -859,6 +859,7 @@ function rowsForFicha(rNode,start,end){
   if(!rNode || rNode.special==='saldo') return [];
   return rowsInScope().filter(r=>r.date>=start && r.date<=end && rNode.filter(r) && Math.abs(r.valor||0)>0);
 }
+let fichaExportContext = null;
 function openFluxoFicha(rowId,colId){
   const rNode = fcRowDetailRefs[rowId];
   const col = fcColDetailRefs[colId];
@@ -909,6 +910,8 @@ function openFluxoFicha(rowId,colId){
     </tr>`;
   }).join('');
 
+  fichaExportContext = { titulo: rNode.label, periodo: rangeLabel(col.start,col.end), linhas, sinal };
+
   el('fluxoFichaBody').innerHTML = `
     <div class="fc-detail-summary">
       <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${fmtBRL(total)}</div><div class="fc-detail-kpi-lbl">Total no período</div></div>
@@ -922,6 +925,77 @@ function openFluxoFicha(rowId,colId){
   el('fluxoFichaModal').classList.add('show');
 }
 function closeFluxoFicha(){ el('fluxoFichaModal').classList.remove('show'); }
+
+// Linhas completas da ficha, formatadas pra exportação (Excel/PDF) —
+// diferente da tela, aqui a Observação vira coluna própria (em vez de
+// tooltip), porque o cliente vai ler o arquivo, não passar o mouse.
+function fmtBRLCentavos(n){
+  if(n===null||n===undefined||isNaN(n)) return 'R$ 0,00';
+  return 'R$ '+Number(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+function linhasParaExportacao(){
+  if(!fichaExportContext) return [];
+  const { linhas, sinal } = fichaExportContext;
+  return linhas.map(r=>({
+    Data: formatDateBR(r.date),
+    Conta: (r.empresa?r.empresa+' · ':'')+(r.conta||r.fonte||'Não informada'),
+    Nome: r.nome || r.categoria || 'Sem nome',
+    Categoria: r.categoria || r.fonte || '',
+    'Observação': r.historico || '',
+    'Valor (R$)': Number((r.valor*sinal).toFixed(2)),
+  }));
+}
+
+function exportarFichaExcel(){
+  if(!fichaExportContext || !fichaExportContext.linhas.length){ alert('Sem lançamentos pra exportar.'); return; }
+  const dados = linhasParaExportacao();
+  const ws = XLSX.utils.json_to_sheet(dados);
+  ws['!cols'] = [{wch:11},{wch:26},{wch:32},{wch:22},{wch:40},{wch:14}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Ficha');
+  const nomeArquivo = `Ficha - ${fichaExportContext.titulo} - ${fichaExportContext.periodo}.xlsx`.replace(/[\\/:*?"<>|]/g,'-');
+  XLSX.writeFile(wb, nomeArquivo);
+}
+
+function exportarFichaPDF(){
+  if(!fichaExportContext || !fichaExportContext.linhas.length){ alert('Sem lançamentos pra exportar.'); return; }
+  const dados = linhasParaExportacao();
+  const total = dados.reduce((s,r)=>s+r['Valor (R$)'],0);
+  const linhasHtml = dados.map(r=>`
+    <tr>
+      <td>${r.Data}</td>
+      <td>${escapeFichaHtml(r.Conta)}</td>
+      <td>${escapeFichaHtml(r.Nome)}</td>
+      <td>${escapeFichaHtml(r.Categoria)}</td>
+      <td>${escapeFichaHtml(r['Observação'])}</td>
+      <td style="text-align:right;">${fmtBRLCentavos(r['Valor (R$)'])}</td>
+    </tr>`).join('');
+  const janela = window.open('', '_blank');
+  janela.document.write(`
+    <html><head><title>Ficha · ${escapeFichaHtml(fichaExportContext.titulo)}</title>
+    <style>
+      body{font-family:Arial,sans-serif;padding:24px;color:#111;}
+      h1{font-size:18px;margin-bottom:2px;}
+      p{font-size:12px;color:#555;margin-top:0;margin-bottom:16px;}
+      table{width:100%;border-collapse:collapse;font-size:11px;}
+      th,td{border:1px solid #ddd;padding:6px 8px;text-align:left;}
+      th{background:#f4f4f4;}
+      tfoot td{font-weight:bold;border-top:2px solid #333;}
+      @media print{ body{padding:8px;} }
+    </style></head>
+    <body>
+      <h1>Ficha · ${escapeFichaHtml(fichaExportContext.titulo)}</h1>
+      <p>Período: ${escapeFichaHtml(fichaExportContext.periodo)} — ${dados.length} lançamento(s)</p>
+      <table>
+        <thead><tr><th>Data</th><th>Conta</th><th>Nome</th><th>Categoria</th><th>Observação</th><th style="text-align:right;">Valor (R$)</th></tr></thead>
+        <tbody>${linhasHtml}</tbody>
+        <tfoot><tr><td colspan="5">Total</td><td style="text-align:right;">${fmtBRLCentavos(total)}</td></tr></tfoot>
+      </table>
+    </body></html>`);
+  janela.document.close();
+  janela.focus();
+  setTimeout(()=>{ janela.print(); }, 300);
+}
 
 function scrollToToday(){
   const wrap = document.querySelector('.fc-wrap');
