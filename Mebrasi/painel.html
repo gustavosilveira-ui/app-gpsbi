@@ -286,6 +286,16 @@ table.tabela-simples tr.linha-total td{font-weight:800;border-top:2px solid var(
 .client-products-list{display:flex;flex-direction:column;gap:6px}
 .client-product-row{display:flex;justify-content:space-between;font-size:12px;padding:7px 10px;border-radius:8px;background:var(--navy3)}
 .client-close-btn{background:var(--navy3);border:1px solid var(--border2);border-radius:50%;width:32px;height:32px;color:var(--text);cursor:pointer;font-size:14px;}
+.btn-save{padding:9px 16px;border-radius:8px;background:linear-gradient(90deg,#123C68,#36E2C9);border:none;color:#fff;font-family:'Sora',sans-serif;font-size:12.5px;font-weight:700;cursor:pointer;}
+.client-note-input{width:100%;background:var(--field-bg,var(--navy3));border:1px solid var(--border2);border-radius:8px;padding:10px 12px;color:var(--text);font-family:'Sora',sans-serif;font-size:12.5px;resize:vertical;min-height:60px}
+.client-note-item{padding:9px 10px;border-radius:8px;background:var(--navy3);font-size:12px;margin-bottom:6px}
+.client-note-item .note-date{color:var(--text3);font-size:10.5px;margin-bottom:3px}
+.client-followup-row{display:flex;gap:8px;margin-bottom:10px}
+.client-followup-row input[type="date"]{background:var(--field-bg,var(--navy3));border:1px solid var(--border2);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'Sora',sans-serif;font-size:12px}
+.client-followup-row input[type="text"]{flex:1;background:var(--field-bg,var(--navy3));border:1px solid var(--border2);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'Sora',sans-serif;font-size:12px}
+.followup-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:var(--navy3);margin-bottom:6px;font-size:12px}
+.followup-item.done{opacity:.5;text-decoration:line-through}
+.crm-unavailable{font-size:11.5px;color:#f5b942;background:rgba(245,185,66,.12);padding:8px 10px;border-radius:8px;margin-top:6px}
 
 </style>
 </head>
@@ -497,6 +507,24 @@ table.tabela-simples tr.linha-total td{font-weight:800;border-top:2px solid var(
 
     <div class="client-section-title">Top produtos comprados</div>
     <div class="client-products-list" id="clientProductsList"></div>
+
+    <div class="client-section-title">📅 Agenda de contato</div>
+    <div class="client-followup-row">
+      <input type="date" id="followupDate">
+      <input type="text" id="followupNote" placeholder="Ex: ligar oferecendo desconto na recompra...">
+      <button class="btn-save" onclick="submitFollowup()">Agendar</button>
+    </div>
+    <div id="followupList"></div>
+
+    <div class="client-section-title">📝 Anotações</div>
+    <textarea class="client-note-input" id="noteInput" placeholder="Escreva uma anotação sobre esse cliente..."></textarea>
+    <div style="display:flex;justify-content:flex-end;margin-top:8px;margin-bottom:14px;">
+      <button class="btn-save" onclick="submitNote()">Salvar anotação</button>
+    </div>
+    <div id="noteList"></div>
+    <div class="crm-unavailable" id="crmWarning" style="display:none;">
+      ⚠️ As tabelas de anotação/agenda ainda não existem no Supabase. Peça pro Gustavo rodar o SQL.
+    </div>
   </div>
 </div>
 
@@ -1826,9 +1854,88 @@ function toggleSuggestions(){
   chevron.classList.toggle('open', !isOpen);
 }
 
+/* ---- CRM leve: notas e agenda de contato por cliente ---- */
+let crmAvailable = true;
+let currentClientName = '';
+async function fetchClientNote(cliente){
+  try{
+    const { data, error } = await sb.from('client_notes').select('*').eq('cliente', cliente).order('criado_em',{ascending:false});
+    if(error) throw error;
+    return data||[];
+  }catch(e){ crmAvailable=false; return []; }
+}
+async function saveClientNote(cliente, vendedor, nota){
+  try{
+    const { error } = await sb.from('client_notes').insert({ cliente, vendedor, nota });
+    if(error) throw error;
+    return true;
+  }catch(e){ crmAvailable=false; return false; }
+}
+async function fetchFollowups(cliente){
+  try{
+    const { data, error } = await sb.from('client_followups').select('*').eq('cliente', cliente).order('data_contato',{ascending:true});
+    if(error) throw error;
+    return data||[];
+  }catch(e){ crmAvailable=false; return []; }
+}
+async function saveFollowup(cliente, vendedor, data_contato, observacao){
+  try{
+    const { error } = await sb.from('client_followups').insert({ cliente, vendedor, data_contato, observacao, feito:false });
+    if(error) throw error;
+    return true;
+  }catch(e){ crmAvailable=false; return false; }
+}
+async function toggleFollowupDone(id, feito){
+  try{ await sb.from('client_followups').update({feito}).eq('id', id); }catch(e){}
+}
+async function loadClientCrmData(cliente){
+  const notes = await fetchClientNote(cliente);
+  const followups = await fetchFollowups(cliente);
+  if(!crmAvailable){ el('crmWarning').style.display='block'; }
+
+  el('noteList').innerHTML = notes.length ? notes.map(n=>`
+    <div class="client-note-item">
+      <div class="note-date">${new Date(n.criado_em).toLocaleString('pt-BR')} · ${escapeHtml(n.vendedor||'')}</div>
+      ${escapeHtml(n.nota)}
+    </div>`).join('') : '<div style="color:var(--text3);font-size:12px;">Nenhuma anotação ainda.</div>';
+
+  el('followupList').innerHTML = followups.length ? followups.map(f=>`
+    <div class="followup-item ${f.feito?'done':''}">
+      <input type="checkbox" ${f.feito?'checked':''} onchange="onToggleFollowup(${f.id}, this.checked)">
+      <span><b>${new Date(f.data_contato+'T00:00:00').toLocaleDateString('pt-BR')}</b> — ${escapeHtml(f.observacao||'')}</span>
+    </div>`).join('') : '<div style="color:var(--text3);font-size:12px;">Nenhum contato agendado.</div>';
+}
+async function onToggleFollowup(id, checked){
+  await toggleFollowupDone(id, checked);
+  loadClientCrmData(currentClientName);
+}
+async function submitNote(){
+  const txt = el('noteInput').value.trim();
+  if(!txt || !currentClientName) return;
+  const quemVendedor = nameFromEmail(currentUser.email);
+  const ok = await saveClientNote(currentClientName, quemVendedor, txt);
+  if(ok){ el('noteInput').value=''; loadClientCrmData(currentClientName); }
+  else { el('crmWarning').style.display='block'; }
+}
+async function submitFollowup(){
+  const data_contato = el('followupDate').value;
+  const observacao = el('followupNote').value.trim();
+  if(!data_contato || !currentClientName) return;
+  const quemVendedor = nameFromEmail(currentUser.email);
+  const ok = await saveFollowup(currentClientName, quemVendedor, data_contato, observacao);
+  if(ok){ el('followupNote').value=''; loadClientCrmData(currentClientName); }
+  else { el('crmWarning').style.display='block'; }
+}
+
 /* ---- Ficha do cliente ---- */
 let clientHistChartInst = null;
 function openClientModal(cliente){
+  currentClientName = cliente;
+  el('followupDate').value = new Date().toISOString().slice(0,10);
+  el('followupNote').value = '';
+  el('noteInput').value = '';
+  el('crmWarning').style.display = 'none';
+
   const itens = rows.filter(r=>r.cliente===cliente);
   const totalFat = itens.reduce((s,r)=>s+r.faturamento,0);
   const dates = Array.from(new Set(itens.map(r=>r.data))).sort();
@@ -1867,6 +1974,7 @@ function openClientModal(cliente){
   const topProd = Object.entries(prodMap).sort((a,b)=>b[1]-a[1]).slice(0,6);
   el('clientProductsList').innerHTML = topProd.length ? topProd.map(([p,v])=>`<div class="client-product-row"><span>${escapeHtml(p)}</span><span>${fmtBRL(v)}</span></div>`).join('') : '<div style="color:var(--text3);font-size:12px;">Sem produtos no período.</div>';
 
+  loadClientCrmData(cliente);
   el('clientModal').classList.add('show');
 }
 function closeClientModal(){ el('clientModal').classList.remove('show'); }
