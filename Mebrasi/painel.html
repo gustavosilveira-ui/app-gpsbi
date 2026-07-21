@@ -262,6 +262,31 @@ table.tabela-simples tr.linha-total td{font-weight:800;border-top:2px solid var(
   word-break:break-word !important;
 }
 
+.suggestion-item{display:flex;align-items:center;gap:16px;padding:14px 16px;border-radius:12px;background:var(--navy3);margin-bottom:8px}
+.suggestion-body{flex:1;min-width:0}
+.suggestion-name{font-weight:700;font-size:13px;margin-bottom:3px}
+.suggestion-meta{font-size:11.5px;color:var(--text3)}
+.suggestion-val{flex:none;text-align:right;font-family:'DM Mono',monospace;font-weight:700;font-size:14px}
+.suggestion-val span{display:block;font-family:'Sora',sans-serif;font-weight:400;font-size:10px;color:var(--text3)}
+.suggestion-btn{flex:none;white-space:nowrap}
+.suggestions-header{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.suggestions-badge{background:var(--red);color:#fff;font-size:10.5px;font-weight:700;border-radius:999px;padding:2px 8px;}
+.suggestions-chevron{margin-left:auto;font-size:12px;color:var(--text3);transition:transform .2s}
+.suggestions-chevron.open{transform:rotate(90deg)}
+.client-modal-box{background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius);padding:26px;width:900px;max-width:96vw;max-height:88vh;overflow-y:auto;box-shadow:0 30px 70px rgba(0,0,0,.5)}
+.client-modal-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px}
+.client-modal-head h2{font-size:19px;font-weight:800}
+.client-modal-head p{font-size:11.5px;color:var(--text3);margin-top:3px}
+.client-kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
+.client-kpi{background:var(--navy3);border-radius:10px;padding:12px 14px}
+.client-kpi-val{font-family:'DM Mono',monospace;font-weight:700;font-size:15px}
+.client-kpi-lbl{font-size:10.5px;color:var(--text3);margin-top:3px}
+.client-section-title{font-size:12.5px;font-weight:700;margin:18px 0 10px;color:var(--text2);text-transform:uppercase;letter-spacing:.04em}
+.client-chart-box{height:180px;margin-bottom:6px}
+.client-products-list{display:flex;flex-direction:column;gap:6px}
+.client-product-row{display:flex;justify-content:space-between;font-size:12px;padding:7px 10px;border-radius:8px;background:var(--navy3)}
+.client-close-btn{background:var(--navy3);border:1px solid var(--border2);border-radius:50%;width:32px;height:32px;color:var(--text);cursor:pointer;font-size:14px;}
+
 </style>
 </head>
 <body>
@@ -327,6 +352,18 @@ table.tabela-simples tr.linha-total td{font-weight:800;border-top:2px solid var(
         </div>
       </div>
       <div id="kpiGrid" class="kpi-grid"></div>
+    </div>
+
+    <div class="card" id="suggestionsCard" style="display:none;margin-bottom:18px;">
+      <div class="card-title suggestions-header" onclick="toggleSuggestions()" style="cursor:pointer;user-select:none;">
+        🎯 Sugestões de contato pra bater a meta
+        <span id="suggestionsCount" class="suggestions-badge"></span>
+        <span id="suggestionsChevron" class="suggestions-chevron">▸</span>
+      </div>
+      <div class="card-sub">Clientes com histórico de recompra que já passaram do ciclo médio deles — ordenado pelo maior ticket médio</div>
+      <div id="suggestionsBody" style="display:none;">
+        <div id="suggestionsList"></div>
+      </div>
     </div>
 
     <div class="charts-grid hero">
@@ -432,6 +469,34 @@ table.tabela-simples tr.linha-total td{font-weight:800;border-top:2px solid var(
         <tbody id="detalheBody"></tbody>
       </table>
     </div>
+  </div>
+</div>
+
+<div id="clientModal" class="modal-overlay-detalhe" aria-hidden="true">
+  <div class="client-modal-box">
+    <div class="client-modal-head">
+      <div>
+        <h2 id="clientModalName">--</h2>
+        <p>Ficha do cliente</p>
+      </div>
+      <button class="client-close-btn" onclick="closeClientModal()">✕</button>
+    </div>
+
+    <div class="client-kpi-grid">
+      <div class="client-kpi"><div class="client-kpi-val" id="cliKpiFaturado">--</div><div class="client-kpi-lbl">Faturamento</div></div>
+      <div class="client-kpi"><div class="client-kpi-val" id="cliKpiPedidos">--</div><div class="client-kpi-lbl">Pedidos</div></div>
+      <div class="client-kpi"><div class="client-kpi-val" id="cliKpiTicket">--</div><div class="client-kpi-lbl">Ticket Médio</div></div>
+      <div class="client-kpi"><div class="client-kpi-val" id="cliKpiUltima">--</div><div class="client-kpi-lbl">Última compra</div></div>
+    </div>
+    <div class="client-kpi-grid" style="grid-template-columns:1fr;">
+      <div class="client-kpi"><div class="client-kpi-val" id="cliKpiCiclo">--</div><div class="client-kpi-lbl">Ciclo médio entre compras</div></div>
+    </div>
+
+    <div class="client-section-title">Evolução de compras (mensal)</div>
+    <div class="client-chart-box"><canvas id="clientHistChart"></canvas></div>
+
+    <div class="client-section-title">Top produtos comprados</div>
+    <div class="client-products-list" id="clientProductsList"></div>
   </div>
 </div>
 
@@ -1700,8 +1765,115 @@ function renderDebug(){
   wrap.textContent = `🔍 Diagnóstico (só GPS): ${rows.length} linhas carregadas no total · ${scoped.length} no escopo atual (${selectedEmpresa||'Global'} · ${selectedAno||'todos anos'}${selectedMes?'/'+selectedMes:''}${selectedEstado?' · UF '+selectedEstado:''}${selectedFamilia?' · Família '+selectedFamilia:''}${selectedVendedor?' · Vendedor '+selectedVendedor:''}) · Por fonte: ${Object.entries(porFonte).map(([f,n])=>`${f}: ${n}`).join(', ')}`;
 }
 
+const MES_ABREV_CLIENTE = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+function mesLabelCurto(m){ // "2026-07" -> "Jul/26"
+  const [ano,mes] = m.split('-');
+  return `${MES_ABREV_CLIENTE[Number(mes)-1]}/${ano.slice(2)}`;
+}
+/* ---- Sugestão de recompra: clientes "atrasados" no ciclo de compra deles ---- */
+function computeReorderSuggestions(){
+  const scoped = rowsInScope();
+  const byClient = {};
+  scoped.forEach(r=>{
+    if(!r.cliente) return;
+    if(!byClient[r.cliente]) byClient[r.cliente] = [];
+    byClient[r.cliente].push(r);
+  });
+  const today = new Date();
+  const suggestions = [];
+  Object.entries(byClient).forEach(([cliente, itens])=>{
+    const dates = Array.from(new Set(itens.map(r=>r.data))).sort();
+    if(dates.length < 3) return; // precisa de histórico mínimo pra ter um ciclo
+    const gaps = [];
+    for(let i=1;i<dates.length;i++){
+      gaps.push((new Date(dates[i]) - new Date(dates[i-1])) / 86400000);
+    }
+    const avgCycle = gaps.reduce((s,g)=>s+g,0)/gaps.length;
+    const lastDate = new Date(dates[dates.length-1]);
+    const daysSince = Math.round((today - lastDate) / 86400000);
+    if(daysSince > avgCycle * 1.25 && avgCycle >= 5){
+      const total = itens.reduce((s,r)=>s+r.faturamento,0);
+      const avgTicket = total / dates.length;
+      const vendedor = nomeVendedor(itens[itens.length-1].codVendedor);
+      suggestions.push({ cliente, vendedor, avgCycle: Math.round(avgCycle), daysSince, lastDate: dates[dates.length-1], avgTicket, total });
+    }
+  });
+  return suggestions.sort((a,b)=>b.avgTicket-a.avgTicket).slice(0,8);
+}
+function renderSuggestions(){
+  const card = el('suggestionsCard');
+  const list2 = el('suggestionsList');
+  if(!card || !list2) return;
+  const list = computeReorderSuggestions();
+  card.style.display = 'block';
+  el('suggestionsCount').textContent = list.length ? list.length : '';
+  if(!list.length){ list2.innerHTML = '<div style="color:var(--text3);font-size:12.5px;padding:12px;">Nenhum cliente atrasado identificado no ciclo de compra dele. 🎉</div>'; return; }
+  list2.innerHTML = list.map(s=>`
+    <div class="suggestion-item">
+      <div class="suggestion-body">
+        <div class="suggestion-name">${escapeHtml(s.cliente)}</div>
+        <div class="suggestion-meta">Última compra há <b>${s.daysSince}d</b> · ciclo médio de <b>${s.avgCycle}d</b> · vendedor: ${escapeHtml(s.vendedor)}</div>
+      </div>
+      <div class="suggestion-val">${fmtBRL(s.avgTicket)}<span>ticket médio</span></div>
+      <button class="btn btn-ghost btn-sm suggestion-btn" onclick="openClientModal('${s.cliente.replace(/'/g,"\\'")}')">Ver ficha</button>
+    </div>`).join('');
+}
+function toggleSuggestions(){
+  const body = el('suggestionsBody');
+  const chevron = el('suggestionsChevron');
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  chevron.classList.toggle('open', !isOpen);
+}
+
+/* ---- Ficha do cliente ---- */
+let clientHistChartInst = null;
+function openClientModal(cliente){
+  const itens = rows.filter(r=>r.cliente===cliente);
+  const totalFat = itens.reduce((s,r)=>s+r.faturamento,0);
+  const dates = Array.from(new Set(itens.map(r=>r.data))).sort();
+  const pedidos = new Set(itens.map(r=>r.codPedido)).size || dates.length;
+  const ticket = pedidos>0 ? totalFat/pedidos : 0;
+
+  el('clientModalName').textContent = cliente;
+  el('cliKpiFaturado').textContent = fmtBRL(totalFat);
+  el('cliKpiPedidos').textContent = pedidos.toLocaleString('pt-BR');
+  el('cliKpiTicket').textContent = fmtBRL(ticket);
+
+  if(dates.length){
+    const lastDate = dates[dates.length-1];
+    const daysSince = Math.round((new Date() - new Date(lastDate))/86400000);
+    el('cliKpiUltima').textContent = new Date(lastDate+'T00:00:00').toLocaleDateString('pt-BR') + ` (há ${daysSince}d)`;
+    if(dates.length>=3){
+      const gaps=[]; for(let i=1;i<dates.length;i++) gaps.push((new Date(dates[i])-new Date(dates[i-1]))/86400000);
+      const avgCycle = Math.round(gaps.reduce((s,g)=>s+g,0)/gaps.length);
+      el('cliKpiCiclo').textContent = avgCycle + ' dias';
+    } else el('cliKpiCiclo').textContent = '— (histórico curto)';
+  } else {
+    el('cliKpiUltima').textContent = '—'; el('cliKpiCiclo').textContent = '—';
+  }
+
+  // evolução mensal do cliente
+  const byMonth = {}; itens.forEach(r=>{ const m=r.data.slice(0,7); byMonth[m] = (byMonth[m]||0)+r.faturamento; });
+  const months = Object.keys(byMonth).sort();
+  const textColor = corTexto(), gridColor = corGrid();
+  const chartData = { labels: months.map(mesLabelCurto), datasets:[{ data: months.map(m=>byMonth[m]), backgroundColor: '#123C68', borderRadius:4, maxBarThickness:26 }] };
+  const chartOpts = { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmtBRLFull(c.parsed.y)}}}, scales:{ x:{grid:{display:false},ticks:{color:textColor,font:{size:10}}}, y:{grid:{color:gridColor},ticks:{color:textColor,font:{size:10},callback:v=>fmtBRL(v)}} } };
+  if(clientHistChartInst){ clientHistChartInst.data=chartData; clientHistChartInst.options=chartOpts; clientHistChartInst.update(); }
+  else clientHistChartInst = new Chart(el('clientHistChart'), { type:'bar', data:chartData, options:chartOpts });
+
+  // top produtos do cliente
+  const prodMap={}; itens.forEach(r=>{ const p=r.descComercial||'Sem descrição'; prodMap[p]=(prodMap[p]||0)+r.faturamento; });
+  const topProd = Object.entries(prodMap).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  el('clientProductsList').innerHTML = topProd.length ? topProd.map(([p,v])=>`<div class="client-product-row"><span>${escapeHtml(p)}</span><span>${fmtBRL(v)}</span></div>`).join('') : '<div style="color:var(--text3);font-size:12px;">Sem produtos no período.</div>';
+
+  el('clientModal').classList.add('show');
+}
+function closeClientModal(){ el('clientModal').classList.remove('show'); }
+
 function renderTudo(){
   renderKpis();
+  renderSuggestions();
   renderChartEvolucao();
   renderChartDiario();
   renderChartSemanal();
@@ -1724,6 +1896,8 @@ function appApplyTheme(t, skipSync){
   if(bl) bl.classList.toggle('active', t==='light');
 }
 async function doLogout(){ await sb.auth.signOut(); window.location.href = LOGIN_URL; }
+
+el('clientModal').addEventListener('click', e=>{ if(e.target.id==='clientModal') closeClientModal(); });
 
 async function init(){
   const { data } = await sb.auth.getSession();
