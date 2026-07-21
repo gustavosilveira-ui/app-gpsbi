@@ -639,13 +639,22 @@ function renderTabelaIndicadores(){
   const empresas = EMPRESAS_ROBERTO.map(k=>EMPRESA_LABEL[k]).concat(['Online']);
   const dados = {};
   EMPRESAS_ROBERTO.forEach(k=>{ dados[EMPRESA_LABEL[k]] = indicadoresEmpresa(EMPRESA_LABEL[k]); });
+  // Online só entra na linha "Total" (com o faturamento real dele) — as
+  // demais linhas (NF/F/Pend/Cheque/Pend M+1) não fazem sentido pro
+  // Online (não usa Situação NF, não tem pendente/cheque terceiros).
+  const onlineTotal = vendasRows.filter(r=>r.empresa==='Online' && filtroAnoMes(r.data)).reduce((s,r)=>s+r.faturamento,0);
 
   let html = '<thead><tr><th style="text-align:left">Indicador</th>' + empresas.map(e=>`<th>${e}</th>`).join('') + '<th>Total</th></tr></thead><tbody>';
 
   const linha = (label, campo, formatar, campoFarol)=>{
     let total = 0;
     const celulas = empresas.map(e=>{
-      if(e==='Online' || !dados[e]) return '<td>—</td>';
+      if(e==='Online'){
+        if(label!=='Total') return '<td>—</td>';
+        total += onlineTotal;
+        return `<td>${formatar(onlineTotal)}</td>`;
+      }
+      if(!dados[e]) return '<td>—</td>';
       const v = dados[e][campo] || 0;
       total += v;
       let emoji = '';
@@ -671,6 +680,15 @@ function renderTabelaIndicadores(){
 function construirPedidos(){
   const porPedido = {};
   const chave = (empresa,pedido)=>empresa+'|'+pedido;
+
+  // A tabela só pode trazer pedido ainda PENDENTE (Situação = Pedido /
+  // Pedido Aprovado / Separado Total na venda) — não qualquer pedido
+  // com "Depósito Antecipado". Sem isso, pedido já pago/faturado
+  // (Situação = Pago, Faturado etc.) entrava também, e por isso a
+  // tabela vinha enorme mesmo depois do filtro de Cond Pagto.
+  const pedidosPendentesSet = new Set();
+  vendasPendentes.forEach(r=>{ if(r.codPedido) pedidosPendentesSet.add(r.codPedido); });
+  vendasRows.forEach(r=>{ if(r.codPedido && normalizeTxt(r.situacao)==='separado total') pedidosPendentesSet.add(r.codPedido); });
 
   vencRows.forEach(v=>{
     const k = chave(v.empresa, v.pedido);
@@ -703,7 +721,9 @@ function construirPedidos(){
   .filter(p => {
     const cond = normalizeTxt(pedidoParaCondPagto[p.pedido] || '');
     return cond === 'deposito antecipado';
-  }).filter(p => filtroAnoMes(p.mesRefEntregaISO) || (!p.mesRefEntregaISO && !selectedAno && !selectedMes));
+  })
+  .filter(p => pedidosPendentesSet.has(p.pedido))
+  .filter(p => filtroAnoMes(p.mesRefEntregaISO) || (!p.mesRefEntregaISO && !selectedAno && !selectedMes));
 }
 
 function renderTabelaPedidos(){
