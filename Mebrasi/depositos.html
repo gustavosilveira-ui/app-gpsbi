@@ -345,7 +345,7 @@ const GID_VENDAS = '1984037897';
 // só que lendo as abas venc_<empresa> e cr_<empresa> em vez de cap/fc.
 const SHEET_ID_FLUXO = '1cWc7JRuUur_UAIeTM9VqNxPr8ktISPt09cnh7N_HULc';
 
-const EMPRESAS_ROBERTO = ['gymis','ryngavi','especial','multicopos'];
+const EMPRESAS_ROBERTO = ['gymis','ryngavi','multicopos','especial'];
 const EMPRESA_LABEL = { gymis:'Gymis', ryngavi:'Ryngavi', especial:'Especial', multicopos:'Multicopos' };
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -431,6 +431,7 @@ let selectedAno='', selectedMes='';
 let vendasRows = [];      // situação válida (Faturado/Faturado NF/APP Mebrasi/Separado Total)
 let vendasPendentes = []; // Pedido/Pedido Aprovado (ainda não faturado)
 let pedidoParaDtEntrega = {}; // Cod Pedido -> Dt Entrega Solicitada (AAAA-MM-DD)
+let pedidoParaCondPagto = {}; // Cod Pedido -> Cond Pagto (pra filtrar "Depósito Antecipado" na tabela de pedidos)
 
 // Financeiro
 let vencRows = []; // títulos em aberto/vencimento, todas as empresas
@@ -479,6 +480,7 @@ async function carregarVendas(){
       empresa, fonte, data, dataEntrega, dataFaturamento,
       situacao, situacaoNf,
       codPedido: (getColNormalized(r,'cod pedido')||'').toString().trim(),
+      condPagto: (getColNormalized(r,'cond pagto')||'').toString().trim(),
       tipoContribuinte: (getColNormalized(r,'tipo de contribuinte')||'').toString().trim(),
       valorFaturado: parseMoneyBR(getColNormalized(r,'valor faturado')),
       icmsSt: parseMoneyBR(getColNormalized(r,'icms st')),
@@ -496,8 +498,15 @@ async function carregarVendas(){
   vendasPendentes = pendentes;
 
   pedidoParaDtEntrega = {};
-  vendasRows.forEach(r=>{ if(r.codPedido && r.dataEntrega) pedidoParaDtEntrega[r.codPedido] = r.dataEntrega; });
-  vendasPendentes.forEach(r=>{ if(r.codPedido && r.dataEntrega) pedidoParaDtEntrega[r.codPedido] = r.dataEntrega; });
+  pedidoParaCondPagto = {};
+  vendasRows.forEach(r=>{
+    if(r.codPedido && r.dataEntrega) pedidoParaDtEntrega[r.codPedido] = r.dataEntrega;
+    if(r.codPedido && r.condPagto) pedidoParaCondPagto[r.codPedido] = r.condPagto;
+  });
+  vendasPendentes.forEach(r=>{
+    if(r.codPedido && r.dataEntrega) pedidoParaDtEntrega[r.codPedido] = r.dataEntrega;
+    if(r.codPedido && r.condPagto) pedidoParaCondPagto[r.codPedido] = r.condPagto;
+  });
 }
 
 // Lê venc_<empresa> e cr_<empresa> (mesmas colunas, exceto Saldo/Vl Total
@@ -536,6 +545,7 @@ async function carregarFinanceiro(){
           situacao: (getColNormalized(r,'situacao')||'').toString().trim(),
           formaPagto: (getColNormalized(r,'forma pagto')||'').toString().trim(),
           valorPago: parseMoneyBR(getColNormalized(r,'valor pago')),
+          dtPagto: parseDateCell(getColNormalized(r,'dt pagto')),
         });
       });
     }catch(e){ console.error('Erro lendo cr_'+empresaKey, e); }
@@ -599,9 +609,11 @@ function indicadoresEmpresa(empresa){
   const pendM1Separado = vendasRows.filter(r => r.empresa===empresa && normalizeTxt(r.situacao)==='separado total' && filtroM1(r.dataEntrega));
   const pendenteM1 = [...pendM1Pedidos, ...pendM1Separado].reduce((s,r)=>s+(r.valorPendente||0),0);
 
-  // Cheque de Terceiros — valor já recebido (cr) com essa forma de pagamento.
+  // Cheque de Terceiros — valor já recebido (cr) com essa forma de
+  // pagamento, DENTRO DO MÊS selecionado (antes somava tudo desde
+  // sempre, por isso os números batiam muito acima do esperado).
   const chqTerc = crRows
-    .filter(r => r.empresa===empresa && normalizeTxt(r.formaPagto)==='cheque terceiros')
+    .filter(r => r.empresa===empresa && normalizeTxt(r.formaPagto)==='cheque terceiros' && filtroAnoMes(r.dtPagto))
     .reduce((s,r)=>s+r.valorPago, 0);
 
   const totalFarol = nf + fidelidade + pendente;
@@ -650,7 +662,7 @@ function renderTabelaIndicadores(){
   html += linha('F', 'fidelidade', fmtBRL);
   html += linha('Total', 'total', fmtBRL);
   html += linha('Pend', 'pendente', fmtBRL, 'pctPend');
-  html += linha('Chq Terc', 'chqTerc', fmtBRL);
+  html += linha('Cheque Terc.', 'chqTerc', fmtBRL);
   html += linha('Pend M+1', 'pendenteM1', fmtBRL, 'pctPendM1');
   html += '</tbody>';
   el('tabelaIndicadores').innerHTML = html;
@@ -682,6 +694,15 @@ function construirPedidos(){
       mesRefEntregaISO: mesRefEntrega,
       pagoTxt: [...p.situacoes].join(', ') || '—',
     };
+  })
+  // Só entra na tabela quem tem Cond Pagto = "Depósito Antecipado" na
+  // venda (join pelo Cod Pedido) — mesmo filtro da medida
+  // Pedidos_Vendas_DepAnt do Power BI. Sem isso a tabela vinha com
+  // pedido demais (todo mundo com título em aberto, não só os de
+  // depósito antecipado).
+  .filter(p => {
+    const cond = normalizeTxt(pedidoParaCondPagto[p.pedido] || '');
+    return cond === 'deposito antecipado';
   }).filter(p => filtroAnoMes(p.mesRefEntregaISO) || (!p.mesRefEntregaISO && !selectedAno && !selectedMes));
 }
 
