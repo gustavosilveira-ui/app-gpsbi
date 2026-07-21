@@ -114,6 +114,8 @@ tr.row-clickable:hover td{background:rgba(54,226,201,.06);}
 .chart-title{font-size:13.5px;font-weight:800;margin-bottom:2px;}
 .chart-sub{font-size:11px;color:var(--text3);margin-bottom:12px;}
 .chart-canvas-wrap{position:relative;height:240px;}
+.chart-canvas-wrap.chart-scroll{overflow-y:auto;overflow-x:hidden;}
+.chart-canvas-wrap.chart-scroll .chart-canvas-tall{position:relative;height:480px;}
 @media(max-width:1100px){.charts-grid.triple{grid-template-columns:1fr 1fr;}.charts-grid.triple .chart-box:last-child{grid-column:1/-1;}}
 @media(max-width:900px){.charts-grid,.charts-grid.hero,.charts-grid.triple{grid-template-columns:1fr;}.charts-grid.triple .chart-box:last-child{grid-column:auto;}.charts-grid.hero .chart-canvas-wrap,.charts-grid.hero .chart-box:last-child .chart-canvas-wrap{height:280px;}}
 
@@ -371,20 +373,20 @@ table.tabela-simples tr.linha-total td{font-weight:800;border-top:2px solid var(
       <div class="chart-box">
         <div class="chart-title">Faturamento por Estado</div>
         <div class="chart-sub">Top 12 estados por faturamento no período. Clique em uma barra para filtrar.</div>
-        <div class="chart-canvas-wrap"><canvas id="chartEstado"></canvas></div>
+        <div class="chart-canvas-wrap chart-scroll"><div class="chart-canvas-tall"><canvas id="chartEstado"></canvas></div></div>
       </div>
       <div class="chart-box">
         <div class="chart-title">Faturamento por Família Comercial</div>
         <div class="chart-sub">Top 10 famílias de produto por faturamento. Clique em uma barra para filtrar.</div>
-        <div class="chart-canvas-wrap"><canvas id="chartFamilia"></canvas></div>
+        <div class="chart-canvas-wrap chart-scroll"><div class="chart-canvas-tall"><canvas id="chartFamilia"></canvas></div></div>
       </div>
     </div>
 
     <div class="charts-grid" style="margin-top:18px;">
       <div class="chart-box">
         <div class="chart-title">Análise por Representante</div>
-        <div class="chart-sub">Faturamento por representante comercial (área proporcional). Online não incluído. Clique num bloco pra filtrar.</div>
-        <div class="treemap-wrap" id="treemapVendedor"></div>
+        <div class="chart-sub">Faturamento por representante comercial. Online não incluído. Clique numa barra pra filtrar.</div>
+        <div class="chart-canvas-wrap chart-scroll"><div class="chart-canvas-tall"><canvas id="chartVendedor"></canvas></div></div>
       </div>
       <div class="chart-box">
         <div class="chart-title">Análise por Região</div>
@@ -766,7 +768,7 @@ function renderChartEvolucao(){
   const textColor = corTexto();
   const gridColor = corGrid();
   const green = '#2fd6b8', red = getComputedStyle(document.documentElement).getPropertyValue('--red').trim() || '#ef6a6a';
-  const blue = '#2D70B8', cyan = '#36E2C9';
+  const blue = '#123C68', cyan = '#36E2C9';
   const mesAtualKey = new Date().toISOString().slice(0,7);
   const barColors = meses.map(m=>m===mesAtualKey ? cyan : blue);
 
@@ -798,7 +800,7 @@ function renderChartEvolucao(){
 
   const cfg = {
     type:'bar',
-    data:{ labels, datasets:[{ label:'Faturamento', data:valores, backgroundColor:barColors, borderRadius:5, maxBarThickness:36 }] },
+    data:{ labels, datasets:[{ label:'Faturamento', data:valores, backgroundColor:barColors, borderRadius:5, maxBarThickness:60, categoryPercentage:0.85, barPercentage:0.95 }] },
     options:{
       responsive:true, maintainAspectRatio:false, animation:{duration:300},
       layout:{ padding:{top:40} },
@@ -969,7 +971,7 @@ function renderChartEstado(){
   const ctx = el('chartEstado');
   const cfg = {
     type:'bar',
-    data:{ labels:top.map(t=>t[0]), datasets:[{ data:top.map(t=>t[1]), backgroundColor:'#36E2C9', borderRadius:5, maxBarThickness:26 }] },
+    data:{ labels:top.map(t=>t[0]), datasets:[{ data:top.map(t=>t[1]), backgroundColor:'#36E2C9', borderRadius:5, maxBarThickness:32, categoryPercentage:0.85, barPercentage:0.9 }] },
     options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
       onClick:(evt,els)=>{if(!els.length)return;const uf=top[els[0].index][0];selectedEstado=selectedEstado===uf?'':uf;renderTudo();},
       plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:c=>fmtBRLFull(c.parsed.x) } } },
@@ -987,7 +989,7 @@ function renderChartFamilia(){
   const ctx = el('chartFamilia');
   const cfg = {
     type:'bar',
-    data:{ labels:top.map(t=>t[0]), datasets:[{ data:top.map(t=>t[1]), backgroundColor:'#f5b942', borderRadius:5, maxBarThickness:26 }] },
+    data:{ labels:top.map(t=>t[0]), datasets:[{ data:top.map(t=>t[1]), backgroundColor:'#f5b942', borderRadius:5, maxBarThickness:32, categoryPercentage:0.85, barPercentage:0.9 }] },
     options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
       onClick:(evt,els)=>{if(!els.length)return;const fam=top[els[0].index][0];selectedFamilia=selectedFamilia===fam?'':fam;renderTudo();},
       plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:c=>fmtBRLFull(c.parsed.x) } } },
@@ -1087,43 +1089,30 @@ function tooltipMove(evt){
 }
 function tooltipHide(){ gpsbiTooltip().style.display = 'none'; }
 
-// ---- Análise por Representante (treemap) ----
+// ---- Análise por Representante (barra horizontal) ----
 // Sempre exclui o Online (canal não tem representante atribuído).
+let chartVendedor = null;
 function renderTreemapVendedor(){
   const scoped = rowsInScope().filter(r=>r.fonte!=='Online');
   const porVendedor = {};
   scoped.forEach(r=>{ const nome = nomeVendedor(r.codVendedor); porVendedor[nome] = (porVendedor[nome]||0) + r.faturamento; });
   const items = Object.entries(porVendedor)
-    .map(([name,value])=>({name,value}))
-    .filter(i=>i.value>0)
-    .sort((a,b)=>b.value-a.value);
+    .filter(([,v])=>v>0)
+    .sort((a,b)=>b[1]-a[1]);
 
-  const wrap = el('treemapVendedor');
-  if(!items.length){ wrap.innerHTML = `<div class="empty-state">Sem dados de vendedor no período.</div>`; return; }
+  const ctx = el('chartVendedor');
+  if(!items.length){ if(chartVendedor){chartVendedor.destroy();chartVendedor=null;} return; }
 
-  const rects = squarifyTreemap(items, 100, 100);
-  wrap.innerHTML = rects.map((r,i)=>{
-    const cor = PALETA_GPSBI[i % PALETA_GPSBI.length];
-    const selecionado = selectedVendedor === r.name;
-    const mostraLabel = r.w > 8 && r.h > 8; // esconde texto em blocos minúsculos
-    return `<div class="tm-tile${selecionado?' tm-selected':''}"
-      style="left:${r.x}%;top:${r.y}%;width:${r.w}%;height:${r.h}%;background:${cor};"
-      data-vendedor="${escapeHtml(r.name)}" data-valor="${r.value}">
-      ${mostraLabel ? `<div><div class="tm-tile-label">${escapeHtml(r.name)}</div><div class="tm-tile-value">${fmtBRL(r.value)}</div></div>` : ''}
-    </div>`;
-  }).join('');
-
-  wrap.querySelectorAll('.tm-tile').forEach(tile=>{
-    const nome = tile.dataset.vendedor;
-    const valor = Number(tile.dataset.valor);
-    tile.addEventListener('click', ()=>{ selectedVendedor = selectedVendedor===nome ? '' : nome; renderTudo(); });
-    tile.addEventListener('mouseenter', e=>{
-      const uf = VENDEDOR_UF[nome];
-      tooltipShow(e, nome, `${fmtBRLFull(valor)}${uf ? ' - '+uf : ''}`);
-    });
-    tile.addEventListener('mousemove', tooltipMove);
-    tile.addEventListener('mouseleave', tooltipHide);
-  });
+  const cfg = {
+    type:'bar',
+    data:{ labels: items.map(i=>i[0]), datasets:[{ data: items.map(i=>i[1]), backgroundColor: items.map((_,i)=>PALETA_GPSBI[i % PALETA_GPSBI.length]), borderRadius:5, maxBarThickness:32, categoryPercentage:0.85, barPercentage:0.9 }] },
+    options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      onClick:(evt,els)=>{ if(!els.length) return; const nome = items[els[0].index][0]; selectedVendedor = selectedVendedor===nome ? '' : nome; renderTudo(); },
+      plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:c=>{ const nome=items[c.dataIndex][0]; const uf=VENDEDOR_UF[nome]; return `${fmtBRLFull(c.parsed.x)}${uf?' - '+uf:''}`; } } } },
+      scales:{ x:{ grid:{color:corGrid()}, ticks:{color:corTexto(), font:{size:10}, callback:v=>fmtBRL(v)} }, y:{ grid:{display:false}, ticks:{color:corTexto(), font:{size:10.5}} } } }
+  };
+  if(chartVendedor){ chartVendedor.data=cfg.data; chartVendedor.options=cfg.options; chartVendedor.update(); }
+  else chartVendedor = new Chart(ctx, cfg);
 }
 
 // ---- Análise por Região (mapa Leaflet, mesmo padrão da Tangram) ----
@@ -1601,6 +1590,19 @@ function gerarAnaliseTexto(){
   // do Farol — Pedido/Pedido Aprovado/Separado Total por Dt Entrega).
   const pendenteTotal = farolGymis.pendente + farolRyngavi.pendente + farolMulticopos.pendente + farolEspecial.pendente;
 
+  // Pend M+1: mesmo indicador, só que olhando o mês seguinte ao
+  // filtrado (ou ao mês atual, se nenhum filtro estiver ativo).
+  const anoBaseM1 = selectedAno || HOJE_ISO.slice(0,4);
+  const mesBaseM1 = selectedMes || HOJE_ISO.slice(5,7);
+  const { ano: anoM1, mes: mesM1 } = shiftYearMonth(anoBaseM1, mesBaseM1, 1);
+  const dentroDoM1 = d => d && d.slice(0,4)===anoM1 && d.slice(5,7)===mesM1;
+  const EMPRESAS_M1 = ['Gymis','Ryngavi','Multicopos','Especial'];
+  const pendenteM1Total = EMPRESAS_M1.reduce((soma, emp)=>{
+    const pendPedidosM1 = pendingRows.filter(r => r.empresa===emp && dentroDoM1(r.dataEntrega));
+    const pendSeparadoM1 = rows.filter(r => r.empresa===emp && normalizeTxt(r.situacao)==='separado total' && dentroDoM1(r.dataEntrega));
+    return soma + [...pendPedidosM1, ...pendSeparadoM1].reduce((s,r)=>s+(r.valorPendente||0),0);
+  }, 0);
+
   const frase = FRASES_DO_DIA[new Date().getDate() - 1] || FRASE_PADRAO;
 
   return [
@@ -1610,7 +1612,7 @@ function gerarAnaliseTexto(){
     ``,
     alertaDiretoria,
     `• Receita: *${fmtBRL(faturamento)}*`,
-    `🎯 *${(atingimento*100).toFixed(1).replace('.',',')}%* meta (${fmtBRL(meta)})`,
+    `🎯 *${(atingimento*100).toFixed(1).replace('.',',')}%*`,
     `🏁 PMI: *${fmtBRLFull(pmi)}*`,
     ``,
     `🧩 *Volume & Eficiência*`,
@@ -1623,6 +1625,7 @@ function gerarAnaliseTexto(){
     ``,
     `🧭 *Executivo*`,
     `• Pendente (M): *${fmtBRLFull(pendenteTotal)}*`,
+    `• Pend M+1: *${fmtBRLFull(pendenteM1Total)}*`,
     ``,
     frase,
     ``,
