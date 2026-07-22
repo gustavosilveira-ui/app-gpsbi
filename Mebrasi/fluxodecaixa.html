@@ -463,6 +463,13 @@ function bancoValido(rowObj, empresa){
   if(!validos) return true; // segurança: empresa não mapeada não filtra (não deveria acontecer)
   return validos.includes(normalizeBancoCodigo(getColNormalized(rowObj,'banco')));
 }
+// Cheque Terceiros não entra no filtro de bancos: é uma linha à parte que
+// nem soma no saldo (não representa dinheiro que entrou/saiu da conta da
+// empresa), então o código de banco do título não é relevante pra ela —
+// decisão de 22/07/2026, corrigindo a linha que tinha sumido do fluxo.
+function isChequeTerceiros(rowObj){
+  return normalizeTxt(getColNormalized(rowObj,'forma pagto'))==='cheque terceiros';
+}
 
 function normalizeTxt(s){
   return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
@@ -741,7 +748,7 @@ function isTituloAbertoOuPrevisto(rowObj){
 function rowsFromCAP(table, empresa){
   const raw = parseGvizRows(table);
   return raw.filter(r=>!isSubtotalRow(r)).map(r=>{
-    if(!bancoValido(r, empresa)) return null;
+    if(!isChequeTerceiros(r) && !bancoValido(r, empresa)) return null;
     if(!isTituloAbertoOuPrevisto(r)) return null;
     const dateRaw = getColNormalized(r, 'data');
     const date = parseDateCell(typeof dateRaw==='object' && dateRaw!==null ? (dateRaw.v||dateRaw) : dateRaw);
@@ -758,7 +765,7 @@ function rowsFromCAP(table, empresa){
 function rowsFromVENC(table, empresa){
   const raw = parseGvizRows(table);
   return raw.filter(r=>!isSubtotalRow(r)).map(r=>{
-    if(!bancoValido(r, empresa)) return null;
+    if(!isChequeTerceiros(r) && !bancoValido(r, empresa)) return null;
     if(!isTituloAbertoOuPrevisto(r)) return null;
     const dateRaw = getColNormalized(r, 'dt venc');
     const dateVenc = parseDateCell(typeof dateRaw==='object' && dateRaw!==null ? (dateRaw.v||dateRaw) : dateRaw);
@@ -782,7 +789,7 @@ function rowsFromVENC(table, empresa){
 function rowsFromPG(table, empresa){
   const raw = parseGvizRows(table);
   return raw.filter(r=>!isSubtotalRow(r)).map(r=>{
-    if(!bancoValido(r, empresa)) return null;
+    if(!isChequeTerceiros(r) && !bancoValido(r, empresa)) return null;
     const situacao = normalizeTxt(getColNormalized(r,'situacao'));
     if(situacao.includes('cancel')) return null;
     const dateRaw = getColNormalized(r, 'data');
@@ -803,7 +810,7 @@ function rowsFromPG(table, empresa){
 function rowsFromCR(table, empresa){
   const raw = parseGvizRows(table);
   return raw.filter(r=>!isSubtotalRow(r)).map(r=>{
-    if(!bancoValido(r, empresa)) return null;
+    if(!isChequeTerceiros(r) && !bancoValido(r, empresa)) return null;
     const situacao = normalizeTxt(getColNormalized(r,'situacao'));
     if(situacao.includes('cancel')) return null;
     const dateRaw = getColNormalized(r, 'dt pagto');
