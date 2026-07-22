@@ -439,6 +439,31 @@ const EMPRESAS = ['gymis','ryngavi','especial','multicopos'];
 const EMPRESA_LABEL = { gymis:'Gymis', ryngavi:'Ryngavi', especial:'Especial', multicopos:'Multicopos' };
 let selectedEmpresa = ''; // '' = Global (soma as 4)
 
+// Filtro de bancos por código — confirmado com a Shirley (gestora financeira),
+// decisão de 22/07/2026. Cada empresa só considera os códigos abaixo (lista
+// branca); qualquer código fora dessas listas já fica de fora automaticamente,
+// sem precisar de exclusão manual. As contas de "duplicata enviada"/controle
+// (3420 Gymis, 3416 Ryngavi, 3414 Multicopos) já não estão nessas listas.
+// Roberto comentou que pretende, a médio prazo, fechar a conta Dinari (53) e
+// manter só Itaú/Bradesco/BB — por ora 53 continua valendo em todas as
+// empresas, conforme confirmação explícita da Shirley.
+const BANCOS_VALIDOS_POR_EMPRESA = {
+  gymis: ['4','237','53','3410'],
+  ryngavi: ['4','2371','53','3411','3415'],
+  multicopos: ['2371','53','3413'],
+  especial: ['53'],
+};
+function normalizeBancoCodigo(v){
+  if(v===null||v===undefined) return '';
+  if(typeof v==='object') v = (v.f ?? v.v ?? '');
+  return v.toString().trim().replace(/\.0+$/,''); // Sheets às vezes manda "4.0" pra código inteiro
+}
+function bancoValido(rowObj, empresa){
+  const validos = BANCOS_VALIDOS_POR_EMPRESA[empresa];
+  if(!validos) return true; // segurança: empresa não mapeada não filtra (não deveria acontecer)
+  return validos.includes(normalizeBancoCodigo(getColNormalized(rowObj,'banco')));
+}
+
 function normalizeTxt(s){
   return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
 }
@@ -574,6 +599,23 @@ const CATEGORIA_CHEQUE_TERCEIROS = 'Cheque Terceiros (não conta no saldo)';
 // (cap_/venc_) já venceu (entra na linha "Títulos em Aberto") ou ainda
 // não (entra na categoria real, hoje em diante) — decisão de 20/07/2026.
 const HOJE_ISO = new Date().toISOString().slice(0,10);
+// Soma dias a uma data ISO (AAAA-MM-DD) e devolve outra data ISO.
+function addDaysISO(dateStr, days){
+  const d = new Date(dateStr+'T00:00:00');
+  d.setDate(d.getDate()+days);
+  return d.toISOString().slice(0,10);
+}
+// Período exibido no fluxo: mês vigente + 2 meses futuros (decisão de
+// 22/07/2026 — limitar o fluxo a 3 meses). Usado tanto pra montar as
+// colunas do calendário quanto pros cards "Em Aberto".
+function getPeriodoFluxo(){
+  const hoje = new Date();
+  const ano = hoje.getFullYear(), mes = hoje.getMonth(); // mes é 0-based
+  const start = `${ano}-${String(mes+1).padStart(2,'0')}-01`;
+  const fimDate = new Date(ano, mes+3, 0); // último dia do 3º mês do período (mes+2, 0-based)
+  const end = fimDate.toISOString().slice(0,10);
+  return { start, end };
+}
 function finalizarLinha(categoriaOriginal, valor, formaPagto, origem, date){
   const fp = normalizeTxt(formaPagto);
   if(fp === 'cheque terceiros'){
@@ -699,6 +741,7 @@ function isTituloAbertoOuPrevisto(rowObj){
 function rowsFromCAP(table, empresa){
   const raw = parseGvizRows(table);
   return raw.filter(r=>!isSubtotalRow(r)).map(r=>{
+    if(!bancoValido(r, empresa)) return null;
     if(!isTituloAbertoOuPrevisto(r)) return null;
     const dateRaw = getColNormalized(r, 'data');
     const date = parseDateCell(typeof dateRaw==='object' && dateRaw!==null ? (dateRaw.v||dateRaw) : dateRaw);
@@ -715,10 +758,15 @@ function rowsFromCAP(table, empresa){
 function rowsFromVENC(table, empresa){
   const raw = parseGvizRows(table);
   return raw.filter(r=>!isSubtotalRow(r)).map(r=>{
+    if(!bancoValido(r, empresa)) return null;
     if(!isTituloAbertoOuPrevisto(r)) return null;
     const dateRaw = getColNormalized(r, 'dt venc');
-    const date = parseDateCell(typeof dateRaw==='object' && dateRaw!==null ? (dateRaw.v||dateRaw) : dateRaw);
-    if(!date) return null;
+    const dateVenc = parseDateCell(typeof dateRaw==='object' && dateRaw!==null ? (dateRaw.v||dateRaw) : dateRaw);
+    if(!dateVenc) return null;
+    // D+1 sobre a Dt Venc pra refletir a compensação bancária (decisão de
+    // 22/07/2026) — só se aplica a título ainda não recebido (vem do venc_);
+    // o que já foi recebido (cr_) continua na Dt Pagto real, sem ajuste.
+    const date = addDaysISO(dateVenc, 1);
     const categoriaOriginal = (getColNormalized(r,'desc conta')||'Sem categoria').toString().trim();
     const valor = Math.abs(parseMoneyBR(getColNormalized(r,'vl total titulo')));
     const formaPagto = getColNormalized(r,'forma pagto');
@@ -734,6 +782,7 @@ function rowsFromVENC(table, empresa){
 function rowsFromPG(table, empresa){
   const raw = parseGvizRows(table);
   return raw.filter(r=>!isSubtotalRow(r)).map(r=>{
+    if(!bancoValido(r, empresa)) return null;
     const situacao = normalizeTxt(getColNormalized(r,'situacao'));
     if(situacao.includes('cancel')) return null;
     const dateRaw = getColNormalized(r, 'data');
@@ -754,6 +803,7 @@ function rowsFromPG(table, empresa){
 function rowsFromCR(table, empresa){
   const raw = parseGvizRows(table);
   return raw.filter(r=>!isSubtotalRow(r)).map(r=>{
+    if(!bancoValido(r, empresa)) return null;
     const situacao = normalizeTxt(getColNormalized(r,'situacao'));
     if(situacao.includes('cancel')) return null;
     const dateRaw = getColNormalized(r, 'dt pagto');
@@ -918,16 +968,24 @@ let columnTree = [];
 const DOW_ABBR = ['DOM','SEG','TER','QUA','QUI','SEX','SÁB'];
 function buildColumnTree(){
   if(!rows.length) return [];
-  const minYear = parseInt(rows[0].date.slice(0,4),10);
-  const maxYear = parseInt(rows[rows.length-1].date.slice(0,4),10);
   const today = new Date();
   const todayStr = today.toISOString().slice(0,10);
   const curYear = today.getFullYear(), curMonth = today.getMonth()+1;
 
-  const years = [];
-  for(let y=minYear; y<=maxYear; y++){
-    const months = [];
-    for(let m=1; m<=12; m++){
+  // Fluxo limitado a 3 meses: mês vigente + 2 meses futuros (decisão de
+  // 22/07/2026) — não gera mais colunas além desse período, mesmo que
+  // atravesse virada de ano.
+  const mesesPeriodo = [];
+  let cursor = new Date(curYear, today.getMonth(), 1);
+  for(let i=0; i<3; i++){
+    mesesPeriodo.push({ y: cursor.getFullYear(), m: cursor.getMonth()+1 });
+    cursor.setMonth(cursor.getMonth()+1);
+  }
+  const anosMap = {};
+  mesesPeriodo.forEach(({y,m})=>{ (anosMap[y] = anosMap[y]||[]).push(m); });
+
+  const years = Object.keys(anosMap).map(Number).sort((a,b)=>a-b).map(y=>{
+    const months = anosMap[y].map(m=>{
       const lastDay = new Date(y,m,0).getDate();
       const days = [];
       for(let d=1; d<=lastDay; d++){
@@ -935,13 +993,13 @@ function buildColumnTree(){
         const dow = DOW_ABBR[new Date(y,m-1,d).getDay()];
         days.push({ type:'day', key:'d'+dstr, label:`<div class="fc-dow">${dow}</div><div>${String(d).padStart(2,'0')}</div>`, start:dstr, end:dstr, isToday: dstr===todayStr, children:[], expanded:false });
       }
-      months.push({ type:'month', key:`m${y}-${m}`, label:MESES_ABBR[m-1]+'/'+String(y).slice(2),
+      return { type:'month', key:`m${y}-${m}`, label:MESES_ABBR[m-1]+'/'+String(y).slice(2),
         start:`${y}-${String(m).padStart(2,'0')}-01`, end:`${y}-${String(m).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`,
-        isToday:false, children:days, expanded:(y===curYear && m===curMonth) });
-    }
-    years.push({ type:'year', key:'y'+y, label:String(y), start:`${y}-01-01`, end:`${y}-12-31`,
-      isToday:false, children:months, expanded:(y===curYear) });
-  }
+        isToday:false, children:days, expanded:(y===curYear && m===curMonth) };
+    });
+    return { type:'year', key:'y'+y, label:String(y), start:`${y}-01-01`, end:`${y}-12-31`,
+      isToday:false, children:months, expanded:(y===curYear) };
+  });
   return years;
 }
 function flattenColumns(nodes){
@@ -1060,15 +1118,19 @@ function renderFcKpiStrip(){
   const wrap = el('fcKpiStrip');
   if(!wrap) return;
   const mesAtual = HOJE_ISO.slice(0,7);
+  const { start: periodoStart, end: periodoEnd } = getPeriodoFluxo();
   const pago = rows.filter(r=>r.origem==='pg' && r.categoria!==CATEGORIA_CHEQUE_TERCEIROS && r.date.slice(0,7)===mesAtual).reduce((s,r)=>s+Math.abs(r.valor),0);
   const recebido = rows.filter(r=>r.origem==='cr' && r.categoria!==CATEGORIA_CHEQUE_TERCEIROS && r.date.slice(0,7)===mesAtual).reduce((s,r)=>s+Math.abs(r.valor),0);
-  const aPagarAberto = rows.filter(r=>r.origem==='cap').reduce((s,r)=>s+Math.abs(r.valor),0);
-  const aReceberAberto = rows.filter(r=>r.origem==='venc').reduce((s,r)=>s+Math.abs(r.valor),0);
+  // Cards "Em Aberto" agora respeitam o mesmo período de 3 meses (mês
+  // vigente + 2 futuros) que limita o restante do fluxo — decisão de
+  // 22/07/2026 — em vez do total geral sem filtro de período.
+  const aPagarAberto = rows.filter(r=>r.origem==='cap' && r.date>=periodoStart && r.date<=periodoEnd).reduce((s,r)=>s+Math.abs(r.valor),0);
+  const aReceberAberto = rows.filter(r=>r.origem==='venc' && r.date>=periodoStart && r.date<=periodoEnd).reduce((s,r)=>s+Math.abs(r.valor),0);
   const cards = [
     { lbl:'Pago (mês vigente)', val:pago, cor:'var(--red)' },
     { lbl:'Recebido (mês vigente)', val:recebido, cor:'#4F8F3A' },
-    { lbl:'A Pagar em Aberto', val:aPagarAberto, cor:'var(--red)' },
-    { lbl:'A Receber em Aberto', val:aReceberAberto, cor:'#4F8F3A' },
+    { lbl:'A Pagar em Aberto (mês vigente + 2 meses)', val:aPagarAberto, cor:'var(--red)' },
+    { lbl:'A Receber em Aberto (mês vigente + 2 meses)', val:aReceberAberto, cor:'#4F8F3A' },
   ];
   wrap.innerHTML = cards.map(c=>`
     <div class="fc-kpi-mini">
