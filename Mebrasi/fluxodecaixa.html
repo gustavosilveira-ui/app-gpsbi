@@ -501,7 +501,8 @@ function podeVerFluxoCaixa(email){
   const e = (email||'').toLowerCase();
   return isGpsStaff(e)
       || e === 'roberto@mebrasi.com.br'
-      || e === 'shirley@mebrasi.com.br';
+      || e === 'shirley@mebrasi.com.br'
+      || e === 'sara@mebrasi.com.br';
 }
 function nameFromEmail(email){ return email.split('@')[0].split('.').map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' '); }
 function el(id){ return document.getElementById(id); }
