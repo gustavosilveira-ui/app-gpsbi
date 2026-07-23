@@ -494,12 +494,14 @@ function canAccessFluxo(email){
 function isGpsStaff(email){
   return (email||'').toLowerCase().endsWith('@gpsbi.com.br');
 }
-// Fluxo de Caixa é restrito: time GPS inteiro + só o Roberto (Mebrasi).
+// Fluxo de Caixa é restrito: time GPS inteiro + só o Roberto (Mebrasi) e Shirley (Mebrasi).
 // Os demais @mebrasi.com.br continuam com acesso normal ao resto do Hub,
 // mas não a essa página específica.
 function podeVerFluxoCaixa(email){
   const e = (email||'').toLowerCase();
-  return isGpsStaff(e) || e === 'roberto@mebrasi.com.br';
+  return isGpsStaff(e)
+      || e === 'roberto@mebrasi.com.br'
+      || e === 'shirley@mebrasi.com.br';
 }
 function nameFromEmail(email){ return email.split('@')[0].split('.').map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' '); }
 function el(id){ return document.getElementById(id); }
