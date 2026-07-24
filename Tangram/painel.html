@@ -1228,6 +1228,14 @@ function dayLimitParaMes(mes){
   const { dataRef, currentYm } = referenciaD1();
   return (mes===currentYm) ? dataRef.getDate() : null;
 }
+// Faturada NÃO deve usar o corte D-1 da Captada: uma NF autorizada é um fato definitivo assim que
+// emitida (diferente de um orçamento/pedido, que ainda pode mudar de status ou sumir no mesmo dia).
+// Aplicar D-1 na Faturada descontava um dia inteiro de faturamento já fechado e real.
+function dayLimitHojeParaMes(mes){
+  const hoje = new Date();
+  const currentYmHoje = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`;
+  return (mes===currentYmHoje) ? hoje.getDate() : null;
+}
 function periodoAtualInfo(mes){
   const { dataRef, currentYm } = referenciaD1();
   const [y,m] = mes.split('-').map(Number);
@@ -1247,7 +1255,7 @@ function gerarAnaliseTexto(){
   const info = periodoAtualInfo(mes);
 
   const capAtual = calcMonthTotalSamePeriod(mes, vendFilter, canalFilter, info.dayLimit, captadaRows);
-  const fatAtual = calcMonthTotalSamePeriod(mes, vendFilter, canalFilter, info.dayLimit, faturadaRows);
+  const fatAtual = calcMonthTotalSamePeriod(mes, vendFilter, canalFilter, dayLimitHojeParaMes(mes), faturadaRows);
 
   const mesAnterior = monthAdd(mes,-1);
   const anoAnterior = monthAdd(mes,-12);
@@ -1417,17 +1425,19 @@ function renderMatrix(){
   const canalFilter = selectedCanal;
   const vendorsBase = selectedVendedor ? [selectedVendedor] : allVendors;
   // Receita Faturada da tabela precisa parar no mesmo corte de dia (D-1) que a Captada já usa —
-  // sem isso, Faturada somava o mês inteiro disponível na planilha, sem respeitar "mesmo período",
-  // e destoava tanto da Captada da própria tabela quanto do texto de WhatsApp.
-  const dayLimitMatrix = dayLimitParaMes(selectedMes);
+  // Captada respeita o corte D-1 (pedido/orçamento ainda pode mudar no mesmo dia). Faturada usa o
+  // corte de hoje (D-0): NF autorizada é um fato definitivo assim que emitida, não precisa de buffer,
+  // e usar D-1 aqui descontava um dia inteiro de faturamento real já fechado.
+  const dayLimitCapMatrix = dayLimitParaMes(selectedMes);
+  const dayLimitFatMatrix = dayLimitHojeParaMes(selectedMes);
   const grandTotalCap = filterRows(captadaRows, selectedMes, selectedVendedor, canalFilter).reduce((s,r)=>s+r.total,0);
-  const grandTotalFat = matrixRowsUntilDay(faturadaRows, selectedMes, selectedVendedor, canalFilter, null, dayLimitMatrix);
+  const grandTotalFat = matrixRowsUntilDay(faturadaRows, selectedMes, selectedVendedor, canalFilter, null, dayLimitFatMatrix);
   const grandComp = matrixComparativos(captadaRows, selectedMes, selectedVendedor, canalFilter, null);
 
   // Pré-calcula pra poder filtrar (sem receita) e ordenar (maior pro menor) antes de desenhar
   const vendorsCalc = vendorsBase.map(v=>{
     const compCap = matrixComparativos(captadaRows, selectedMes, v, canalFilter, null);
-    const fatAtual = matrixRowsUntilDay(faturadaRows, selectedMes, v, canalFilter, null, dayLimitMatrix);
+    const fatAtual = matrixRowsUntilDay(faturadaRows, selectedMes, v, canalFilter, null, dayLimitFatMatrix);
     return { v, compCap, fatAtual };
   }).filter(x=>x.compCap.atual>0 || x.fatAtual>0)
     .sort((a,b)=>b.compCap.atual-a.compCap.atual);
@@ -1479,7 +1489,7 @@ function renderMatrix(){
     const clientes = Array.from(new Set(vendorRowsAtual.map(r=>r.cliente).filter(Boolean)));
     const clientTotals = clientes.map(c=>{
       const comp = matrixComparativos(captadaRows, selectedMes, v, canalFilter, c);
-      const fat = matrixRowsUntilDay(faturadaRows, selectedMes, v, canalFilter, c, dayLimitMatrix);
+      const fat = matrixRowsUntilDay(faturadaRows, selectedMes, v, canalFilter, c, dayLimitFatMatrix);
       const pedC = new Set(vendorRowsAtual.filter(r=>r.cliente===c).map(r=>r.pedido)).size;
       const ticketC = pedC>0 ? comp.atual/pedC : 0;
       return { c, comp, fat, ticketC };
