@@ -1215,10 +1215,15 @@ function renderGauge(pct,captado,meta){
 /* ---- Análise pronta pra WhatsApp ---- */
 let analiseWhatsBound = false;
 function periodoAtualInfo(mes){
-  const currentYm = `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`;
+  // A base de dados sempre atualiza com 1 dia de atraso (D-1) — o dado de "hoje" ainda não existe
+  // na planilha no momento em que o painel/texto é gerado. Por isso a referência de "período atual"
+  // usa ontem, não hoje, senão o período conta um dia a mais que não tem receita nenhuma lançada.
+  const hoje = new Date();
+  const dataRef = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()-1);
+  const currentYm = `${dataRef.getFullYear()}-${String(dataRef.getMonth()+1).padStart(2,'0')}`;
   const [y,m] = mes.split('-').map(Number);
   const lastDay = new Date(y,m,0).getDate();
-  const endDay = (mes===currentYm) ? new Date().getDate() : lastDay;
+  const endDay = (mes===currentYm) ? dataRef.getDate() : lastDay;
   const pad = n=>String(n).padStart(2,'0');
   return {
     currentYm,
@@ -1378,8 +1383,11 @@ function matrixRowsUntilDay(rows, mes, vendedor, canal, cliente, dayLimit){
   }).reduce((s,r)=>s+r.total,0);
 }
 function matrixComparativos(rows, mes, vendedor, canal, cliente){
-  const currentYm = `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`;
-  const dayLimit = (mes===currentYm) ? new Date().getDate() : null;
+  // Mesmo ajuste de periodoAtualInfo: a base está sempre em D-1, então o corte do "mês vigente" é ontem, não hoje.
+  const hoje = new Date();
+  const dataRef = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()-1);
+  const currentYm = `${dataRef.getFullYear()}-${String(dataRef.getMonth()+1).padStart(2,'0')}`;
+  const dayLimit = (mes===currentYm) ? dataRef.getDate() : null;
   const prevMes = monthAdd(mes,-1);
   const prevYearMes = monthAdd(mes,-12);
   const atual = matrixRowsUntilDay(rows, mes, vendedor, canal, cliente, dayLimit);
@@ -1516,8 +1524,11 @@ function renderEvolution(){
   );
   evolutionMonths = allMonths;
 
-  const currentYm = `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`;
-  const todayDate = new Date().getDate();
+  // Mesmo ajuste: a base está sempre em D-1, então o corte do mês vigente é ontem, não hoje.
+  const hojeEvol = new Date();
+  const dataRefEvol = new Date(hojeEvol.getFullYear(), hojeEvol.getMonth(), hojeEvol.getDate()-1);
+  const currentYm = `${dataRefEvol.getFullYear()}-${String(dataRefEvol.getMonth()+1).padStart(2,'0')}`;
+  const todayDate = dataRefEvol.getDate();
   const capByMes = allMonths.map(m=>calcMonthTotalSamePeriod(m,vendFilter,canalFilter, m===currentYm ? todayDate : null, captadaRows));
   const fatByMes = allMonths.map(m=>calcMonthTotalSamePeriod(m,vendFilter,canalFilter, m===currentYm ? todayDate : null, faturadaRows));
   const pctVsPrev = allMonths.map((m,i)=>{
