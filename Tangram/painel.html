@@ -1214,13 +1214,22 @@ function renderGauge(pct,captado,meta){
 
 /* ---- Análise pronta pra WhatsApp ---- */
 let analiseWhatsBound = false;
-function periodoAtualInfo(mes){
-  // A base de dados sempre atualiza com 1 dia de atraso (D-1) — o dado de "hoje" ainda não existe
-  // na planilha no momento em que o painel/texto é gerado. Por isso a referência de "período atual"
-  // usa ontem, não hoje, senão o período conta um dia a mais que não tem receita nenhuma lançada.
+// A base de dados sempre atualiza com 1 dia de atraso (D-1) — o dado de "hoje" ainda não existe
+// na planilha no momento em que o painel/texto é gerado. Por isso QUALQUER cálculo de "período/mês
+// vigente" no painel deve usar ontem como referência, não hoje — senão o período conta um dia a mais
+// que não tem receita nenhuma lançada. Helper único pra não duplicar essa lógica em cada função.
+function referenciaD1(){
   const hoje = new Date();
   const dataRef = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()-1);
   const currentYm = `${dataRef.getFullYear()}-${String(dataRef.getMonth()+1).padStart(2,'0')}`;
+  return { dataRef, currentYm };
+}
+function dayLimitParaMes(mes){
+  const { dataRef, currentYm } = referenciaD1();
+  return (mes===currentYm) ? dataRef.getDate() : null;
+}
+function periodoAtualInfo(mes){
+  const { dataRef, currentYm } = referenciaD1();
   const [y,m] = mes.split('-').map(Number);
   const lastDay = new Date(y,m,0).getDate();
   const endDay = (mes===currentYm) ? dataRef.getDate() : lastDay;
@@ -1383,11 +1392,7 @@ function matrixRowsUntilDay(rows, mes, vendedor, canal, cliente, dayLimit){
   }).reduce((s,r)=>s+r.total,0);
 }
 function matrixComparativos(rows, mes, vendedor, canal, cliente){
-  // Mesmo ajuste de periodoAtualInfo: a base está sempre em D-1, então o corte do "mês vigente" é ontem, não hoje.
-  const hoje = new Date();
-  const dataRef = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()-1);
-  const currentYm = `${dataRef.getFullYear()}-${String(dataRef.getMonth()+1).padStart(2,'0')}`;
-  const dayLimit = (mes===currentYm) ? dataRef.getDate() : null;
+  const dayLimit = dayLimitParaMes(mes);
   const prevMes = monthAdd(mes,-1);
   const prevYearMes = monthAdd(mes,-12);
   const atual = matrixRowsUntilDay(rows, mes, vendedor, canal, cliente, dayLimit);
@@ -1411,14 +1416,18 @@ function renderMatrix(){
 
   const canalFilter = selectedCanal;
   const vendorsBase = selectedVendedor ? [selectedVendedor] : allVendors;
+  // Receita Faturada da tabela precisa parar no mesmo corte de dia (D-1) que a Captada já usa —
+  // sem isso, Faturada somava o mês inteiro disponível na planilha, sem respeitar "mesmo período",
+  // e destoava tanto da Captada da própria tabela quanto do texto de WhatsApp.
+  const dayLimitMatrix = dayLimitParaMes(selectedMes);
   const grandTotalCap = filterRows(captadaRows, selectedMes, selectedVendedor, canalFilter).reduce((s,r)=>s+r.total,0);
-  const grandTotalFat = filterRows(faturadaRows, selectedMes, selectedVendedor, canalFilter).reduce((s,r)=>s+r.total,0);
+  const grandTotalFat = matrixRowsUntilDay(faturadaRows, selectedMes, selectedVendedor, canalFilter, null, dayLimitMatrix);
   const grandComp = matrixComparativos(captadaRows, selectedMes, selectedVendedor, canalFilter, null);
 
   // Pré-calcula pra poder filtrar (sem receita) e ordenar (maior pro menor) antes de desenhar
   const vendorsCalc = vendorsBase.map(v=>{
     const compCap = matrixComparativos(captadaRows, selectedMes, v, canalFilter, null);
-    const fatAtual = filterRows(faturadaRows, selectedMes, v, canalFilter).reduce((s,r)=>s+r.total,0);
+    const fatAtual = matrixRowsUntilDay(faturadaRows, selectedMes, v, canalFilter, null, dayLimitMatrix);
     return { v, compCap, fatAtual };
   }).filter(x=>x.compCap.atual>0 || x.fatAtual>0)
     .sort((a,b)=>b.compCap.atual-a.compCap.atual);
@@ -1470,7 +1479,7 @@ function renderMatrix(){
     const clientes = Array.from(new Set(vendorRowsAtual.map(r=>r.cliente).filter(Boolean)));
     const clientTotals = clientes.map(c=>{
       const comp = matrixComparativos(captadaRows, selectedMes, v, canalFilter, c);
-      const fat = filterRows(faturadaRows, selectedMes, v, canalFilter).filter(r=>r.cliente===c).reduce((s,r)=>s+r.total,0);
+      const fat = matrixRowsUntilDay(faturadaRows, selectedMes, v, canalFilter, c, dayLimitMatrix);
       const pedC = new Set(vendorRowsAtual.filter(r=>r.cliente===c).map(r=>r.pedido)).size;
       const ticketC = pedC>0 ? comp.atual/pedC : 0;
       return { c, comp, fat, ticketC };
@@ -1524,10 +1533,7 @@ function renderEvolution(){
   );
   evolutionMonths = allMonths;
 
-  // Mesmo ajuste: a base está sempre em D-1, então o corte do mês vigente é ontem, não hoje.
-  const hojeEvol = new Date();
-  const dataRefEvol = new Date(hojeEvol.getFullYear(), hojeEvol.getMonth(), hojeEvol.getDate()-1);
-  const currentYm = `${dataRefEvol.getFullYear()}-${String(dataRefEvol.getMonth()+1).padStart(2,'0')}`;
+  const { dataRef: dataRefEvol, currentYm } = referenciaD1();
   const todayDate = dataRefEvol.getDate();
   const capByMes = allMonths.map(m=>calcMonthTotalSamePeriod(m,vendFilter,canalFilter, m===currentYm ? todayDate : null, captadaRows));
   const fatByMes = allMonths.map(m=>calcMonthTotalSamePeriod(m,vendFilter,canalFilter, m===currentYm ? todayDate : null, faturadaRows));
