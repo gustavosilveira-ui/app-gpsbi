@@ -1266,8 +1266,23 @@ function gerarAnaliseTexto(){
   }
   const diasUteisNoMes = contarDiasUteis(anoMes, numMes, diasNoMes);
   const rowsPeriodoAtual = rowsUntilDay(captadaRows, mes, vendFilter, canalFilter, info.dayLimit);
-  const diasComReceita = new Set(rowsPeriodoAtual.filter(r=>r.total>0).map(r=>r.date)).size;
-  const projecao = (info.dayLimit && info.dayLimit < diasNoMes && diasComReceita>0) ? (capAtual / diasComReceita * diasUteisNoMes) : null;
+  // Conta só dias ÚTEIS com receita (a base de dados pode ter receita lançada em fim de semana,
+  // já que a data é a do pedido/captação, não necessariamente um dia de trabalho — isso inflava
+  // o denominador acima do total de dias úteis do mês inteiro e derrubava a projeção abaixo do
+  // que já tinha sido captado).
+  const diasComReceita = new Set(
+    rowsPeriodoAtual
+      .filter(r=>{
+        if(r.total<=0) return false;
+        const [ry,rm,rd] = r.date.split('-').map(Number);
+        const dow = new Date(ry, rm-1, rd).getDay();
+        return dow!==0 && dow!==6;
+      })
+      .map(r=>r.date)
+  ).size;
+  let projecao = (info.dayLimit && info.dayLimit < diasNoMes && diasComReceita>0) ? (capAtual / diasComReceita * diasUteisNoMes) : null;
+  // Trava de segurança: a projeção de fechamento nunca pode ficar abaixo do que já foi captado.
+  if(projecao!==null) projecao = Math.max(projecao, capAtual);
 
   const linhaMes = pctMes===null ? '*📈 Crescimento vs Mês:* —' : `*📈 Crescimento vs Mês:* ${Math.round(pctMes)}% (${fmtBRLFull(capAtual-capMesAnterior)})`;
   const linhaAno = pctAno===null ? '*📈 Crescimento vs Ano:* —' : `*📈 Crescimento vs Ano:* ${Math.round(pctAno)}% (${fmtBRLFull(capAtual-capAnoAnterior)})`;
