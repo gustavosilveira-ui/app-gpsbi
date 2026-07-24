@@ -1384,7 +1384,7 @@ function calcMonthTotalSamePeriod(mes, vendedor, canal, dayLimit, rows){
 }
 
 /* ---- Comparativo por Vendedor (com clientes) — M.A / A.A com mesmo período ---- */
-function matrixRowsUntilDay(rows, mes, vendedor, canal, cliente, dayLimit){
+function matrixFilterRows(rows, mes, vendedor, canal, cliente, dayLimit){
   return rows.filter(r=>{
     if(r.mes!==mes) return false;
     if(vendedor && r.vendedor.toLowerCase()!==vendedor.toLowerCase()) return false;
@@ -1397,7 +1397,10 @@ function matrixRowsUntilDay(rows, mes, vendedor, canal, cliente, dayLimit){
     if(searchProduto && !(r.produto||'').toLowerCase().includes(searchProduto)) return false;
     if(dayLimit){ const d=parseInt(String(r.date||'').slice(8,10),10); if(d>dayLimit) return false; }
     return true;
-  }).reduce((s,r)=>s+r.total,0);
+  });
+}
+function matrixRowsUntilDay(rows, mes, vendedor, canal, cliente, dayLimit){
+  return matrixFilterRows(rows, mes, vendedor, canal, cliente, dayLimit).reduce((s,r)=>s+r.total,0);
 }
 function matrixComparativos(rows, mes, vendedor, canal, cliente){
   const dayLimit = dayLimitParaMes(mes);
@@ -1424,13 +1427,15 @@ function renderMatrix(){
 
   const canalFilter = selectedCanal;
   const vendorsBase = selectedVendedor ? [selectedVendedor] : allVendors;
-  // Receita Faturada da tabela precisa parar no mesmo corte de dia (D-1) que a Captada já usa —
   // Captada respeita o corte D-1 (pedido/orçamento ainda pode mudar no mesmo dia). Faturada usa o
   // corte de hoje (D-0): NF autorizada é um fato definitivo assim que emitida, não precisa de buffer,
-  // e usar D-1 aqui descontava um dia inteiro de faturamento real já fechado.
+  // e usar D-1 nela descontava um dia inteiro de faturamento real já fechado.
   const dayLimitCapMatrix = dayLimitParaMes(selectedMes);
   const dayLimitFatMatrix = dayLimitHojeParaMes(selectedMes);
-  const grandTotalCap = filterRows(captadaRows, selectedMes, selectedVendedor, canalFilter).reduce((s,r)=>s+r.total,0);
+  // O Total da tabela precisa usar o MESMO corte que as linhas de vendedor (via matrixComparativos)
+  // já usam — antes ele somava o mês inteiro sem corte nenhum, então destoava tanto das linhas
+  // acima dele quanto do texto de WhatsApp.
+  const grandTotalCap = matrixRowsUntilDay(captadaRows, selectedMes, selectedVendedor, canalFilter, null, dayLimitCapMatrix);
   const grandTotalFat = matrixRowsUntilDay(faturadaRows, selectedMes, selectedVendedor, canalFilter, null, dayLimitFatMatrix);
   const grandComp = matrixComparativos(captadaRows, selectedMes, selectedVendedor, canalFilter, null);
 
@@ -1457,7 +1462,7 @@ function renderMatrix(){
     const meta = getMeta(selectedMes, v);
     const pctReceita = grandTotalCap>0 ? compCap.atual/grandTotalCap : 0;
     const pctMeta = meta>0 ? compCap.atual/meta : 0;
-    const pedidosUnicos = new Set(filterRows(captadaRows, selectedMes, v, canalFilter).map(r=>r.pedido)).size;
+    const pedidosUnicos = new Set(matrixFilterRows(captadaRows, selectedMes, v, canalFilter, null, dayLimitCapMatrix).map(r=>r.pedido)).size;
     const ticket = pedidosUnicos>0 ? compCap.atual/pedidosUnicos : 0;
 
     totMeta+=meta; totPedidosUnicos+=pedidosUnicos;
@@ -1485,7 +1490,7 @@ function renderMatrix(){
     });
     body.appendChild(trV);
 
-    const vendorRowsAtual = filterRows(captadaRows, selectedMes, v, canalFilter);
+    const vendorRowsAtual = matrixFilterRows(captadaRows, selectedMes, v, canalFilter, null, dayLimitCapMatrix);
     const clientes = Array.from(new Set(vendorRowsAtual.map(r=>r.cliente).filter(Boolean)));
     const clientTotals = clientes.map(c=>{
       const comp = matrixComparativos(captadaRows, selectedMes, v, canalFilter, c);
@@ -1854,9 +1859,11 @@ function renderMap(rows){
 function renderRanking(){
   const vendFilter=selectedVendedor;
   const vendors = vendFilter ? [vendFilter] : allVendors;
+  const dayLimitCapRanking = dayLimitParaMes(selectedMes);
+  const dayLimitFatRanking = dayLimitHojeParaMes(selectedMes);
   const rows = vendors.map(v=>{
-    const cap=filterRows(captadaRows,selectedMes,v,selectedCanal).reduce((s,r)=>s+r.total,0);
-    const fat=filterRows(faturadaRows,selectedMes,v,selectedCanal).reduce((s,r)=>s+r.total,0);
+    const cap=matrixRowsUntilDay(captadaRows,selectedMes,v,selectedCanal,null,dayLimitCapRanking);
+    const fat=matrixRowsUntilDay(faturadaRows,selectedMes,v,selectedCanal,null,dayLimitFatRanking);
     const meta=getMeta(selectedMes, v);
     const pct = meta>0?Math.round(cap/meta*100):0;
     return {v,cap,fat,meta,pct};
