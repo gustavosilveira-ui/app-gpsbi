@@ -1214,30 +1214,25 @@ function renderGauge(pct,captado,meta){
 
 /* ---- Análise pronta pra WhatsApp ---- */
 let analiseWhatsBound = false;
-// A base de dados sempre atualiza com 1 dia de atraso (D-1) — o dado de "hoje" ainda não existe
-// na planilha no momento em que o painel/texto é gerado. Por isso QUALQUER cálculo de "período/mês
-// vigente" no painel deve usar ontem como referência, não hoje — senão o período conta um dia a mais
-// que não tem receita nenhuma lançada. Helper único pra não duplicar essa lógica em cada função.
-function referenciaD1(){
-  const hoje = new Date();
-  const dataRef = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()-1);
+// A planilha já reflete o dado de hoje (confirmado comparando com exportações diretas do OMIE) —
+// não existe atraso de sincronização. Por isso o corte de "período/mês vigente" usa hoje, não ontem,
+// tanto pra Captada quanto pra Faturada. (Obs.: pedido/orçamento ainda pode mudar de status ou até
+// sumir no mesmo dia — isso é ruído normal de um snapshot ao vivo, não motivo pra atrasar o corte.)
+// Helper único pra não duplicar essa lógica em cada função.
+function referenciaHoje(){
+  const dataRef = new Date();
   const currentYm = `${dataRef.getFullYear()}-${String(dataRef.getMonth()+1).padStart(2,'0')}`;
   return { dataRef, currentYm };
 }
 function dayLimitParaMes(mes){
-  const { dataRef, currentYm } = referenciaD1();
+  const { dataRef, currentYm } = referenciaHoje();
   return (mes===currentYm) ? dataRef.getDate() : null;
 }
-// Faturada NÃO deve usar o corte D-1 da Captada: uma NF autorizada é um fato definitivo assim que
-// emitida (diferente de um orçamento/pedido, que ainda pode mudar de status ou sumir no mesmo dia).
-// Aplicar D-1 na Faturada descontava um dia inteiro de faturamento já fechado e real.
 function dayLimitHojeParaMes(mes){
-  const hoje = new Date();
-  const currentYmHoje = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`;
-  return (mes===currentYmHoje) ? hoje.getDate() : null;
+  return dayLimitParaMes(mes);
 }
 function periodoAtualInfo(mes){
-  const { dataRef, currentYm } = referenciaD1();
+  const { dataRef, currentYm } = referenciaHoje();
   const [y,m] = mes.split('-').map(Number);
   const lastDay = new Date(y,m,0).getDate();
   const endDay = (mes===currentYm) ? dataRef.getDate() : lastDay;
@@ -1548,7 +1543,7 @@ function renderEvolution(){
   );
   evolutionMonths = allMonths;
 
-  const { dataRef: dataRefEvol, currentYm } = referenciaD1();
+  const { dataRef: dataRefEvol, currentYm } = referenciaHoje();
   const todayDate = dataRefEvol.getDate();
   const capByMes = allMonths.map(m=>calcMonthTotalSamePeriod(m,vendFilter,canalFilter, m===currentYm ? todayDate : null, captadaRows));
   const fatByMes = allMonths.map(m=>calcMonthTotalSamePeriod(m,vendFilter,canalFilter, m===currentYm ? todayDate : null, faturadaRows));
