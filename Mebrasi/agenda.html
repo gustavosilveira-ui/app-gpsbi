@@ -139,14 +139,19 @@ html{zoom:.8;}
 .cal-month-label{font-size:14px;font-weight:800;min-width:150px;text-align:center;}
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
 .cal-dow{font-size:10px;color:var(--text3);text-align:center;font-weight:700;text-transform:uppercase;padding-bottom:4px;}
-.cal-day{aspect-ratio:1;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;background:var(--navy3);border:2px solid transparent;font-size:12px;font-weight:700;position:relative;}
+.cal-day{min-height:96px;border-radius:10px;display:flex;flex-direction:column;align-items:stretch;gap:2px;cursor:pointer;background:var(--navy3);border:2px solid transparent;padding:6px 6px 8px;position:relative;overflow:hidden;}
 .cal-day.empty{background:transparent;cursor:default;}
-.cal-day.status-done{background:rgba(152,196,124,.18);color:#98C47C;}
-.cal-day.status-pending{background:rgba(245,185,66,.18);color:var(--gold);}
-.cal-day.status-none{color:var(--text2);}
 .cal-day.is-today{border-color:#2D70B8;}
+.cal-day.is-today .cal-day-num{color:#2D70B8;}
 .cal-day.selected{border-color:var(--cyan);}
-.cal-day .dot{width:5px;height:5px;border-radius:50%;background:currentColor;}
+.cal-day-num{font-size:12px;font-weight:800;color:var(--text2);margin-bottom:2px;flex:none;}
+.cal-day-tasks{display:flex;flex-direction:column;gap:2px;overflow:hidden;flex:1;min-height:0;}
+.cal-day-task{display:flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.cal-day-task .dot{width:6px;height:6px;border-radius:50%;flex:none;background:var(--gold);}
+.cal-day-task.done{color:var(--text3);text-decoration:line-through;}
+.cal-day-task.done .dot{background:#98C47C;}
+.cal-day-more{font-size:10px;color:var(--text3);font-weight:700;margin-top:1px;flex:none;}
+@media(max-width:700px){.cal-day{min-height:64px;padding:4px;} .cal-day-task{font-size:9px;}}
 .cal-legend{display:flex;gap:16px;margin-top:14px;font-size:11px;color:var(--text3);flex-wrap:wrap;}
 .cal-legend span{display:flex;align-items:center;gap:6px;}
 .cal-legend .sw{width:10px;height:10px;border-radius:3px;}
@@ -204,7 +209,7 @@ html{zoom:.8;}
 
     <div class="card">
       <div class="card-title">📅 Calendário</div>
-      <div class="card-sub">Verde = tudo concluído no dia · Amarelo = tem pendência · Cinza = sem tarefa. Clique num dia pra ver ou adicionar tarefas.</div>
+      <div class="card-sub">Cada dia mostra suas tarefas direto na célula, igual o Google Agenda. Clique num dia pra ver tudo ou adicionar uma nova.</div>
       <div class="cal-head">
         <div class="cal-nav">
           <button onclick="calChangeMonth(-1)">◀</button>
@@ -215,9 +220,8 @@ html{zoom:.8;}
       </div>
       <div class="cal-grid" id="calGrid"></div>
       <div class="cal-legend">
-        <span><span class="sw" style="background:rgba(152,196,124,.5)"></span> Tudo concluído</span>
-        <span><span class="sw" style="background:rgba(245,185,66,.5)"></span> Tem pendência</span>
-        <span><span class="sw" style="background:var(--navy3)"></span> Sem tarefa</span>
+        <span><span class="sw" style="background:var(--gold)"></span> Pendente</span>
+        <span><span class="sw" style="background:#98C47C"></span> Concluída</span>
       </div>
     </div>
 
@@ -416,24 +420,26 @@ function renderCalendar(){
   const todayStr = new Date().toISOString().slice(0,10);
   const firstDow = new Date(calYear, calMonth, 1).getDay();
   const lastDay = new Date(calYear, calMonth+1, 0).getDate();
+  const MAX_PREVIEW = 3;
 
   const byDay = {};
   tasksCache.forEach(t=>{
     if(t.data_tarefa.slice(0,7) !== `${calYear}-${String(calMonth+1).padStart(2,'0')}`) return;
-    if(!byDay[t.data_tarefa]) byDay[t.data_tarefa] = { total:0, done:0 };
-    byDay[t.data_tarefa].total++;
-    if(t.feito) byDay[t.data_tarefa].done++;
+    (byDay[t.data_tarefa] = byDay[t.data_tarefa] || []).push(t);
   });
 
   let html = DOW_ABBR.map(d=>`<div class="cal-dow">${d}</div>`).join('');
   for(let i=0;i<firstDow;i++) html += '<div class="cal-day empty"></div>';
   for(let d=1; d<=lastDay; d++){
     const dstr = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-    const info = byDay[dstr];
-    let statusCls = 'status-none';
-    if(info){ statusCls = info.done===info.total ? 'status-done' : 'status-pending'; }
-    const cls = ['cal-day', statusCls, dstr===todayStr?'is-today':'', dstr===calSelectedDay?'selected':''].filter(Boolean).join(' ');
-    html += `<div class="${cls}" onclick="calSelectDay('${dstr}')">${d}${info?'<span class="dot"></span>':''}</div>`;
+    const tarefasDia = (byDay[dstr]||[]).slice().sort((a,b)=> (a.feito?1:0) - (b.feito?1:0)); // pendentes primeiro
+    const cls = ['cal-day', dstr===todayStr?'is-today':'', dstr===calSelectedDay?'selected':''].filter(Boolean).join(' ');
+    const preview = tarefasDia.slice(0, MAX_PREVIEW).map(t=>
+      `<div class="cal-day-task ${t.feito?'done':''}"><span class="dot"></span>${(t.titulo||'').replace(/</g,'&lt;')}</div>`
+    ).join('');
+    const resto = tarefasDia.length - MAX_PREVIEW;
+    const maisHtml = resto>0 ? `<div class="cal-day-more">Mais ${resto}</div>` : '';
+    html += `<div class="${cls}" onclick="calSelectDay('${dstr}')"><div class="cal-day-num">${d}</div><div class="cal-day-tasks">${preview}${maisHtml}</div></div>`;
   }
   el('calGrid').innerHTML = html;
 }
