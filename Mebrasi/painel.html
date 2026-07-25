@@ -1340,6 +1340,7 @@ function renderMapaRegiao(){
 
   const ranked = Object.entries(porEstado).sort((a,b)=>b[1]-a[1]);
   const max = Math.max(...Object.values(porEstado), 1);
+  const totalGeral = Object.values(porEstado).reduce((s,v)=>s+v,0);
   const topUFs = new Set(ranked.slice(0,3).map(e=>e[0]));
 
   ranked.forEach(([uf,val])=>{
@@ -1347,6 +1348,7 @@ function renderMapaRegiao(){
     const radius = 6 + (val/max)*22;
     const isTop = topUFs.has(uf);
     const isSelected = selectedEstado === uf;
+    const pct = totalGeral ? (val/totalGeral*100) : 0;
     L.circleMarker([lat,lng], {
       radius,
       fillColor: isSelected ? '#f5b942' : (isTop ? '#36E2C9' : '#2D70B8'),
@@ -1356,7 +1358,7 @@ function renderMapaRegiao(){
       fillOpacity: isTop || isSelected ? .75 : .55,
       className: (isTop ? 'state-marker pulse-glow' : 'state-marker'),
     })
-    .bindTooltip(`${uf}: ${fmtBRLFull(val)}`)
+    .bindTooltip(`${uf}: ${fmtBRLFull(val)}<br>${pct.toFixed(1).replace('.',',')}% do total`)
     .on('click', ()=>{ selectedEstado = selectedEstado===uf ? '' : uf; renderTudo(); })
     .addTo(leafletLayerRegiao);
   });
