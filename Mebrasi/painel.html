@@ -69,8 +69,29 @@ a{color:inherit;text-decoration:none;}
 .btn:hover{opacity:.9;}
 .btn-primary{background:linear-gradient(90deg,var(--blue),var(--cyan));color:#fff;}
 .btn-ghost{background:var(--navy3);color:var(--text);border:1px solid var(--border2);}
+.btn-danger{background:rgba(239,106,106,.15);color:var(--red);border:1px solid rgba(239,106,106,.3);}
 .btn-sm{padding:6px 12px;font-size:11.5px;}
 .empty-state{text-align:center;padding:40px 20px;color:var(--text3);font-size:13px;}
+
+/* ===== Observações, Avisos e Solicitações (mesmo padrão do Fluxo de Caixa) ===== */
+.pc-msg-form{display:grid;grid-template-columns:220px 1fr auto;gap:10px;align-items:start;}
+.pc-msg-form select,.pc-msg-form textarea{width:100%;background:var(--field-bg,var(--navy3));border:1px solid var(--border2);border-radius:9px;padding:10px 12px;color:var(--text);font-family:'Sora',sans-serif;font-size:13px;outline:none;}
+.pc-msg-form textarea{resize:vertical;min-height:70px;}
+.pc-msg-item{background:var(--navy3);border-radius:12px;padding:14px 16px;margin-bottom:10px;}
+.pc-msg-head{display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:nowrap;}
+.pc-msg-autor{font-size:12.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1;}
+.pc-msg-date{font-size:10.5px;color:var(--text3);flex:none;white-space:nowrap;}
+.pc-msg-tipo{font-size:10px;font-weight:700;padding:3px 9px;border-radius:999px;flex:none;white-space:nowrap;}
+.pc-msg-tipo.observacao{background:rgba(45,112,184,.15);color:#2D70B8;}
+.pc-msg-tipo.aviso{background:rgba(245,185,66,.15);color:var(--gold);}
+.pc-msg-tipo.solicitacao{background:rgba(155,127,232,.15);color:var(--purple);}
+.pc-msg-text{font-size:13px;color:var(--text2);line-height:1.5;white-space:pre-wrap;margin-bottom:8px;}
+.pc-msg-status{display:inline-block;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;}
+.pc-msg-status.aberto{background:rgba(245,185,66,.15);color:var(--gold);}
+.pc-msg-status.resolvido,.pc-msg-status.aprovado{background:rgba(47,214,184,.15);color:#98C47C;}
+.pc-msg-status.recusado{background:rgba(239,106,106,.15);color:var(--red);}
+.pc-msg-resposta{margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:12px;color:var(--text2);}
+@media(max-width:900px){ .pc-msg-form{grid-template-columns:1fr;} }
 
 .filtros-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px;}
 .filtros-bar select, .filtros-bar input{background:var(--field-bg);border:1px solid var(--border2);border-radius:9px;padding:8px 12px;color:var(--text);font-family:'Sora',sans-serif;font-size:12.5px;}
@@ -455,6 +476,22 @@ table.tabela-simples tr.linha-total td{font-weight:800;border-top:2px solid var(
     </div>
 
     <div id="fcDebugStats" style="font-size:11px;color:var(--text3);margin-top:8px;"></div>
+
+    <!-- ============ Observações, avisos e solicitações (BI Comercial) ============ -->
+    <div class="card">
+      <div class="card-title">📋 Observações, Avisos e Solicitações</div>
+      <div class="card-sub">Espaço da GPS e do Mebrasi pra registrar observações, avisar algo importante ou pedir uma ação sobre o BI Comercial — tudo com histórico.</div>
+      <div class="pc-msg-form">
+        <select id="pcMsgTipo">
+          <option value="observacao">📝 Observação</option>
+          <option value="aviso">⚠️ Aviso</option>
+          <option value="solicitacao">🙋 Solicitação (precisa de resposta)</option>
+        </select>
+        <textarea id="pcMsgTexto" placeholder="Escreva aqui..."></textarea>
+        <button class="btn btn-primary" onclick="submitPcMsg()">Publicar</button>
+      </div>
+      <div id="pcMsgList" style="margin-top:16px;"></div>
+    </div>
 
   </div>
 </div>
@@ -2005,6 +2042,58 @@ function appApplyTheme(t, skipSync){
 }
 async function doLogout(){ await sb.auth.signOut(); window.location.href = LOGIN_URL; }
 
+/* ================== Observações, avisos e solicitações (BI Comercial) ================== */
+async function loadPcMsgs(){
+  const { data, error } = await sb.from('comercial_mensagens').select('*').order('criado_em',{ascending:false});
+  if(error){ el('pcMsgList').innerHTML = '<div style="color:var(--gold);font-size:12px;">⚠️ Não consegui carregar. Verifique se a tabela comercial_mensagens existe no Supabase.</div>'; return; }
+  renderPcMsgs(data||[]);
+}
+function renderPcMsgs(msgs){
+  if(!msgs.length){ el('pcMsgList').innerHTML = '<div class="empty-state"><div class="icon">📋</div>Nenhum registro ainda.</div>'; return; }
+  const tipoLabel = { observacao:'📝 Observação', aviso:'⚠️ Aviso', solicitacao:'🙋 Solicitação' };
+  const statusLabel = { aberto:'⏳ Aberto', resolvido:'✓ Resolvido', aprovado:'✓ Aprovado', recusado:'✕ Recusado' };
+  el('pcMsgList').innerHTML = msgs.map(m=>{
+    const date = new Date(m.criado_em).toLocaleString('pt-BR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+    const podeResponder = m.tipo==='solicitacao' && m.status==='aberto';
+    const acoes = podeResponder ? `
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button class="btn btn-primary btn-sm" onclick="respondPcMsg(${m.id},'aprovado')">Aprovar</button>
+        <button class="btn btn-danger btn-sm" onclick="respondPcMsg(${m.id},'recusado')">Recusar</button>
+        <button class="btn btn-ghost btn-sm" onclick="respondPcMsg(${m.id},'resolvido')">Marcar resolvido</button>
+      </div>` : (m.status==='aberto' && m.tipo!=='solicitacao' ? `<button class="btn btn-ghost btn-sm" onclick="respondPcMsg(${m.id},'resolvido')" style="margin-top:8px;">Marcar resolvido</button>` : '');
+    const resposta = m.resposta ? `<div class="pc-msg-resposta"><b>${m.respondido_por||''}:</b> ${m.resposta}</div>` : '';
+    return `<div class="pc-msg-item">
+      <div class="pc-msg-head">
+        <span class="pc-msg-autor">${m.autor_nome||m.autor_email}</span>
+        <span class="pc-msg-tipo ${m.tipo}">${tipoLabel[m.tipo]||m.tipo}</span>
+        <span class="pc-msg-status ${m.status}">${statusLabel[m.status]||m.status}</span>
+        <span class="pc-msg-date">${date}</span>
+      </div>
+      <div class="pc-msg-text">${(m.mensagem||'').replace(/</g,'&lt;')}</div>
+      ${resposta}
+      ${acoes}
+    </div>`;
+  }).join('');
+}
+async function submitPcMsg(){
+  const tipo = el('pcMsgTipo').value;
+  const mensagem = el('pcMsgTexto').value.trim();
+  if(!mensagem) return;
+  const { error } = await sb.from('comercial_mensagens').insert({
+    autor_email: currentUser.email, autor_nome: nameFromEmail(currentUser.email), tipo, mensagem, status:'aberto'
+  });
+  if(!error){ el('pcMsgTexto').value=''; await loadPcMsgs(); }
+  else alert('Erro ao publicar: '+error.message);
+}
+async function respondPcMsg(id, status){
+  const resposta = prompt('Quer deixar uma resposta? (opcional)') || '';
+  const { error } = await sb.from('comercial_mensagens').update({
+    status, resposta, respondido_por: nameFromEmail(currentUser.email), respondido_em: new Date().toISOString()
+  }).eq('id', id);
+  if(!error) await loadPcMsgs();
+  else alert('Erro: '+error.message);
+}
+
 el('clientModal').addEventListener('click', e=>{ if(e.target.id==='clientModal') closeClientModal(); });
 
 async function init(){
@@ -2043,6 +2132,7 @@ async function init(){
     await loadData();
     popularFiltrosAnoMes();
     renderTudo();
+    loadPcMsgs();
     el('loadingScreen').style.display='none';
     el('mainContent').style.display='block';
   }catch(e){
