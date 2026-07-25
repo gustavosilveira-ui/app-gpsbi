@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mural · Hub GPSBI</title>
+<title>Mural Corporativo · Hub GPSBI</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 /* ===== theme.css embutido (Mebrasi ainda não hospeda esse arquivo separado) ===== */
@@ -49,7 +49,8 @@ a{color:inherit;text-decoration:none;}
 .app-brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:14px;flex:none;white-space:nowrap;}
 .app-brand .dot{width:8px;height:8px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),var(--blue));}
 .app-nav{display:flex;align-items:center;gap:4px;flex:none;flex-wrap:nowrap;}
-.app-nav a{padding:8px 14px;border-radius:999px;font-size:12.5px;font-weight:600;color:var(--text3);transition:all .15s;white-space:nowrap;flex:none;}
+.app-nav a{padding:8px 14px;border-radius:999px;font-size:12.5px;font-weight:600;color:var(--text3);transition:all .15s;white-space:nowrap;flex:none;position:relative;}
+.nav-badge{position:absolute;top:-3px;right:-2px;background:var(--red);color:#fff;font-size:9.5px;font-weight:800;padding:1px 5px;border-radius:999px;line-height:1.4;pointer-events:none;}
 .app-nav a:hover{background:var(--navy3);color:var(--text);}
 .app-nav a.active{background:linear-gradient(90deg,var(--blue),var(--cyan));color:#fff;}
 .app-right{display:flex;align-items:center;gap:10px;flex:none;}
@@ -104,6 +105,8 @@ label.field-label{display:block;font-size:11px;color:var(--text3);text-transform
 /* ===== estilos específicos desta página ===== */
 html{zoom:.8;}
 .post-item{background:var(--navy3);border-radius:12px;padding:16px 18px;margin-bottom:12px;}
+.mural-filtros{margin-bottom:14px;}
+.mural-filtros input{width:100%;}
 .post-item.pinned{border:1px solid rgba(245,185,66,.4);}
 .post-head{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
 .post-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),var(--blue));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff;flex:none;}
@@ -118,6 +121,8 @@ html{zoom:.8;}
 .like-btn.liked{background:rgba(58,233,209,.15);color:var(--cyan);border-color:rgba(58,233,209,.3);}
 .post-del{margin-left:auto;background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:12px;}
 .post-del:hover{color:var(--red);}
+.post-edit-box input,.post-edit-box textarea{width:100%;background:var(--field-bg,var(--navy4));border:1px solid var(--border2);border-radius:9px;padding:8px 10px;color:var(--text);font-family:'Sora',sans-serif;font-size:13px;outline:none;margin-bottom:8px;}
+.post-edit-box textarea{resize:vertical;min-height:70px;}
 .read-list{margin-top:10px;padding:10px 12px;background:var(--navy4);border-radius:8px;font-size:11.5px;color:var(--text2);line-height:1.6;}
 </style>
 </head>
@@ -141,11 +146,11 @@ html{zoom:.8;}
   <div class="app-topbar">
     <div class="app-brand"><span class="dot"></span> Hub GPSBI</div>
     <nav class="app-nav">
-      <a href="painel.html">📊 Bi Comercial</a>
+      <a href="painel.html" id="navPainel">📊 Bi Comercial</a>
       <a href="fluxodecaixa.html" id="navFluxo">💰 Fluxo de Caixa</a>
       <a href="depositos.html" id="navRoberto">🏦 Depósitos</a>
       <a href="agenda.html" id="navAgenda">🗓️ Agenda</a>
-      <a href="mural.html" id="navMural" class="active">📣 Mural</a>
+      <a href="mural.html" id="navMural" class="active">📣 Mural Corporativo</a>
       <a href="aprovacoes.html" id="navAprovacoes">✅ Aprovações</a>
     </nav>
     <div class="app-right">
@@ -178,8 +183,11 @@ html{zoom:.8;}
     </div>
 
     <div class="card">
-      <div class="card-title">Mural da Equipe</div>
+      <div class="card-title">📣 Mural Corporativo</div>
       <div class="card-sub">Comunicados e avisos internos.</div>
+      <div class="mural-filtros">
+        <input type="text" id="muralFiltroBusca" placeholder="Buscar comunicado..." oninput="aplicarFiltroMural()">
+      </div>
       <div id="postsWrap"></div>
     </div>
   </div>
@@ -234,6 +242,7 @@ async function init(){
   userName = nameFromEmail(userEmail);
 
   document.documentElement.style.visibility='visible';
+  aplicarBadgesNav(currentUser.email);
   el('userChip').textContent = userName;
   el('appLogoutBtn').addEventListener('click', doLogout);
   el('appBtnDark').addEventListener('click', ()=>appApplyTheme('dark'));
@@ -247,19 +256,37 @@ async function init(){
   await loadPosts();
 }
 
+let muralCache = { posts:[], reacoes:[], leituras:[] };
+let muralEditando = null; // id do comunicado em edição
 async function loadPosts(){
   const { data: posts, error } = await sb.from('comunicados').select('*').order('fixado',{ascending:false}).order('criado_em',{ascending:false});
   if(error){ el('postsWrap').innerHTML = '<div class="empty-state">⚠️ Não consegui carregar o mural. Verifique se a tabela comunicados existe no Supabase.</div>'; return; }
   const { data: reacoes } = await sb.from('comunicado_reacoes').select('*');
   const { data: leituras } = await sb.from('comunicado_leituras').select('*');
-  renderPosts(posts||[], reacoes||[], leituras||[]);
+  muralCache = { posts:posts||[], reacoes:reacoes||[], leituras:leituras||[] };
+  renderPosts(muralCache.posts, muralCache.reacoes, muralCache.leituras);
 }
+function rerenderPosts(){ renderPosts(muralCache.posts, muralCache.reacoes, muralCache.leituras); }
 
-function renderPosts(posts, reacoes, leituras){
-  if(!posts.length){
+let muralVisiveis = 8;
+function aplicarFiltroMural(){ muralVisiveis = 8; rerenderPosts(); }
+function mostrarMaisMural(){ muralVisiveis += 8; rerenderPosts(); }
+function renderPosts(postsOriginais, reacoes, leituras){
+  if(!postsOriginais.length){
     el('postsWrap').innerHTML = '<div class="empty-state"><div class="icon">📣</div>Nenhum comunicado ainda.</div>';
     return;
   }
+  const filtroBusca = (el('muralFiltroBusca')?.value || '').toLowerCase().trim();
+  const postsFiltrados = postsOriginais.filter(p=>{
+    if(!filtroBusca) return true;
+    return (p.titulo||'').toLowerCase().includes(filtroBusca) || (p.mensagem||'').toLowerCase().includes(filtroBusca);
+  });
+  if(!postsFiltrados.length){
+    el('postsWrap').innerHTML = '<div class="empty-state"><div class="icon">🔎</div>Nenhum comunicado encontrado com essa busca.</div>';
+    return;
+  }
+  const posts = postsFiltrados.slice(0, muralVisiveis);
+  const botaoMostrarMais = postsFiltrados.length>muralVisiveis ? `<button class="btn btn-ghost btn-sm" onclick="mostrarMaisMural()" style="width:100%;margin-top:6px;">Mostrar mais (${postsFiltrados.length-muralVisiveis} restantes)</button>` : '';
   el('postsWrap').innerHTML = posts.map(p=>{
     const likes = reacoes.filter(r=>r.comunicado_id===p.id);
     const liked = likes.some(r=>r.usuario_email===userEmail);
@@ -268,23 +295,32 @@ function renderPosts(posts, reacoes, leituras){
     const initials = (p.autor_nome||'--').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
     const date = new Date(p.criado_em).toLocaleString('pt-BR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
     const listaLeitores = leiturasPost.map(l=>`${l.usuario_nome||l.usuario_email} · ${new Date(l.lido_em).toLocaleString('pt-BR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}`).join('<br>') || 'Ninguém confirmou leitura ainda.';
+    const editando = muralEditando===p.id;
+    const corpoBloco = editando ? `<div class="post-edit-box">
+        <input type="text" id="muralEditTitulo_${p.id}" value="${(p.titulo||'').replace(/"/g,'&quot;')}" placeholder="Título">
+        <textarea id="muralEditMensagem_${p.id}">${(p.mensagem||'').replace(/</g,'&lt;')}</textarea>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <button class="btn btn-primary btn-sm" onclick="salvarEdicaoPost(${p.id})">Salvar</button>
+          <button class="btn btn-ghost btn-sm" onclick="cancelarEdicaoPost()">Cancelar</button>
+        </div>
+      </div>` : `<div class="post-title">${p.titulo}</div><div class="post-msg">${(p.mensagem||'').replace(/</g,'&lt;')}</div>`;
     return `<div class="post-item ${p.fixado?'pinned':''}">
       <div class="post-head">
         <div class="post-avatar">${initials}</div>
         <div class="post-meta"><div class="post-author">${p.autor_nome||p.autor_email}</div><div class="post-date">${date}</div></div>
         ${p.fixado ? '<span class="pin-badge">📌 Fixado</span>' : ''}
       </div>
-      <div class="post-title">${p.titulo}</div>
-      <div class="post-msg">${(p.mensagem||'').replace(/</g,'&lt;')}</div>
+      ${corpoBloco}
       <div class="post-actions">
         <button class="like-btn ${liked?'liked':''}" onclick="toggleLike(${p.id}, ${liked})">👍 ${likes.length||''}</button>
         <button class="like-btn ${jaLeu?'liked':''}" onclick="toggleRead(${p.id}, ${jaLeu})" ${jaLeu?'disabled':''}>${jaLeu?'✅ Lido, de acordo':'☑️ Marcar como lido'}</button>
         ${userRole==='owner' ? `<button class="like-btn" onclick="toggleReadList(${p.id})" title="${listaLeitores.replace(/"/g,'&quot;')}">👀 ${leiturasPost.length} leram</button>` : ''}
+        ${userRole==='owner' ? `<button class="post-del" onclick="abrirEdicaoPost(${p.id})">Editar</button>` : ''}
         ${userRole==='owner' ? `<button class="post-del" onclick="deletePost(${p.id})">Excluir</button>` : ''}
       </div>
       <div class="read-list" id="readList_${p.id}" style="display:none;">${listaLeitores}</div>
     </div>`;
-  }).join('');
+  }).join('') + botaoMostrarMais;
 }
 function toggleReadList(id){
   const el2 = document.getElementById('readList_'+id);
@@ -293,7 +329,17 @@ function toggleReadList(id){
 async function toggleRead(comunicadoId, already){
   if(already) return;
   const { error } = await sb.from('comunicado_leituras').insert({ comunicado_id:comunicadoId, usuario_email:userEmail, usuario_nome:userName });
-  if(!error) await loadPosts();
+  if(!error){ await loadPosts(); aplicarBadgesNav(userEmail); }
+  else alert('Erro: '+error.message);
+}
+function abrirEdicaoPost(id){ muralEditando = id; rerenderPosts(); }
+function cancelarEdicaoPost(){ muralEditando = null; rerenderPosts(); }
+async function salvarEdicaoPost(id){
+  const titulo = (el('muralEditTitulo_'+id)?.value||'').trim();
+  const mensagem = (el('muralEditMensagem_'+id)?.value||'').trim();
+  if(!titulo || !mensagem) return;
+  const { error } = await sb.from('comunicados').update({ titulo, mensagem }).eq('id', id);
+  if(!error){ muralEditando = null; await loadPosts(); }
   else alert('Erro: '+error.message);
 }
 
@@ -318,7 +364,7 @@ async function deletePost(id){
 }
 async function doLogout(){ await sb.auth.signOut(); window.location.href = LOGIN_URL; }
 
-init();
+// Notificação no menu: badge com a contagem de não lidas em Fluxo de Caixa,\n// BI Comercial e Mural Corporativo (Observação/Aviso e posts do mural) —\n// decisão de 24/07/2026.\nasync function aplicarBadgesNav(email){\n  try{\n    const [fluxoQ, fluxoLidasQ, comercialQ, comercialLidasQ, muralQ, muralLidasQ] = await Promise.all([\n      sb.from('fluxo_mensagens').select('id').in('tipo',['observacao','aviso']),\n      sb.from('fluxo_mensagens_leituras').select('mensagem_id').eq('usuario_email', email),\n      sb.from('comercial_mensagens').select('id').in('tipo',['observacao','aviso']),\n      sb.from('comercial_mensagens_leituras').select('mensagem_id').eq('usuario_email', email),\n      sb.from('comunicados').select('id'),\n      sb.from('comunicado_leituras').select('comunicado_id').eq('usuario_email', email),\n    ]);\n    const naoLidas = (todos, lidas, campoLido) => {\n      const lidosSet = new Set((lidas||[]).map(l=>l[campoLido]));\n      return (todos||[]).filter(x=>!lidosSet.has(x.id)).length;\n    };\n    pintarBadgeNav('navFluxo', naoLidas(fluxoQ.data, fluxoLidasQ.data, 'mensagem_id'));\n    pintarBadgeNav('navPainel', naoLidas(comercialQ.data, comercialLidasQ.data, 'mensagem_id'));\n    pintarBadgeNav('navMural', naoLidas(muralQ.data, muralLidasQ.data, 'comunicado_id'));\n  }catch(e){ console.error('Erro ao calcular notificações do menu:', e); }\n}\nfunction pintarBadgeNav(navId, count){\n  const linkEl = document.getElementById(navId);\n  if(!linkEl) return;\n  const existente = linkEl.querySelector('.nav-badge');\n  if(existente) existente.remove();\n  if(count>0){\n    const span = document.createElement('span');\n    span.className = 'nav-badge';\n    span.textContent = count>99 ? '99+' : String(count);\n    linkEl.appendChild(span);\n  }\n}\n\ninit();
 </script>
 </body>
 </html>

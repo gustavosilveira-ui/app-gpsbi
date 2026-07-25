@@ -48,7 +48,8 @@ a{color:inherit;text-decoration:none;}
 .app-brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:14px;flex:none;white-space:nowrap;}
 .app-brand .dot{width:8px;height:8px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),var(--blue));}
 .app-nav{display:flex;align-items:center;gap:4px;flex:none;flex-wrap:nowrap;}
-.app-nav a{padding:8px 14px;border-radius:999px;font-size:12.5px;font-weight:600;color:var(--text3);transition:all .15s;white-space:nowrap;flex:none;}
+.app-nav a{padding:8px 14px;border-radius:999px;font-size:12.5px;font-weight:600;color:var(--text3);transition:all .15s;white-space:nowrap;flex:none;position:relative;}
+.nav-badge{position:absolute;top:-3px;right:-2px;background:var(--red);color:#fff;font-size:9.5px;font-weight:800;padding:1px 5px;border-radius:999px;line-height:1.4;pointer-events:none;}
 .app-nav a:hover{background:var(--navy3);color:var(--text);}
 .app-nav a.active{background:linear-gradient(90deg,var(--blue),var(--cyan));color:#fff;}
 .app-right{display:flex;align-items:center;gap:10px;flex:none;margin-left:auto;}
@@ -75,6 +76,9 @@ a{color:inherit;text-decoration:none;}
 
 /* ===== Observações, Avisos e Solicitações (mesmo padrão do Fluxo de Caixa) ===== */
 .pc-msg-form{display:grid;grid-template-columns:220px 1fr auto;gap:10px;align-items:start;}
+.pc-msg-filtros{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;}
+.pc-msg-filtros select{width:auto;min-width:160px;background:var(--field-bg,var(--navy3));border:1px solid var(--border2);border-radius:9px;padding:8px 10px;color:var(--text);font-family:'Sora',sans-serif;font-size:12.5px;}
+.pc-msg-filtros input{flex:1;min-width:180px;background:var(--field-bg,var(--navy3));border:1px solid var(--border2);border-radius:9px;padding:8px 10px;color:var(--text);font-family:'Sora',sans-serif;font-size:12.5px;outline:none;}
 .pc-msg-form select,.pc-msg-form textarea{width:100%;background:var(--field-bg,var(--navy3));border:1px solid var(--border2);border-radius:9px;padding:10px 12px;color:var(--text);font-family:'Sora',sans-serif;font-size:13px;outline:none;}
 .pc-msg-form textarea{resize:vertical;min-height:70px;}
 .pc-msg-item{background:var(--navy3);border-radius:12px;padding:14px 16px;margin-bottom:10px;}
@@ -99,6 +103,9 @@ a{color:inherit;text-decoration:none;}
 .pc-msg-resposta-form{margin-top:10px;padding:10px 12px;background:var(--navy4,var(--navy3));border-radius:10px;}
 .pc-msg-resposta-form-label{font-size:11.5px;font-weight:700;color:var(--text2);margin-bottom:6px;}
 .pc-msg-resposta-form textarea{width:100%;background:var(--field-bg,var(--navy3));border:1px solid var(--border2);border-radius:9px;padding:8px 10px;color:var(--text);font-family:'Sora',sans-serif;font-size:12.5px;outline:none;resize:vertical;min-height:60px;}
+.pc-msg-edit-link{font-size:11px;color:var(--cyan);cursor:pointer;font-weight:700;white-space:nowrap;}
+.pc-msg-edit-box{margin-bottom:8px;}
+.pc-msg-edit-box textarea{width:100%;background:var(--field-bg,var(--navy3));border:1px solid var(--border2);border-radius:9px;padding:8px 10px;color:var(--text);font-family:'Sora',sans-serif;font-size:12.5px;outline:none;resize:vertical;min-height:60px;}
 @media(max-width:900px){ .pc-msg-form{grid-template-columns:1fr;} }
 
 .filtros-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px;}
@@ -348,11 +355,11 @@ table.tabela-simples tr.linha-total td{font-weight:800;border-top:2px solid var(
   <div class="app-topbar">
     <div class="app-brand"><span class="dot"></span> Hub GPSBI</div>
     <nav class="app-nav">
-      <a href="painel.html" class="active">📊 Bi Comercial</a>
+      <a href="painel.html" id="navPainel" class="active">📊 Bi Comercial</a>
       <a href="fluxodecaixa.html" id="navFluxo">💰 Fluxo de Caixa</a>
       <a href="depositos.html" id="navRoberto">🏦 Depósitos</a>
       <a href="agenda.html">🗓️ Agenda</a>
-      <a href="mural.html">📣 Mural</a>
+      <a href="mural.html" id="navMural">📣 Mural Corporativo</a>
       <a href="aprovacoes.html">✅ Aprovações</a>
     </nav>
     <div class="app-right">
@@ -497,6 +504,22 @@ table.tabela-simples tr.linha-total td{font-weight:800;border-top:2px solid var(
         </select>
         <textarea id="pcMsgTexto" placeholder="Escreva aqui..."></textarea>
         <button class="btn btn-primary" onclick="submitPcMsg()">Publicar</button>
+      </div>
+      <div class="pc-msg-filtros">
+        <select id="pcMsgFiltroTipo" onchange="aplicarFiltrosPcMsgs()">
+          <option value="">Todos os tipos</option>
+          <option value="observacao">📝 Observação</option>
+          <option value="aviso">⚠️ Aviso</option>
+          <option value="solicitacao">🙋 Solicitação</option>
+        </select>
+        <select id="pcMsgFiltroStatus" onchange="aplicarFiltrosPcMsgs()">
+          <option value="">Todos os status</option>
+          <option value="aberto">⏳ Aberto</option>
+          <option value="resolvido">✓ Resolvido</option>
+          <option value="aprovado">✓ Aprovado</option>
+          <option value="recusado">✕ Recusado</option>
+        </select>
+        <input type="text" id="pcMsgFiltroBusca" placeholder="Buscar no texto..." oninput="aplicarFiltrosPcMsgs()">
       </div>
       <div id="pcMsgList" style="margin-top:16px;"></div>
     </div>
@@ -2056,6 +2079,7 @@ async function doLogout(){ await sb.auth.signOut(); window.location.href = LOGIN
 /* ================== Observações, avisos e solicitações (BI Comercial) ================== */
 let pcMsgsCache = { msgs:[], reacoes:[], leituras:[] };
 let pcRespondendo = null; // { id, status }
+let pcEditando = null; // { id, campo: 'mensagem'|'resposta' }
 async function loadPcMsgs(){
   const { data, error } = await sb.from('comercial_mensagens').select('*').order('criado_em',{ascending:false});
   if(error){ el('pcMsgList').innerHTML = '<div style="color:var(--gold);font-size:12px;">⚠️ Não consegui carregar. Verifique se a tabela comercial_mensagens existe no Supabase.</div>'; return; }
@@ -2066,10 +2090,25 @@ async function loadPcMsgs(){
 }
 function rerenderPcMsgs(){ renderPcMsgs(pcMsgsCache.msgs, pcMsgsCache.reacoes, pcMsgsCache.leituras); }
 const PC_MSG_REACOES = [ { tipo:'like', emoji:'👍' }, { tipo:'coracao', emoji:'❤️' }, { tipo:'palmas', emoji:'👏' } ];
-function renderPcMsgs(msgs, reacoes, leituras){
-  if(!msgs.length){ el('pcMsgList').innerHTML = '<div class="empty-state"><div class="icon">📋</div>Nenhum registro ainda.</div>'; return; }
+let pcMsgVisiveis = 8;
+function aplicarFiltrosPcMsgs(){ pcMsgVisiveis = 8; rerenderPcMsgs(); }
+function mostrarMaisPcMsgs(){ pcMsgVisiveis += 8; rerenderPcMsgs(); }
+function renderPcMsgs(msgsOriginais, reacoes, leituras){
+  if(!msgsOriginais.length){ el('pcMsgList').innerHTML = '<div class="empty-state"><div class="icon">📋</div>Nenhum registro ainda.</div>'; return; }
+  const filtroTipo = el('pcMsgFiltroTipo')?.value || '';
+  const filtroStatus = el('pcMsgFiltroStatus')?.value || '';
+  const filtroBusca = (el('pcMsgFiltroBusca')?.value || '').toLowerCase().trim();
+  const msgsFiltradas = msgsOriginais.filter(m=>{
+    if(filtroTipo && m.tipo!==filtroTipo) return false;
+    if(filtroStatus && m.status!==filtroStatus) return false;
+    if(filtroBusca && !(m.mensagem||'').toLowerCase().includes(filtroBusca)) return false;
+    return true;
+  });
+  if(!msgsFiltradas.length){ el('pcMsgList').innerHTML = '<div class="empty-state"><div class="icon">🔎</div>Nenhum registro encontrado com esse filtro.</div>'; return; }
+  const msgs = msgsFiltradas.slice(0, pcMsgVisiveis);
   const tipoLabel = { observacao:'📝 Observação', aviso:'⚠️ Aviso', solicitacao:'🙋 Solicitação' };
   const statusLabel = { aberto:'⏳ Aberto', resolvido:'✓ Resolvido', aprovado:'✓ Aprovado', recusado:'✕ Recusado' };
+  const botaoMostrarMais = msgsFiltradas.length>pcMsgVisiveis ? `<button class="btn btn-ghost btn-sm" onclick="mostrarMaisPcMsgs()" style="width:100%;margin-top:6px;">Mostrar mais (${msgsFiltradas.length-pcMsgVisiveis} restantes)</button>` : '';
   el('pcMsgList').innerHTML = msgs.map(m=>{
     const date = new Date(m.criado_em).toLocaleString('pt-BR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
     const podeResponder = m.tipo==='solicitacao' && m.status==='aberto';
@@ -2094,7 +2133,26 @@ function renderPcMsgs(msgs, reacoes, leituras){
     } else if(podeResolver){
       acoes = `<button class="btn btn-ghost btn-sm" onclick="abrirRespostaPcMsg(${m.id},'resolvido')" style="margin-top:8px;">Marcar resolvido</button>`;
     }
-    const resposta = m.resposta ? `<div class="pc-msg-resposta"><b>${m.respondido_por||''}:</b> ${m.resposta}</div>` : '';
+    // Edição do texto original (autor ou time GPS) e da resposta (só time GPS) —
+    // decisão de 24/07/2026.
+    const podeEditarMsg = m.autor_email===currentUser.email || gpsStaff;
+    const podeEditarResposta = !!m.resposta && gpsStaff;
+    const editandoMsg = pcEditando && pcEditando.id===m.id && pcEditando.campo==='mensagem';
+    const editandoResposta = pcEditando && pcEditando.id===m.id && pcEditando.campo==='resposta';
+    const textoMsgBloco = editandoMsg ? `<div class="pc-msg-edit-box">
+        <textarea id="pcEdit_mensagem_${m.id}">${(m.mensagem||'').replace(/</g,'&lt;')}</textarea>
+        <div style="display:flex;gap:8px;margin-top:6px;">
+          <button class="btn btn-primary btn-sm" onclick="salvarEdicaoPcMsg(${m.id},'mensagem')">Salvar</button>
+          <button class="btn btn-ghost btn-sm" onclick="cancelarEdicaoPcMsg()">Cancelar</button>
+        </div>
+      </div>` : `<div class="pc-msg-text">${(m.mensagem||'').replace(/</g,'&lt;')}${podeEditarMsg ? ` <span class="pc-msg-edit-link" onclick="abrirEdicaoPcMsg(${m.id},'mensagem')">✏️ editar</span>` : ''}</div>`;
+    const respostaBloco = editandoResposta ? `<div class="pc-msg-edit-box">
+        <textarea id="pcEdit_resposta_${m.id}">${(m.resposta||'').replace(/</g,'&lt;')}</textarea>
+        <div style="display:flex;gap:8px;margin-top:6px;">
+          <button class="btn btn-primary btn-sm" onclick="salvarEdicaoPcMsg(${m.id},'resposta')">Salvar</button>
+          <button class="btn btn-ghost btn-sm" onclick="cancelarEdicaoPcMsg()">Cancelar</button>
+        </div>
+      </div>` : (m.resposta ? `<div class="pc-msg-resposta"><b>${m.respondido_por||''}:</b> ${m.resposta}${podeEditarResposta ? ` <span class="pc-msg-edit-link" onclick="abrirEdicaoPcMsg(${m.id},'resposta')">✏️ editar</span>` : ''}</div>` : '');
     let leituraBloco = '';
     if(m.tipo==='observacao' || m.tipo==='aviso'){
       const reacoesMsg = reacoes.filter(r=>r.mensagem_id===m.id);
@@ -2119,12 +2177,12 @@ function renderPcMsgs(msgs, reacoes, leituras){
         <span class="pc-msg-status ${m.status}">${statusLabel[m.status]||m.status}</span>
         <span class="pc-msg-date">${date}</span>
       </div>
-      <div class="pc-msg-text">${(m.mensagem||'').replace(/</g,'&lt;')}</div>
-      ${resposta}
+      ${textoMsgBloco}
+      ${respostaBloco}
       ${acoes}
       ${leituraBloco}
     </div>`;
-  }).join('');
+  }).join('') + botaoMostrarMais;
 }
 async function submitPcMsg(){
   const tipo = el('pcMsgTipo').value;
@@ -2156,7 +2214,17 @@ async function togglePcMsgReacao(mensagemId, tipo, already){
 async function togglePcMsgLeitura(mensagemId, already){
   if(already) return;
   const { error } = await sb.from('comercial_mensagens_leituras').insert({ mensagem_id:mensagemId, usuario_email:currentUser.email, usuario_nome:nameFromEmail(currentUser.email) });
-  if(!error) await loadPcMsgs();
+  if(!error){ await loadPcMsgs(); aplicarBadgesNav(currentUser.email); }
+  else alert('Erro: '+error.message);
+}
+function abrirEdicaoPcMsg(id, campo){ pcEditando = { id, campo }; rerenderPcMsgs(); }
+function cancelarEdicaoPcMsg(){ pcEditando = null; rerenderPcMsgs(); }
+async function salvarEdicaoPcMsg(id, campo){
+  const valor = (el('pcEdit_'+campo+'_'+id)?.value || '').trim();
+  if(campo==='mensagem' && !valor) return; // não deixa a mensagem original ficar vazia
+  const payload = campo==='mensagem' ? { mensagem: valor } : { resposta: valor };
+  const { error } = await sb.from('comercial_mensagens').update(payload).eq('id', id);
+  if(!error){ pcEditando = null; await loadPcMsgs(); }
   else alert('Erro: '+error.message);
 }
 
@@ -2178,6 +2246,7 @@ async function init(){
   gpsStaff = isGpsStaff(email);
   if(!podeVerFluxoCaixa(email)){ const nf = el('navFluxo'); if(nf) nf.remove(); const nr = el('navRoberto'); if(nr) nr.remove(); }
   document.documentElement.style.visibility='visible';
+  aplicarBadgesNav(currentUser.email);
 
   el('userChip').textContent = nameFromEmail(email);
   el('appLogoutBtn').addEventListener('click', doLogout);
@@ -2207,7 +2276,7 @@ async function init(){
   }
 }
 
-init();
+// Notificação no menu: badge com a contagem de não lidas em Fluxo de Caixa,\n// BI Comercial e Mural Corporativo (Observação/Aviso e posts do mural) —\n// decisão de 24/07/2026.\nasync function aplicarBadgesNav(email){\n  try{\n    const [fluxoQ, fluxoLidasQ, comercialQ, comercialLidasQ, muralQ, muralLidasQ] = await Promise.all([\n      sb.from('fluxo_mensagens').select('id').in('tipo',['observacao','aviso']),\n      sb.from('fluxo_mensagens_leituras').select('mensagem_id').eq('usuario_email', email),\n      sb.from('comercial_mensagens').select('id').in('tipo',['observacao','aviso']),\n      sb.from('comercial_mensagens_leituras').select('mensagem_id').eq('usuario_email', email),\n      sb.from('comunicados').select('id'),\n      sb.from('comunicado_leituras').select('comunicado_id').eq('usuario_email', email),\n    ]);\n    const naoLidas = (todos, lidas, campoLido) => {\n      const lidosSet = new Set((lidas||[]).map(l=>l[campoLido]));\n      return (todos||[]).filter(x=>!lidosSet.has(x.id)).length;\n    };\n    pintarBadgeNav('navFluxo', naoLidas(fluxoQ.data, fluxoLidasQ.data, 'mensagem_id'));\n    pintarBadgeNav('navPainel', naoLidas(comercialQ.data, comercialLidasQ.data, 'mensagem_id'));\n    pintarBadgeNav('navMural', naoLidas(muralQ.data, muralLidasQ.data, 'comunicado_id'));\n  }catch(e){ console.error('Erro ao calcular notificações do menu:', e); }\n}\nfunction pintarBadgeNav(navId, count){\n  const linkEl = document.getElementById(navId);\n  if(!linkEl) return;\n  const existente = linkEl.querySelector('.nav-badge');\n  if(existente) existente.remove();\n  if(count>0){\n    const span = document.createElement('span');\n    span.className = 'nav-badge';\n    span.textContent = count>99 ? '99+' : String(count);\n    linkEl.appendChild(span);\n  }\n}\n\ninit();
 
 // Compensa a altura do documento pro transform:scale(.8) do #mainContent não
 // deixar espaço em branco sobrando embaixo (o transform não encolhe o espaço

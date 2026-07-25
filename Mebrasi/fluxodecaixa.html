@@ -49,7 +49,8 @@ a{color:inherit;text-decoration:none;}
 .app-brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:14px;flex:none;white-space:nowrap;}
 .app-brand .dot{width:8px;height:8px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),var(--blue));}
 .app-nav{display:flex;align-items:center;gap:4px;flex:none;flex-wrap:nowrap;}
-.app-nav a{padding:8px 14px;border-radius:999px;font-size:12.5px;font-weight:600;color:var(--text3);transition:all .15s;white-space:nowrap;flex:none;}
+.app-nav a{padding:8px 14px;border-radius:999px;font-size:12.5px;font-weight:600;color:var(--text3);transition:all .15s;white-space:nowrap;flex:none;position:relative;}
+.nav-badge{position:absolute;top:-3px;right:-2px;background:var(--red);color:#fff;font-size:9.5px;font-weight:800;padding:1px 5px;border-radius:999px;line-height:1.4;pointer-events:none;}
 .app-nav a:hover{background:var(--navy3);color:var(--text);}
 .app-nav a.active{background:linear-gradient(90deg,var(--blue),var(--cyan));color:#fff;}
 .app-right{display:flex;align-items:center;gap:10px;flex:none;}
@@ -228,6 +229,9 @@ html.light .fc-day-num{color:#1f2a3d;}
 .fc-sim-entry .del:hover{color:var(--red);}
 
 .fc-msg-form{display:grid;grid-template-columns:220px 1fr auto;gap:10px;align-items:start;}
+.fc-msg-filtros{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;}
+.fc-msg-filtros select{width:auto;min-width:160px;}
+.fc-msg-filtros input{flex:1;min-width:180px;}
 .fc-msg-item{background:var(--navy3);border-radius:12px;padding:14px 16px;margin-bottom:10px;}
 .fc-msg-head{display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:nowrap;}
 .fc-msg-autor{font-size:12.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1;}
@@ -250,6 +254,9 @@ html.light .fc-day-num{color:#1f2a3d;}
 .fc-msg-read-list{margin-top:8px;padding:8px 10px;background:var(--navy4);border-radius:8px;font-size:11px;color:var(--text2);line-height:1.6;}
 .fc-msg-resposta-form{margin-top:10px;padding:10px 12px;background:var(--navy4);border-radius:10px;}
 .fc-msg-resposta-form-label{font-size:11.5px;font-weight:700;color:var(--text2);margin-bottom:6px;}
+.fc-msg-edit-link{font-size:11px;color:var(--cyan);cursor:pointer;font-weight:700;white-space:nowrap;}
+.fc-msg-edit-box{margin-bottom:8px;}
+.fc-msg-edit-box textarea{width:100%;}
 @media(max-width:900px){ .fc-sim-form,.fc-msg-form,.fc-saldo-form{grid-template-columns:1fr;} }
 </style>
 </head>
@@ -273,11 +280,11 @@ html.light .fc-day-num{color:#1f2a3d;}
   <div class="app-topbar">
     <div class="app-brand"><span class="dot"></span> Hub GPSBI</div>
     <nav class="app-nav">
-      <a href="painel.html">📊 Bi Comercial</a>
+      <a href="painel.html" id="navPainel">📊 Bi Comercial</a>
       <a href="fluxodecaixa.html" class="active" id="navFluxo">💰 Fluxo de Caixa</a>
       <a href="depositos.html" id="navRoberto">🏦 Depósitos</a>
       <a href="agenda.html">🗓️ Agenda</a>
-      <a href="mural.html">📣 Mural</a>
+      <a href="mural.html" id="navMural">📣 Mural Corporativo</a>
       <a href="aprovacoes.html">✅ Aprovações</a>
     </nav>
     <select class="empresa-select" id="empresaSelect" style="background:var(--field-bg);border:1px solid var(--border2);border-radius:9px;padding:8px 12px;color:var(--text);font-family:'Sora',sans-serif;font-size:13px;margin-right:auto;">
@@ -431,6 +438,22 @@ html.light .fc-day-num{color:#1f2a3d;}
         </select>
         <textarea id="fcMsgTexto" placeholder="Escreva aqui..."></textarea>
         <button class="btn btn-primary" onclick="submitFcMsg()">Publicar</button>
+      </div>
+      <div class="fc-msg-filtros">
+        <select id="fcMsgFiltroTipo" onchange="aplicarFiltrosFcMsgs()">
+          <option value="">Todos os tipos</option>
+          <option value="observacao">📝 Observação</option>
+          <option value="aviso">⚠️ Aviso</option>
+          <option value="solicitacao">🙋 Solicitação</option>
+        </select>
+        <select id="fcMsgFiltroStatus" onchange="aplicarFiltrosFcMsgs()">
+          <option value="">Todos os status</option>
+          <option value="aberto">⏳ Aberto</option>
+          <option value="resolvido">✓ Resolvido</option>
+          <option value="aprovado">✓ Aprovado</option>
+          <option value="recusado">✕ Recusado</option>
+        </select>
+        <input type="text" id="fcMsgFiltroBusca" placeholder="Buscar no texto..." oninput="aplicarFiltrosFcMsgs()">
       </div>
       <div id="fcMsgList" style="margin-top:16px;"></div>
     </div>
@@ -912,6 +935,7 @@ async function init(){
   gpsStaff = isGpsStaff(email);
   if(!gpsStaff){ const card = el('fcAjustesGpsCard'); if(card) card.style.display='none'; }
   document.documentElement.style.visibility='visible'; // mostra o spinner (ou erro) já de cara
+  aplicarBadgesNav(currentUser.email);
 
   el('userChip').textContent = nameFromEmail(email);
   el('empresaSelect').addEventListener('change', e=>{ selectedEmpresa = e.target.value; rebuildRowsNoEscopo(); buildAndRenderTable(); renderFcKpiStrip(); renderFcAnaliseWhats(); });
@@ -1600,6 +1624,7 @@ function renderFcSim(){
 /* ================== NOVO: Observações, avisos e solicitações ================== */
 let fcMsgsCache = { msgs:[], reacoes:[], leituras:[] };
 let fcRespondendo = null; // { id, status } — qual mensagem/ação está com o formulário de resposta aberto
+let fcEditando = null; // { id, campo: 'mensagem'|'resposta' } — qual mensagem está em edição
 async function loadFcMsgs(){
   const { data, error } = await sb.from('fluxo_mensagens').select('*').order('criado_em',{ascending:false});
   if(error){ el('fcMsgList').innerHTML = '<div style="color:var(--gold);font-size:12px;">⚠️ Não consegui carregar. Verifique se a tabela fluxo_mensagens existe no Supabase.</div>'; return; }
@@ -1610,10 +1635,25 @@ async function loadFcMsgs(){
 }
 function rerenderFcMsgs(){ renderFcMsgs(fcMsgsCache.msgs, fcMsgsCache.reacoes, fcMsgsCache.leituras); }
 const FC_MSG_REACOES = [ { tipo:'like', emoji:'👍' }, { tipo:'coracao', emoji:'❤️' }, { tipo:'palmas', emoji:'👏' } ];
-function renderFcMsgs(msgs, reacoes, leituras){
-  if(!msgs.length){ el('fcMsgList').innerHTML = '<div class="empty-state"><div class="icon">📋</div>Nenhum registro ainda.</div>'; return; }
+let fcMsgVisiveis = 8; // paginação simples pra não virar uma lista gigante
+function aplicarFiltrosFcMsgs(){ fcMsgVisiveis = 8; rerenderFcMsgs(); }
+function mostrarMaisFcMsgs(){ fcMsgVisiveis += 8; rerenderFcMsgs(); }
+function renderFcMsgs(msgsOriginais, reacoes, leituras){
+  if(!msgsOriginais.length){ el('fcMsgList').innerHTML = '<div class="empty-state"><div class="icon">📋</div>Nenhum registro ainda.</div>'; return; }
+  const filtroTipo = el('fcMsgFiltroTipo')?.value || '';
+  const filtroStatus = el('fcMsgFiltroStatus')?.value || '';
+  const filtroBusca = (el('fcMsgFiltroBusca')?.value || '').toLowerCase().trim();
+  const msgsFiltradas = msgsOriginais.filter(m=>{
+    if(filtroTipo && m.tipo!==filtroTipo) return false;
+    if(filtroStatus && m.status!==filtroStatus) return false;
+    if(filtroBusca && !(m.mensagem||'').toLowerCase().includes(filtroBusca)) return false;
+    return true;
+  });
+  if(!msgsFiltradas.length){ el('fcMsgList').innerHTML = '<div class="empty-state"><div class="icon">🔎</div>Nenhum registro encontrado com esse filtro.</div>'; return; }
+  const msgs = msgsFiltradas.slice(0, fcMsgVisiveis);
   const tipoLabel = { observacao:'📝 Observação', aviso:'⚠️ Aviso', solicitacao:'🙋 Solicitação' };
   const statusLabel = { aberto:'⏳ Aberto', resolvido:'✓ Resolvido', aprovado:'✓ Aprovado', recusado:'✕ Recusado' };
+  const botaoMostrarMais = msgsFiltradas.length>fcMsgVisiveis ? `<button class="btn btn-ghost btn-sm" onclick="mostrarMaisFcMsgs()" style="width:100%;margin-top:6px;">Mostrar mais (${msgsFiltradas.length-fcMsgVisiveis} restantes)</button>` : '';
   el('fcMsgList').innerHTML = msgs.map(m=>{
     const date = new Date(m.criado_em).toLocaleString('pt-BR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
     const podeResponder = m.tipo==='solicitacao' && m.status==='aberto';
@@ -1638,7 +1678,26 @@ function renderFcMsgs(msgs, reacoes, leituras){
     } else if(podeResolver){
       acoes = `<button class="btn btn-ghost btn-sm" onclick="abrirRespostaFcMsg(${m.id},'resolvido')" style="margin-top:8px;">Marcar resolvido</button>`;
     }
-    const resposta = m.resposta ? `<div class="fc-msg-resposta"><b>${m.respondido_por||''}:</b> ${m.resposta}</div>` : '';
+    // Edição do texto original (autor ou time GPS) e da resposta (só time GPS) —
+    // decisão de 24/07/2026.
+    const podeEditarMsg = m.autor_email===currentUser.email || gpsStaff;
+    const podeEditarResposta = !!m.resposta && gpsStaff;
+    const editandoMsg = fcEditando && fcEditando.id===m.id && fcEditando.campo==='mensagem';
+    const editandoResposta = fcEditando && fcEditando.id===m.id && fcEditando.campo==='resposta';
+    const textoMsgBloco = editandoMsg ? `<div class="fc-msg-edit-box">
+        <textarea id="fcEdit_mensagem_${m.id}">${(m.mensagem||'').replace(/</g,'&lt;')}</textarea>
+        <div style="display:flex;gap:8px;margin-top:6px;">
+          <button class="btn btn-primary btn-sm" onclick="salvarEdicaoFcMsg(${m.id},'mensagem')">Salvar</button>
+          <button class="btn btn-ghost btn-sm" onclick="cancelarEdicaoFcMsg()">Cancelar</button>
+        </div>
+      </div>` : `<div class="fc-msg-text">${(m.mensagem||'').replace(/</g,'&lt;')}${podeEditarMsg ? ` <span class="fc-msg-edit-link" onclick="abrirEdicaoFcMsg(${m.id},'mensagem')">✏️ editar</span>` : ''}</div>`;
+    const respostaBloco = editandoResposta ? `<div class="fc-msg-edit-box">
+        <textarea id="fcEdit_resposta_${m.id}">${(m.resposta||'').replace(/</g,'&lt;')}</textarea>
+        <div style="display:flex;gap:8px;margin-top:6px;">
+          <button class="btn btn-primary btn-sm" onclick="salvarEdicaoFcMsg(${m.id},'resposta')">Salvar</button>
+          <button class="btn btn-ghost btn-sm" onclick="cancelarEdicaoFcMsg()">Cancelar</button>
+        </div>
+      </div>` : (m.resposta ? `<div class="fc-msg-resposta"><b>${m.respondido_por||''}:</b> ${m.resposta}${podeEditarResposta ? ` <span class="fc-msg-edit-link" onclick="abrirEdicaoFcMsg(${m.id},'resposta')">✏️ editar</span>` : ''}</div>` : '');
     let leituraBloco = '';
     if(m.tipo==='observacao' || m.tipo==='aviso'){
       const reacoesMsg = reacoes.filter(r=>r.mensagem_id===m.id);
@@ -1663,12 +1722,12 @@ function renderFcMsgs(msgs, reacoes, leituras){
         <span class="fc-msg-status ${m.status}">${statusLabel[m.status]||m.status}</span>
         <span class="fc-msg-date">${date}</span>
       </div>
-      <div class="fc-msg-text">${(m.mensagem||'').replace(/</g,'&lt;')}</div>
-      ${resposta}
+      ${textoMsgBloco}
+      ${respostaBloco}
       ${acoes}
       ${leituraBloco}
     </div>`;
-  }).join('');
+  }).join('') + botaoMostrarMais;
 }
 async function submitFcMsg(){
   const tipo = el('fcMsgTipo').value;
@@ -1700,11 +1759,21 @@ async function toggleFcMsgReacao(mensagemId, tipo, already){
 async function toggleFcMsgLeitura(mensagemId, already){
   if(already) return;
   const { error } = await sb.from('fluxo_mensagens_leituras').insert({ mensagem_id:mensagemId, usuario_email:currentUser.email, usuario_nome:nameFromEmail(currentUser.email) });
-  if(!error) await loadFcMsgs();
+  if(!error){ await loadFcMsgs(); aplicarBadgesNav(currentUser.email); }
+  else alert('Erro: '+error.message);
+}
+function abrirEdicaoFcMsg(id, campo){ fcEditando = { id, campo }; rerenderFcMsgs(); }
+function cancelarEdicaoFcMsg(){ fcEditando = null; rerenderFcMsgs(); }
+async function salvarEdicaoFcMsg(id, campo){
+  const valor = (el('fcEdit_'+campo+'_'+id)?.value || '').trim();
+  if(campo==='mensagem' && !valor) return; // não deixa a mensagem original ficar vazia
+  const payload = campo==='mensagem' ? { mensagem: valor } : { resposta: valor };
+  const { error } = await sb.from('fluxo_mensagens').update(payload).eq('id', id);
+  if(!error){ fcEditando = null; await loadFcMsgs(); }
   else alert('Erro: '+error.message);
 }
 
-init();
+// Notificação no menu: badge com a contagem de não lidas em Fluxo de Caixa,\n// BI Comercial e Mural Corporativo (Observação/Aviso e posts do mural) —\n// decisão de 24/07/2026.\nasync function aplicarBadgesNav(email){\n  try{\n    const [fluxoQ, fluxoLidasQ, comercialQ, comercialLidasQ, muralQ, muralLidasQ] = await Promise.all([\n      sb.from('fluxo_mensagens').select('id').in('tipo',['observacao','aviso']),\n      sb.from('fluxo_mensagens_leituras').select('mensagem_id').eq('usuario_email', email),\n      sb.from('comercial_mensagens').select('id').in('tipo',['observacao','aviso']),\n      sb.from('comercial_mensagens_leituras').select('mensagem_id').eq('usuario_email', email),\n      sb.from('comunicados').select('id'),\n      sb.from('comunicado_leituras').select('comunicado_id').eq('usuario_email', email),\n    ]);\n    const naoLidas = (todos, lidas, campoLido) => {\n      const lidosSet = new Set((lidas||[]).map(l=>l[campoLido]));\n      return (todos||[]).filter(x=>!lidosSet.has(x.id)).length;\n    };\n    pintarBadgeNav('navFluxo', naoLidas(fluxoQ.data, fluxoLidasQ.data, 'mensagem_id'));\n    pintarBadgeNav('navPainel', naoLidas(comercialQ.data, comercialLidasQ.data, 'mensagem_id'));\n    pintarBadgeNav('navMural', naoLidas(muralQ.data, muralLidasQ.data, 'comunicado_id'));\n  }catch(e){ console.error('Erro ao calcular notificações do menu:', e); }\n}\nfunction pintarBadgeNav(navId, count){\n  const linkEl = document.getElementById(navId);\n  if(!linkEl) return;\n  const existente = linkEl.querySelector('.nav-badge');\n  if(existente) existente.remove();\n  if(count>0){\n    const span = document.createElement('span');\n    span.className = 'nav-badge';\n    span.textContent = count>99 ? '99+' : String(count);\n    linkEl.appendChild(span);\n  }\n}\n\ninit();
 </script>
 </body>
 </html>
