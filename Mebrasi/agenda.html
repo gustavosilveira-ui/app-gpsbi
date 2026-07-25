@@ -443,7 +443,42 @@ function calSelectDay(dstr){
   renderTasks();
 }
 
-// Notificação no menu: badge com a contagem de não lidas em Fluxo de Caixa,\n// BI Comercial e Mural Corporativo (Observação/Aviso e posts do mural) —\n// decisão de 24/07/2026.\nasync function aplicarBadgesNav(email){\n  try{\n    const [fluxoQ, fluxoLidasQ, comercialQ, comercialLidasQ, muralQ, muralLidasQ] = await Promise.all([\n      sb.from('fluxo_mensagens').select('id').in('tipo',['observacao','aviso']),\n      sb.from('fluxo_mensagens_leituras').select('mensagem_id').eq('usuario_email', email),\n      sb.from('comercial_mensagens').select('id').in('tipo',['observacao','aviso']),\n      sb.from('comercial_mensagens_leituras').select('mensagem_id').eq('usuario_email', email),\n      sb.from('comunicados').select('id'),\n      sb.from('comunicado_leituras').select('comunicado_id').eq('usuario_email', email),\n    ]);\n    const naoLidas = (todos, lidas, campoLido) => {\n      const lidosSet = new Set((lidas||[]).map(l=>l[campoLido]));\n      return (todos||[]).filter(x=>!lidosSet.has(x.id)).length;\n    };\n    pintarBadgeNav('navFluxo', naoLidas(fluxoQ.data, fluxoLidasQ.data, 'mensagem_id'));\n    pintarBadgeNav('navPainel', naoLidas(comercialQ.data, comercialLidasQ.data, 'mensagem_id'));\n    pintarBadgeNav('navMural', naoLidas(muralQ.data, muralLidasQ.data, 'comunicado_id'));\n  }catch(e){ console.error('Erro ao calcular notificações do menu:', e); }\n}\nfunction pintarBadgeNav(navId, count){\n  const linkEl = document.getElementById(navId);\n  if(!linkEl) return;\n  const existente = linkEl.querySelector('.nav-badge');\n  if(existente) existente.remove();\n  if(count>0){\n    const span = document.createElement('span');\n    span.className = 'nav-badge';\n    span.textContent = count>99 ? '99+' : String(count);\n    linkEl.appendChild(span);\n  }\n}\n\ninit();
+// Notificação no menu: badge com a contagem de não lidas em Fluxo de Caixa,
+// BI Comercial e Mural Corporativo (Observação/Aviso e posts do mural) —
+// decisão de 24/07/2026.
+async function aplicarBadgesNav(email){
+  try{
+    const [fluxoQ, fluxoLidasQ, comercialQ, comercialLidasQ, muralQ, muralLidasQ] = await Promise.all([
+      sb.from('fluxo_mensagens').select('id').in('tipo',['observacao','aviso']),
+      sb.from('fluxo_mensagens_leituras').select('mensagem_id').eq('usuario_email', email),
+      sb.from('comercial_mensagens').select('id').in('tipo',['observacao','aviso']),
+      sb.from('comercial_mensagens_leituras').select('mensagem_id').eq('usuario_email', email),
+      sb.from('comunicados').select('id'),
+      sb.from('comunicado_leituras').select('comunicado_id').eq('usuario_email', email),
+    ]);
+    const naoLidas = (todos, lidas, campoLido) => {
+      const lidosSet = new Set((lidas||[]).map(l=>l[campoLido]));
+      return (todos||[]).filter(x=>!lidosSet.has(x.id)).length;
+    };
+    pintarBadgeNav('navFluxo', naoLidas(fluxoQ.data, fluxoLidasQ.data, 'mensagem_id'));
+    pintarBadgeNav('navPainel', naoLidas(comercialQ.data, comercialLidasQ.data, 'mensagem_id'));
+    pintarBadgeNav('navMural', naoLidas(muralQ.data, muralLidasQ.data, 'comunicado_id'));
+  }catch(e){ console.error('Erro ao calcular notificações do menu:', e); }
+}
+function pintarBadgeNav(navId, count){
+  const linkEl = document.getElementById(navId);
+  if(!linkEl) return;
+  const existente = linkEl.querySelector('.nav-badge');
+  if(existente) existente.remove();
+  if(count>0){
+    const span = document.createElement('span');
+    span.className = 'nav-badge';
+    span.textContent = count>99 ? '99+' : String(count);
+    linkEl.appendChild(span);
+  }
+}
+
+init();
 </script>
 </body>
 </html>
