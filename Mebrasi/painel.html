@@ -96,6 +96,9 @@ a{color:inherit;text-decoration:none;}
 .pc-msg-reacao-btn.active{background:rgba(58,233,209,.15);color:var(--cyan);border-color:rgba(58,233,209,.3);}
 .pc-msg-reacao-btn:disabled{cursor:default;opacity:.85;}
 .pc-msg-leram{font-size:11px;color:var(--text3);cursor:help;}
+.pc-msg-resposta-form{margin-top:10px;padding:10px 12px;background:var(--navy4,var(--navy3));border-radius:10px;}
+.pc-msg-resposta-form-label{font-size:11.5px;font-weight:700;color:var(--text2);margin-bottom:6px;}
+.pc-msg-resposta-form textarea{width:100%;background:var(--field-bg,var(--navy3));border:1px solid var(--border2);border-radius:9px;padding:8px 10px;color:var(--text);font-family:'Sora',sans-serif;font-size:12.5px;outline:none;resize:vertical;min-height:60px;}
 @media(max-width:900px){ .pc-msg-form{grid-template-columns:1fr;} }
 
 .filtros-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px;}
@@ -2048,13 +2051,17 @@ function appApplyTheme(t, skipSync){
 async function doLogout(){ await sb.auth.signOut(); window.location.href = LOGIN_URL; }
 
 /* ================== Observações, avisos e solicitações (BI Comercial) ================== */
+let pcMsgsCache = { msgs:[], reacoes:[], leituras:[] };
+let pcRespondendo = null; // { id, status }
 async function loadPcMsgs(){
   const { data, error } = await sb.from('comercial_mensagens').select('*').order('criado_em',{ascending:false});
   if(error){ el('pcMsgList').innerHTML = '<div style="color:var(--gold);font-size:12px;">⚠️ Não consegui carregar. Verifique se a tabela comercial_mensagens existe no Supabase.</div>'; return; }
   const { data: reacoes } = await sb.from('comercial_mensagens_reacoes').select('*');
   const { data: leituras } = await sb.from('comercial_mensagens_leituras').select('*');
-  renderPcMsgs(data||[], reacoes||[], leituras||[]);
+  pcMsgsCache = { msgs:data||[], reacoes:reacoes||[], leituras:leituras||[] };
+  renderPcMsgs(pcMsgsCache.msgs, pcMsgsCache.reacoes, pcMsgsCache.leituras);
 }
+function rerenderPcMsgs(){ renderPcMsgs(pcMsgsCache.msgs, pcMsgsCache.reacoes, pcMsgsCache.leituras); }
 const PC_MSG_REACOES = [ { tipo:'like', emoji:'👍' }, { tipo:'coracao', emoji:'❤️' }, { tipo:'palmas', emoji:'👏' } ];
 function renderPcMsgs(msgs, reacoes, leituras){
   if(!msgs.length){ el('pcMsgList').innerHTML = '<div class="empty-state"><div class="icon">📋</div>Nenhum registro ainda.</div>'; return; }
@@ -2063,12 +2070,27 @@ function renderPcMsgs(msgs, reacoes, leituras){
   el('pcMsgList').innerHTML = msgs.map(m=>{
     const date = new Date(m.criado_em).toLocaleString('pt-BR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
     const podeResponder = m.tipo==='solicitacao' && m.status==='aberto';
-    const acoes = podeResponder ? `
-      <div style="display:flex;gap:8px;margin-top:10px;">
-        <button class="btn btn-primary btn-sm" onclick="respondPcMsg(${m.id},'aprovado')">Aprovar</button>
-        <button class="btn btn-danger btn-sm" onclick="respondPcMsg(${m.id},'recusado')">Recusar</button>
-        <button class="btn btn-ghost btn-sm" onclick="respondPcMsg(${m.id},'resolvido')">Marcar resolvido</button>
-      </div>` : (m.status==='aberto' && m.tipo!=='solicitacao' ? `<button class="btn btn-ghost btn-sm" onclick="respondPcMsg(${m.id},'resolvido')" style="margin-top:8px;">Marcar resolvido</button>` : '');
+    const podeResolver = m.status==='aberto' && m.tipo!=='solicitacao';
+    let acoes = '';
+    if(pcRespondendo && pcRespondendo.id===m.id){
+      const acaoLabel = { aprovado:'Aprovar', recusado:'Recusar', resolvido:'Marcar resolvido' }[pcRespondendo.status];
+      acoes = `<div class="pc-msg-resposta-form">
+        <div class="pc-msg-resposta-form-label">${acaoLabel} — deixe uma resposta (opcional):</div>
+        <textarea id="pcRespostaTexto_${m.id}" placeholder="Escreva sua resposta..."></textarea>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <button class="btn btn-primary btn-sm" onclick="confirmarRespostaPcMsg(${m.id})">Confirmar</button>
+          <button class="btn btn-ghost btn-sm" onclick="cancelarRespostaPcMsg()">Cancelar</button>
+        </div>
+      </div>`;
+    } else if(podeResponder){
+      acoes = `<div style="display:flex;gap:8px;margin-top:10px;">
+        <button class="btn btn-primary btn-sm" onclick="abrirRespostaPcMsg(${m.id},'aprovado')">Aprovar</button>
+        <button class="btn btn-danger btn-sm" onclick="abrirRespostaPcMsg(${m.id},'recusado')">Recusar</button>
+        <button class="btn btn-ghost btn-sm" onclick="abrirRespostaPcMsg(${m.id},'resolvido')">Marcar resolvido</button>
+      </div>`;
+    } else if(podeResolver){
+      acoes = `<button class="btn btn-ghost btn-sm" onclick="abrirRespostaPcMsg(${m.id},'resolvido')" style="margin-top:8px;">Marcar resolvido</button>`;
+    }
     const resposta = m.resposta ? `<div class="pc-msg-resposta"><b>${m.respondido_por||''}:</b> ${m.resposta}</div>` : '';
     let leituraBloco = '';
     if(m.tipo==='observacao' || m.tipo==='aviso'){
@@ -2111,12 +2133,16 @@ async function submitPcMsg(){
   if(!error){ el('pcMsgTexto').value=''; await loadPcMsgs(); }
   else alert('Erro ao publicar: '+error.message);
 }
-async function respondPcMsg(id, status){
-  const resposta = prompt('Quer deixar uma resposta? (opcional)') || '';
+function abrirRespostaPcMsg(id, status){ pcRespondendo = { id, status }; rerenderPcMsgs(); }
+function cancelarRespostaPcMsg(){ pcRespondendo = null; rerenderPcMsgs(); }
+async function confirmarRespostaPcMsg(id){
+  const status = pcRespondendo.status;
+  const campo = el('pcRespostaTexto_'+id);
+  const resposta = campo ? campo.value.trim() : '';
   const { error } = await sb.from('comercial_mensagens').update({
     status, resposta, respondido_por: nameFromEmail(currentUser.email), respondido_em: new Date().toISOString()
   }).eq('id', id);
-  if(!error) await loadPcMsgs();
+  if(!error){ pcRespondendo = null; await loadPcMsgs(); }
   else alert('Erro: '+error.message);
 }
 async function togglePcMsgReacao(mensagemId, tipo, already){
