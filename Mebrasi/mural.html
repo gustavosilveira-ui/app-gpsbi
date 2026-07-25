@@ -200,7 +200,10 @@ function canAccessFluxo(email){
 function isGpsStaff(email){ return (email||'').toLowerCase().endsWith('@gpsbi.com.br'); }
 function podeVerFluxoCaixa(email){
   const e = (email||'').toLowerCase();
-  return isGpsStaff(e) || e === 'roberto@mebrasi.com.br';
+  return isGpsStaff(e)
+      || e === 'roberto@mebrasi.com.br'
+      || e === 'shirley@mebrasi.com.br'
+      || e === 'sara@mebrasi.com.br';
 }
 function appApplyTheme(t){
   document.documentElement.classList.toggle('light', t==='light');

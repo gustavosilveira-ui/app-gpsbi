@@ -248,7 +248,10 @@ function isGpsStaff(email){ return (email||'').toLowerCase().endsWith('@gpsbi.co
 // Fluxo de Caixa é restrito: time GPS inteiro + só o Roberto (Mebrasi).
 function podeVerFluxoCaixa(email){
   const e = (email||'').toLowerCase();
-  return isGpsStaff(e) || e === 'roberto@mebrasi.com.br';
+  return isGpsStaff(e)
+      || e === 'roberto@mebrasi.com.br'
+      || e === 'shirley@mebrasi.com.br'
+      || e === 'sara@mebrasi.com.br';
 }
 function appApplyTheme(t){
   document.documentElement.classList.toggle('light', t==='light');
