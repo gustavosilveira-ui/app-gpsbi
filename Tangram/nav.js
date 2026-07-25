@@ -2,13 +2,13 @@
    Hub GPSBI · Tangram Comercial — Navegação compartilhada
    ================================================================ */
 const APP_PAGES = [
-  { href:'painel.html', label:'📊 Dashboard' },
+  { href:'painel.html', label:'📊 Dashboard', id:'navPainel' },
   { href:'simulador.html', label:'🎯 Simulador de Meta' },
   { href:'agenda.html', label:'🗓️ Minha Agenda' },
-  { href:'mural.html', label:'📣 Mural' },
+  { href:'mural.html', label:'📣 Mural Corporativo', id:'navMural' },
   { href:'aprovacoes.html', label:'✅ Aprovações' },
 ];
-const APP_PAGE_FLUXO = { href:'fluxodecaixa.html', label:'💰 Fluxo de Caixa' };
+const APP_PAGE_FLUXO = { href:'fluxodecaixa.html', label:'💰 Fluxo de Caixa', id:'navFluxo' };
 function _navCanSeeFluxo(email){
   email = (email||'').toLowerCase();
   return email.endsWith('@gpsbi.com.br') || email === 'anderson@tangrampersonalizados.com.br';
@@ -39,7 +39,8 @@ function renderAppNav({ activePage, userLabel, userRole, onLogout, sb, currentUs
   const pages = _navCanSeeFluxo(currentUser && currentUser.email) ? [...APP_PAGES, APP_PAGE_FLUXO] : APP_PAGES;
   const navLinks = pages.map(p=>{
     const cls = p.href===activePage ? 'active' : '';
-    return `<a class="${cls}" href="${p.href}">${p.label}</a>`;
+    const idAttr = p.id ? ` id="${p.id}"` : '';
+    return `<a class="${cls}"${idAttr} href="${p.href}">${p.label}</a>`;
   }).join('');
 
   const initials = (userLabel||'--').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
@@ -66,4 +67,42 @@ function renderAppNav({ activePage, userLabel, userRole, onLogout, sb, currentUs
   document.getElementById('appLogoutBtn').addEventListener('click', onLogout);
 
   document.documentElement.style.visibility = 'visible';
+
+  // Notificação no menu: badge com a contagem de não lidas em Fluxo de
+  // Caixa, BI Comercial e Mural Corporativo. Fica aqui no nav.js
+  // compartilhado pra não precisar repetir em cada página.
+  if(currentUser && currentUser.email) aplicarBadgesNav(currentUser.email);
+}
+
+async function aplicarBadgesNav(email){
+  if(!_appNavSb) return;
+  try{
+    const [fluxoQ, fluxoLidasQ, comercialQ, comercialLidasQ, muralQ, muralLidasQ] = await Promise.all([
+      _appNavSb.from('fluxo_mensagens').select('id').in('tipo',['observacao','aviso']),
+      _appNavSb.from('fluxo_mensagens_leituras').select('mensagem_id').eq('usuario_email', email),
+      _appNavSb.from('comercial_mensagens').select('id').in('tipo',['observacao','aviso']),
+      _appNavSb.from('comercial_mensagens_leituras').select('mensagem_id').eq('usuario_email', email),
+      _appNavSb.from('comunicados').select('id'),
+      _appNavSb.from('comunicado_leituras').select('comunicado_id').eq('usuario_email', email),
+    ]);
+    const naoLidas = (todos, lidas, campoLido) => {
+      const lidosSet = new Set((lidas||[]).map(l=>l[campoLido]));
+      return (todos||[]).filter(x=>!lidosSet.has(x.id)).length;
+    };
+    pintarBadgeNav('navFluxo', naoLidas(fluxoQ.data, fluxoLidasQ.data, 'mensagem_id'));
+    pintarBadgeNav('navPainel', naoLidas(comercialQ.data, comercialLidasQ.data, 'mensagem_id'));
+    pintarBadgeNav('navMural', naoLidas(muralQ.data, muralLidasQ.data, 'comunicado_id'));
+  }catch(e){ console.error('Erro ao calcular notificações do menu:', e); }
+}
+function pintarBadgeNav(navId, count){
+  const linkEl = document.getElementById(navId);
+  if(!linkEl) return; // link pode nem existir nessa página, ou ter sido escondido (ex: sem acesso ao Fluxo)
+  const existente = linkEl.querySelector('.nav-badge');
+  if(existente) existente.remove();
+  if(count>0){
+    const span = document.createElement('span');
+    span.className = 'nav-badge';
+    span.textContent = count>99 ? '99+' : String(count);
+    linkEl.appendChild(span);
+  }
 }

@@ -78,6 +78,47 @@ html.light body::before{background:radial-gradient(circle at 80% 6%,rgba(54,226,
 .filter-label{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;flex:none;white-space:nowrap;}
 .month-select,.vendedor-select,.canal-select{background:var(--navy3);border:1px solid var(--border2);color:var(--text);border-radius:8px;padding:7px 12px;font-family:'Sora',sans-serif;font-size:12.5px;cursor:pointer;flex:none;}
 .badge-role{margin-left:auto;padding:5px 12px;border-radius:999px;font-size:11px;font-weight:600;flex:none;white-space:nowrap;}
+
+/* ===== Observações, Avisos e Solicitações (mesmo padrão do Fluxo de Caixa) ===== */
+.pc-msg-form{display:grid;grid-template-columns:220px 1fr auto;gap:10px;align-items:start;}
+.pc-msg-form select,.pc-msg-form textarea{width:100%;background:var(--field-bg,var(--navy3));border:1px solid var(--border2);border-radius:9px;padding:10px 12px;color:var(--text);font-family:'Sora',sans-serif;font-size:13px;outline:none;}
+.pc-msg-form textarea{resize:vertical;min-height:70px;}
+.pc-msg-filtros{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;}
+.pc-msg-filtros select{width:auto;min-width:160px;background:var(--field-bg,var(--navy3));border:1px solid var(--border2);border-radius:9px;padding:8px 10px;color:var(--text);font-family:'Sora',sans-serif;font-size:12.5px;}
+.pc-msg-filtros input{flex:1;min-width:180px;background:var(--field-bg,var(--navy3));border:1px solid var(--border2);border-radius:9px;padding:8px 10px;color:var(--text);font-family:'Sora',sans-serif;font-size:12.5px;outline:none;}
+.pc-msg-scroll{margin-top:16px;max-height:600px;overflow-y:auto;padding-right:6px;}
+.pc-msg-item{background:var(--navy3);border-radius:12px;padding:14px 16px;margin-bottom:10px;}
+.pc-msg-head{display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:nowrap;}
+.pc-msg-autor{font-size:12.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1;}
+.pc-msg-date{font-size:10.5px;color:var(--text3);flex:none;white-space:nowrap;}
+.pc-msg-tipo{font-size:10px;font-weight:700;padding:3px 9px;border-radius:999px;flex:none;white-space:nowrap;}
+.pc-msg-tipo.observacao{background:rgba(45,112,184,.15);color:#2D70B8;}
+.pc-msg-tipo.aviso{background:rgba(245,185,66,.15);color:var(--gold);}
+.pc-msg-tipo.solicitacao{background:rgba(155,127,232,.15);color:var(--purple);}
+.pc-msg-text{font-size:13px;color:var(--text2);line-height:1.5;white-space:pre-wrap;margin-bottom:8px;}
+.pc-msg-status{display:inline-block;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;}
+.pc-msg-status.aberto{background:rgba(245,185,66,.15);color:var(--gold);}
+.pc-msg-status.resolvido,.pc-msg-status.aprovado{background:rgba(47,214,184,.15);color:#98C47C;}
+.pc-msg-status.recusado{background:rgba(239,106,106,.15);color:var(--red);}
+.pc-msg-resposta{margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:12px;color:var(--text2);}
+.pc-msg-resposta-form{margin-top:10px;padding:10px 12px;background:var(--navy4,var(--navy3));border-radius:10px;}
+.pc-msg-resposta-form-label{font-size:11.5px;font-weight:700;color:var(--text2);margin-bottom:6px;}
+.pc-msg-resposta-form textarea{width:100%;background:var(--field-bg,var(--navy3));border:1px solid var(--border2);border-radius:9px;padding:8px 10px;color:var(--text);font-family:'Sora',sans-serif;font-size:12.5px;outline:none;resize:vertical;min-height:60px;}
+.pc-msg-reacoes-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;}
+.pc-msg-reacao-btn{display:flex;align-items:center;gap:5px;padding:5px 11px;border-radius:999px;background:var(--navy4,var(--navy3));border:1px solid var(--border2);cursor:pointer;font-size:12px;font-weight:700;color:var(--text2);}
+.pc-msg-reacao-btn.active{background:rgba(58,233,209,.15);color:var(--cyan);border-color:rgba(58,233,209,.3);}
+.pc-msg-reacao-btn:disabled{cursor:default;opacity:.85;}
+.pc-msg-leram{font-size:11px;color:var(--text3);cursor:help;}
+.pc-msg-edit-link{font-size:11px;color:var(--cyan);cursor:pointer;font-weight:700;white-space:nowrap;}
+.pc-msg-edit-box{margin-bottom:8px;}
+.pc-msg-edit-box textarea{width:100%;background:var(--field-bg,var(--navy3));border:1px solid var(--border2);border-radius:9px;padding:8px 10px;color:var(--text);font-family:'Sora',sans-serif;font-size:12.5px;outline:none;resize:vertical;min-height:60px;}
+.pc-msg-empty{text-align:center;padding:40px 20px;color:var(--text3);font-size:13px;}
+.pc-msg-empty .icon{font-size:36px;margin-bottom:10px;}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:8px;border:none;font-family:'Sora',sans-serif;font-size:12.5px;font-weight:700;cursor:pointer;}
+.btn-primary{background:linear-gradient(90deg,var(--blue),var(--cyan));color:#fff;}
+.btn-ghost{background:var(--navy3);color:var(--text);border:1px solid var(--border2);}
+.btn-danger{background:rgba(239,106,106,.15);color:var(--red);border:1px solid rgba(239,106,106,.3);}
+.btn-sm{padding:6px 12px;font-size:11.5px;}
 .badge-owner{background:rgba(58,233,209,0.14);color:var(--cyan);border:1px solid rgba(58,233,209,0.25);}
 .badge-viewer{background:rgba(245,185,66,0.14);color:var(--gold);border:1px solid rgba(245,185,66,0.25);}
 .badge-vendor{background:rgba(66,129,191,0.14);color:var(--blue);border:1px solid rgba(66,129,191,0.25);}
@@ -575,10 +616,41 @@ html.light .kpi-card{background:#fff}
       </div>
     </div>
 
+    <div class="table-card" id="pcMsgCard" style="margin-top:18px;">
+      <div class="section-title">📋 Observações, Avisos e Solicitações</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:12px;">Espaço da GPS e do Anderson pra registrar observações, avisar algo importante ou pedir uma ação sobre o BI Comercial — tudo com histórico.</div>
+      <div class="pc-msg-form">
+        <select id="pcMsgTipo">
+          <option value="observacao">📝 Observação</option>
+          <option value="aviso">⚠️ Aviso</option>
+          <option value="solicitacao">🙋 Solicitação (precisa de resposta)</option>
+        </select>
+        <textarea id="pcMsgTexto" placeholder="Escreva aqui..."></textarea>
+        <button class="btn btn-primary" onclick="submitPcMsg()">Publicar</button>
+      </div>
+      <div class="pc-msg-filtros">
+        <select id="pcMsgFiltroTipo" onchange="aplicarFiltrosPcMsgs()">
+          <option value="">Todos os tipos</option>
+          <option value="observacao">📝 Observação</option>
+          <option value="aviso">⚠️ Aviso</option>
+          <option value="solicitacao">🙋 Solicitação</option>
+        </select>
+        <select id="pcMsgFiltroStatus" onchange="aplicarFiltrosPcMsgs()">
+          <option value="">Todos os status</option>
+          <option value="aberto">⏳ Aberto</option>
+          <option value="resolvido">✓ Resolvido</option>
+          <option value="aprovado">✓ Aprovado</option>
+          <option value="recusado">✕ Recusado</option>
+        </select>
+        <input type="text" id="pcMsgFiltroBusca" placeholder="Buscar no texto..." oninput="aplicarFiltrosPcMsgs()">
+      </div>
+      <div id="pcMsgList" class="pc-msg-scroll"></div>
+    </div>
+
     <div class="table-card" id="analiseWhatsCard" style="margin-top:18px;display:none;">
       <div class="section-title">📋 Análise para WhatsApp</div>
       <div style="font-size:12px;color:var(--text3);margin-bottom:12px;">Texto pronto com os números do mês selecionado — cole direto no grupo do cliente.</div>
-      <pre id="analiseWhatsTexto" style="white-space:pre-wrap;font-family:'Sora',sans-serif;font-size:13px;line-height:1.7;background:var(--navy3);border-radius:10px;padding:14px 16px;margin-bottom:12px;"></pre>
+      <pre id="analiseWhatsTexto" style="white-space:pre-wrap;font-family:'Sora',sans-serif;font-size:13px;line-height:1.7;background:var(--navy3);border-radius:10px;padding:14px 16px;margin-bottom:12px;max-height:90px;overflow-y:auto;"></pre>
       <button id="analiseWhatsBtn" style="padding:9px 18px;border-radius:9px;border:none;font-weight:700;cursor:pointer;color:#fff;background:linear-gradient(90deg,var(--blue),var(--cyan));font-family:'Sora',sans-serif;font-size:12.5px;">📋 Copiar texto</button>
     </div>
   </div>
@@ -1068,6 +1140,7 @@ async function loadData(){
     el('loadingScreen').style.display='none';
     el('mainContent').style.display='block';
     render();
+    loadPcMsgs();
     setTimeout(fitFiltersBar, 60);
   }catch(e){
     console.error(e);
@@ -2064,6 +2137,153 @@ function fitFiltersBar(){
 }
 let _fitFiltersBarTimer = null;
 window.addEventListener('resize', ()=>{ clearTimeout(_fitFiltersBarTimer); _fitFiltersBarTimer = setTimeout(fitFiltersBar, 120); });
+
+/* ================== Observações, avisos e solicitações (BI Comercial) ================== */
+let pcMsgsCache = { msgs:[], reacoes:[], leituras:[] };
+let pcRespondendo = null; // { id, status }
+let pcEditando = null; // { id, campo: 'mensagem'|'resposta' }
+async function loadPcMsgs(){
+  const { data, error } = await sb.from('comercial_mensagens').select('*').order('criado_em',{ascending:false});
+  if(error){ el('pcMsgList').innerHTML = '<div style="color:var(--gold);font-size:12px;">⚠️ Não consegui carregar. Verifique se a tabela comercial_mensagens existe no Supabase.</div>'; return; }
+  const { data: reacoes } = await sb.from('comercial_mensagens_reacoes').select('*');
+  const { data: leituras } = await sb.from('comercial_mensagens_leituras').select('*');
+  pcMsgsCache = { msgs:data||[], reacoes:reacoes||[], leituras:leituras||[] };
+  renderPcMsgs(pcMsgsCache.msgs, pcMsgsCache.reacoes, pcMsgsCache.leituras);
+}
+function rerenderPcMsgs(){ renderPcMsgs(pcMsgsCache.msgs, pcMsgsCache.reacoes, pcMsgsCache.leituras); }
+function aplicarFiltrosPcMsgs(){ rerenderPcMsgs(); }
+const PC_MSG_REACOES = [ { tipo:'like', emoji:'👍' }, { tipo:'coracao', emoji:'❤️' }, { tipo:'palmas', emoji:'👏' } ];
+function renderPcMsgs(msgsOriginais, reacoes, leituras){
+  if(!msgsOriginais.length){ el('pcMsgList').innerHTML = '<div class="pc-msg-empty"><div class="icon">📋</div>Nenhum registro ainda.</div>'; return; }
+  const filtroTipo = el('pcMsgFiltroTipo')?.value || '';
+  const filtroStatus = el('pcMsgFiltroStatus')?.value || '';
+  const filtroBusca = (el('pcMsgFiltroBusca')?.value || '').toLowerCase().trim();
+  const msgsFiltradas = msgsOriginais.filter(m=>{
+    if(filtroTipo && m.tipo!==filtroTipo) return false;
+    if(filtroStatus && m.status!==filtroStatus) return false;
+    if(filtroBusca && !(m.mensagem||'').toLowerCase().includes(filtroBusca)) return false;
+    return true;
+  });
+  if(!msgsFiltradas.length){ el('pcMsgList').innerHTML = '<div class="pc-msg-empty"><div class="icon">🔎</div>Nenhum registro encontrado com esse filtro.</div>'; return; }
+  const msgs = msgsFiltradas;
+  const tipoLabel = { observacao:'📝 Observação', aviso:'⚠️ Aviso', solicitacao:'🙋 Solicitação' };
+  const statusLabel = { aberto:'⏳ Aberto', resolvido:'✓ Resolvido', aprovado:'✓ Aprovado', recusado:'✕ Recusado' };
+  el('pcMsgList').innerHTML = msgs.map(m=>{
+    const date = new Date(m.criado_em).toLocaleString('pt-BR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+    const podeResponder = m.tipo==='solicitacao' && m.status==='aberto';
+    const podeResolver = m.status==='aberto' && m.tipo!=='solicitacao';
+    let acoes = '';
+    if(pcRespondendo && pcRespondendo.id===m.id){
+      const acaoLabel = { aprovado:'Aprovar', recusado:'Recusar', resolvido:'Marcar resolvido' }[pcRespondendo.status];
+      acoes = `<div class="pc-msg-resposta-form">
+        <div class="pc-msg-resposta-form-label">${acaoLabel} — deixe uma resposta (opcional):</div>
+        <textarea id="pcRespostaTexto_${m.id}" placeholder="Escreva sua resposta..."></textarea>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <button class="btn btn-primary btn-sm" onclick="confirmarRespostaPcMsg(${m.id})">Confirmar</button>
+          <button class="btn btn-ghost btn-sm" onclick="cancelarRespostaPcMsg()">Cancelar</button>
+        </div>
+      </div>`;
+    } else if(podeResponder){
+      acoes = `<div style="display:flex;gap:8px;margin-top:10px;">
+        <button class="btn btn-primary btn-sm" onclick="abrirRespostaPcMsg(${m.id},'aprovado')">Aprovar</button>
+        <button class="btn btn-danger btn-sm" onclick="abrirRespostaPcMsg(${m.id},'recusado')">Recusar</button>
+        <button class="btn btn-ghost btn-sm" onclick="abrirRespostaPcMsg(${m.id},'resolvido')">Marcar resolvido</button>
+      </div>`;
+    } else if(podeResolver){
+      acoes = `<button class="btn btn-ghost btn-sm" onclick="abrirRespostaPcMsg(${m.id},'resolvido')" style="margin-top:8px;">Marcar resolvido</button>`;
+    }
+    const podeEditarMsg = m.autor_email===currentUser.email || userRole==='owner';
+    const podeEditarResposta = !!m.resposta && userRole==='owner';
+    const editandoMsg = pcEditando && pcEditando.id===m.id && pcEditando.campo==='mensagem';
+    const editandoResposta = pcEditando && pcEditando.id===m.id && pcEditando.campo==='resposta';
+    const textoMsgBloco = editandoMsg ? `<div class="pc-msg-edit-box">
+        <textarea id="pcEdit_mensagem_${m.id}">${(m.mensagem||'').replace(/</g,'&lt;')}</textarea>
+        <div style="display:flex;gap:8px;margin-top:6px;">
+          <button class="btn btn-primary btn-sm" onclick="salvarEdicaoPcMsg(${m.id},'mensagem')">Salvar</button>
+          <button class="btn btn-ghost btn-sm" onclick="cancelarEdicaoPcMsg()">Cancelar</button>
+        </div>
+      </div>` : `<div class="pc-msg-text">${(m.mensagem||'').replace(/</g,'&lt;')}${podeEditarMsg ? ` <span class="pc-msg-edit-link" onclick="abrirEdicaoPcMsg(${m.id},'mensagem')">✏️ editar</span>` : ''}</div>`;
+    const respostaBloco = editandoResposta ? `<div class="pc-msg-edit-box">
+        <textarea id="pcEdit_resposta_${m.id}">${(m.resposta||'').replace(/</g,'&lt;')}</textarea>
+        <div style="display:flex;gap:8px;margin-top:6px;">
+          <button class="btn btn-primary btn-sm" onclick="salvarEdicaoPcMsg(${m.id},'resposta')">Salvar</button>
+          <button class="btn btn-ghost btn-sm" onclick="cancelarEdicaoPcMsg()">Cancelar</button>
+        </div>
+      </div>` : (m.resposta ? `<div class="pc-msg-resposta"><b>${m.respondido_por||''}:</b> ${m.resposta}${podeEditarResposta ? ` <span class="pc-msg-edit-link" onclick="abrirEdicaoPcMsg(${m.id},'resposta')">✏️ editar</span>` : ''}</div>` : '');
+    let leituraBloco = '';
+    if(m.tipo==='observacao' || m.tipo==='aviso'){
+      const reacoesMsg = reacoes.filter(r=>r.mensagem_id===m.id);
+      const leiturasMsg = leituras.filter(l=>l.mensagem_id===m.id);
+      const jaLeu = leiturasMsg.some(l=>l.usuario_email===currentUser.email);
+      const botoesReacao = PC_MSG_REACOES.map(t=>{
+        const count = reacoesMsg.filter(r=>r.tipo===t.tipo).length;
+        const marcou = reacoesMsg.some(r=>r.tipo===t.tipo && r.usuario_email===currentUser.email);
+        return `<button class="pc-msg-reacao-btn ${marcou?'active':''}" onclick="togglePcMsgReacao(${m.id},'${t.tipo}',${marcou})">${t.emoji} ${count||''}</button>`;
+      }).join('');
+      const listaLeitores = leiturasMsg.map(l=>`${l.usuario_nome||l.usuario_email} · ${new Date(l.lido_em).toLocaleString('pt-BR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}`).join('<br>') || 'Ninguém confirmou leitura ainda.';
+      leituraBloco = `<div class="pc-msg-reacoes-row">
+        ${botoesReacao}
+        <button class="pc-msg-reacao-btn ${jaLeu?'active':''}" onclick="togglePcMsgLeitura(${m.id},${jaLeu})" ${jaLeu?'disabled':''}>${jaLeu?'✅ Lido':'☑️ Marcar como lido'}</button>
+        ${userRole==='owner' ? `<span class="pc-msg-leram" title="${listaLeitores.replace(/"/g,'&quot;')}">👀 ${leiturasMsg.length} leram</span>` : ''}
+      </div>`;
+    }
+    return `<div class="pc-msg-item">
+      <div class="pc-msg-head">
+        <span class="pc-msg-autor">${m.autor_nome||m.autor_email}</span>
+        <span class="pc-msg-tipo ${m.tipo}">${tipoLabel[m.tipo]||m.tipo}</span>
+        <span class="pc-msg-status ${m.status}">${statusLabel[m.status]||m.status}</span>
+        <span class="pc-msg-date">${date}</span>
+      </div>
+      ${textoMsgBloco}
+      ${respostaBloco}
+      ${acoes}
+      ${leituraBloco}
+    </div>`;
+  }).join('');
+}
+async function submitPcMsg(){
+  const tipo = el('pcMsgTipo').value;
+  const mensagem = el('pcMsgTexto').value.trim();
+  if(!mensagem) return;
+  const { error } = await sb.from('comercial_mensagens').insert({
+    autor_email: currentUser.email, autor_nome: nameFromEmail(currentUser.email), tipo, mensagem, status:'aberto'
+  });
+  if(!error){ el('pcMsgTexto').value=''; await loadPcMsgs(); }
+  else alert('Erro ao publicar: '+error.message);
+}
+function abrirRespostaPcMsg(id, status){ pcRespondendo = { id, status }; rerenderPcMsgs(); }
+function cancelarRespostaPcMsg(){ pcRespondendo = null; rerenderPcMsgs(); }
+async function confirmarRespostaPcMsg(id){
+  const status = pcRespondendo.status;
+  const campo = el('pcRespostaTexto_'+id);
+  const resposta = campo ? campo.value.trim() : '';
+  const { error } = await sb.from('comercial_mensagens').update({
+    status, resposta, respondido_por: nameFromEmail(currentUser.email), respondido_em: new Date().toISOString()
+  }).eq('id', id);
+  if(!error){ pcRespondendo = null; await loadPcMsgs(); }
+  else alert('Erro: '+error.message);
+}
+async function togglePcMsgReacao(mensagemId, tipo, already){
+  if(already) await sb.from('comercial_mensagens_reacoes').delete().eq('mensagem_id',mensagemId).eq('usuario_email',currentUser.email).eq('tipo',tipo);
+  else await sb.from('comercial_mensagens_reacoes').insert({ mensagem_id:mensagemId, usuario_email:currentUser.email, tipo });
+  await loadPcMsgs();
+}
+async function togglePcMsgLeitura(mensagemId, already){
+  if(already) return;
+  const { error } = await sb.from('comercial_mensagens_leituras').insert({ mensagem_id:mensagemId, usuario_email:currentUser.email, usuario_nome:nameFromEmail(currentUser.email) });
+  if(!error){ await loadPcMsgs(); aplicarBadgesNav(currentUser.email); }
+  else alert('Erro: '+error.message);
+}
+function abrirEdicaoPcMsg(id, campo){ pcEditando = { id, campo }; rerenderPcMsgs(); }
+function cancelarEdicaoPcMsg(){ pcEditando = null; rerenderPcMsgs(); }
+async function salvarEdicaoPcMsg(id, campo){
+  const valor = (el('pcEdit_'+campo+'_'+id)?.value || '').trim();
+  if(campo==='mensagem' && !valor) return;
+  const payload = campo==='mensagem' ? { mensagem: valor } : { resposta: valor };
+  const { error } = await sb.from('comercial_mensagens').update(payload).eq('id', id);
+  if(!error){ pcEditando = null; await loadPcMsgs(); }
+  else alert('Erro: '+error.message);
+}
 
 initAuth();
 
