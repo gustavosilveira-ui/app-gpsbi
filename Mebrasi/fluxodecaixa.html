@@ -246,6 +246,7 @@ html.light .fc-day-num{color:#1f2a3d;}
 .fc-msg-status.resolvido,.fc-msg-status.aprovado{background:rgba(47,214,184,.15);color:#98C47C;}
 .fc-msg-status.recusado{background:rgba(239,106,106,.15);color:var(--red);}
 .fc-msg-resposta{margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:12px;color:var(--text2);}
+.fc-msg-scroll{margin-top:16px;max-height:600px;overflow-y:auto;padding-right:6px;}
 .fc-msg-reacoes-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;}
 .fc-msg-reacao-btn{display:flex;align-items:center;gap:5px;padding:5px 11px;border-radius:999px;background:var(--navy4);border:1px solid var(--border2);cursor:pointer;font-size:12px;font-weight:700;color:var(--text2);}
 .fc-msg-reacao-btn.active{background:rgba(58,233,209,.15);color:var(--cyan);border-color:rgba(58,233,209,.3);}
@@ -318,44 +319,6 @@ html.light .fc-day-num{color:#1f2a3d;}
       <div id="fcDebugStats" style="font-size:11px;color:var(--text3);margin-top:8px;"></div>
     </div>
 
-    <!-- ============ NOVO: Saldo Inicial + Lançamentos Manuais (compacto, lado a lado) ============ -->
-    <div class="card" id="fcAjustesGpsCard">
-      <div class="fc-ajustes-row">
-        <div class="fc-ajustes-col">
-          <div class="fc-mini-title">🏁 Saldo Inicial</div>
-          <div class="fc-mini-sub">Define o saldo numa data — o Acumulado passa a respeitar isso a partir dali. Visível só pro time GPS.</div>
-          <div class="fc-mini-form">
-            <select id="fcSaldoEmpresa"><option value="gymis">Gymis</option><option value="ryngavi">Ryngavi</option><option value="especial">Especial</option><option value="multicopos">Multicopos</option></select>
-            <input type="date" id="fcSaldoInicialData">
-            <input type="number" id="fcSaldoInicialValor" placeholder="Saldo (R$)">
-            <button class="btn btn-primary btn-sm" onclick="applySaldoInicial()">Salvar</button>
-          </div>
-          <button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="openSaldoInicialModal()">Ver detalhes</button>
-
-          <div class="fc-mini-title" style="margin-top:16px;">🚨 Limite da Conta</div>
-          <div class="fc-mini-sub">Marca no Saldo Acumulado o primeiro dia em que o fluxo ultrapassa o limite negativo da conta (por empresa).</div>
-          <div class="fc-mini-form">
-            <select id="fcLimiteContaEmpresa"><option value="gymis">Gymis</option><option value="ryngavi">Ryngavi</option><option value="especial">Especial</option><option value="multicopos">Multicopos</option></select>
-            <input type="number" id="fcLimiteContaValor" placeholder="Limite (R$)">
-            <button class="btn btn-primary btn-sm" onclick="applyLimiteConta()">Salvar</button>
-          </div>
-        </div>
-        <div class="fc-ajustes-divider"></div>
-        <div class="fc-ajustes-col">
-          <div class="fc-mini-title">🖊️ Lançamentos Manuais</div>
-          <div class="fc-mini-sub">Valor lançado à mão (despesa sem categoria ainda, etc). Entra de verdade no Saldo Acumulado. Visível só pro time GPS.</div>
-          <div class="fc-mini-form fc-mini-form-4">
-            <select id="fcAjusteEmpresa"><option value="gymis">Gymis</option><option value="ryngavi">Ryngavi</option><option value="especial">Especial</option><option value="multicopos">Multicopos</option></select>
-            <input type="text" id="fcAjusteDesc" placeholder="Descrição">
-            <input type="number" id="fcAjusteValor" placeholder="Valor (R$)">
-            <input type="date" id="fcAjusteData">
-            <button class="btn btn-primary btn-sm" onclick="addAjusteManual()">Adicionar</button>
-          </div>
-          <button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="openAjustesManuaisModal()">Ver lançamentos <span id="fcAjusteCount"></span></button>
-        </div>
-      </div>
-    </div>
-
     <!-- Modal: histórico do Saldo Inicial -->
     <div class="modal-overlay" id="saldoInicialModal">
       <div class="modal-box">
@@ -388,14 +351,6 @@ html.light .fc-day-num{color:#1f2a3d;}
         </div>
         <div id="fluxoFichaBody"></div>
       </div>
-    </div>
-
-    <!-- ============ NOVO: Análise pronta pra WhatsApp (só GPS) ============ -->
-    <div class="card" id="fcAnaliseWhatsCard" style="display:none;">
-      <div class="card-title">📋 Análise pronta pra WhatsApp</div>
-      <div class="card-sub">Texto pronto com o saldo e a previsão do fluxo — cole direto no grupo do cliente. Visível só pro time GPS.</div>
-      <pre id="fcAnaliseWhatsTexto" style="white-space:pre-wrap;font-family:'Sora',sans-serif;font-size:13px;line-height:1.7;background:var(--navy3);border-radius:10px;padding:14px 16px;margin-bottom:12px;"></pre>
-      <button id="fcAnaliseWhatsBtn" class="btn btn-primary">📋 Copiar texto</button>
     </div>
 
     <!-- ============ NOVO: Simulador de impacto no saldo ============ -->
@@ -455,7 +410,53 @@ html.light .fc-day-num{color:#1f2a3d;}
         </select>
         <input type="text" id="fcMsgFiltroBusca" placeholder="Buscar no texto..." oninput="aplicarFiltrosFcMsgs()">
       </div>
-      <div id="fcMsgList" style="margin-top:16px;"></div>
+      <div id="fcMsgList" class="fc-msg-scroll"></div>
+    </div>
+
+    <!-- A partir daqui: visões só do time GPS. Ficam sempre por último na
+         página, independente de outras mudanças futuras. -->
+    <div class="card" id="fcAjustesGpsCard">
+      <div class="fc-ajustes-row">
+        <div class="fc-ajustes-col">
+          <div class="fc-mini-title">🏁 Saldo Inicial</div>
+          <div class="fc-mini-sub">Define o saldo numa data — o Acumulado passa a respeitar isso a partir dali. Visível só pro time GPS.</div>
+          <div class="fc-mini-form">
+            <select id="fcSaldoEmpresa"><option value="gymis">Gymis</option><option value="ryngavi">Ryngavi</option><option value="especial">Especial</option><option value="multicopos">Multicopos</option></select>
+            <input type="date" id="fcSaldoInicialData">
+            <input type="number" id="fcSaldoInicialValor" placeholder="Saldo (R$)">
+            <button class="btn btn-primary btn-sm" onclick="applySaldoInicial()">Salvar</button>
+          </div>
+          <button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="openSaldoInicialModal()">Ver detalhes</button>
+
+          <div class="fc-mini-title" style="margin-top:16px;">🚨 Limite da Conta</div>
+          <div class="fc-mini-sub">Marca no Saldo Acumulado o primeiro dia em que o fluxo ultrapassa o limite negativo da conta (por empresa).</div>
+          <div class="fc-mini-form">
+            <select id="fcLimiteContaEmpresa"><option value="gymis">Gymis</option><option value="ryngavi">Ryngavi</option><option value="especial">Especial</option><option value="multicopos">Multicopos</option></select>
+            <input type="number" id="fcLimiteContaValor" placeholder="Limite (R$)">
+            <button class="btn btn-primary btn-sm" onclick="applyLimiteConta()">Salvar</button>
+          </div>
+        </div>
+        <div class="fc-ajustes-divider"></div>
+        <div class="fc-ajustes-col">
+          <div class="fc-mini-title">🖊️ Lançamentos Manuais</div>
+          <div class="fc-mini-sub">Valor lançado à mão (despesa sem categoria ainda, etc). Entra de verdade no Saldo Acumulado. Visível só pro time GPS.</div>
+          <div class="fc-mini-form fc-mini-form-4">
+            <select id="fcAjusteEmpresa"><option value="gymis">Gymis</option><option value="ryngavi">Ryngavi</option><option value="especial">Especial</option><option value="multicopos">Multicopos</option></select>
+            <input type="text" id="fcAjusteDesc" placeholder="Descrição">
+            <input type="number" id="fcAjusteValor" placeholder="Valor (R$)">
+            <input type="date" id="fcAjusteData">
+            <button class="btn btn-primary btn-sm" onclick="addAjusteManual()">Adicionar</button>
+          </div>
+          <button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="openAjustesManuaisModal()">Ver lançamentos <span id="fcAjusteCount"></span></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="fcAnaliseWhatsCard" style="display:none;">
+      <div class="card-title">📋 Análise pronta pra WhatsApp</div>
+      <div class="card-sub">Texto pronto com o saldo e a previsão do fluxo — cole direto no grupo do cliente. Visível só pro time GPS.</div>
+      <pre id="fcAnaliseWhatsTexto" style="white-space:pre-wrap;font-family:'Sora',sans-serif;font-size:13px;line-height:1.7;background:var(--navy3);border-radius:10px;padding:14px 16px;margin-bottom:12px;max-height:90px;overflow-y:auto;"></pre>
+      <button id="fcAnaliseWhatsBtn" class="btn btn-primary">📋 Copiar texto</button>
     </div>
   </div>
 </div>
@@ -1635,9 +1636,7 @@ async function loadFcMsgs(){
 }
 function rerenderFcMsgs(){ renderFcMsgs(fcMsgsCache.msgs, fcMsgsCache.reacoes, fcMsgsCache.leituras); }
 const FC_MSG_REACOES = [ { tipo:'like', emoji:'👍' }, { tipo:'coracao', emoji:'❤️' }, { tipo:'palmas', emoji:'👏' } ];
-let fcMsgVisiveis = 8; // paginação simples pra não virar uma lista gigante
-function aplicarFiltrosFcMsgs(){ fcMsgVisiveis = 8; rerenderFcMsgs(); }
-function mostrarMaisFcMsgs(){ fcMsgVisiveis += 8; rerenderFcMsgs(); }
+function aplicarFiltrosFcMsgs(){ rerenderFcMsgs(); }
 function renderFcMsgs(msgsOriginais, reacoes, leituras){
   if(!msgsOriginais.length){ el('fcMsgList').innerHTML = '<div class="empty-state"><div class="icon">📋</div>Nenhum registro ainda.</div>'; return; }
   const filtroTipo = el('fcMsgFiltroTipo')?.value || '';
@@ -1650,10 +1649,9 @@ function renderFcMsgs(msgsOriginais, reacoes, leituras){
     return true;
   });
   if(!msgsFiltradas.length){ el('fcMsgList').innerHTML = '<div class="empty-state"><div class="icon">🔎</div>Nenhum registro encontrado com esse filtro.</div>'; return; }
-  const msgs = msgsFiltradas.slice(0, fcMsgVisiveis);
+  const msgs = msgsFiltradas; // a lista tem rolagem própria (mostra ~4-5 por vez), não precisa mais paginar
   const tipoLabel = { observacao:'📝 Observação', aviso:'⚠️ Aviso', solicitacao:'🙋 Solicitação' };
   const statusLabel = { aberto:'⏳ Aberto', resolvido:'✓ Resolvido', aprovado:'✓ Aprovado', recusado:'✕ Recusado' };
-  const botaoMostrarMais = msgsFiltradas.length>fcMsgVisiveis ? `<button class="btn btn-ghost btn-sm" onclick="mostrarMaisFcMsgs()" style="width:100%;margin-top:6px;">Mostrar mais (${msgsFiltradas.length-fcMsgVisiveis} restantes)</button>` : '';
   el('fcMsgList').innerHTML = msgs.map(m=>{
     const date = new Date(m.criado_em).toLocaleString('pt-BR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
     const podeResponder = m.tipo==='solicitacao' && m.status==='aberto';
@@ -1727,7 +1725,7 @@ function renderFcMsgs(msgsOriginais, reacoes, leituras){
       ${acoes}
       ${leituraBloco}
     </div>`;
-  }).join('') + botaoMostrarMais;
+  }).join('');
 }
 async function submitFcMsg(){
   const tipo = el('fcMsgTipo').value;

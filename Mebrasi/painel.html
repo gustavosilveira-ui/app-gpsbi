@@ -95,6 +95,7 @@ a{color:inherit;text-decoration:none;}
 .pc-msg-status.resolvido,.pc-msg-status.aprovado{background:rgba(47,214,184,.15);color:#98C47C;}
 .pc-msg-status.recusado{background:rgba(239,106,106,.15);color:var(--red);}
 .pc-msg-resposta{margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:12px;color:var(--text2);}
+.pc-msg-scroll{margin-top:16px;max-height:600px;overflow-y:auto;padding-right:6px;}
 .pc-msg-reacoes-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;}
 .pc-msg-reacao-btn{display:flex;align-items:center;gap:5px;padding:5px 11px;border-radius:999px;background:var(--navy4,var(--navy3));border:1px solid var(--border2);cursor:pointer;font-size:12px;font-weight:700;color:var(--text2);}
 .pc-msg-reacao-btn.active{background:rgba(58,233,209,.15);color:var(--cyan);border-color:rgba(58,233,209,.3);}
@@ -483,13 +484,6 @@ table.tabela-simples tr.linha-total td{font-weight:800;border-top:2px solid var(
       </div>
     </div>
 
-    <div class="card" id="analiseWhatsCard" style="display:none;">
-      <div class="card-title">📋 Análise pronta pra WhatsApp</div>
-      <div class="card-sub">Texto pronto pra colar direto no grupo do cliente. Visível só pro time GPS.</div>
-      <pre id="analiseWhatsTexto" style="white-space:pre-wrap;font-family:'Sora',sans-serif;font-size:13px;line-height:1.7;background:var(--navy3);border-radius:10px;padding:14px 16px;margin-bottom:12px;"></pre>
-      <button id="analiseWhatsBtn" class="btn btn-primary">📋 Copiar texto</button>
-    </div>
-
     <div id="fcDebugStats" style="font-size:11px;color:var(--text3);margin-top:8px;"></div>
 
     <!-- ============ Observações, avisos e solicitações (BI Comercial) ============ -->
@@ -521,7 +515,16 @@ table.tabela-simples tr.linha-total td{font-weight:800;border-top:2px solid var(
         </select>
         <input type="text" id="pcMsgFiltroBusca" placeholder="Buscar no texto..." oninput="aplicarFiltrosPcMsgs()">
       </div>
-      <div id="pcMsgList" style="margin-top:16px;"></div>
+      <div id="pcMsgList" class="pc-msg-scroll"></div>
+    </div>
+
+    <!-- Fica sempre por último na página, independente de outras mudanças —
+         é uma visão só do time GPS, não do cliente. -->
+    <div class="card" id="analiseWhatsCard" style="display:none;">
+      <div class="card-title">📋 Análise pronta pra WhatsApp</div>
+      <div class="card-sub">Texto pronto pra colar direto no grupo do cliente. Visível só pro time GPS.</div>
+      <pre id="analiseWhatsTexto" style="white-space:pre-wrap;font-family:'Sora',sans-serif;font-size:13px;line-height:1.7;background:var(--navy3);border-radius:10px;padding:14px 16px;margin-bottom:12px;max-height:90px;overflow-y:auto;"></pre>
+      <button id="analiseWhatsBtn" class="btn btn-primary">📋 Copiar texto</button>
     </div>
 
   </div>
@@ -2092,9 +2095,7 @@ async function loadPcMsgs(){
 }
 function rerenderPcMsgs(){ renderPcMsgs(pcMsgsCache.msgs, pcMsgsCache.reacoes, pcMsgsCache.leituras); }
 const PC_MSG_REACOES = [ { tipo:'like', emoji:'👍' }, { tipo:'coracao', emoji:'❤️' }, { tipo:'palmas', emoji:'👏' } ];
-let pcMsgVisiveis = 8;
-function aplicarFiltrosPcMsgs(){ pcMsgVisiveis = 8; rerenderPcMsgs(); }
-function mostrarMaisPcMsgs(){ pcMsgVisiveis += 8; rerenderPcMsgs(); }
+function aplicarFiltrosPcMsgs(){ rerenderPcMsgs(); }
 function renderPcMsgs(msgsOriginais, reacoes, leituras){
   if(!msgsOriginais.length){ el('pcMsgList').innerHTML = '<div class="empty-state"><div class="icon">📋</div>Nenhum registro ainda.</div>'; return; }
   const filtroTipo = el('pcMsgFiltroTipo')?.value || '';
@@ -2107,10 +2108,9 @@ function renderPcMsgs(msgsOriginais, reacoes, leituras){
     return true;
   });
   if(!msgsFiltradas.length){ el('pcMsgList').innerHTML = '<div class="empty-state"><div class="icon">🔎</div>Nenhum registro encontrado com esse filtro.</div>'; return; }
-  const msgs = msgsFiltradas.slice(0, pcMsgVisiveis);
+  const msgs = msgsFiltradas; // a lista tem rolagem própria (mostra ~4-5 por vez), não precisa mais paginar
   const tipoLabel = { observacao:'📝 Observação', aviso:'⚠️ Aviso', solicitacao:'🙋 Solicitação' };
   const statusLabel = { aberto:'⏳ Aberto', resolvido:'✓ Resolvido', aprovado:'✓ Aprovado', recusado:'✕ Recusado' };
-  const botaoMostrarMais = msgsFiltradas.length>pcMsgVisiveis ? `<button class="btn btn-ghost btn-sm" onclick="mostrarMaisPcMsgs()" style="width:100%;margin-top:6px;">Mostrar mais (${msgsFiltradas.length-pcMsgVisiveis} restantes)</button>` : '';
   el('pcMsgList').innerHTML = msgs.map(m=>{
     const date = new Date(m.criado_em).toLocaleString('pt-BR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
     const podeResponder = m.tipo==='solicitacao' && m.status==='aberto';
@@ -2184,7 +2184,7 @@ function renderPcMsgs(msgsOriginais, reacoes, leituras){
       ${acoes}
       ${leituraBloco}
     </div>`;
-  }).join('') + botaoMostrarMais;
+  }).join('');
 }
 async function submitPcMsg(){
   const tipo = el('pcMsgTipo').value;

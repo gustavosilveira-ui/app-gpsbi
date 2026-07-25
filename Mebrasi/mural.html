@@ -106,6 +106,7 @@ label.field-label{display:block;font-size:11px;color:var(--text3);text-transform
 html{zoom:.8;}
 .post-item{background:var(--navy3);border-radius:12px;padding:16px 18px;margin-bottom:12px;}
 .mural-filtros{margin-bottom:14px;}
+.posts-scroll{max-height:650px;overflow-y:auto;padding-right:6px;}
 .mural-filtros input{width:100%;}
 .post-item.pinned{border:1px solid rgba(245,185,66,.4);}
 .post-head{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
@@ -188,7 +189,7 @@ html{zoom:.8;}
       <div class="mural-filtros">
         <input type="text" id="muralFiltroBusca" placeholder="Buscar comunicado..." oninput="aplicarFiltroMural()">
       </div>
-      <div id="postsWrap"></div>
+      <div id="postsWrap" class="posts-scroll"></div>
     </div>
   </div>
 </div>
@@ -268,9 +269,8 @@ async function loadPosts(){
 }
 function rerenderPosts(){ renderPosts(muralCache.posts, muralCache.reacoes, muralCache.leituras); }
 
-let muralVisiveis = 8;
-function aplicarFiltroMural(){ muralVisiveis = 8; rerenderPosts(); }
-function mostrarMaisMural(){ muralVisiveis += 8; rerenderPosts(); }
+function aplicarFiltroMural(){ rerenderPosts(); }
+const MURAL_REACOES = [ { tipo:'like', emoji:'👍' }, { tipo:'coracao', emoji:'❤️' }, { tipo:'palmas', emoji:'👏' } ];
 function renderPosts(postsOriginais, reacoes, leituras){
   if(!postsOriginais.length){
     el('postsWrap').innerHTML = '<div class="empty-state"><div class="icon">📣</div>Nenhum comunicado ainda.</div>';
@@ -285,11 +285,9 @@ function renderPosts(postsOriginais, reacoes, leituras){
     el('postsWrap').innerHTML = '<div class="empty-state"><div class="icon">🔎</div>Nenhum comunicado encontrado com essa busca.</div>';
     return;
   }
-  const posts = postsFiltrados.slice(0, muralVisiveis);
-  const botaoMostrarMais = postsFiltrados.length>muralVisiveis ? `<button class="btn btn-ghost btn-sm" onclick="mostrarMaisMural()" style="width:100%;margin-top:6px;">Mostrar mais (${postsFiltrados.length-muralVisiveis} restantes)</button>` : '';
+  const posts = postsFiltrados; // a lista tem rolagem própria (mostra ~4-5 por vez), não precisa mais paginar
   el('postsWrap').innerHTML = posts.map(p=>{
-    const likes = reacoes.filter(r=>r.comunicado_id===p.id);
-    const liked = likes.some(r=>r.usuario_email===userEmail);
+    const reacoesPost = reacoes.filter(r=>r.comunicado_id===p.id);
     const leiturasPost = leituras.filter(l=>l.comunicado_id===p.id);
     const jaLeu = leiturasPost.some(l=>l.usuario_email===userEmail);
     const initials = (p.autor_nome||'--').split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
@@ -312,7 +310,11 @@ function renderPosts(postsOriginais, reacoes, leituras){
       </div>
       ${corpoBloco}
       <div class="post-actions">
-        <button class="like-btn ${liked?'liked':''}" onclick="toggleLike(${p.id}, ${liked})">👍 ${likes.length||''}</button>
+        ${MURAL_REACOES.map(t=>{
+          const count = reacoesPost.filter(r=>(r.tipo||'like')===t.tipo).length;
+          const marcou = reacoesPost.some(r=>(r.tipo||'like')===t.tipo && r.usuario_email===userEmail);
+          return `<button class="like-btn ${marcou?'liked':''}" onclick="toggleReacaoPost(${p.id},'${t.tipo}',${marcou})">${t.emoji} ${count||''}</button>`;
+        }).join('')}
         <button class="like-btn ${jaLeu?'liked':''}" onclick="toggleRead(${p.id}, ${jaLeu})" ${jaLeu?'disabled':''}>${jaLeu?'✅ Lido, de acordo':'☑️ Marcar como lido'}</button>
         ${userRole==='owner' ? `<button class="like-btn" onclick="toggleReadList(${p.id})" title="${listaLeitores.replace(/"/g,'&quot;')}">👀 ${leiturasPost.length} leram</button>` : ''}
         ${userRole==='owner' ? `<button class="post-del" onclick="abrirEdicaoPost(${p.id})">Editar</button>` : ''}
@@ -320,7 +322,7 @@ function renderPosts(postsOriginais, reacoes, leituras){
       </div>
       <div class="read-list" id="readList_${p.id}" style="display:none;">${listaLeitores}</div>
     </div>`;
-  }).join('') + botaoMostrarMais;
+  }).join('');
 }
 function toggleReadList(id){
   const el2 = document.getElementById('readList_'+id);
@@ -352,9 +354,9 @@ async function submitPost(){
   if(!error){ el('postTitulo').value=''; el('postMensagem').value=''; el('postFixado').checked=false; await loadPosts(); }
   else alert('Erro ao publicar: '+error.message);
 }
-async function toggleLike(comunicadoId, liked){
-  if(liked) await sb.from('comunicado_reacoes').delete().eq('comunicado_id', comunicadoId).eq('usuario_email', userEmail);
-  else await sb.from('comunicado_reacoes').insert({ comunicado_id:comunicadoId, usuario_email:userEmail });
+async function toggleReacaoPost(comunicadoId, tipo, already){
+  if(already) await sb.from('comunicado_reacoes').delete().eq('comunicado_id', comunicadoId).eq('usuario_email', userEmail).eq('tipo', tipo);
+  else await sb.from('comunicado_reacoes').insert({ comunicado_id:comunicadoId, usuario_email:userEmail, tipo });
   await loadPosts();
 }
 async function deletePost(id){
