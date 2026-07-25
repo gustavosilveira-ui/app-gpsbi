@@ -242,6 +242,12 @@ html.light .fc-day-num{color:#1f2a3d;}
 .fc-msg-status.resolvido,.fc-msg-status.aprovado{background:rgba(47,214,184,.15);color:#98C47C;}
 .fc-msg-status.recusado{background:rgba(239,106,106,.15);color:var(--red);}
 .fc-msg-resposta{margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:12px;color:var(--text2);}
+.fc-msg-reacoes-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;}
+.fc-msg-reacao-btn{display:flex;align-items:center;gap:5px;padding:5px 11px;border-radius:999px;background:var(--navy4);border:1px solid var(--border2);cursor:pointer;font-size:12px;font-weight:700;color:var(--text2);}
+.fc-msg-reacao-btn.active{background:rgba(58,233,209,.15);color:var(--cyan);border-color:rgba(58,233,209,.3);}
+.fc-msg-reacao-btn:disabled{cursor:default;opacity:.85;}
+.fc-msg-leram{font-size:11px;color:var(--text3);cursor:help;}
+.fc-msg-read-list{margin-top:8px;padding:8px 10px;background:var(--navy4);border-radius:8px;font-size:11px;color:var(--text2);line-height:1.6;}
 @media(max-width:900px){ .fc-sim-form,.fc-msg-form,.fc-saldo-form{grid-template-columns:1fr;} }
 </style>
 </head>
@@ -1593,9 +1599,12 @@ function renderFcSim(){
 async function loadFcMsgs(){
   const { data, error } = await sb.from('fluxo_mensagens').select('*').order('criado_em',{ascending:false});
   if(error){ el('fcMsgList').innerHTML = '<div style="color:var(--gold);font-size:12px;">⚠️ Não consegui carregar. Verifique se a tabela fluxo_mensagens existe no Supabase.</div>'; return; }
-  renderFcMsgs(data||[]);
+  const { data: reacoes } = await sb.from('fluxo_mensagens_reacoes').select('*');
+  const { data: leituras } = await sb.from('fluxo_mensagens_leituras').select('*');
+  renderFcMsgs(data||[], reacoes||[], leituras||[]);
 }
-function renderFcMsgs(msgs){
+const FC_MSG_REACOES = [ { tipo:'like', emoji:'👍' }, { tipo:'coracao', emoji:'❤️' }, { tipo:'palmas', emoji:'👏' } ];
+function renderFcMsgs(msgs, reacoes, leituras){
   if(!msgs.length){ el('fcMsgList').innerHTML = '<div class="empty-state"><div class="icon">📋</div>Nenhum registro ainda.</div>'; return; }
   const tipoLabel = { observacao:'📝 Observação', aviso:'⚠️ Aviso', solicitacao:'🙋 Solicitação' };
   const statusLabel = { aberto:'⏳ Aberto', resolvido:'✓ Resolvido', aprovado:'✓ Aprovado', recusado:'✕ Recusado' };
@@ -1609,6 +1618,23 @@ function renderFcMsgs(msgs){
         <button class="btn btn-ghost btn-sm" onclick="respondFcMsg(${m.id},'resolvido')">Marcar resolvido</button>
       </div>` : (m.status==='aberto' && m.tipo!=='solicitacao' ? `<button class="btn btn-ghost btn-sm" onclick="respondFcMsg(${m.id},'resolvido')" style="margin-top:8px;">Marcar resolvido</button>` : '');
     const resposta = m.resposta ? `<div class="fc-msg-resposta"><b>${m.respondido_por||''}:</b> ${m.resposta}</div>` : '';
+    let leituraBloco = '';
+    if(m.tipo==='observacao' || m.tipo==='aviso'){
+      const reacoesMsg = reacoes.filter(r=>r.mensagem_id===m.id);
+      const leiturasMsg = leituras.filter(l=>l.mensagem_id===m.id);
+      const jaLeu = leiturasMsg.some(l=>l.usuario_email===currentUser.email);
+      const botoesReacao = FC_MSG_REACOES.map(t=>{
+        const count = reacoesMsg.filter(r=>r.tipo===t.tipo).length;
+        const marcou = reacoesMsg.some(r=>r.tipo===t.tipo && r.usuario_email===currentUser.email);
+        return `<button class="fc-msg-reacao-btn ${marcou?'active':''}" onclick="toggleFcMsgReacao(${m.id},'${t.tipo}',${marcou})">${t.emoji} ${count||''}</button>`;
+      }).join('');
+      const listaLeitores = leiturasMsg.map(l=>`${l.usuario_nome||l.usuario_email} · ${new Date(l.lido_em).toLocaleString('pt-BR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}`).join('<br>') || 'Ninguém confirmou leitura ainda.';
+      leituraBloco = `<div class="fc-msg-reacoes-row">
+        ${botoesReacao}
+        <button class="fc-msg-reacao-btn ${jaLeu?'active':''}" onclick="toggleFcMsgLeitura(${m.id},${jaLeu})" ${jaLeu?'disabled':''}>${jaLeu?'✅ Lido':'☑️ Marcar como lido'}</button>
+        ${gpsStaff ? `<span class="fc-msg-leram" title="${listaLeitores.replace(/"/g,'&quot;')}">👀 ${leiturasMsg.length} leram</span>` : ''}
+      </div>`;
+    }
     return `<div class="fc-msg-item">
       <div class="fc-msg-head">
         <span class="fc-msg-autor">${m.autor_nome||m.autor_email}</span>
@@ -1619,6 +1645,7 @@ function renderFcMsgs(msgs){
       <div class="fc-msg-text">${(m.mensagem||'').replace(/</g,'&lt;')}</div>
       ${resposta}
       ${acoes}
+      ${leituraBloco}
     </div>`;
   }).join('');
 }
@@ -1637,6 +1664,17 @@ async function respondFcMsg(id, status){
   const { error } = await sb.from('fluxo_mensagens').update({
     status, resposta, respondido_por: nameFromEmail(currentUser.email), respondido_em: new Date().toISOString()
   }).eq('id', id);
+  if(!error) await loadFcMsgs();
+  else alert('Erro: '+error.message);
+}
+async function toggleFcMsgReacao(mensagemId, tipo, already){
+  if(already) await sb.from('fluxo_mensagens_reacoes').delete().eq('mensagem_id',mensagemId).eq('usuario_email',currentUser.email).eq('tipo',tipo);
+  else await sb.from('fluxo_mensagens_reacoes').insert({ mensagem_id:mensagemId, usuario_email:currentUser.email, tipo });
+  await loadFcMsgs();
+}
+async function toggleFcMsgLeitura(mensagemId, already){
+  if(already) return;
+  const { error } = await sb.from('fluxo_mensagens_leituras').insert({ mensagem_id:mensagemId, usuario_email:currentUser.email, usuario_nome:nameFromEmail(currentUser.email) });
   if(!error) await loadFcMsgs();
   else alert('Erro: '+error.message);
 }

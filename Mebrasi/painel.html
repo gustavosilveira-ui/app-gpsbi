@@ -91,6 +91,11 @@ a{color:inherit;text-decoration:none;}
 .pc-msg-status.resolvido,.pc-msg-status.aprovado{background:rgba(47,214,184,.15);color:#98C47C;}
 .pc-msg-status.recusado{background:rgba(239,106,106,.15);color:var(--red);}
 .pc-msg-resposta{margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:12px;color:var(--text2);}
+.pc-msg-reacoes-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;}
+.pc-msg-reacao-btn{display:flex;align-items:center;gap:5px;padding:5px 11px;border-radius:999px;background:var(--navy4,var(--navy3));border:1px solid var(--border2);cursor:pointer;font-size:12px;font-weight:700;color:var(--text2);}
+.pc-msg-reacao-btn.active{background:rgba(58,233,209,.15);color:var(--cyan);border-color:rgba(58,233,209,.3);}
+.pc-msg-reacao-btn:disabled{cursor:default;opacity:.85;}
+.pc-msg-leram{font-size:11px;color:var(--text3);cursor:help;}
 @media(max-width:900px){ .pc-msg-form{grid-template-columns:1fr;} }
 
 .filtros-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px;}
@@ -2046,9 +2051,12 @@ async function doLogout(){ await sb.auth.signOut(); window.location.href = LOGIN
 async function loadPcMsgs(){
   const { data, error } = await sb.from('comercial_mensagens').select('*').order('criado_em',{ascending:false});
   if(error){ el('pcMsgList').innerHTML = '<div style="color:var(--gold);font-size:12px;">⚠️ Não consegui carregar. Verifique se a tabela comercial_mensagens existe no Supabase.</div>'; return; }
-  renderPcMsgs(data||[]);
+  const { data: reacoes } = await sb.from('comercial_mensagens_reacoes').select('*');
+  const { data: leituras } = await sb.from('comercial_mensagens_leituras').select('*');
+  renderPcMsgs(data||[], reacoes||[], leituras||[]);
 }
-function renderPcMsgs(msgs){
+const PC_MSG_REACOES = [ { tipo:'like', emoji:'👍' }, { tipo:'coracao', emoji:'❤️' }, { tipo:'palmas', emoji:'👏' } ];
+function renderPcMsgs(msgs, reacoes, leituras){
   if(!msgs.length){ el('pcMsgList').innerHTML = '<div class="empty-state"><div class="icon">📋</div>Nenhum registro ainda.</div>'; return; }
   const tipoLabel = { observacao:'📝 Observação', aviso:'⚠️ Aviso', solicitacao:'🙋 Solicitação' };
   const statusLabel = { aberto:'⏳ Aberto', resolvido:'✓ Resolvido', aprovado:'✓ Aprovado', recusado:'✕ Recusado' };
@@ -2062,6 +2070,23 @@ function renderPcMsgs(msgs){
         <button class="btn btn-ghost btn-sm" onclick="respondPcMsg(${m.id},'resolvido')">Marcar resolvido</button>
       </div>` : (m.status==='aberto' && m.tipo!=='solicitacao' ? `<button class="btn btn-ghost btn-sm" onclick="respondPcMsg(${m.id},'resolvido')" style="margin-top:8px;">Marcar resolvido</button>` : '');
     const resposta = m.resposta ? `<div class="pc-msg-resposta"><b>${m.respondido_por||''}:</b> ${m.resposta}</div>` : '';
+    let leituraBloco = '';
+    if(m.tipo==='observacao' || m.tipo==='aviso'){
+      const reacoesMsg = reacoes.filter(r=>r.mensagem_id===m.id);
+      const leiturasMsg = leituras.filter(l=>l.mensagem_id===m.id);
+      const jaLeu = leiturasMsg.some(l=>l.usuario_email===currentUser.email);
+      const botoesReacao = PC_MSG_REACOES.map(t=>{
+        const count = reacoesMsg.filter(r=>r.tipo===t.tipo).length;
+        const marcou = reacoesMsg.some(r=>r.tipo===t.tipo && r.usuario_email===currentUser.email);
+        return `<button class="pc-msg-reacao-btn ${marcou?'active':''}" onclick="togglePcMsgReacao(${m.id},'${t.tipo}',${marcou})">${t.emoji} ${count||''}</button>`;
+      }).join('');
+      const listaLeitores = leiturasMsg.map(l=>`${l.usuario_nome||l.usuario_email} · ${new Date(l.lido_em).toLocaleString('pt-BR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}`).join('<br>') || 'Ninguém confirmou leitura ainda.';
+      leituraBloco = `<div class="pc-msg-reacoes-row">
+        ${botoesReacao}
+        <button class="pc-msg-reacao-btn ${jaLeu?'active':''}" onclick="togglePcMsgLeitura(${m.id},${jaLeu})" ${jaLeu?'disabled':''}>${jaLeu?'✅ Lido':'☑️ Marcar como lido'}</button>
+        ${gpsStaff ? `<span class="pc-msg-leram" title="${listaLeitores.replace(/"/g,'&quot;')}">👀 ${leiturasMsg.length} leram</span>` : ''}
+      </div>`;
+    }
     return `<div class="pc-msg-item">
       <div class="pc-msg-head">
         <span class="pc-msg-autor">${m.autor_nome||m.autor_email}</span>
@@ -2072,6 +2097,7 @@ function renderPcMsgs(msgs){
       <div class="pc-msg-text">${(m.mensagem||'').replace(/</g,'&lt;')}</div>
       ${resposta}
       ${acoes}
+      ${leituraBloco}
     </div>`;
   }).join('');
 }
@@ -2090,6 +2116,17 @@ async function respondPcMsg(id, status){
   const { error } = await sb.from('comercial_mensagens').update({
     status, resposta, respondido_por: nameFromEmail(currentUser.email), respondido_em: new Date().toISOString()
   }).eq('id', id);
+  if(!error) await loadPcMsgs();
+  else alert('Erro: '+error.message);
+}
+async function togglePcMsgReacao(mensagemId, tipo, already){
+  if(already) await sb.from('comercial_mensagens_reacoes').delete().eq('mensagem_id',mensagemId).eq('usuario_email',currentUser.email).eq('tipo',tipo);
+  else await sb.from('comercial_mensagens_reacoes').insert({ mensagem_id:mensagemId, usuario_email:currentUser.email, tipo });
+  await loadPcMsgs();
+}
+async function togglePcMsgLeitura(mensagemId, already){
+  if(already) return;
+  const { error } = await sb.from('comercial_mensagens_leituras').insert({ mensagem_id:mensagemId, usuario_email:currentUser.email, usuario_nome:nameFromEmail(currentUser.email) });
   if(!error) await loadPcMsgs();
   else alert('Erro: '+error.message);
 }
