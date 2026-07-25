@@ -101,6 +101,20 @@ html.light .fc-day-num{color:#1f2a3d;}
 .fc-msg-status.resolvido,.fc-msg-status.aprovado{background:rgba(47,214,184,.15);color:#98C47C;}
 .fc-msg-status.recusado{background:rgba(239,106,106,.15);color:var(--red);}
 .fc-msg-resposta{margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:12px;color:var(--text2);}
+.fc-msg-reacoes-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;}
+.fc-msg-reacao-btn{display:flex;align-items:center;gap:5px;padding:5px 11px;border-radius:999px;background:var(--navy4);border:1px solid var(--border2);cursor:pointer;font-size:12px;font-weight:700;color:var(--text2);}
+.fc-msg-reacao-btn.active{background:rgba(58,233,209,.15);color:var(--cyan);border-color:rgba(58,233,209,.3);}
+.fc-msg-reacao-btn:disabled{cursor:default;opacity:.85;}
+.fc-msg-leram{font-size:11px;color:var(--text3);cursor:help;}
+.fc-msg-resposta-form{margin-top:10px;padding:10px 12px;background:var(--navy4);border-radius:10px;}
+.fc-msg-resposta-form-label{font-size:11.5px;font-weight:700;color:var(--text2);margin-bottom:6px;}
+.fc-msg-edit-link{font-size:11px;color:var(--cyan);cursor:pointer;font-weight:700;white-space:nowrap;}
+.fc-msg-edit-box{margin-bottom:8px;}
+.fc-msg-edit-box textarea{width:100%;}
+.fc-msg-filtros{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;}
+.fc-msg-filtros select{width:auto;min-width:160px;}
+.fc-msg-filtros input{flex:1;min-width:180px;}
+.fc-msg-scroll{margin-top:16px;max-height:600px;overflow-y:auto;padding-right:6px;}
 @media(max-width:900px){ .fc-sim-form,.fc-msg-form,.fc-saldo-form{grid-template-columns:1fr;} }
 
 /* Ficha detalhada ao clicar nos valores do fluxo */
@@ -159,49 +173,6 @@ html.light .fc-day-num{color:#1f2a3d;}
         <span><span class="fc-dot" style="background:#2D70B8"></span> Hoje</span>
       </div>
       <div id="fcDebugStats" style="font-size:11px;color:var(--text3);margin-top:8px;"></div>
-    </div>
-
-    <!-- ============ NOVO: Saldo Inicial + Lançamentos Manuais (compacto, lado a lado) ============ -->
-    <div class="card" id="fcAjustesGpsCard">
-      <div class="fc-ajustes-row">
-        <div class="fc-ajustes-col">
-          <div class="fc-mini-title">🏁 Saldo Inicial</div>
-          <div class="fc-mini-sub">Define o saldo numa data — o Acumulado passa a respeitar isso a partir dali. Visível só pro time GPS.</div>
-          <div class="fc-mini-form">
-            <input type="date" id="fcSaldoInicialData">
-            <input type="number" id="fcSaldoInicialValor" placeholder="Saldo (R$)">
-            <button class="btn btn-primary btn-sm" onclick="applySaldoInicial()">Aplicar</button>
-          </div>
-          <button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="openSaldoInicialModal()">Ver detalhes</button>
-
-          <div class="fc-mini-title" style="margin-top:16px;">🚨 Limite da Conta</div>
-          <div class="fc-mini-sub">Marca no Saldo Acumulado o primeiro dia em que o fluxo ultrapassa o limite negativo da conta.</div>
-          <div class="fc-mini-form">
-            <input type="number" id="fcLimiteContaValor" placeholder="Limite (R$)">
-            <button class="btn btn-primary btn-sm" onclick="applyLimiteConta()">Aplicar</button>
-          </div>
-        </div>
-        <div class="fc-ajustes-divider"></div>
-        <div class="fc-ajustes-col">
-          <div class="fc-mini-title">🖊️ Lançamentos Manuais</div>
-          <div class="fc-mini-sub">Valor lançado à mão (despesa sem categoria ainda, etc). Entra de verdade no Saldo Acumulado. Visível só pro time GPS.</div>
-          <div class="fc-mini-form fc-mini-form-4">
-            <input type="text" id="fcAjusteDesc" placeholder="Descrição">
-            <input type="number" id="fcAjusteValor" placeholder="Valor (R$)">
-            <input type="date" id="fcAjusteData">
-            <button class="btn btn-primary btn-sm" onclick="addAjusteManual()">Adicionar</button>
-          </div>
-          <button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="openAjustesManuaisModal()">Ver lançamentos <span id="fcAjusteCount"></span></button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Análise pronta pra WhatsApp — só time GPS -->
-    <div class="card" id="analiseFluxoWhatsCard" style="display:none;">
-      <div class="card-title">📋 Análise pronta pra WhatsApp</div>
-      <div class="card-sub">Texto pronto com o saldo e a previsão do fluxo — cole direto no grupo do cliente. Visível só pro time GPS.</div>
-      <pre id="analiseFluxoWhatsTexto" style="white-space:pre-wrap;font-family:'Sora',sans-serif;font-size:13px;line-height:1.7;background:var(--navy3);border-radius:10px;padding:14px 16px;margin-bottom:12px;"></pre>
-      <button id="analiseFluxoWhatsBtn" style="padding:9px 18px;border-radius:9px;border:none;font-weight:700;cursor:pointer;color:#fff;background:linear-gradient(90deg,var(--blue),var(--cyan));font-family:'Sora',sans-serif;font-size:12.5px;">📋 Copiar texto</button>
     </div>
 
     <!-- Modal: histórico do Saldo Inicial -->
@@ -279,7 +250,66 @@ html.light .fc-day-num{color:#1f2a3d;}
         <textarea id="fcMsgTexto" placeholder="Escreva aqui..."></textarea>
         <button class="btn btn-primary" onclick="submitFcMsg()">Publicar</button>
       </div>
-      <div id="fcMsgList" style="margin-top:16px;"></div>
+      <div class="fc-msg-filtros">
+        <select id="fcMsgFiltroTipo" onchange="aplicarFiltrosFcMsgs()">
+          <option value="">Todos os tipos</option>
+          <option value="observacao">📝 Observação</option>
+          <option value="aviso">⚠️ Aviso</option>
+          <option value="solicitacao">🙋 Solicitação</option>
+        </select>
+        <select id="fcMsgFiltroStatus" onchange="aplicarFiltrosFcMsgs()">
+          <option value="">Todos os status</option>
+          <option value="aberto">⏳ Aberto</option>
+          <option value="resolvido">✓ Resolvido</option>
+          <option value="aprovado">✓ Aprovado</option>
+          <option value="recusado">✕ Recusado</option>
+        </select>
+        <input type="text" id="fcMsgFiltroBusca" placeholder="Buscar no texto..." oninput="aplicarFiltrosFcMsgs()">
+      </div>
+      <div id="fcMsgList" class="fc-msg-scroll"></div>
+    </div>
+
+    <!-- A partir daqui: visões só do time GPS. Ficam sempre por último na
+         página, independente de outras mudanças futuras. -->
+    <div class="card" id="fcAjustesGpsCard">
+      <div class="fc-ajustes-row">
+        <div class="fc-ajustes-col">
+          <div class="fc-mini-title">🏁 Saldo Inicial</div>
+          <div class="fc-mini-sub">Define o saldo numa data — o Acumulado passa a respeitar isso a partir dali. Visível só pro time GPS.</div>
+          <div class="fc-mini-form">
+            <input type="date" id="fcSaldoInicialData">
+            <input type="number" id="fcSaldoInicialValor" placeholder="Saldo (R$)">
+            <button class="btn btn-primary btn-sm" onclick="applySaldoInicial()">Aplicar</button>
+          </div>
+          <button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="openSaldoInicialModal()">Ver detalhes</button>
+
+          <div class="fc-mini-title" style="margin-top:16px;">🚨 Limite da Conta</div>
+          <div class="fc-mini-sub">Marca no Saldo Acumulado o primeiro dia em que o fluxo ultrapassa o limite negativo da conta.</div>
+          <div class="fc-mini-form">
+            <input type="number" id="fcLimiteContaValor" placeholder="Limite (R$)">
+            <button class="btn btn-primary btn-sm" onclick="applyLimiteConta()">Aplicar</button>
+          </div>
+        </div>
+        <div class="fc-ajustes-divider"></div>
+        <div class="fc-ajustes-col">
+          <div class="fc-mini-title">🖊️ Lançamentos Manuais</div>
+          <div class="fc-mini-sub">Valor lançado à mão (despesa sem categoria ainda, etc). Entra de verdade no Saldo Acumulado. Visível só pro time GPS.</div>
+          <div class="fc-mini-form fc-mini-form-4">
+            <input type="text" id="fcAjusteDesc" placeholder="Descrição">
+            <input type="number" id="fcAjusteValor" placeholder="Valor (R$)">
+            <input type="date" id="fcAjusteData">
+            <button class="btn btn-primary btn-sm" onclick="addAjusteManual()">Adicionar</button>
+          </div>
+          <button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="openAjustesManuaisModal()">Ver lançamentos <span id="fcAjusteCount"></span></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="analiseFluxoWhatsCard" style="display:none;">
+      <div class="card-title">📋 Análise pronta pra WhatsApp</div>
+      <div class="card-sub">Texto pronto com o saldo e a previsão do fluxo — cole direto no grupo do cliente. Visível só pro time GPS.</div>
+      <pre id="analiseFluxoWhatsTexto" style="white-space:pre-wrap;font-family:'Sora',sans-serif;font-size:13px;line-height:1.7;background:var(--navy3);border-radius:10px;padding:14px 16px;margin-bottom:12px;max-height:90px;overflow-y:auto;"></pre>
+      <button id="analiseFluxoWhatsBtn" style="padding:9px 18px;border-radius:9px;border:none;font-weight:700;cursor:pointer;color:#fff;background:linear-gradient(90deg,var(--blue),var(--cyan));font-family:'Sora',sans-serif;font-size:12.5px;">📋 Copiar texto</button>
     </div>
   </div>
 </div>
@@ -655,16 +685,24 @@ let columnTree = [];
 const DOW_ABBR = ['DOM','SEG','TER','QUA','QUI','SEX','SÁB'];
 function buildColumnTree(){
   if(!rows.length) return [];
-  const minYear = parseInt(rows[0].date.slice(0,4),10);
-  const maxYear = parseInt(rows[rows.length-1].date.slice(0,4),10);
   const today = new Date();
   const todayStr = today.toISOString().slice(0,10);
   const curYear = today.getFullYear(), curMonth = today.getMonth()+1;
 
-  const years = [];
-  for(let y=minYear; y<=maxYear; y++){
-    const months = [];
-    for(let m=1; m<=12; m++){
+  // Fluxo limitado a 3 meses: mês vigente + 2 meses futuros (mesmo padrão
+  // aplicado no Hub Mebrasi) — não gera mais colunas além desse período,
+  // mesmo que atravesse virada de ano.
+  const mesesPeriodo = [];
+  let cursor = new Date(curYear, today.getMonth(), 1);
+  for(let i=0; i<3; i++){
+    mesesPeriodo.push({ y: cursor.getFullYear(), m: cursor.getMonth()+1 });
+    cursor.setMonth(cursor.getMonth()+1);
+  }
+  const anosMap = {};
+  mesesPeriodo.forEach(({y,m})=>{ (anosMap[y] = anosMap[y]||[]).push(m); });
+
+  const years = Object.keys(anosMap).map(Number).sort((a,b)=>a-b).map(y=>{
+    const months = anosMap[y].map(m=>{
       const lastDay = new Date(y,m,0).getDate();
       const days = [];
       for(let d=1; d<=lastDay; d++){
@@ -672,13 +710,13 @@ function buildColumnTree(){
         const dow = DOW_ABBR[new Date(y,m-1,d).getDay()];
         days.push({ type:'day', key:'d'+dstr, label:`<div class="fc-dow">${dow}</div><div>${String(d).padStart(2,'0')}</div>`, start:dstr, end:dstr, isToday: dstr===todayStr, children:[], expanded:false });
       }
-      months.push({ type:'month', key:`m${y}-${m}`, label:MESES_ABBR[m-1]+'/'+String(y).slice(2),
+      return { type:'month', key:`m${y}-${m}`, label:MESES_ABBR[m-1]+'/'+String(y).slice(2),
         start:`${y}-${String(m).padStart(2,'0')}-01`, end:`${y}-${String(m).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`,
-        isToday:false, children:days, expanded:(y===curYear && m===curMonth) });
-    }
-    years.push({ type:'year', key:'y'+y, label:String(y), start:`${y}-01-01`, end:`${y}-12-31`,
-      isToday:false, children:months, expanded:(y===curYear) });
-  }
+        isToday:false, children:days, expanded:(y===curYear && m===curMonth) };
+    });
+    return { type:'year', key:'y'+y, label:String(y), start:`${y}-01-01`, end:`${y}-12-31`,
+      isToday:false, children:months, expanded:(y===curYear) };
+  });
   return years;
 }
 function flattenColumns(nodes){
@@ -1319,25 +1357,94 @@ function renderFcSim(){
 }
 
 /* ================== NOVO: Observações, avisos e solicitações ================== */
+let fcMsgsCache = { msgs:[], reacoes:[], leituras:[] };
+let fcRespondendo = null; // { id, status } — qual mensagem/ação está com o formulário de resposta aberto
+let fcEditando = null; // { id, campo: 'mensagem'|'resposta' } — qual mensagem está em edição
 async function loadFcMsgs(){
   const { data, error } = await sb.from('fluxo_mensagens').select('*').order('criado_em',{ascending:false});
   if(error){ el('fcMsgList').innerHTML = '<div style="color:var(--gold);font-size:12px;">⚠️ Não consegui carregar. Verifique se a tabela fluxo_mensagens existe no Supabase.</div>'; return; }
-  renderFcMsgs(data||[]);
+  const { data: reacoes } = await sb.from('fluxo_mensagens_reacoes').select('*');
+  const { data: leituras } = await sb.from('fluxo_mensagens_leituras').select('*');
+  fcMsgsCache = { msgs:data||[], reacoes:reacoes||[], leituras:leituras||[] };
+  renderFcMsgs(fcMsgsCache.msgs, fcMsgsCache.reacoes, fcMsgsCache.leituras);
 }
-function renderFcMsgs(msgs){
-  if(!msgs.length){ el('fcMsgList').innerHTML = '<div class="empty-state"><div class="icon">📋</div>Nenhum registro ainda.</div>'; return; }
+function rerenderFcMsgs(){ renderFcMsgs(fcMsgsCache.msgs, fcMsgsCache.reacoes, fcMsgsCache.leituras); }
+function aplicarFiltrosFcMsgs(){ rerenderFcMsgs(); }
+const FC_MSG_REACOES = [ { tipo:'like', emoji:'👍' }, { tipo:'coracao', emoji:'❤️' }, { tipo:'palmas', emoji:'👏' } ];
+function renderFcMsgs(msgsOriginais, reacoes, leituras){
+  if(!msgsOriginais.length){ el('fcMsgList').innerHTML = '<div class="empty-state"><div class="icon">📋</div>Nenhum registro ainda.</div>'; return; }
+  const filtroTipo = el('fcMsgFiltroTipo')?.value || '';
+  const filtroStatus = el('fcMsgFiltroStatus')?.value || '';
+  const filtroBusca = (el('fcMsgFiltroBusca')?.value || '').toLowerCase().trim();
+  const msgsFiltradas = msgsOriginais.filter(m=>{
+    if(filtroTipo && m.tipo!==filtroTipo) return false;
+    if(filtroStatus && m.status!==filtroStatus) return false;
+    if(filtroBusca && !(m.mensagem||'').toLowerCase().includes(filtroBusca)) return false;
+    return true;
+  });
+  if(!msgsFiltradas.length){ el('fcMsgList').innerHTML = '<div class="empty-state"><div class="icon">🔎</div>Nenhum registro encontrado com esse filtro.</div>'; return; }
+  const msgs = msgsFiltradas; // a lista tem rolagem própria (mostra ~4-5 por vez), não precisa paginar
   const tipoLabel = { observacao:'📝 Observação', aviso:'⚠️ Aviso', solicitacao:'🙋 Solicitação' };
   const statusLabel = { aberto:'⏳ Aberto', resolvido:'✓ Resolvido', aprovado:'✓ Aprovado', recusado:'✕ Recusado' };
   el('fcMsgList').innerHTML = msgs.map(m=>{
     const date = new Date(m.criado_em).toLocaleString('pt-BR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
     const podeResponder = m.tipo==='solicitacao' && m.status==='aberto';
-    const acoes = podeResponder ? `
-      <div style="display:flex;gap:8px;margin-top:10px;">
-        <button class="btn btn-primary btn-sm" onclick="respondFcMsg(${m.id},'aprovado')">Aprovar</button>
-        <button class="btn btn-danger btn-sm" onclick="respondFcMsg(${m.id},'recusado')">Recusar</button>
-        <button class="btn btn-ghost btn-sm" onclick="respondFcMsg(${m.id},'resolvido')">Marcar resolvido</button>
-      </div>` : (m.status==='aberto' && m.tipo!=='solicitacao' ? `<button class="btn btn-ghost btn-sm" onclick="respondFcMsg(${m.id},'resolvido')" style="margin-top:8px;">Marcar resolvido</button>` : '');
-    const resposta = m.resposta ? `<div class="fc-msg-resposta"><b>${m.respondido_por||''}:</b> ${m.resposta}</div>` : '';
+    const podeResolver = m.status==='aberto' && m.tipo!=='solicitacao';
+    let acoes = '';
+    if(fcRespondendo && fcRespondendo.id===m.id){
+      const acaoLabel = { aprovado:'Aprovar', recusado:'Recusar', resolvido:'Marcar resolvido' }[fcRespondendo.status];
+      acoes = `<div class="fc-msg-resposta-form">
+        <div class="fc-msg-resposta-form-label">${acaoLabel} — deixe uma resposta (opcional):</div>
+        <textarea id="fcRespostaTexto_${m.id}" placeholder="Escreva sua resposta..."></textarea>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <button class="btn btn-primary btn-sm" onclick="confirmarRespostaFcMsg(${m.id})">Confirmar</button>
+          <button class="btn btn-ghost btn-sm" onclick="cancelarRespostaFcMsg()">Cancelar</button>
+        </div>
+      </div>`;
+    } else if(podeResponder){
+      acoes = `<div style="display:flex;gap:8px;margin-top:10px;">
+        <button class="btn btn-primary btn-sm" onclick="abrirRespostaFcMsg(${m.id},'aprovado')">Aprovar</button>
+        <button class="btn btn-danger btn-sm" onclick="abrirRespostaFcMsg(${m.id},'recusado')">Recusar</button>
+        <button class="btn btn-ghost btn-sm" onclick="abrirRespostaFcMsg(${m.id},'resolvido')">Marcar resolvido</button>
+      </div>`;
+    } else if(podeResolver){
+      acoes = `<button class="btn btn-ghost btn-sm" onclick="abrirRespostaFcMsg(${m.id},'resolvido')" style="margin-top:8px;">Marcar resolvido</button>`;
+    }
+    const podeEditarMsg = m.autor_email===currentUser.email || gpsStaff;
+    const podeEditarResposta = !!m.resposta && gpsStaff;
+    const editandoMsg = fcEditando && fcEditando.id===m.id && fcEditando.campo==='mensagem';
+    const editandoResposta = fcEditando && fcEditando.id===m.id && fcEditando.campo==='resposta';
+    const textoMsgBloco = editandoMsg ? `<div class="fc-msg-edit-box">
+        <textarea id="fcEdit_mensagem_${m.id}">${(m.mensagem||'').replace(/</g,'&lt;')}</textarea>
+        <div style="display:flex;gap:8px;margin-top:6px;">
+          <button class="btn btn-primary btn-sm" onclick="salvarEdicaoFcMsg(${m.id},'mensagem')">Salvar</button>
+          <button class="btn btn-ghost btn-sm" onclick="cancelarEdicaoFcMsg()">Cancelar</button>
+        </div>
+      </div>` : `<div class="fc-msg-text">${(m.mensagem||'').replace(/</g,'&lt;')}${podeEditarMsg ? ` <span class="fc-msg-edit-link" onclick="abrirEdicaoFcMsg(${m.id},'mensagem')">✏️ editar</span>` : ''}</div>`;
+    const respostaBloco = editandoResposta ? `<div class="fc-msg-edit-box">
+        <textarea id="fcEdit_resposta_${m.id}">${(m.resposta||'').replace(/</g,'&lt;')}</textarea>
+        <div style="display:flex;gap:8px;margin-top:6px;">
+          <button class="btn btn-primary btn-sm" onclick="salvarEdicaoFcMsg(${m.id},'resposta')">Salvar</button>
+          <button class="btn btn-ghost btn-sm" onclick="cancelarEdicaoFcMsg()">Cancelar</button>
+        </div>
+      </div>` : (m.resposta ? `<div class="fc-msg-resposta"><b>${m.respondido_por||''}:</b> ${m.resposta}${podeEditarResposta ? ` <span class="fc-msg-edit-link" onclick="abrirEdicaoFcMsg(${m.id},'resposta')">✏️ editar</span>` : ''}</div>` : '');
+    let leituraBloco = '';
+    if(m.tipo==='observacao' || m.tipo==='aviso'){
+      const reacoesMsg = reacoes.filter(r=>r.mensagem_id===m.id);
+      const leiturasMsg = leituras.filter(l=>l.mensagem_id===m.id);
+      const jaLeu = leiturasMsg.some(l=>l.usuario_email===currentUser.email);
+      const botoesReacao = FC_MSG_REACOES.map(t=>{
+        const count = reacoesMsg.filter(r=>r.tipo===t.tipo).length;
+        const marcou = reacoesMsg.some(r=>r.tipo===t.tipo && r.usuario_email===currentUser.email);
+        return `<button class="fc-msg-reacao-btn ${marcou?'active':''}" onclick="toggleFcMsgReacao(${m.id},'${t.tipo}',${marcou})">${t.emoji} ${count||''}</button>`;
+      }).join('');
+      const listaLeitores = leiturasMsg.map(l=>`${l.usuario_nome||l.usuario_email} · ${new Date(l.lido_em).toLocaleString('pt-BR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}`).join('<br>') || 'Ninguém confirmou leitura ainda.';
+      leituraBloco = `<div class="fc-msg-reacoes-row">
+        ${botoesReacao}
+        <button class="fc-msg-reacao-btn ${jaLeu?'active':''}" onclick="toggleFcMsgLeitura(${m.id},${jaLeu})" ${jaLeu?'disabled':''}>${jaLeu?'✅ Lido':'☑️ Marcar como lido'}</button>
+        ${gpsStaff ? `<span class="fc-msg-leram" title="${listaLeitores.replace(/"/g,'&quot;')}">👀 ${leiturasMsg.length} leram</span>` : ''}
+      </div>`;
+    }
     return `<div class="fc-msg-item">
       <div class="fc-msg-head">
         <span class="fc-msg-autor">${m.autor_nome||m.autor_email}</span>
@@ -1345,9 +1452,10 @@ function renderFcMsgs(msgs){
         <span class="fc-msg-status ${m.status}">${statusLabel[m.status]||m.status}</span>
         <span class="fc-msg-date">${date}</span>
       </div>
-      <div class="fc-msg-text">${(m.mensagem||'').replace(/</g,'&lt;')}</div>
-      ${resposta}
+      ${textoMsgBloco}
+      ${respostaBloco}
       ${acoes}
+      ${leituraBloco}
     </div>`;
   }).join('');
 }
@@ -1361,12 +1469,37 @@ async function submitFcMsg(){
   if(!error){ el('fcMsgTexto').value=''; await loadFcMsgs(); }
   else alert('Erro ao publicar: '+error.message);
 }
-async function respondFcMsg(id, status){
-  const resposta = prompt('Quer deixar uma resposta? (opcional)') || '';
+function abrirRespostaFcMsg(id, status){ fcRespondendo = { id, status }; rerenderFcMsgs(); }
+function cancelarRespostaFcMsg(){ fcRespondendo = null; rerenderFcMsgs(); }
+async function confirmarRespostaFcMsg(id){
+  const status = fcRespondendo.status;
+  const campo = el('fcRespostaTexto_'+id);
+  const resposta = campo ? campo.value.trim() : '';
   const { error } = await sb.from('fluxo_mensagens').update({
     status, resposta, respondido_por: nameFromEmail(currentUser.email), respondido_em: new Date().toISOString()
   }).eq('id', id);
+  if(!error){ fcRespondendo = null; await loadFcMsgs(); }
+  else alert('Erro: '+error.message);
+}
+async function toggleFcMsgReacao(mensagemId, tipo, already){
+  if(already) await sb.from('fluxo_mensagens_reacoes').delete().eq('mensagem_id',mensagemId).eq('usuario_email',currentUser.email).eq('tipo',tipo);
+  else await sb.from('fluxo_mensagens_reacoes').insert({ mensagem_id:mensagemId, usuario_email:currentUser.email, tipo });
+  await loadFcMsgs();
+}
+async function toggleFcMsgLeitura(mensagemId, already){
+  if(already) return;
+  const { error } = await sb.from('fluxo_mensagens_leituras').insert({ mensagem_id:mensagemId, usuario_email:currentUser.email, usuario_nome:nameFromEmail(currentUser.email) });
   if(!error) await loadFcMsgs();
+  else alert('Erro: '+error.message);
+}
+function abrirEdicaoFcMsg(id, campo){ fcEditando = { id, campo }; rerenderFcMsgs(); }
+function cancelarEdicaoFcMsg(){ fcEditando = null; rerenderFcMsgs(); }
+async function salvarEdicaoFcMsg(id, campo){
+  const valor = (el('fcEdit_'+campo+'_'+id)?.value || '').trim();
+  if(campo==='mensagem' && !valor) return;
+  const payload = campo==='mensagem' ? { mensagem: valor } : { resposta: valor };
+  const { error } = await sb.from('fluxo_mensagens').update(payload).eq('id', id);
+  if(!error){ fcEditando = null; await loadFcMsgs(); }
   else alert('Erro: '+error.message);
 }
 
