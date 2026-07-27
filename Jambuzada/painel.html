@@ -810,7 +810,8 @@ function el(id){ return document.getElementById(id); }
 
 async function fetchGviz(gid){
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&gid=${gid}&headers=1`;
-  const res = await fetch(url);
+  const res = await fetch(url, { cache:'no-store' });
+  if(!res.ok) throw new Error(`Falha ao acessar a planilha (${res.status})`);
   const text = await res.text();
   const clean = text.replace(/^[^{]*/, '').replace(/\s*\)\s*;?\s*$/, '');
   return JSON.parse(clean).table;
@@ -845,31 +846,42 @@ function normalizeTxt(s){
 // pra não depender de bater a grafia exata do cabeçalho vindo do Google Sheets.
 function getColNormalized(rowObj, wantedKeyNormalized){
   for(const k in rowObj){
-    if(normalizeTxt(k)===wantedKeyNormalized) return rowObj[k];
+    if(normalizeTxt(k)===normalizeTxt(wantedKeyNormalized)) return rowObj[k];
+  }
+  return undefined;
+}
+function getAnyCol(rowObj, aliases){
+  for(const alias of aliases){
+    const v = getColNormalized(rowObj, alias);
+    if(v !== undefined && v !== null && String(v).trim() !== '') return v;
   }
   return undefined;
 }
 
 function rowToRecord(row, tipo){
-  const dateRaw = row['Data de Emissão (completa)'];
-  const dateStr = parseDate(typeof dateRaw==='object' && dateRaw!==null ? (dateRaw.v||dateRaw) : dateRaw);
+  const dateRaw = getAnyCol(row, [
+    'Data de Emissão (completa)','Data de Emissão','Data Emissão','Data da Emissão',
+    'Data de Faturamento','Data Faturamento','Emissão','Data'
+  ]);
+  const dateVal = (typeof dateRaw==='object' && dateRaw!==null) ? (dateRaw.v||dateRaw.f||dateRaw) : dateRaw;
+  const dateStr = parseDate(dateVal);
   if(!dateStr) return null;
   const mes = dateStr.slice(0,7);
-  const vendedor = cleanVendorName(row['Vendedor']);
-  if(!vendedor) return null;
-  const cliente = (row['Cliente (Nome Fantasia)'] || row['Cliente (Razão Social)'] || '').trim();
-  const familia = (row['Família de Produto']||'').trim();
-  const produto = (row['Descrição do Produto (completa)']||'').trim();
-  const projeto = (row['Projeto']||row['PROJETO']||row['project']||'N/D').toString().trim() || 'N/D';
-  const situacao = (row['Situação']||'').trim();
-  const operacao = (getColNormalized(row, 'operacao') || getColNormalized(row, 'tipo de operacao') || getColNormalized(row, 'natureza da operacao') || getColNormalized(row, 'natureza de operacao') || '').toString().trim();
-  const canal = (row['Canal']||'').trim();
-  const totalRaw = row['Total da Nota Fiscal'];
-  const total = parseMoney(typeof totalRaw==='object' && totalRaw!==null ? totalRaw.v : totalRaw);
-  const pedido = row['Pedido'] || '';
-  const nf = row['Nota Fiscal'] || '';
-  const qtd = parseMoney(row['Quantidade']||row['Qtde']||row['Qtd']||row['Quantidade do Item']||1) || 1;
-  const uf = (row['UF']||row['Estado']||row['Estado (UF)']||row['UF Cliente']||row['Estado Cliente']||'').toString().trim().toUpperCase();
+  const vendedor = cleanVendorName(getAnyCol(row,['Vendedor','Nome do Vendedor','Representante','Consultor','Responsável']) || 'Sem vendedor');
+  const cliente = String(getAnyCol(row,['Cliente (Nome Fantasia)','Cliente Nome Fantasia','Nome Fantasia','Cliente (Razão Social)','Cliente Razão Social','Cliente']) || 'Cliente não informado').trim();
+  const familia = String(getAnyCol(row,['Família de Produto','Familia de Produto','Família','Familia','Categoria']) || '').trim();
+  const produto = String(getAnyCol(row,['Descrição do Produto (completa)','Descrição do Produto','Descricao do Produto','Produto','Item']) || '').trim();
+  const projeto = String(getAnyCol(row,['Projeto','PROJETO','project']) || 'N/D').trim() || 'N/D';
+  const situacao = String(getAnyCol(row,['Situação','Situacao','Status','Status da Nota','Status do Pedido']) || '').trim();
+  const operacao = String(getAnyCol(row,['Operação','Operacao','Tipo de Operação','Tipo de Operacao','Natureza da Operação','Natureza da Operacao']) || '').trim();
+  const canal = String(getAnyCol(row,['Canal','Canal de Venda','Origem']) || '').trim();
+  const totalRaw = getAnyCol(row,['Total da Nota Fiscal','Valor Total da Nota Fiscal','Valor da Nota Fiscal','Valor Total','Total','Faturamento','Receita']);
+  const totalVal = (typeof totalRaw==='object' && totalRaw!==null) ? (totalRaw.v??totalRaw.f) : totalRaw;
+  const total = parseMoney(totalVal);
+  const pedido = getAnyCol(row,['Pedido','Número do Pedido','Numero do Pedido','Nº Pedido']) || '';
+  const nf = getAnyCol(row,['Nota Fiscal','Número da Nota Fiscal','Numero da Nota Fiscal','NF','NFe']) || '';
+  const qtd = parseMoney(getAnyCol(row,['Quantidade','Qtde','Qtd','Quantidade do Item','Itens','Quantidade Faturada']) || 1) || 1;
+  const uf = String(getAnyCol(row,['UF','Estado','Estado (UF)','UF Cliente','Estado Cliente']) || '').trim().toUpperCase();
   return { mes, date:dateStr, vendedor, cliente, familia, produto, projeto, situacao, operacao, canal, total, pedido, nf, qtd, uf, tipo };
 }
 
@@ -882,8 +894,15 @@ function situacaoOk(situacao, tipo){
     if(s.includes('rejeitada')) return false;
     return true;
   }
-  const list = SITUACOES_FATURADA;
-  return list.includes(s);
+  // Faturamento: aceita qualquer registro válido, excluindo apenas situações claramente inválidas.
+  // Isso evita zerar o painel quando a origem muda a grafia do status
+  // (ex.: "NF-e autorizada", "Nota autorizada", "Concluído").
+  if(!s) return true;
+  if(s.includes('cancel')) return false;
+  if(s.includes('rejeit')) return false;
+  if(s.includes('denegad')) return false;
+  if(s.includes('inutiliz')) return false;
+  return true;
 }
 // Na Tangram, o BI só considerava a Operação "Orçamento" (peculiaridade
 // daquele cliente). Na Jambuzada a Operação vem como "Pedido de Venda" —
