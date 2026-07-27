@@ -840,6 +840,7 @@ const isDuplicataDescontada = r => r.grupo==='DUPLICATAS_DESCONTADAS';
 let analiseFluxoWhatsBound = false;
 function gerarAnaliseFluxoTexto(){
   const hoje = new Date();
+hoje.setDate(hoje.getDate()-1);
   const hojeStr = hoje.toISOString().slice(0,10);
   const saldoHoje = runningBalance(hojeStr);
 
