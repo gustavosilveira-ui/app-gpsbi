@@ -466,6 +466,12 @@ html.light .fc-day-num{color:#1f2a3d;}
 const SUPABASE_URL = 'https://hobpwhhpvwlwhmhairnp.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhvYnB3aGhwdndsd2htaGFpcm5wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0NDkzNDksImV4cCI6MjA5OTAyNTM0OX0.j67wDzIZU755bcmanydd_E3TllYN5Ps2QcPH4A4rFUY';
 const SHEET_ID = '1cWc7JRuUur_UAIeTM9VqNxPr8ktISPt09cnh7N_HULc';
+// Planilha comercial (FatoVendas) — mesma usada no BI Comercial e no
+// depositos.html — usada só pra cruzar Pedido -> Cond Pagto/Dt Entrega
+// Solicitada (decisão de 27/07/2026, pra tratar "Depósito Antecipado"/
+// à vista no Fluxo de Caixa).
+const SHEET_ID_VENDAS = '13OtxBYO-XXPgf_L5cjXU7odzfQHmPNuniej1EktFt_I';
+const GID_VENDAS = '1984037897';
 const LOGIN_URL = 'index.html';
 const EMPRESAS = ['gymis','ryngavi','especial','multicopos'];
 const EMPRESA_LABEL = { gymis:'Gymis', ryngavi:'Ryngavi', especial:'Especial', multicopos:'Multicopos' };
@@ -715,6 +721,49 @@ async function fetchGvizSheet(sheetName){
   const clean = text.replace(/^[^{]*/, '').replace(/\s*\)\s*;?\s*$/, '');
   return JSON.parse(clean).table;
 }
+async function fetchGvizByGid(sheetId, gid){
+  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&gid=${gid}&headers=1`;
+  const res = await fetch(url);
+  const text = await res.text();
+  const clean = text.replace(/^[^{]*/, '').replace(/\s*\)\s*;?\s*$/, '');
+  return JSON.parse(clean).table;
+}
+// Pedido (Empresa+Cod Pedido) -> { condPagto, dtEntrega } — cruzamento com a
+// planilha comercial, igual ao que o depositos.html já faz, só que aqui com
+// chave composta (Empresa+Pedido) pra não correr risco de colidir números
+// de pedido repetidos entre empresas diferentes.
+let pedidoInfo = {};
+async function carregarVendasParaCruzamento(){
+  try{
+    const table = await fetchGvizByGid(SHEET_ID_VENDAS, GID_VENDAS);
+    const raw = parseGvizRows(table);
+    pedidoInfo = {};
+    raw.forEach(r=>{
+      const empresa = (getColNormalized(r,'empresa')||'').toString().trim();
+      const pedido = (getColNormalized(r,'cod pedido')||'').toString().trim();
+      if(!empresa || !pedido) return;
+      const condPagto = (getColNormalized(r,'cond pagto')||'').toString().trim();
+      const dtEntrega = parseDateCell(getColNormalized(r,'dt entrega solicitada'));
+      const chave = normalizeTxt(empresa)+'|'+pedido;
+      pedidoInfo[chave] = { condPagto, dtEntrega };
+    });
+  }catch(e){ console.error('Erro ao cruzar com a planilha comercial (Cond Pagto/Dt Entrega):', e); }
+}
+// "Depósito Antecipado" = pago à vista, adiantado — a Dt Venc do financeiro
+// pra esses casos não é confiável (vem só uns dias depois da emissão do
+// pedido); usamos Dt Entrega Solicitada + 5 dias no lugar (decisão de
+// 27/07/2026, confirmada pela medida DAX do Power BI original).
+function ehDepositoAntecipado(condPagto){
+  return normalizeTxt(condPagto).includes('deposito antecipado');
+}
+function dataAjustadaPorPedido(empresa, pedido, dataOriginal){
+  if(!pedido) return dataOriginal;
+  const info = pedidoInfo[normalizeTxt(empresa)+'|'+pedido];
+  if(info && ehDepositoAntecipado(info.condPagto) && info.dtEntrega){
+    return addDaysISO(info.dtEntrega, 5);
+  }
+  return dataOriginal;
+}
 function parseGvizRows(table){
   if(!table || !table.rows) return [];
   const cols = table.cols.map(c=>c.label);
@@ -819,7 +868,11 @@ function rowsFromVENC(table, empresa){
     // D+1 sobre a Dt Venc pra refletir a compensação bancária (decisão de
     // 22/07/2026) — só se aplica a título ainda não recebido (vem do venc_);
     // o que já foi recebido (cr_) continua na Dt Pagto real, sem ajuste.
-    const date = addDaysISO(dateVenc, 1);
+    let date = addDaysISO(dateVenc, 1);
+    // Depósito Antecipado (à vista): Dt Venc do financeiro não é confiável
+    // pra esses casos — troca por Dt Entrega Solicitada + 5 dias.
+    const pedidoVenc = (getColNormalized(r,'pedido')||'').toString().trim();
+    date = dataAjustadaPorPedido(empresa, pedidoVenc, date);
     const categoriaOriginal = (getColNormalized(r,'desc conta')||'Sem categoria').toString().trim();
     const valor = Math.abs(parseMoneyBR(getColNormalized(r,'vl total titulo')));
     const formaPagto = getColNormalized(r,'forma pagto');
@@ -982,6 +1035,7 @@ function rebuildRowsNoEscopo(){
 async function loadData(){
   try{
     rowsByEmpresa = {}; abertoByEmpresa = {};
+    await carregarVendasParaCruzamento();
     for(const empresa of EMPRESAS){
       const [tPg, tCr, tCap, tVenc] = await Promise.all([
         fetchGvizSheet('pg_'+empresa), fetchGvizSheet('cr_'+empresa),
