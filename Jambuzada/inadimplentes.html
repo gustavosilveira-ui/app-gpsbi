@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Inadimplentes · Jambuzada | GPSBI</title>
+<link rel="stylesheet" href="theme.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+.page{max-width:900px;margin:auto;padding:16px}.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.kpi{background:var(--navy3);padding:14px;border-radius:12px}.kpi b{font-size:21px}.tools{display:grid;grid-template-columns:1fr 180px;gap:10px;margin:14px 0}.list{display:grid;gap:12px}.item{background:var(--navy2);border:1px solid var(--border2);border-radius:14px;padding:16px}.top{display:flex;justify-content:space-between;gap:12px}.name{font-weight:800}.value{font-weight:800;color:var(--red);font-size:18px}.meta{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}.chip{background:var(--navy3);border:1px solid var(--border2);padding:5px 9px;border-radius:999px;font-size:11px}.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:13px}.actions .btn{justify-content:center}.warn{color:var(--gold);font-size:11px;margin-top:8px}@media(max-width:700px){.kpis{grid-template-columns:1fr}.tools,.actions{grid-template-columns:1fr}.top{display:block}.value{margin-top:8px}}
+</style>
+</head>
+<body>
+<div class="loading-screen" id="loadingScreen"><div class="spinner"></div><p>Carregando...</p></div>
+<div id="mainContent" style="display:none"><main class="page">
+<div class="card"><div class="card-title">🚨 Inadimplentes</div><div class="card-sub">Lista viva para celular, com nota e compartilhamento.</div>
+<div class="kpis"><div class="kpi"><b id="qtd">0</b><div>títulos</div></div><div class="kpi"><b id="total">R$ 0</b><div>valor vencido</div></div><div class="kpi"><b id="maior">0</b><div>maior atraso</div></div></div>
+<div class="tools"><input id="busca" placeholder="Buscar cliente ou nota" oninput="render()"><select id="ordem" onchange="render()"><option value="dias">Maior atraso</option><option value="valor">Maior valor</option><option value="nome">Cliente A-Z</option></select></div></div>
+<div id="lista" class="list"></div></main></div>
+<script src="nav.js"></script>
+<script>
+const SUPABASE_URL='https://mczggrocmccvmyglnumv.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jemdncm9jbWNjdm15Z2xudW12Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMjM2NzcsImV4cCI6MjA5ODU5OTY3N30.XXzhDvxfNaUW61HvgE4xuqzSICoLEYjbJhd1X52Zp84';
+const SHEET_ID='1lv5NtmOruq7OQPYbnHL9Eynodu3F8bZyNxCA5p1CW8I',GID='190182941';
+const DRIVE_API_URL='COLE_AQUI_A_URL_DO_APPS_SCRIPT';
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+let dados=[],arquivos=[],currentUser=null;
+const norm=s=>(s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+const money=n=>Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+function parseMoney(v){if(typeof v==='number')return v;return parseFloat(String(v||'').replace(/\./g,'').replace(',','.'))||0}
+function parseDate(v){if(!v)return null;if(/^\d{4}-\d{2}-\d{2}/.test(v))return v.slice(0,10);if(v.includes('/')){const[d,m,y]=v.split('/');return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`}const x=v.match(/Date\((\d+),(\d+),(\d+)\)/);return x?`${x[1]}-${String(+x[2]+1).padStart(2,'0')}-${String(x[3]).padStart(2,'0')}`:null}
+function col(r,w){for(const k in r)if(norm(k)===w)return r[k]}
+function late(d){if(!d)return 0;const a=new Date(d+'T00:00:00'),h=new Date();h.setHours(0,0,0,0);return Math.max(0,Math.floor((h-a)/86400000))}
+function nota(r){const s=[col(r,'documento'),col(r,'numero documento'),col(r,'nosso numero'),col(r,'titulo')].join(' ');const m=s.match(/\d{3,8}/g);return m?m[m.length-1]:''}
+async function loadSheet(){const u=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&gid=${GID}&headers=1`;const t=await(await fetch(u)).text();const j=JSON.parse(t.replace(/^[^{]*/,'').replace(/\s*\)\s*;?\s*$/,''));const cs=j.table.cols.map(c=>c.label);return j.table.rows.map(x=>{const r={};cs.forEach((c,i)=>r[c]=x.c[i]?(x.c[i].v??x.c[i].f):null);if(norm(col(r,'situacao'))!=='atrasado')return null;const cliente=String(col(r,'cliente ou fornecedor')||col(r,'cliente')||'').trim();if(!cliente)return null;const d=parseDate(String(col(r,'data')||''));return{cliente,valor:Math.abs(parseMoney(col(r,'valor r')??col(r,'valor (r$)'))),data:d,dias:late(d),nota:nota(r)}}).filter(Boolean)}
+async function loadDrive(){if(DRIVE_API_URL.includes('COLE_AQUI'))return[];return (await(await fetch(DRIVE_API_URL)).json()).files||[]}
+function matchFile(x){let best=null,score=0;for(const f of arquivos){const n=norm(f.name);let s=x.nota&&n.includes(norm(x.nota))?8:0;norm(x.cliente).split(' ').filter(t=>t.length>2).forEach(t=>{if(n.includes(t))s+=2});if(s>score){score=s;best=f}}return score>=4?best:null}
+function msg(x,f){return `Olá! Tudo bem?\n\nIdentificamos um título em aberto${x.nota?` referente à Nota Fiscal nº ${x.nota}`:''}, no valor de ${money(x.valor)}, vencido há ${x.dias} dia(s).\n\nPoderia verificar para nós, por gentileza?${f?`\n\nSegue a nota para conferência:\n${f.url}`:''}`}
+function zap(x,f){window.open('https://wa.me/?text='+encodeURIComponent(msg(x,f)),'_blank')}
+function render(){let q=norm(document.getElementById('busca').value),o=document.getElementById('ordem').value,l=dados.filter(x=>!q||norm(x.cliente+' '+x.nota).includes(q));l.sort((a,b)=>o==='valor'?b.valor-a.valor:o==='nome'?a.cliente.localeCompare(b.cliente,'pt-BR'):b.dias-a.dias);document.getElementById('lista').innerHTML=l.map(x=>{const f=matchFile(x);return `<div class="item"><div class="top"><div><div class="name">${x.cliente}</div><div class="meta"><span class="chip">⏳ ${x.dias} dias</span>${x.nota?`<span class="chip">🧾 Nota ${x.nota}</span>`:''}</div></div><div class="value">${money(x.valor)}</div></div>${f?'':'<div class="warn">PDF não localizado automaticamente.</div>'}<div class="actions"><button class="btn btn-ghost" ${f?`onclick="window.open('${f.url}','_blank')"`:'disabled'}>📄 Abrir nota</button><button class="btn btn-primary" onclick='zap(${JSON.stringify(x)},${JSON.stringify(f)})'>📲 Compartilhar</button></div></div>`}).join('')}
+async function loadAll(){[dados,arquivos]=await Promise.all([loadSheet(),loadDrive()]);document.getElementById('qtd').textContent=dados.length;document.getElementById('total').textContent=money(dados.reduce((s,x)=>s+x.valor,0));document.getElementById('maior').textContent=Math.max(0,...dados.map(x=>x.dias));render()}
+async function logout(){await sb.auth.signOut();location.href='index.html'}
+async function init(){const{data}=await sb.auth.getSession();if(!data.session){location.replace('index.html');return}currentUser=data.session.user;renderAppNav({activePage:'inadimplentes.html',userLabel:currentUser.email.split('@')[0],userRole:'vendor',onLogout:logout,sb,currentUser});document.getElementById('loadingScreen').style.display='none';document.getElementById('mainContent').style.display='block';document.documentElement.style.visibility='visible';await loadAll()}
+init();
+</script></body></html>

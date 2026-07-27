@@ -9,6 +9,7 @@ const APP_PAGES = [
   { href:'aprovacoes.html', label:'✅ Aprovações' },
 ];
 const APP_PAGE_FLUXO = { href:'fluxodecaixa.html', label:'💰 Fluxo de Caixa', id:'navFluxo' };
+const APP_PAGE_INADIMPLENTES = { href:'inadimplentes.html', label:'🚨 Inadimplentes' };
 const FLUXO_CLIENTE_MARKER = '[[JAMBUZADA]]';
 function _navCanSeeFluxo(email){
   email = (email||'').toLowerCase();
@@ -37,7 +38,7 @@ function renderAppNav({ activePage, userLabel, userRole, onLogout, sb, currentUs
   const theme = savedInAccount || localStorage.getItem('jambuzada_theme') || 'light';
   document.documentElement.classList.toggle('light', theme==='light');
 
-  const pages = _navCanSeeFluxo(currentUser && currentUser.email) ? [...APP_PAGES, APP_PAGE_FLUXO] : APP_PAGES;
+  const pages = _navCanSeeFluxo(currentUser && currentUser.email) ? [...APP_PAGES, APP_PAGE_FLUXO, APP_PAGE_INADIMPLENTES] : APP_PAGES;
   const navLinks = pages.map(p=>{
     const cls = p.href===activePage ? 'active' : '';
     const idAttr = p.id ? ` id="${p.id}"` : '';
