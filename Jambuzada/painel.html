@@ -171,16 +171,6 @@ html.light body::before{background:radial-gradient(circle at 80% 6%,rgba(54,226,
 .chart-box{position:relative;height:260px;}
 .chart-box.small{height:220px;}
 
-/* RESUMO DO PERÍODO */
-.resumo-card{display:flex;flex-direction:column;height:100%;padding:20px;}
-.resumo-periodo{font-size:10.5px;color:var(--text3);margin-top:2px;margin-bottom:14px;}
-.resumo-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;flex:1;}
-.resumo-item{background:var(--navy3);border:1px solid var(--border);border-radius:12px;padding:15px 14px;display:flex;flex-direction:column;justify-content:center;min-height:100px;}
-.resumo-valor{font-family:'DM Mono',monospace;font-size:20px;font-weight:800;color:var(--text);line-height:1.15;}
-.resumo-label{font-size:10.5px;color:var(--text3);margin-top:6px;line-height:1.35;}
-html.light .resumo-item{background:#F6F9FC;}
-@media(max-width:1100px){.resumo-grid{grid-template-columns:repeat(4,minmax(150px,1fr));}}
-
 /* TABLES */
 .tables-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:20px;}
 .table-card{background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow);}
@@ -392,6 +382,14 @@ html.light .kpi-card{background:#fff}
 .tables-grid{grid-template-columns:1fr 1fr 1fr !important;}
 .project-body{grid-template-columns:250px 1fr !important;}
 @media(max-width:900px){ .content{overflow-x:auto;} }
+
+/* Ajustes Jambuzada — resumo executivo no lugar do gráfico de projetos */
+.period-summary-card{display:flex;flex-direction:column;height:100%;padding:18px 14px;}
+.period-summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;flex:1;margin-top:6px;}
+.period-summary-item{background:var(--navy3);border:1px solid var(--border);border-radius:12px;padding:14px 12px;display:flex;flex-direction:column;justify-content:center;min-height:105px;}
+.period-summary-value{font-family:'DM Mono',monospace;font-size:18px;font-weight:800;color:var(--text);line-height:1.15;}
+.period-summary-label{font-size:10.5px;color:var(--text3);margin-top:6px;line-height:1.35;}
+html.light .period-summary-item{background:#F6F9FC;}
 </style>
 </head>
 <body>
@@ -545,26 +543,14 @@ html.light .kpi-card{background:#fff}
         <div class="chart-box big"><canvas id="evolutionChart"></canvas></div>
         <div id="evolutionDebug" style="font-size:11px;color:var(--text3);margin-top:8px;"></div>
       </div>
-      <div class="chart-card resumo-card">
+      <div class="chart-card period-summary-card">
         <div class="chart-title">Resumo do período</div>
-        <div class="resumo-periodo" id="resumoPeriodoLabel">Conforme os filtros aplicados</div>
-        <div class="resumo-grid">
-          <div class="resumo-item">
-            <div class="resumo-valor" id="resumoReceita">--</div>
-            <div class="resumo-label">Receita Faturada</div>
-          </div>
-          <div class="resumo-item">
-            <div class="resumo-valor" id="resumoTicket">--</div>
-            <div class="resumo-label">Ticket Médio por Nota</div>
-          </div>
-          <div class="resumo-item">
-            <div class="resumo-valor" id="resumoNotas">--</div>
-            <div class="resumo-label">Notas Faturadas</div>
-          </div>
-          <div class="resumo-item">
-            <div class="resumo-valor" id="resumoDias">--</div>
-            <div class="resumo-label">Dias Faturados</div>
-          </div>
+        <div class="chart-sub">Conforme os filtros aplicados</div>
+        <div class="period-summary-grid">
+          <div class="period-summary-item"><div class="period-summary-value" id="resumoReceitaFaturada">--</div><div class="period-summary-label">Receita Faturada</div></div>
+          <div class="period-summary-item"><div class="period-summary-value" id="resumoTicketMedio">--</div><div class="period-summary-label">Ticket Médio por Nota</div></div>
+          <div class="period-summary-item"><div class="period-summary-value" id="resumoNotasFaturadas">--</div><div class="period-summary-label">Notas Faturadas</div></div>
+          <div class="period-summary-item"><div class="period-summary-value" id="resumoDiasFaturados">--</div><div class="period-summary-label">Dias Faturados</div></div>
         </div>
       </div>
     </div>
@@ -1277,10 +1263,17 @@ function render(){
   el('kpiTicket').textContent = fmtBRL(ticketMedio);
   el('kpiTicketSub').textContent = 'Sobre anos ' + periodYearsLabel();
 
-
+  // Resumo executivo do período, calculado com a mesma base faturada e os mesmos filtros do painel.
+  const notasFaturadasSet = new Set(fatPeriodo.map(r=>String(r.nf||r.pedido||'').trim()).filter(Boolean));
+  const qtdNotasFaturadas = notasFaturadasSet.size;
+  const ticketMedioNota = qtdNotasFaturadas>0 ? totalFat/qtdNotasFaturadas : 0;
+  const qtdDiasFaturados = new Set(fatPeriodo.map(r=>r.date).filter(Boolean)).size;
+  el('resumoReceitaFaturada').textContent = fmtBRL(totalFat);
+  el('resumoTicketMedio').textContent = fmtBRL(ticketMedioNota);
+  el('resumoNotasFaturadas').textContent = qtdNotasFaturadas.toLocaleString('pt-BR');
+  el('resumoDiasFaturados').textContent = qtdDiasFaturados.toLocaleString('pt-BR');
 
   renderEvolution();
-  renderResumoPeriodo(fatPeriodo);
   renderDailyWeekly(capMes);
   renderMonthlyHistory();
   renderMap(capMes);
@@ -1290,33 +1283,6 @@ function render(){
   if(userRole==='owner' || userRole==='viewer') { renderRanking(); renderSuggestions(); renderMatrix(); }
   if(gpsStaff && !previewAsClient) renderAnaliseWhats();
   else { const c = el('analiseWhatsCard'); if(c) c.style.display='none'; }
-}
-
-function renderResumoPeriodo(rows){
-  const receita = rows.reduce((s,r)=>s+(r.total||0),0);
-  const notasSet = new Set(rows.map(r=>String(r.nf||'').trim()).filter(Boolean));
-  // Caso alguma linha faturada ainda não tenha o número da NF preenchido,
-  // usa o pedido como identificador alternativo para não perder a contagem.
-  if(!notasSet.size){
-    rows.map(r=>String(r.pedido||'').trim()).filter(Boolean).forEach(v=>notasSet.add(v));
-  }
-  const notas = notasSet.size;
-  const dias = new Set(rows.map(r=>r.date).filter(Boolean)).size;
-  const ticket = notas>0 ? receita/notas : 0;
-
-  el('resumoReceita').textContent = fmtBRL(receita);
-  el('resumoTicket').textContent = fmtBRL(ticket);
-  el('resumoNotas').textContent = notas.toLocaleString('pt-BR');
-  el('resumoDias').textContent = dias.toLocaleString('pt-BR');
-
-  let periodo = 'Anos ' + periodYearsLabel();
-  if(dateFrom || dateTo){
-    const fmtData = d=>d ? new Date(d+'T00:00:00').toLocaleDateString('pt-BR') : 'início';
-    periodo = `${fmtData(dateFrom)} até ${fmtData(dateTo)}`;
-  } else if(selectedMes){
-    periodo = mesLabel(selectedMes);
-  }
-  el('resumoPeriodoLabel').textContent = periodo + ' · conforme os filtros aplicados';
 }
 
 let gaugeChartInst=null;
@@ -1675,20 +1641,21 @@ function renderEvolution(){
   const fatByMes = allMonths.map(m=>calcMonthTotalSamePeriod(m,vendFilter,canalFilter, m===currentYm ? todayDate : null, faturadaRows));
   const ticketByMes = allMonths.map(m=>{
     const limiteDia = m===currentYm ? todayDate : null;
-    const linhas = faturadaRows.filter(r=>{
+    const rowsMes = faturadaRows.filter(r=>{
       if(r.mes!==m) return false;
       if(limiteDia && Number(String(r.date||'').slice(8,10))>limiteDia) return false;
       if(vendFilter && r.vendedor.toLowerCase()!==vendFilter.toLowerCase()) return false;
       if(canalFilter && r.canal!==canalFilter) return false;
+      if(selectedProjeto && r.projeto!==selectedProjeto) return false;
       if(selectedFamilia && (r.familia||'Sem família')!==selectedFamilia) return false;
       if(selectedProdutoFiltro && (r.produto||'Sem descrição')!==selectedProdutoFiltro) return false;
       if(searchCliente && !(r.cliente||'').toLowerCase().includes(searchCliente)) return false;
       if(searchProduto && !(r.produto||'').toLowerCase().includes(searchProduto)) return false;
       return true;
     });
-    const receita = linhas.reduce((s,r)=>s+(r.total||0),0);
-    const ids = new Set(linhas.map(r=>String(r.nf||r.pedido||'').trim()).filter(Boolean));
-    return ids.size ? receita/ids.size : 0;
+    const total = rowsMes.reduce((s,r)=>s+r.total,0);
+    const notas = new Set(rowsMes.map(r=>String(r.nf||r.pedido||'').trim()).filter(Boolean)).size;
+    return notas ? total/notas : 0;
   });
   const pctVsPrev = allMonths.map((m,i)=>{
     const prevMes = monthAdd(m,-1);
@@ -1723,7 +1690,7 @@ function renderEvolution(){
         // Valor da Receita Captada, colado na barra
         ctx.font = '700 11px "DM Mono", monospace';
         ctx.fillStyle = textColor;
-        ctx.fillText(fmtBRL(val), p.x, p.y - 8);
+        ctx.fillText(fmtBRL(fatByMes[i]||0), p.x, p.y - 8);
         // % de crescimento, acima do valor
         const v = pctVsPrev[i];
         if(v===null || v===undefined) return;
@@ -1747,8 +1714,8 @@ function renderEvolution(){
     return m===selectedMes ? cyan : blue;
   });
   const data={labels,datasets:[
-    {label:'Receita Captada',data:capByMes,backgroundColor:barColors,borderRadius:6,maxBarThickness:52,categoryPercentage:.78,barPercentage:.92,yAxisID:'y',order:2},
-    {label:'Ticket Médio',data:ticketByMes,type:'line',borderColor:'#9CA3AF',backgroundColor:'#9CA3AF',borderWidth:2.5,pointRadius:3,pointBackgroundColor:'#9CA3AF',tension:.3,yAxisID:'y1',order:1}
+    {label:'Receita Faturada',data:fatByMes,backgroundColor:barColors,borderRadius:5,maxBarThickness:48,barPercentage:.82,categoryPercentage:.78,yAxisID:'y',order:2},
+    {label:'Ticket Médio por Nota',data:ticketByMes,type:'line',borderColor:'#9CA3AF',backgroundColor:'#9CA3AF',borderWidth:2.5,pointRadius:3,pointBackgroundColor:'#9CA3AF',tension:.3,yAxisID:'y1',order:1}
   ]};
   const opts={responsive:true,maintainAspectRatio:false,animation:{duration:300},
     layout:{padding:{top:40}},
@@ -1766,7 +1733,7 @@ function renderEvolution(){
     scales:{
       x:{grid:{display:false},ticks:{color:textColor,font:{size:11},maxRotation:60,minRotation:0}},
       y:{position:'left',grid:{color:gridColor},ticks:{color:textColor,font:{size:11},callback:v=>fmtBRL(v)}},
-      y1:{position:'right',display:false,grid:{drawOnChartArea:false},beginAtZero:true}
+      y1:{position:'right',grid:{drawOnChartArea:false},ticks:{color:textColor,font:{size:10},callback:v=>fmtBRL(v)}}
     }};
   if(evChart){ evChart.data=data; evChart.options=opts; evChart.update(); return; }
   evChart = new Chart(el('evolutionChart'),{type:'bar',data,options:opts,plugins:[pctLabelPlugin]});
