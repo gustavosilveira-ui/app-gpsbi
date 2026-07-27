@@ -152,7 +152,7 @@ html.light body::before{background:radial-gradient(circle at 80% 6%,rgba(54,226,
 
 /* RANKING */
 .section-title{font-size:14px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
-.rank-item{background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:14px 16px;display:grid;align-items:center;gap:10px;grid-template-columns:28px 1.6fr 1fr 1.2fr 100px 1fr;margin-bottom:8px;}
+.rank-item{background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:14px 16px;display:grid;align-items:center;gap:10px;grid-template-columns:28px 1.6fr 1fr 1fr 1.2fr 100px 1fr;margin-bottom:8px;}
 .rank-pos{font-size:14px;font-weight:700;color:var(--text3);text-align:center;}
 .rank-pos.top1{color:var(--gold);} .rank-pos.top2{color:#a0a8b8;} .rank-pos.top3{color:#a05020;}
 .rank-name{font-weight:600;font-size:13px;}
@@ -161,7 +161,7 @@ html.light body::before{background:radial-gradient(circle at 80% 6%,rgba(54,226,
 .rank-bar-wrap{height:8px;background:var(--navy3);border-radius:5px;overflow:hidden;}
 .rank-bar-fill{height:100%;border-radius:5px;transition:width .4s ease;}
 .rank-pct{font-family:'DM Mono',monospace;font-size:12px;font-weight:700;}
-.rank-head{display:grid;grid-template-columns:28px 1.6fr 1fr 1.2fr 100px 1fr;padding:0 16px;margin-bottom:6px;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;}
+.rank-head{display:grid;grid-template-columns:28px 1.6fr 1fr 1fr 1.2fr 100px 1fr;padding:0 16px;margin-bottom:6px;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;}
 
 /* CHARTS */
 .charts-grid{display:grid;grid-template-columns:1.8fr 1fr;gap:14px;margin-bottom:20px;}
@@ -170,6 +170,16 @@ html.light body::before{background:radial-gradient(circle at 80% 6%,rgba(54,226,
 .chart-sub{font-size:11px;color:var(--text3);margin-bottom:14px;}
 .chart-box{position:relative;height:260px;}
 .chart-box.small{height:220px;}
+
+/* RESUMO DO PERÍODO */
+.resumo-card{display:flex;flex-direction:column;height:100%;padding:20px;}
+.resumo-periodo{font-size:10.5px;color:var(--text3);margin-top:2px;margin-bottom:14px;}
+.resumo-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;flex:1;}
+.resumo-item{background:var(--navy3);border:1px solid var(--border);border-radius:12px;padding:15px 14px;display:flex;flex-direction:column;justify-content:center;min-height:100px;}
+.resumo-valor{font-family:'DM Mono',monospace;font-size:20px;font-weight:800;color:var(--text);line-height:1.15;}
+.resumo-label{font-size:10.5px;color:var(--text3);margin-top:6px;line-height:1.35;}
+html.light .resumo-item{background:#F6F9FC;}
+@media(max-width:1100px){.resumo-grid{grid-template-columns:repeat(4,minmax(150px,1fr));}}
 
 /* TABLES */
 .tables-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:20px;}
@@ -468,8 +478,12 @@ html.light .kpi-card{background:#fff}
     <div class="filter-chips" id="filterChips"></div>
 
     <div class="kpi-grid">
-      <div class="kpi-card kpi-faturado">
+      <div class="kpi-card kpi-captado">
         <div class="kpi-icon">$</div>
+        <div><div class="kpi-value" id="kpiCaptado">--</div><div class="kpi-label">Receita Captada</div><div class="kpi-sub" id="kpiCaptadoSub"></div></div>
+      </div>
+      <div class="kpi-card kpi-faturado">
+        <div class="kpi-icon">NF</div>
         <div><div class="kpi-value" id="kpiFaturado">--</div><div class="kpi-label">Receita Faturada</div><div class="kpi-sub" id="kpiFaturadoSub"></div></div>
       </div>
       <div class="kpi-card">
@@ -482,7 +496,7 @@ html.light .kpi-card{background:#fff}
       </div>
       <div class="kpi-card gold">
         <div class="kpi-icon gold-i">📋</div>
-        <div><div class="kpi-value" id="kpiPedidos">--</div><div class="kpi-label">Pedidos Faturados</div><div class="kpi-sub" id="kpiPedidosSub">Meta: --</div></div>
+        <div><div class="kpi-value" id="kpiPedidos">--</div><div class="kpi-label">Pedidos Captados</div><div class="kpi-sub" id="kpiPedidosSub">Meta: --</div></div>
       </div>
       <div class="kpi-card purple">
         <div class="kpi-icon purple-i">📊</div>
@@ -498,7 +512,7 @@ html.light .kpi-card{background:#fff}
         <h2 id="gaugeTitle">--</h2>
         <p id="gaugeMsg">--</p>
         <div class="gauge-kpis">
-          <div class="gauge-kpi"><div class="gauge-kpi-val" id="gaugeCaptado">--</div><div class="gauge-kpi-lbl">Faturado</div></div>
+          <div class="gauge-kpi"><div class="gauge-kpi-val" id="gaugeCaptado">--</div><div class="gauge-kpi-lbl">Captado</div></div>
           <div class="gauge-kpi"><div class="gauge-kpi-val" id="gaugeMeta">--</div><div class="gauge-kpi-lbl">Meta</div></div>
           <div class="gauge-kpi"><div class="gauge-kpi-val" id="gaugeFalta">--</div><div class="gauge-kpi-lbl">Falta / Status</div></div>
         </div>
@@ -531,11 +545,26 @@ html.light .kpi-card{background:#fff}
         <div class="chart-box big"><canvas id="evolutionChart"></canvas></div>
         <div id="evolutionDebug" style="font-size:11px;color:var(--text3);margin-top:8px;"></div>
       </div>
-      <div class="chart-card projeto-card">
-        <div class="chart-title">Receita Faturada por Projeto</div>
-        <div class="chart-sub">Coluna Projeto da base</div>
-        <div class="project-body project-body-full">
-          <div class="project-donut"><canvas id="projetoChart"></canvas></div>
+      <div class="chart-card resumo-card">
+        <div class="chart-title">Resumo do período</div>
+        <div class="resumo-periodo" id="resumoPeriodoLabel">Conforme os filtros aplicados</div>
+        <div class="resumo-grid">
+          <div class="resumo-item">
+            <div class="resumo-valor" id="resumoReceita">--</div>
+            <div class="resumo-label">Receita Faturada</div>
+          </div>
+          <div class="resumo-item">
+            <div class="resumo-valor" id="resumoTicket">--</div>
+            <div class="resumo-label">Ticket Médio por Nota</div>
+          </div>
+          <div class="resumo-item">
+            <div class="resumo-valor" id="resumoNotas">--</div>
+            <div class="resumo-label">Notas Faturadas</div>
+          </div>
+          <div class="resumo-item">
+            <div class="resumo-valor" id="resumoDias">--</div>
+            <div class="resumo-label">Dias Faturados</div>
+          </div>
         </div>
       </div>
     </div>
@@ -543,17 +572,17 @@ html.light .kpi-card{background:#fff}
     <div class="micro-grid">
       <div class="chart-card">
         <div class="chart-title">Receita diária</div>
-        <div class="chart-sub">Faturado por dia · clique num ponto pra filtrar aquele dia</div>
+        <div class="chart-sub">Captado por dia · clique num ponto pra filtrar aquele dia</div>
         <div class="chart-box mini"><canvas id="dailyChart"></canvas></div>
       </div>
       <div class="chart-card">
         <div class="chart-title">Receita semanal</div>
-        <div class="chart-sub">Faturado por semana · clique num ponto pra filtrar aquela semana</div>
+        <div class="chart-sub">Captado por semana · clique num ponto pra filtrar aquela semana</div>
         <div class="chart-box mini"><canvas id="weeklyChart"></canvas></div>
       </div>
       <div id="rankingSection" class="chart-card ranking-card" style="display:none;">
         <div class="section-title">🏅 Ranking de vendedores</div>
-        <div class="rank-head"><span></span><span>Vendedor</span><span>Faturado</span><span>Meta</span><span>% Meta</span></div>
+        <div class="rank-head"><span></span><span>Vendedor</span><span>Captado</span><span>Faturado</span><span>Meta</span><span>% Meta</span></div>
         <div id="rankingList"></div>
       </div>
     </div>
@@ -564,7 +593,7 @@ html.light .kpi-card{background:#fff}
       <div class="matrix-wrap">
         <table class="matrix-table">
           <thead><tr>
-            <th>Canal</th><th>Receita</th><th>% Receita</th>
+            <th>Canal</th><th>Receita (Captada)</th><th>Receita (Faturada)</th><th>% Receita</th>
             <th>Meta</th><th>% Meta</th><th>Receita M.A</th><th>Receita vs M.A</th><th class="shaded">% vs M.A</th>
             <th>Receita A.A</th><th>Receita vs A.A</th><th class="shaded">% vs A.A</th><th>Ticket Médio</th>
           </tr></thead>
@@ -655,9 +684,9 @@ html.light .kpi-card{background:#fff}
 <div class="modal-overlay" id="metaModal">
   <div class="modal-box">
     <div class="modal-title">Definir Metas</div>
-    <div class="modal-sub">Defina a meta de Receita Faturada para cada vendedor no mês selecionado.</div>
+    <div class="modal-sub">Defina a meta de Receita Captada para cada vendedor no mês selecionado.</div>
     <div class="meta-month-selector"><span class="filter-label">Mês:</span><select class="month-select" id="metaMonthSelect" style="flex:1;"></select></div>
-    <table class="meta-table"><thead><tr><th>Vendedor</th><th>Meta Faturada (R$)</th></tr></thead><tbody id="metaTableBody"></tbody></table>
+    <table class="meta-table"><thead><tr><th>Vendedor</th><th>Meta Captada (R$)</th></tr></thead><tbody id="metaTableBody"></tbody></table>
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
       <button class="btn-save" onclick="saveMetas()">Salvar metas</button>
@@ -677,6 +706,7 @@ html.light .kpi-card{background:#fff}
     </div>
 
     <div class="client-kpi-grid">
+      <div class="client-kpi"><div class="client-kpi-val" id="cliKpiCaptado">--</div><div class="client-kpi-lbl">Receita Captada</div></div>
       <div class="client-kpi"><div class="client-kpi-val" id="cliKpiFaturado">--</div><div class="client-kpi-lbl">Receita Faturada</div></div>
       <div class="client-kpi"><div class="client-kpi-val" id="cliKpiPedidos">--</div><div class="client-kpi-lbl">Pedidos</div></div>
       <div class="client-kpi"><div class="client-kpi-val" id="cliKpiTicket">--</div><div class="client-kpi-lbl">Ticket Médio</div></div>
@@ -881,13 +911,13 @@ function renderDebugStats(){
   const wrap = el('evolutionDebug');
   if(!wrap) return;
   if(userRole!=='owner' || !debugStats.totalRawFat){ wrap.textContent=''; return; }
-  wrap.textContent = `🔍 Diagnóstico: ${debugStats.totalRawFat} linhas na base bruta · ${debugStats.totalFat} depois dos filtros de Situação/Operação · Situações encontradas: ${debugStats.situacoesFat.join(', ')||'—'} · Operações encontradas: ${debugStats.operacoesFat.join(', ')||'—'}`;
+  wrap.textContent = `🔍 Diagnóstico: Captada carregou ${debugStats.totalRawCap} linhas na base, ${debugStats.totalCap} depois do filtro de Situação · Situações encontradas na Captada: ${debugStats.situacoesCap.join(', ')||'—'} · Faturada: ${debugStats.totalRawFat} linhas na base, ${debugStats.totalFat} depois dos filtros (Situação + Operação) · Situações encontradas: ${debugStats.situacoesFat.join(', ')||'—'} · Operações encontradas: ${debugStats.operacoesFat.join(', ')||'—'}`;
 }
 
 async function fetchMetas(){
-  const { data } = await sb.from('jambuzada_metas').select('*');
+  const { data } = await sb.from('metas_tangram').select('*');
   metasMap={};
-  (data||[]).forEach(r=>{ if(!metasMap[r.mes_ano]) metasMap[r.mes_ano]={}; metasMap[r.mes_ano][r.vendedor]=r.meta_faturada||0; });
+  (data||[]).forEach(r=>{ if(!metasMap[r.mes_ano]) metasMap[r.mes_ano]={}; metasMap[r.mes_ano][r.vendedor]=r.meta_captada||0; });
 }
 function getMeta(mes,vendedor){ return (metasMap[mes] && metasMap[mes][vendedor]) || 0; }
 
@@ -895,34 +925,34 @@ function getMeta(mes,vendedor){ return (metasMap[mes] && metasMap[mes][vendedor]
 let crmAvailable = true;
 async function fetchClientNote(cliente){
   try{
-    const { data, error } = await sb.from('jambuzada_client_notes').select('*').eq('cliente', cliente).order('criado_em',{ascending:false});
+    const { data, error } = await sb.from('client_notes').select('*').eq('cliente', cliente).order('criado_em',{ascending:false});
     if(error) throw error;
     return data||[];
   }catch(e){ crmAvailable=false; return []; }
 }
 async function saveClientNote(cliente, vendedor, nota){
   try{
-    const { error } = await sb.from('jambuzada_client_notes').insert({ cliente, vendedor, nota });
+    const { error } = await sb.from('client_notes').insert({ cliente, vendedor, nota });
     if(error) throw error;
     return true;
   }catch(e){ crmAvailable=false; return false; }
 }
 async function fetchFollowups(cliente){
   try{
-    const { data, error } = await sb.from('jambuzada_client_followups').select('*').eq('cliente', cliente).order('data_contato',{ascending:true});
+    const { data, error } = await sb.from('client_followups').select('*').eq('cliente', cliente).order('data_contato',{ascending:true});
     if(error) throw error;
     return data||[];
   }catch(e){ crmAvailable=false; return []; }
 }
 async function saveFollowup(cliente, vendedor, data_contato, observacao){
   try{
-    const { error } = await sb.from('jambuzada_client_followups').insert({ cliente, vendedor, data_contato, observacao, feito:false });
+    const { error } = await sb.from('client_followups').insert({ cliente, vendedor, data_contato, observacao, feito:false });
     if(error) throw error;
     return true;
   }catch(e){ crmAvailable=false; return false; }
 }
 async function toggleFollowupDone(id, feito){
-  try{ await sb.from('jambuzada_client_followups').update({feito}).eq('id', id); }catch(e){}
+  try{ await sb.from('client_followups').update({feito}).eq('id', id); }catch(e){}
 }
 
 /* ---- Sugestão de recompra: clientes "atrasados" no ciclo de compra deles ---- */
@@ -1061,7 +1091,8 @@ async function loadData(){
       totalFat: faturadaRows.length,
       totalRawFat: rawFat.length,
       situacoesFat: Array.from(new Set(rawFat.map(r=>r.situacao))).slice(0,15),
-      operacoesFat: Array.from(new Set(rawFat.map(r=>r.operacao))).slice(0,15)
+      operacoesFat: Array.from(new Set(rawFat.map(r=>r.operacao))).slice(0,15),
+      totalCap: captadaRows.length
     };
 
     setLoading('Carregando metas...');
@@ -1223,20 +1254,24 @@ function render(){
   renderDebugStats();
   const vendFilter = selectedVendedor, canalFilter = selectedCanal;
   // Visão principal do BI = anos selecionados. Por padrão: 2025 e 2026.
+  const capPeriodo = filterRowsYears(captadaRows, vendFilter, canalFilter);
   const fatPeriodo = filterRowsYears(faturadaRows, vendFilter, canalFilter);
   // Apenas gráficos diário/semanal usam o mês selecionado.
-  const capMes = filterRows(faturadaRows, selectedMes, vendFilter, canalFilter);
+  const capMes = filterRows(captadaRows, selectedMes, vendFilter, canalFilter);
+  const totalCap = capPeriodo.reduce((s,r)=>s+r.total,0);
   const totalFat = fatPeriodo.reduce((s,r)=>s+r.total,0);
 
   const totalMeta = totalMetaYears(vendFilter);
-  const pct = totalMeta>0 ? Math.round(totalFat/totalMeta*100) : 0;
-  const pedidosUnicos = new Set(fatPeriodo.map(r=>r.pedido)).size;
-  const ticketMedio = pedidosUnicos>0 ? totalFat/pedidosUnicos : 0;
+  const pct = totalMeta>0 ? Math.round(totalCap/totalMeta*100) : 0;
+  const pedidosUnicos = new Set(capPeriodo.map(r=>r.pedido)).size;
+  const ticketMedio = pedidosUnicos>0 ? totalCap/pedidosUnicos : 0;
 
+  el('kpiCaptado').textContent = fmtBRL(totalCap);
+  el('kpiCaptadoSub').textContent = pedidosUnicos + ' pedidos · anos ' + periodYearsLabel();
   el('kpiFaturado').textContent = fmtBRL(totalFat);
-  el('kpiFaturadoSub').textContent = pedidosUnicos + ' pedidos · anos ' + periodYearsLabel();
-  el('kpiClientes').textContent = new Set(fatPeriodo.map(r=>r.cliente).filter(Boolean)).size.toLocaleString('pt-BR');
-  el('kpiItens').textContent = fatPeriodo.reduce((s,r)=>s+(r.qtd||1),0).toLocaleString('pt-BR',{maximumFractionDigits:0});
+  el('kpiFaturadoSub').textContent = new Set(fatPeriodo.map(r=>r.pedido)).size + ' pedidos faturados';
+  el('kpiClientes').textContent = new Set(capPeriodo.map(r=>r.cliente).filter(Boolean)).size.toLocaleString('pt-BR');
+  el('kpiItens').textContent = capPeriodo.reduce((s,r)=>s+(r.qtd||1),0).toLocaleString('pt-BR',{maximumFractionDigits:0});
   el('kpiPedidos').textContent = pedidosUnicos.toLocaleString('pt-BR');
   el('kpiPedidosSub').textContent = totalMeta>0 ? 'Meta: '+fmtBRL(totalMeta)+' · '+pct+'%' : 'Meta: —';
   el('kpiTicket').textContent = fmtBRL(ticketMedio);
@@ -1245,16 +1280,43 @@ function render(){
 
 
   renderEvolution();
-  renderProjetoChart(filterRowsYears(captadaRows, vendFilter, canalFilter, true));
+  renderResumoPeriodo(fatPeriodo);
   renderDailyWeekly(capMes);
   renderMonthlyHistory();
   renderMap(capMes);
-  renderTopClientes(fatPeriodo);
-  renderTopFamilias(fatPeriodo);
-  renderTopProdutos(fatPeriodo);
+  renderTopClientes(capPeriodo);
+  renderTopFamilias(capPeriodo);
+  renderTopProdutos(capPeriodo);
   if(userRole==='owner' || userRole==='viewer') { renderRanking(); renderSuggestions(); renderMatrix(); }
   if(gpsStaff && !previewAsClient) renderAnaliseWhats();
   else { const c = el('analiseWhatsCard'); if(c) c.style.display='none'; }
+}
+
+function renderResumoPeriodo(rows){
+  const receita = rows.reduce((s,r)=>s+(r.total||0),0);
+  const notasSet = new Set(rows.map(r=>String(r.nf||'').trim()).filter(Boolean));
+  // Caso alguma linha faturada ainda não tenha o número da NF preenchido,
+  // usa o pedido como identificador alternativo para não perder a contagem.
+  if(!notasSet.size){
+    rows.map(r=>String(r.pedido||'').trim()).filter(Boolean).forEach(v=>notasSet.add(v));
+  }
+  const notas = notasSet.size;
+  const dias = new Set(rows.map(r=>r.date).filter(Boolean)).size;
+  const ticket = notas>0 ? receita/notas : 0;
+
+  el('resumoReceita').textContent = fmtBRL(receita);
+  el('resumoTicket').textContent = fmtBRL(ticket);
+  el('resumoNotas').textContent = notas.toLocaleString('pt-BR');
+  el('resumoDias').textContent = dias.toLocaleString('pt-BR');
+
+  let periodo = 'Anos ' + periodYearsLabel();
+  if(dateFrom || dateTo){
+    const fmtData = d=>d ? new Date(d+'T00:00:00').toLocaleDateString('pt-BR') : 'início';
+    periodo = `${fmtData(dateFrom)} até ${fmtData(dateTo)}`;
+  } else if(selectedMes){
+    periodo = mesLabel(selectedMes);
+  }
+  el('resumoPeriodoLabel').textContent = periodo + ' · conforme os filtros aplicados';
 }
 
 let gaugeChartInst=null;
@@ -1376,7 +1438,7 @@ function gerarAnaliseTexto(){
     ``,
     `*🗓️ Período:* ${info.de} - ${info.ate}`,
     ``,
-    `*💰 Receita Faturada:* ${fmtBRLFull(capAtual)}`,
+    `*💰 Receita Captada:* ${fmtBRLFull(capAtual)}`,
     ``,
     `*💸 Receita Faturada:* ${fmtBRLFull(fatAtual)}`,
     ``,
@@ -1531,6 +1593,7 @@ function renderMatrix(){
     trV.innerHTML = `
       <td><span class="matrix-expand-arrow">▶</span> ${v}</td>
       <td>${fmtBRLMatrix(compCap.atual)}</td>
+      <td>${fmtBRLMatrix(fatAtual)}</td>
       <td>${(pctReceita*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}%</td>
       <td>${meta>0?fmtBRLMatrix(meta):'—'}</td>
       <td>${meta>0?(pctMeta*100).toLocaleString('pt-BR',{maximumFractionDigits:1})+'%':'—'}</td>
@@ -1564,6 +1627,7 @@ function renderMatrix(){
       trC.innerHTML = `
         <td>${ct.c}</td>
         <td>${fmtBRLMatrix(ct.comp.atual)}</td>
+        <td>${fmtBRLMatrix(ct.fat)}</td>
         <td>${(pr*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}%</td>
         <td>—</td><td>—</td>
         <td>${fmtBRLMatrix(ct.comp.ma)}</td>
@@ -1579,7 +1643,7 @@ function renderMatrix(){
 
   const totTicket = totPedidosUnicos>0 ? totCap/totPedidosUnicos : 0;
   const trT = document.createElement('tr'); trT.className='total-row';
-  trT.innerHTML = `<td>Total</td><td>${fmtBRLMatrix(totCap)}</td><td>100%</td>
+  trT.innerHTML = `<td>Total</td><td>${fmtBRLMatrix(totCap)}</td><td>${fmtBRLMatrix(totFat)}</td><td>100%</td>
     <td>${totMeta>0?fmtBRLMatrix(totMeta):'—'}</td><td>${totMeta>0?(totCap/totMeta*100).toLocaleString('pt-BR',{maximumFractionDigits:1})+'%':'—'}</td>
     <td>${fmtBRLMatrix(totMA)}</td><td class="${(totCap-totMA)>=0?'matrix-pos':'matrix-neg'}">${fmtBRLMatrix(totCap-totMA)}</td>
     <td class="shaded ${(totMA>0?(totCap/totMA-1):0)>=0?'matrix-pos':'matrix-neg'}">${fmtPctSigned(totMA>0?(totCap/totMA-1):null)}</td>
@@ -1609,6 +1673,23 @@ function renderEvolution(){
   const todayDate = dataRefEvol.getDate();
   const capByMes = allMonths.map(m=>calcMonthTotalSamePeriod(m,vendFilter,canalFilter, m===currentYm ? todayDate : null, captadaRows));
   const fatByMes = allMonths.map(m=>calcMonthTotalSamePeriod(m,vendFilter,canalFilter, m===currentYm ? todayDate : null, faturadaRows));
+  const ticketByMes = allMonths.map(m=>{
+    const limiteDia = m===currentYm ? todayDate : null;
+    const linhas = faturadaRows.filter(r=>{
+      if(r.mes!==m) return false;
+      if(limiteDia && Number(String(r.date||'').slice(8,10))>limiteDia) return false;
+      if(vendFilter && r.vendedor.toLowerCase()!==vendFilter.toLowerCase()) return false;
+      if(canalFilter && r.canal!==canalFilter) return false;
+      if(selectedFamilia && (r.familia||'Sem família')!==selectedFamilia) return false;
+      if(selectedProdutoFiltro && (r.produto||'Sem descrição')!==selectedProdutoFiltro) return false;
+      if(searchCliente && !(r.cliente||'').toLowerCase().includes(searchCliente)) return false;
+      if(searchProduto && !(r.produto||'').toLowerCase().includes(searchProduto)) return false;
+      return true;
+    });
+    const receita = linhas.reduce((s,r)=>s+(r.total||0),0);
+    const ids = new Set(linhas.map(r=>String(r.nf||r.pedido||'').trim()).filter(Boolean));
+    return ids.size ? receita/ids.size : 0;
+  });
   const pctVsPrev = allMonths.map((m,i)=>{
     const prevMes = monthAdd(m,-1);
     const atual = capByMes[i] || 0;
@@ -1639,7 +1720,7 @@ function renderEvolution(){
       capByMes.forEach((val,i)=>{
         if(!meta.data[i]) return;
         const p = meta.data[i].getProps(['x','y'], true);
-        // Valor da Receita Faturada, colado na barra
+        // Valor da Receita Captada, colado na barra
         ctx.font = '700 11px "DM Mono", monospace';
         ctx.fillStyle = textColor;
         ctx.fillText(fmtBRL(val), p.x, p.y - 8);
@@ -1666,8 +1747,8 @@ function renderEvolution(){
     return m===selectedMes ? cyan : blue;
   });
   const data={labels,datasets:[
-    {label:'Receita Faturada',data:capByMes,backgroundColor:barColors,borderRadius:5,maxBarThickness:32,yAxisID:'y',order:2},
-    {label:'Receita Faturada',data:fatByMes,type:'line',borderColor:'#9CA3AF',backgroundColor:'#9CA3AF',borderWidth:2.5,pointRadius:3,pointBackgroundColor:'#9CA3AF',tension:.3,yAxisID:'y',order:1}
+    {label:'Receita Captada',data:capByMes,backgroundColor:barColors,borderRadius:6,maxBarThickness:52,categoryPercentage:.78,barPercentage:.92,yAxisID:'y',order:2},
+    {label:'Ticket Médio',data:ticketByMes,type:'line',borderColor:'#9CA3AF',backgroundColor:'#9CA3AF',borderWidth:2.5,pointRadius:3,pointBackgroundColor:'#9CA3AF',tension:.3,yAxisID:'y1',order:1}
   ]};
   const opts={responsive:true,maintainAspectRatio:false,animation:{duration:300},
     layout:{padding:{top:40}},
@@ -1684,7 +1765,8 @@ function renderEvolution(){
     plugins:{legend:{display:true,position:'top',align:'end',labels:{color:textColor,boxWidth:10,font:{size:11}}},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${fmtBRLFull(c.parsed.y)}`}}},
     scales:{
       x:{grid:{display:false},ticks:{color:textColor,font:{size:11},maxRotation:60,minRotation:0}},
-      y:{position:'left',grid:{color:gridColor},ticks:{color:textColor,font:{size:11},callback:v=>fmtBRL(v)}}
+      y:{position:'left',grid:{color:gridColor},ticks:{color:textColor,font:{size:11},callback:v=>fmtBRL(v)}},
+      y1:{position:'right',display:false,grid:{drawOnChartArea:false},beginAtZero:true}
     }};
   if(evChart){ evChart.data=data; evChart.options=opts; evChart.update(); return; }
   evChart = new Chart(el('evolutionChart'),{type:'bar',data,options:opts,plugins:[pctLabelPlugin]});
@@ -1907,7 +1989,7 @@ function renderMap(rows){
     L.circleMarker([lat,lng],{
       radius,fillColor:isTop?'#36E2C9':'#2D70B8',color:isTop?'#98F2E5':'#5BA8E0',weight:isTop?2:1,opacity:.9,fillOpacity:isTop?.75:.55,
       className: isTop ? 'state-marker pulse-glow' : 'state-marker'
-    }).bindTooltip(`${uf}: ${fmtBRLFull(val)}`).bindPopup(`<b>${uf}</b><br>Receita faturada: ${fmtBRLFull(val)}`).addTo(leafletLayer);
+    }).bindTooltip(`${uf}: ${fmtBRLFull(val)}`).bindPopup(`<b>${uf}</b><br>Receita captada: ${fmtBRLFull(val)}`).addTo(leafletLayer);
   });
   setTimeout(()=>leafletMap.invalidateSize(),100);
 }
@@ -2004,8 +2086,8 @@ async function saveMetas(){
   const mes = el('metaMonthSelect').value;
   const inputs = el('metaTableBody').querySelectorAll('.meta-input');
   const upserts=[];
-  inputs.forEach(inp=>{ const val=parseFloat(inp.value)||0; upserts.push({vendedor:inp.dataset.vendedor, mes_ano:mes, meta_faturada:val}); });
-  const { error } = await sb.from('jambuzada_metas').upsert(upserts,{onConflict:'vendedor,mes_ano'});
+  inputs.forEach(inp=>{ const val=parseFloat(inp.value)||0; upserts.push({vendedor:inp.dataset.vendedor, mes_ano:mes, meta_captada:val}); });
+  const { error } = await sb.from('metas_tangram').upsert(upserts,{onConflict:'vendedor,mes_ano'});
   if(!error){ await fetchMetas(); el('saveFeedback').classList.add('show'); setTimeout(()=>{ closeModal(); render(); },1200); }
   else alert('Erro ao salvar: '+error.message);
 }
@@ -2023,12 +2105,15 @@ function openClientModal(cliente){
   el('noteInput').value = '';
   el('crmWarning').style.display = 'none';
 
-  const rows = faturadaRows.filter(r=>r.cliente===cliente);
-  const totalFat = rows.reduce((s,r)=>s+r.total,0);
+  const rows = captadaRows.filter(r=>r.cliente===cliente);
+  const fatRows = faturadaRows.filter(r=>r.cliente===cliente);
+  const totalCap = rows.reduce((s,r)=>s+r.total,0);
+  const totalFat = fatRows.reduce((s,r)=>s+r.total,0);
   const dates = Array.from(new Set(rows.map(r=>r.date))).sort();
   const pedidos = new Set(rows.map(r=>r.pedido)).size || dates.length;
-  const ticket = pedidos>0 ? totalFat/pedidos : 0;
+  const ticket = pedidos>0 ? totalCap/pedidos : 0;
 
+  el('cliKpiCaptado').textContent = fmtBRL(totalCap);
   el('cliKpiFaturado').textContent = fmtBRL(totalFat);
   el('cliKpiPedidos').textContent = pedidos.toLocaleString('pt-BR');
   el('cliKpiTicket').textContent = fmtBRL(ticket);
@@ -2129,10 +2214,10 @@ let pcMsgsCache = { msgs:[], reacoes:[], leituras:[] };
 let pcRespondendo = null; // { id, status }
 let pcEditando = null; // { id, campo: 'mensagem'|'resposta' }
 async function loadPcMsgs(){
-  const { data, error } = await sb.from('jambuzada_comercial_mensagens').select('*').order('criado_em',{ascending:false});
+  const { data, error } = await sb.from('comercial_mensagens').select('*').order('criado_em',{ascending:false});
   if(error){ el('pcMsgList').innerHTML = '<div style="color:var(--gold);font-size:12px;">⚠️ Não consegui carregar. Verifique se a tabela comercial_mensagens existe no Supabase.</div>'; return; }
-  const { data: reacoes } = await sb.from('jambuzada_comercial_mensagens_reacoes').select('*');
-  const { data: leituras } = await sb.from('jambuzada_comercial_mensagens_leituras').select('*');
+  const { data: reacoes } = await sb.from('comercial_mensagens_reacoes').select('*');
+  const { data: leituras } = await sb.from('comercial_mensagens_leituras').select('*');
   pcMsgsCache = { msgs:data||[], reacoes:reacoes||[], leituras:leituras||[] };
   renderPcMsgs(pcMsgsCache.msgs, pcMsgsCache.reacoes, pcMsgsCache.leituras);
 }
@@ -2231,7 +2316,7 @@ async function submitPcMsg(){
   const tipo = el('pcMsgTipo').value;
   const mensagem = el('pcMsgTexto').value.trim();
   if(!mensagem) return;
-  const { error } = await sb.from('jambuzada_comercial_mensagens').insert({
+  const { error } = await sb.from('comercial_mensagens').insert({
     autor_email: currentUser.email, autor_nome: nameFromEmail(currentUser.email), tipo, mensagem, status:'aberto'
   });
   if(!error){ el('pcMsgTexto').value=''; await loadPcMsgs(); }
@@ -2243,20 +2328,20 @@ async function confirmarRespostaPcMsg(id){
   const status = pcRespondendo.status;
   const campo = el('pcRespostaTexto_'+id);
   const resposta = campo ? campo.value.trim() : '';
-  const { error } = await sb.from('jambuzada_comercial_mensagens').update({
+  const { error } = await sb.from('comercial_mensagens').update({
     status, resposta, respondido_por: nameFromEmail(currentUser.email), respondido_em: new Date().toISOString()
   }).eq('id', id);
   if(!error){ pcRespondendo = null; await loadPcMsgs(); }
   else alert('Erro: '+error.message);
 }
 async function togglePcMsgReacao(mensagemId, tipo, already){
-  if(already) await sb.from('jambuzada_comercial_mensagens_reacoes').delete().eq('mensagem_id',mensagemId).eq('usuario_email',currentUser.email).eq('tipo',tipo);
-  else await sb.from('jambuzada_comercial_mensagens_reacoes').insert({ mensagem_id:mensagemId, usuario_email:currentUser.email, tipo });
+  if(already) await sb.from('comercial_mensagens_reacoes').delete().eq('mensagem_id',mensagemId).eq('usuario_email',currentUser.email).eq('tipo',tipo);
+  else await sb.from('comercial_mensagens_reacoes').insert({ mensagem_id:mensagemId, usuario_email:currentUser.email, tipo });
   await loadPcMsgs();
 }
 async function togglePcMsgLeitura(mensagemId, already){
   if(already) return;
-  const { error } = await sb.from('jambuzada_comercial_mensagens_leituras').insert({ mensagem_id:mensagemId, usuario_email:currentUser.email, usuario_nome:nameFromEmail(currentUser.email) });
+  const { error } = await sb.from('comercial_mensagens_leituras').insert({ mensagem_id:mensagemId, usuario_email:currentUser.email, usuario_nome:nameFromEmail(currentUser.email) });
   if(!error){ await loadPcMsgs(); aplicarBadgesNav(currentUser.email); }
   else alert('Erro: '+error.message);
 }
@@ -2266,7 +2351,7 @@ async function salvarEdicaoPcMsg(id, campo){
   const valor = (el('pcEdit_'+campo+'_'+id)?.value || '').trim();
   if(campo==='mensagem' && !valor) return;
   const payload = campo==='mensagem' ? { mensagem: valor } : { resposta: valor };
-  const { error } = await sb.from('jambuzada_comercial_mensagens').update(payload).eq('id', id);
+  const { error } = await sb.from('comercial_mensagens').update(payload).eq('id', id);
   if(!error){ pcEditando = null; await loadPcMsgs(); }
   else alert('Erro: '+error.message);
 }
