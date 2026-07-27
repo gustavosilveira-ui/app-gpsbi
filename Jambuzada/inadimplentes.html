@@ -22,7 +22,7 @@
 const SUPABASE_URL='https://mczggrocmccvmyglnumv.supabase.co';
 const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jemdncm9jbWNjdm15Z2xudW12Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMjM2NzcsImV4cCI6MjA5ODU5OTY3N30.XXzhDvxfNaUW61HvgE4xuqzSICoLEYjbJhd1X52Zp84';
 const SHEET_ID='1lv5NtmOruq7OQPYbnHL9Eynodu3F8bZyNxCA5p1CW8I',GID='190182941';
-const DRIVE_API_URL='COLE_AQUI_A_URL_DO_APPS_SCRIPT';
+const DRIVE_API_URL = 'https://script.google.com/macros/s/AKfycbycJBQyc-uxVrlbBP72p_bsMcRPZ3Yp6kdr4xsa9hyoIoiSShBHGeA9sWb3aTVMV9hJ6g/exec';;
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 let dados=[],arquivos=[],currentUser=null;
 const norm=s=>(s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
