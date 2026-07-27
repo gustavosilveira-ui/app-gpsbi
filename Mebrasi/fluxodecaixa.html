@@ -785,7 +785,10 @@ function rowsFromCAP(table, empresa){
   return raw.filter(r=>!isSubtotalRow(r)).map(r=>{
     if(!isChequeTerceiros(r) && !bancoValido(r, empresa)) return null;
     if(!isTituloAbertoOuPrevisto(r)) return null;
-    const dateRaw = getColNormalized(r, 'data');
+    // Aceita tanto "Data" (nome usado historicamente) quanto "Data Vencto"
+    // (nome real do relatório de Contas a Pagar de algumas empresas, ex:
+    // Multicopos) — sem isso a linha inteira era descartada silenciosamente.
+    const dateRaw = getColNormalized(r, 'data') ?? getColNormalized(r, 'data vencto');
     const date = parseDateCell(typeof dateRaw==='object' && dateRaw!==null ? (dateRaw.v||dateRaw) : dateRaw);
     if(!date) return null;
     const categoriaOriginal = (getColNormalized(r,'desc conta')||'Sem categoria').toString().trim();
@@ -827,7 +830,8 @@ function rowsFromPG(table, empresa){
     if(!isChequeTerceiros(r) && !bancoValido(r, empresa)) return null;
     const situacao = normalizeTxt(getColNormalized(r,'situacao'));
     if(situacao.includes('cancel')) return null;
-    const dateRaw = getColNormalized(r, 'data');
+    // Mesma correção do cap_: aceita "Data" ou "Data Pagto".
+    const dateRaw = getColNormalized(r, 'data') ?? getColNormalized(r, 'data pagto');
     const date = parseDateCell(typeof dateRaw==='object' && dateRaw!==null ? (dateRaw.v||dateRaw) : dateRaw);
     if(!date) return null;
     const categoriaOriginal = (getColNormalized(r,'desc conta')||'Sem categoria').toString().trim();
