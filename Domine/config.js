@@ -1,1 +1,0 @@
-window.CLIENT_CONFIG={cliente:{id:'domine',nome:'Domine Logística'},modulos:{painel:true,operacao:true,agenda:true,mural:true,aprovacoes:true},metaMensal:150};
