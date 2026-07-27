@@ -325,6 +325,11 @@ const GID_MOVIMENTACAO_AGENCIA = '';
 // Aba "Desconto duplicada" — lista de boletos já descontados/antecipados.
 const GID_DESCONTO_DUPLICADA = '';
 const LOGIN_URL = 'index.html';
+const CLIENTE_NAMESPACE = 'JAMBUZADA';
+const CLIENTE_MARKER = '[[JAMBUZADA]]';
+function withClientMarker(value){ return CLIENTE_MARKER + (value || ''); }
+function stripClientMarker(value){ value = value || ''; return value.startsWith(CLIENTE_MARKER) ? value.slice(CLIENTE_MARKER.length) : value; }
+function isClientMarked(value){ return (value || '').startsWith(CLIENTE_MARKER); }
 
 // Histórico validado do fluxo antigo: até 30/06/2026.
 // A partir de 01/07/2026, o fluxo volta a ler normalmente as abas de movimentação.
@@ -826,7 +831,7 @@ function gerarAnaliseFluxoTexto(){
   ] : [`✅ Hoje já é o último dia do mês — sem período restante pra prever.`];
 
   return [
-    `*Fluxo de Caixa · Tangram*`,
+    `*Fluxo de Caixa · Jambuzada*`,
     `🗓️ *${hojeFmt}*`,
     ``,
     `💰 *Saldo:* ${fmtBRL(saldoHoje)}`,
@@ -1173,7 +1178,7 @@ el('ajustesManuaisModal').addEventListener('click', e=>{ if(e.target.id==='ajust
 
 /* ================== NOVO: Limite da Conta ================== */
 function loadLimiteConta(){
-  const saved = localStorage.getItem('fcLimiteContaValor');
+  const saved = localStorage.getItem('jambuzada_fcLimiteContaValor');
   const n = parseFloat(saved);
   limiteConta = (!isNaN(n) && n > 0) ? n : 233300;
   const input = el('fcLimiteContaValor');
@@ -1184,7 +1189,7 @@ function applyLimiteConta(){
   const valor = parseFloat(input ? input.value : '');
   if(isNaN(valor) || valor <= 0){ alert('Informe um limite válido.'); return; }
   limiteConta = valor;
-  localStorage.setItem('fcLimiteContaValor', String(valor));
+  localStorage.setItem('jambuzada_fcLimiteContaValor', String(valor));
   renderTable();
 }
 function prevDateStr(dstr){
@@ -1233,8 +1238,10 @@ function isLimiteContaCrossing(dstr, saldo){
 
 /* ================== NOVO: Saldo Inicial ================== */
 async function loadSaldoInicial(){
-  const { data, error } = await sb.from('fluxo_saldo_inicial').select('*').order('criado_em',{ascending:false}).limit(1);
-  saldoInicialOverride = (!error && data && data.length) ? data[0] : null;
+  const { data, error } = await sb.from('fluxo_saldo_inicial').select('*').order('criado_em',{ascending:false});
+  const clienteData = (!error && data) ? data.filter(x=>isClientMarked(x.criado_por)) : [];
+  saldoInicialOverride = clienteData.length ? clienteData[0] : null;
+  if(saldoInicialOverride) saldoInicialOverride = { ...saldoInicialOverride, criado_por: stripClientMarker(saldoInicialOverride.criado_por) };
   renderSaldoInicialStatus();
 }
 function renderSaldoInicialStatus(){
@@ -1252,8 +1259,8 @@ async function applySaldoInicial(){
   const data_referencia = el('fcSaldoInicialData').value;
   const valor = parseFloat(el('fcSaldoInicialValor').value);
   if(!data_referencia || isNaN(valor)){ alert('Preencha a data e o saldo dessa data.'); return; }
-  await sb.from('fluxo_saldo_inicial').delete().gt('id', 0); // só existe um saldo inicial ativo por vez
-  const { error } = await sb.from('fluxo_saldo_inicial').insert({ data_referencia, valor, criado_por: nameFromEmail(currentUser.email) });
+  await sb.from('fluxo_saldo_inicial').delete().like('criado_por', CLIENTE_MARKER+'%'); // remove somente o saldo do Jambuzada
+  const { error } = await sb.from('fluxo_saldo_inicial').insert({ data_referencia, valor, criado_por: withClientMarker(nameFromEmail(currentUser.email)) });
   if(error){ alert('Erro ao salvar: '+error.message); return; }
   el('fcSaldoInicialData').value=''; el('fcSaldoInicialValor').value='';
   await loadSaldoInicial();
@@ -1261,7 +1268,7 @@ async function applySaldoInicial(){
 }
 async function removeSaldoInicial(){
   if(!confirm('Remover o saldo inicial? O Saldo Acumulado volta a considerar todo o histórico da planilha.')) return;
-  await sb.from('fluxo_saldo_inicial').delete().gt('id', 0);
+  await sb.from('fluxo_saldo_inicial').delete().like('criado_por', CLIENTE_MARKER+'%');
   await loadSaldoInicial();
   renderTable();
 }
@@ -1272,7 +1279,7 @@ async function removeSaldoInicial(){
 let ajustesManuais = [];
 async function loadAjustesManuais(){
   const { data, error } = await sb.from('fluxo_ajustes_manuais').select('*').order('data',{ascending:true});
-  ajustesManuais = (!error && data) ? data : [];
+  ajustesManuais = (!error && data) ? data.filter(a=>isClientMarked(a.descricao)).map(a=>({ ...a, descricao: stripClientMarker(a.descricao) })) : [];
   rows = rows.filter(r=>r.grupo!=='AJUSTES_MANUAIS'); // evita duplicar se recarregar
   ajustesManuais.forEach(a=>{
     if(a.data > HISTORICO_CUTOFF){
@@ -1300,7 +1307,7 @@ async function addAjusteManual(){
   const valor = parseFloat(el('fcAjusteValor').value);
   const data = el('fcAjusteData').value;
   if(!descricao || isNaN(valor) || !data){ alert('Preencha descrição, valor e data.'); return; }
-  const { error } = await sb.from('fluxo_ajustes_manuais').insert({ data, descricao, valor, criado_por: nameFromEmail(currentUser.email) });
+  const { error } = await sb.from('fluxo_ajustes_manuais').insert({ data, descricao: withClientMarker(descricao), valor, criado_por: nameFromEmail(currentUser.email) });
   if(error){ alert('Erro ao salvar: '+error.message); return; }
   el('fcAjusteDesc').value=''; el('fcAjusteValor').value=''; el('fcAjusteData').value='';
   await loadAjustesManuais();
@@ -1365,7 +1372,13 @@ async function loadFcMsgs(){
   if(error){ el('fcMsgList').innerHTML = '<div style="color:var(--gold);font-size:12px;">⚠️ Não consegui carregar. Verifique se a tabela fluxo_mensagens existe no Supabase.</div>'; return; }
   const { data: reacoes } = await sb.from('fluxo_mensagens_reacoes').select('*');
   const { data: leituras } = await sb.from('fluxo_mensagens_leituras').select('*');
-  fcMsgsCache = { msgs:data||[], reacoes:reacoes||[], leituras:leituras||[] };
+  const msgsCliente = (data||[]).filter(m=>isClientMarked(m.mensagem)).map(m=>({ ...m, mensagem: stripClientMarker(m.mensagem) }));
+  const idsCliente = new Set(msgsCliente.map(m=>m.id));
+  fcMsgsCache = {
+    msgs: msgsCliente,
+    reacoes:(reacoes||[]).filter(r=>idsCliente.has(r.mensagem_id)),
+    leituras:(leituras||[]).filter(l=>idsCliente.has(l.mensagem_id))
+  };
   renderFcMsgs(fcMsgsCache.msgs, fcMsgsCache.reacoes, fcMsgsCache.leituras);
 }
 function rerenderFcMsgs(){ renderFcMsgs(fcMsgsCache.msgs, fcMsgsCache.reacoes, fcMsgsCache.leituras); }
@@ -1464,7 +1477,7 @@ async function submitFcMsg(){
   const mensagem = el('fcMsgTexto').value.trim();
   if(!mensagem) return;
   const { error } = await sb.from('fluxo_mensagens').insert({
-    autor_email: currentUser.email, autor_nome: nameFromEmail(currentUser.email), tipo, mensagem, status:'aberto'
+    autor_email: currentUser.email, autor_nome: nameFromEmail(currentUser.email), tipo, mensagem: withClientMarker(mensagem), status:'aberto'
   });
   if(!error){ el('fcMsgTexto').value=''; await loadFcMsgs(); }
   else alert('Erro ao publicar: '+error.message);
@@ -1497,7 +1510,7 @@ function cancelarEdicaoFcMsg(){ fcEditando = null; rerenderFcMsgs(); }
 async function salvarEdicaoFcMsg(id, campo){
   const valor = (el('fcEdit_'+campo+'_'+id)?.value || '').trim();
   if(campo==='mensagem' && !valor) return;
-  const payload = campo==='mensagem' ? { mensagem: valor } : { resposta: valor };
+  const payload = campo==='mensagem' ? { mensagem: withClientMarker(valor) } : { resposta: valor };
   const { error } = await sb.from('fluxo_mensagens').update(payload).eq('id', id);
   if(!error){ fcEditando = null; await loadFcMsgs(); }
   else alert('Erro: '+error.message);
