@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulador de Meta · Hub GPSBI</title>
+<link rel="stylesheet" href="theme.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+html{zoom:.8;}
+.sim-grid{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:12px;margin-bottom:18px;overflow-x:auto;}
+.sim-kpi{background:var(--navy3);border-radius:12px;padding:16px;}
+.sim-kpi-val{font-family:'DM Mono',monospace;font-size:20px;font-weight:800;}
+.sim-kpi-lbl{font-size:11px;color:var(--text3);margin-top:4px;}
+.new-order-row{display:grid;grid-template-columns:1fr 180px auto;gap:10px;margin-bottom:14px;align-items:end;}
+.order-list{display:flex;flex-direction:column;gap:8px;margin-bottom:16px;}
+.order-item{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;background:var(--navy3);}
+.order-item .order-cliente{flex:1;font-size:13px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.order-item .order-valor{font-family:'DM Mono',monospace;font-size:14px;font-weight:700;flex:none;}
+.order-item .order-del{flex:none;width:26px;height:26px;border-radius:8px;background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:14px;}
+.order-item .order-del:hover{background:rgba(239,106,106,.12);color:var(--red);}
+.sim-summary-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-top:1px solid var(--border);font-size:13px;}
+.sim-summary-row b{font-family:'DM Mono',monospace;font-size:15px;}
+.slider-val{font-family:'DM Mono',monospace;font-size:18px;font-weight:800;min-width:130px;text-align:right;}
+.result-banner{border-radius:12px;padding:18px 20px;margin-top:16px;display:flex;align-items:center;gap:16px;}
+.result-banner.hit{background:rgba(47,214,184,.12);border:1px solid rgba(47,214,184,.3);}
+.result-banner.miss{background:rgba(239,106,106,.1);border:1px solid rgba(239,106,106,.25);}
+.result-icon{font-size:32px;}
+.result-text b{display:block;font-size:15px;margin-bottom:2px;}
+.result-text span{font-size:12.5px;color:var(--text2);}
+@media(max-width:760px){.new-order-row{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+
+<div class="loading-screen" id="loadingScreen">
+  <div class="spinner"></div>
+  <p id="loadingMsg">Carregando seus números...</p>
+</div>
+
+<div id="mainContent" style="display:none;">
+  <div class="content">
+
+    <div class="card" id="vendorPickerCard" style="display:none;">
+      <label class="field-label">Simular para</label>
+      <input type="text" id="vendorPicker" list="vendorDatalist" placeholder="Digite o nome do vendedor...">
+      <datalist id="vendorDatalist"></datalist>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🎯 Simulador de Meta — <span id="simMesLabel"></span></div>
+      <div class="card-sub">Veja se o seu ritmo atual bate a meta, e simule quais pedidos em negociação fariam você bater.</div>
+
+      <div class="sim-grid">
+        <div class="sim-kpi"><div class="sim-kpi-val" id="kpiMeta">--</div><div class="sim-kpi-lbl">Meta do mês</div></div>
+        <div class="sim-kpi"><div class="sim-kpi-val" id="kpiCaptado">--</div><div class="sim-kpi-lbl">Faturado até hoje</div></div>
+        <div class="sim-kpi"><div class="sim-kpi-val" id="kpiFalta">--</div><div class="sim-kpi-lbl">Falta pra meta</div></div>
+        <div class="sim-kpi"><div class="sim-kpi-val" id="kpiDiasUteis">--</div><div class="sim-kpi-lbl">Dias úteis restantes</div></div>
+      </div>
+
+      <div class="card-title" style="font-size:13px;">📝 Simule pedidos que ainda podem entrar</div>
+      <div class="card-sub" style="margin-bottom:10px;">Adicione os pedidos em negociação e veja na hora como fica o resultado do mês.</div>
+      <div class="new-order-row">
+        <div class="field-group" style="margin-bottom:0;">
+          <label class="field-label">Cliente / Pedido</label>
+          <input type="text" id="newOrderCliente" placeholder="Ex: Cliente X - pedido de mochilas">
+        </div>
+        <div class="field-group" style="margin-bottom:0;">
+          <label class="field-label">Valor (R$)</label>
+          <input type="number" id="newOrderValor" placeholder="Ex: 8000">
+        </div>
+        <button class="btn btn-primary" onclick="addSimOrder()">Adicionar</button>
+      </div>
+
+      <div class="order-list" id="orderListWrap"></div>
+
+      <div class="sim-summary-row"><span>Total dos pedidos simulados</span><b id="simTotalPedidos">R$ 0</b></div>
+      <div class="sim-summary-row"><span>Faturado até hoje + pedidos simulados</span><b id="simNovoTotal">R$ 0</b></div>
+
+      <div class="result-banner" id="resultBanner">
+        <div class="result-icon" id="resultIcon">🤔</div>
+        <div class="result-text">
+          <b id="resultTitle">--</b>
+          <span id="resultSub">--</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📈 Seu ritmo atual</div>
+      <div class="card-sub" id="ritmoSub">--</div>
+    </div>
+
+  </div>
+</div>
+
+<script src="nav.js"></script>
+<script>
+/* ---- Config (mesma base de dados do painel principal) ---- */
+const SUPABASE_URL = 'https://mczggrocmccvmyglnumv.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jemdncm9jbWNjdm15Z2xudW12Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMjM2NzcsImV4cCI6MjA5ODU5OTY3N30.XXzhDvxfNaUW61HvgE4xuqzSICoLEYjbJhd1X52Zp84';
+const SHEET_ID = '1lv5NtmOruq7OQPYbnHL9Eynodu3F8bZyNxCA5p1CW8I';
+const GID_FATURADA = '0';
+const LOGIN_URL = 'index.html';
+const OWNER_EMAILS = ['comercial@jambuzada.com.br', 'gustavosilveira@gpsbi.com.br'];
+// A Jambuzada não tem "captada" — usa a mesma lista de situações válidas do resto do Hub.
+const SITUACOES_FATURADA = ['autorizado','faturado','nfs-e autorizada'];
+// A Jambuzada é cliente novo — ainda não apareceu nenhum pedido/nota duplicado pra excluir.
+const PEDIDOS_EXCLUIDOS_FATURADA = new Set([]);
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+function isOwner(email){ return OWNER_EMAILS.includes((email||'').toLowerCase()); }
+function nameFromEmail(email){ return email.split('@')[0].split('.').map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' '); }
+function cleanVendorName(raw){
+  let s = (raw||'').toString().trim();
+  s = s.replace(/_\s*\d[\d\-]*/g, ' ');
+  s = s.replace(/\b\d{4,}-?\d*\b/g, ' ');
+  s = s.trim().replace(/\s{2,}/g, ' ');
+  s = s.split(' ').filter(Boolean).map(w=>{
+    const lw = w.toLowerCase();
+    if(lw==='(inativo)'||lw==='inativo)'||lw==='(inativo') return '(Inativo)';
+    return w.charAt(0).toUpperCase()+w.slice(1).toLowerCase();
+  }).join(' ').trim();
+  return s;
+}
+function el(id){ return document.getElementById(id); }
+function fmtBRL(n){ if(!n && n!==0) return '—'; const sign=n<0?'-':''; return sign+'R$ '+Math.round(Math.abs(n)).toLocaleString('pt-BR'); }
+
+async function fetchGviz(gid){
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&gid=${gid}&headers=1`;
+  const res = await fetch(url);
+  const text = await res.text();
+  const clean = text.replace(/^[^{]*/, '').replace(/\s*\)\s*;?\s*$/, '');
+  return JSON.parse(clean).table;
+}
+function parseGvizRows(table){
+  if(!table || !table.rows) return [];
+  const cols = table.cols.map(c=>c.label);
+  return table.rows.map(row=>{
+    const obj={};
+    cols.forEach((col,i)=>{ const cell=row.c[i]; obj[col]= cell ? (cell.v!==null?cell.v:(cell.f||null)) : null; });
+    return obj;
+  });
+}
+function parseDate(v){
+  if(!v) return null;
+  if(typeof v==='string'){
+    if(v.includes('/')){ const [d,m,y]=v.split('/'); return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`; }
+    const dm = v.match(/Date\((\d+),(\d+),(\d+)\)/);
+    if(dm){ const y=dm[1], m=String(parseInt(dm[2])+1).padStart(2,'0'), d=dm[3].padStart(2,'0'); return `${y}-${m}-${d}`; }
+  }
+  return null;
+}
+function parseMoney(v){
+  if(v===null||v===undefined||v==='') return 0;
+  if(typeof v==='number') return v;
+  return parseFloat(String(v).replace(/\./g,'').replace(',','.')) || 0;
+}
+function rowToRecord(row){
+  const dateRaw = row['Data de Emissão (completa)'];
+  const dateStr = parseDate(typeof dateRaw==='object' && dateRaw!==null ? (dateRaw.v||dateRaw) : dateRaw);
+  if(!dateStr) return null;
+  const mes = dateStr.slice(0,7);
+  const vendedor = cleanVendorName(row['Vendedor']);
+  if(!vendedor) return null;
+  const situacao = (row['Situação']||'').trim();
+  const totalRaw = row['Total da Nota Fiscal'];
+  const total = parseMoney(typeof totalRaw==='object' && totalRaw!==null ? totalRaw.v : totalRaw);
+  const pedido = row['Pedido'] || '';
+  return { mes, date:dateStr, vendedor, situacao, total, pedido };
+}
+
+let currentUser=null, userEmail='', userName='', userRole='vendor', vendorName='';
+let faturadaRows = [], metasMap = {}, allVendors = [];
+let simVendedor = '';
+const mesAtual = `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`;
+
+async function init(){
+  const { data } = await sb.auth.getSession();
+  if(!data.session){ window.location.replace(LOGIN_URL); return; }
+  currentUser = data.session.user;
+  userEmail = currentUser.email;
+  userRole = isOwner(userEmail) ? 'owner' : 'viewer';
+  userName = nameFromEmail(userEmail);
+  vendorName = '';
+
+  renderAppNav({ activePage:'simulador.html', userLabel:userName, userRole, onLogout: doLogout, sb, currentUser });
+
+  el('simMesLabel').textContent = new Date().toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+
+  await loadData();
+}
+
+async function loadData(){
+  try{
+    const tableFat = await fetchGviz(GID_FATURADA);
+    faturadaRows = parseGvizRows(tableFat).map(rowToRecord).filter(Boolean)
+      .filter(r=>SITUACOES_FATURADA.includes((r.situacao||'').toLowerCase()))
+      .filter(r=>!PEDIDOS_EXCLUIDOS_FATURADA.has(String(r.pedido).trim()));
+
+    const { data: metas } = await sb.from('jambuzada_metas').select('*');
+    metasMap = {};
+    (metas||[]).forEach(m=>{ if(!metasMap[m.mes_ano]) metasMap[m.mes_ano]={}; metasMap[m.mes_ano][m.vendedor]=m.meta_faturada||0; });
+
+    allVendors = Array.from(new Set(faturadaRows.map(r=>r.vendedor))).sort();
+
+    {
+      el('vendorPickerCard').style.display='block';
+      el('vendorDatalist').innerHTML = allVendors.map(v=>`<option value="${v}">`).join('');
+      const inp = el('vendorPicker');
+      simVendedor = allVendors[0] || '';
+      inp.value = simVendedor;
+      inp.addEventListener('input', ()=>{
+        const match = allVendors.find(v=>v.toLowerCase()===inp.value.trim().toLowerCase());
+        if(match){ simVendedor = match; renderSimulator(); }
+      });
+    }
+
+    el('loadingScreen').style.display='none';
+    el('mainContent').style.display='block';
+    await renderSimulator();
+  }catch(e){
+    console.error(e);
+    el('loadingMsg').textContent = 'Erro ao carregar dados. Tente recarregar a página.';
+  }
+}
+
+function getMeta(mes, vendedor){ return (metasMap[mes] && metasMap[mes][vendedor]) || 0; }
+
+function countBusinessDaysRemaining(){
+  const today = new Date();
+  const year = today.getFullYear(), month = today.getMonth();
+  const lastDay = new Date(year, month+1, 0).getDate();
+  let count = 0;
+  for(let d=today.getDate(); d<=lastDay; d++){
+    const dow = new Date(year, month, d).getDay();
+    if(dow!==0 && dow!==6) count++;
+  }
+  return count;
+}
+
+async function renderSimulator(){
+  const rows = faturadaRows.filter(r=>r.mes===mesAtual && r.vendedor.toLowerCase()===simVendedor.toLowerCase());
+  const captado = rows.reduce((s,r)=>s+r.total,0);
+  const meta = getMeta(mesAtual, simVendedor);
+  const falta = Math.max(0, meta - captado);
+  const diasUteisRestantes = countBusinessDaysRemaining();
+
+  el('kpiMeta').textContent = meta>0 ? fmtBRL(meta) : 'Sem meta definida';
+  el('kpiCaptado').textContent = fmtBRL(captado);
+  el('kpiFalta').textContent = meta>0 ? fmtBRL(falta) : '—';
+  el('kpiDiasUteis').textContent = diasUteisRestantes + (diasUteisRestantes===1?' dia':' dias');
+
+  // ritmo atual: média diária faturada nos dias já corridos do mês
+  const today = new Date();
+  const diaDeHoje = today.getDate();
+  const diasComVenda = new Set(rows.map(r=>r.date)).size;
+  const mediaDiariaAtual = diaDeHoje>0 ? captado/diaDeHoje : 0;
+  const projecaoRitmoAtual = captado + mediaDiariaAtual * diasUteisRestantes;
+
+  el('ritmoSub').textContent = meta>0
+    ? `No ritmo atual (média de ${fmtBRL(mediaDiariaAtual)}/dia), você projeta fechar o mês em ${fmtBRL(projecaoRitmoAtual)} — ${projecaoRitmoAtual>=meta ? 'no caminho de bater a meta! 🎉' : 'ainda abaixo da meta, mas veja no simulador acima se algum pedido em negociação muda esse cenário.'}`
+    : 'Defina uma meta pra esse vendedor pra ver a projeção de ritmo.';
+
+  // guarda os números atuais pra usar quando o usuário adicionar/remover pedidos simulados
+  simState = { captado, meta };
+  await loadSimOrders();
+}
+
+/* ---- Pedidos simulados (cenário "e se esses pedidos entrarem?") ----
+   Persistidos no Supabase (tabela simulacoes_metas), por vendedor —
+   assim a lista sobrevive se o vendedor sair do Hub e voltar, e o
+   gestor consegue ver a mesma simulação abrindo o vendedor. */
+let simOrders = [];
+let simState = { captado:0, meta:0 };
+
+async function loadSimOrders(){
+  const { data, error } = await sb.from('jambuzada_simulacoes_metas').select('*').eq('vendedor', simVendedor).order('criado_em',{ascending:true});
+  simOrders = (!error && data) ? data : [];
+  renderSimOrders();
+}
+async function addSimOrder(){
+  const cliente = el('newOrderCliente').value.trim();
+  const valor = parseFloat(el('newOrderValor').value);
+  if(!cliente || !valor){ alert('Preencha o cliente/pedido e o valor.'); return; }
+  const { error } = await sb.from('jambuzada_simulacoes_metas').insert({ vendedor:simVendedor, cliente, valor });
+  if(error){ alert('Erro ao salvar: '+error.message); return; }
+  el('newOrderCliente').value=''; el('newOrderValor').value='';
+  await loadSimOrders();
+}
+async function removeSimOrder(id){
+  const { error } = await sb.from('jambuzada_simulacoes_metas').delete().eq('id', id);
+  if(error){ alert('Erro ao remover: '+error.message); return; }
+  await loadSimOrders();
+}
+function renderSimOrders(){
+  const wrap = el('orderListWrap');
+  wrap.innerHTML = simOrders.length ? simOrders.map(o=>`
+    <div class="order-item">
+      <span class="order-cliente">${o.cliente}</span>
+      <span class="order-valor">${fmtBRL(o.valor)}</span>
+      <button class="order-del" onclick="removeSimOrder(${o.id})" title="Remover">✕</button>
+    </div>`).join('') : '<div style="color:var(--text3);font-size:12.5px;padding:8px 0;">Nenhum pedido simulado ainda. Adicione acima os que estão em negociação.</div>';
+
+  const totalPedidos = simOrders.reduce((s,o)=>s+o.valor, 0);
+  const novoTotal = simState.captado + totalPedidos;
+  el('simTotalPedidos').textContent = fmtBRL(totalPedidos);
+  el('simNovoTotal').textContent = fmtBRL(novoTotal);
+
+  const banner = el('resultBanner');
+  const { meta } = simState;
+  if(meta<=0){
+    banner.className = 'result-banner';
+    el('resultIcon').textContent = '📋';
+    el('resultTitle').textContent = 'Sem meta definida';
+    el('resultSub').textContent = 'Peça pro gestor definir a meta desse mês pra simular direito.';
+    return;
+  }
+  const bate = novoTotal >= meta;
+  banner.className = 'result-banner ' + (bate?'hit':'miss');
+  el('resultIcon').textContent = bate ? '🎉' : '📊';
+  el('resultTitle').textContent = bate ? 'Com esses pedidos, você bate a meta!' : 'Ainda não bate a meta com esses pedidos';
+  el('resultSub').textContent = `Faturado + simulados: ${fmtBRL(novoTotal)} (meta: ${fmtBRL(meta)}).` + (bate ? '' : ` Faltariam ${fmtBRL(meta-novoTotal)}.`);
+}
+
+async function doLogout(){ await sb.auth.signOut(); window.location.href = LOGIN_URL; }
+
+init();
+</script>
+</body>
+</html>
