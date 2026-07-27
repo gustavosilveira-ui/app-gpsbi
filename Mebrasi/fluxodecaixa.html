@@ -661,8 +661,16 @@ function getPeriodoFluxo(){
 function finalizarLinha(categoriaOriginal, valor, formaPagto, origem, date){
   const fp = normalizeTxt(formaPagto);
   if(fp === 'cheque terceiros'){
-    const grupo = valor >= 0 ? 'RECEBIMENTOS' : 'CHEQUE_TERCEIROS';
-    return { categoria: CATEGORIA_CHEQUE_TERCEIROS, grupo, contaNoSaldo:false };
+    if(valor >= 0){
+      // Recebimento via cheque de terceiros: fora do saldo (não conciliamos essa
+      // conta), com linha própria separada — decisão original confirmada com a Shirley.
+      return { categoria: CATEGORIA_CHEQUE_TERCEIROS, grupo: 'RECEBIMENTOS', contaNoSaldo:false };
+    }
+    // Pagamento via cheque de terceiros: a Shirley confirmou (27/07/2026) que esse
+    // valor é uma despesa real (vamos pagar, só que com cheque) e precisa aparecer
+    // na categoria de verdade (ex: Matéria Prima), não escondido numa categoria
+    // genérica — só não entra no saldo, porque essa conta não é conciliada com o banco.
+    return { categoria: categoriaOriginal, grupo: resolveGrupoCategoria(categoriaOriginal, valor), contaNoSaldo:false };
   }
   if(origem === 'cap' || origem === 'venc'){
     // Vencido (antes de hoje) = ainda não sabemos se vai ser pago/recebido
