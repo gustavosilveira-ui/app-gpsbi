@@ -897,7 +897,7 @@ function renderDebugStats(){
   const wrap = el('evolutionDebug');
   if(!wrap) return;
   if(userRole!=='owner' || !debugStats.totalRawFat){ wrap.textContent=''; return; }
-  wrap.textContent = `🔍 Diagnóstico: Captada carregou ${debugStats.totalRawCap} linhas na base, ${debugStats.totalCap} depois do filtro de Situação · Situações encontradas na Captada: ${debugStats.situacoesCap.join(', ')||'—'} · Faturada: ${debugStats.totalRawFat} linhas na base, ${debugStats.totalFat} depois dos filtros (Situação + Operação) · Situações encontradas: ${debugStats.situacoesFat.join(', ')||'—'} · Operações encontradas: ${debugStats.operacoesFat.join(', ')||'—'}`;
+  wrap.textContent = `🔍 Diagnóstico: Captada carregou ${debugStats.totalRawCap} linhas na base, ${debugStats.totalCap} depois do filtro de Situação · Situações encontradas na Captada: ${(Array.isArray(debugStats.situacoesCap) ? debugStats.situacoesCap : []).join(', ')||'—'} · Faturada: ${debugStats.totalRawFat} linhas na base, ${debugStats.totalFat} depois dos filtros (Situação + Operação) · Situações encontradas: ${(Array.isArray(debugStats.situacoesFat) ? debugStats.situacoesFat : []).join(', ')||'—'} · Operações encontradas: ${(Array.isArray(debugStats.operacoesFat) ? debugStats.operacoesFat : []).join(', ')||'—'}`;
 }
 
 async function fetchMetas(){
@@ -1061,13 +1061,10 @@ async function loadData(){
     setLoading('Buscando faturamento...');
     const tableFat = await fetchGviz(GID_FATURADA);
     const rawFat = parseGvizRows(tableFat).map(r=>rowToRecord(r,'faturada')).filter(Boolean);
-    // A base do Alambique já vem consolidada na aba Comercial.
-    // Não aplicar filtros herdados da Tangram/Jambuzada, pois eles zeravam toda a base.
     faturadaRows = rawFat
-      .filter(r=>!PEDIDOS_EXCLUIDOS_FATURADA.has(String(r.pedido||'').trim()) && !NF_EXCLUIDAS_FATURADA.has(String(r.nf||'').trim()));
-
-    // Segurança: nunca deixar o painel vazio por incompatibilidade de situação/operação.
-    if(!faturadaRows.length && rawFat.length) faturadaRows = rawFat;
+      .filter(r=>situacaoOk(r.situacao,'faturada'))
+      .filter(r=>operacaoOk(r.operacao,'faturada'))
+      .filter(r=>!PEDIDOS_EXCLUIDOS_FATURADA.has(String(r.pedido).trim()) && !NF_EXCLUIDAS_FATURADA.has(String(r.nf).trim()));
 
     // A Jambuzada só tem uma base (faturada) — captadaRows aponta pra ela
     // também, já que boa parte do código ainda usa "captadaRows" como base
@@ -1159,14 +1156,7 @@ async function loadData(){
     setTimeout(fitFiltersBar, 60);
   }catch(e){
     console.error(e);
-    // Não manter a tela travada ou invisível em caso de falha parcial.
-    document.documentElement.style.visibility='visible';
-    el('loadingScreen').style.display='none';
-    el('mainContent').style.display='block';
-    const msg = document.createElement('div');
-    msg.style.cssText='margin:18px 24px;padding:14px 16px;border-radius:10px;background:#fff3cd;color:#664d03;font:600 13px Sora,sans-serif;border:1px solid #ffecb5';
-    msg.textContent='Não foi possível carregar a base agora. Detalhe: '+(e && e.message ? e.message : e);
-    el('mainContent').prepend(msg);
+    setLoading('Erro ao carregar dados. Verifique sua conexão.');
   }
 }
 
