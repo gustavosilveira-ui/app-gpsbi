@@ -9,6 +9,7 @@ const APP_PAGES = [
   { href:'aprovacoes.html', label:'✅ Aprovações' },
 ];
 const APP_PAGE_FLUXO = { href:'fluxodecaixa.html', label:'💰 Fluxo de Caixa', id:'navFluxo' };
+const FLUXO_CLIENTE_MARKER = '[[JAMBUZADA]]';
 function _navCanSeeFluxo(email){
   email = (email||'').toLowerCase();
   return email.endsWith('@gpsbi.com.br') || email === 'comercial@jambuzada.com.br';
@@ -78,7 +79,7 @@ async function aplicarBadgesNav(email){
   if(!_appNavSb) return;
   try{
     const [fluxoQ, fluxoLidasQ, comercialQ, comercialLidasQ, muralQ, muralLidasQ] = await Promise.all([
-      _appNavSb.from('fluxo_mensagens').select('id').in('tipo',['observacao','aviso']),
+      _appNavSb.from('fluxo_mensagens').select('id,mensagem').in('tipo',['observacao','aviso']),
       _appNavSb.from('fluxo_mensagens_leituras').select('mensagem_id').eq('usuario_email', email),
       _appNavSb.from('comercial_mensagens').select('id').in('tipo',['observacao','aviso']),
       _appNavSb.from('comercial_mensagens_leituras').select('mensagem_id').eq('usuario_email', email),
@@ -89,7 +90,8 @@ async function aplicarBadgesNav(email){
       const lidosSet = new Set((lidas||[]).map(l=>l[campoLido]));
       return (todos||[]).filter(x=>!lidosSet.has(x.id)).length;
     };
-    pintarBadgeNav('navFluxo', naoLidas(fluxoQ.data, fluxoLidasQ.data, 'mensagem_id'));
+    const fluxoCliente = (fluxoQ.data||[]).filter(x=>(x.mensagem||'').startsWith(FLUXO_CLIENTE_MARKER));
+    pintarBadgeNav('navFluxo', naoLidas(fluxoCliente, fluxoLidasQ.data, 'mensagem_id'));
     pintarBadgeNav('navPainel', naoLidas(comercialQ.data, comercialLidasQ.data, 'mensagem_id'));
     pintarBadgeNav('navMural', naoLidas(muralQ.data, muralLidasQ.data, 'comunicado_id'));
   }catch(e){ console.error('Erro ao calcular notificações do menu:', e); }
