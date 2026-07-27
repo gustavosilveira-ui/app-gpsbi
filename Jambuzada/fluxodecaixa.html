@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Fluxo de Caixa · Hub GPSBI</title>
+<title>Fluxo de Caixa · Jambuzada | GPSBI</title>
 <link rel="stylesheet" href="theme.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -209,6 +209,51 @@ html.light .fc-day-num{color:#1f2a3d;}
       </div>
     </div>
 
+
+    <div class="card" id="fcVisaoSemanalCard">
+      <div class="card-title">📅 Visão Semanal · Necessidade de Caixa</div>
+      <div class="card-sub">Semana atual e próximas semanas, com recebimentos, pagamentos, saldo final e necessidade de caixa.</div>
+      <div id="fcVisaoSemanal" class="fc-detail-summary"></div>
+    </div>
+
+    <div class="card" id="fcPronampeCard">
+      <div class="card-title">🏦 Apoio de Caixa · Pronampe</div>
+      <div class="card-sub">Simule a utilização do Pronampe e a devolução futura.</div>
+      <div class="fc-mini-form fc-mini-form-4">
+        <input type="number" id="fcPronampeDisponivel" placeholder="Saldo disponível (R$)">
+        <input type="number" id="fcPronampeValor" placeholder="Valor a utilizar">
+        <input type="date" id="fcPronampeDevolucao">
+        <button class="btn btn-primary btn-sm" onclick="aplicarPronampe()">Aplicar</button>
+      </div>
+      <div id="fcPronampeResumo" class="fc-saldo-status" style="margin-top:12px;"></div>
+    </div>
+
+    <div class="card" id="fcFornecedorProgramacaoCard">
+      <div class="card-title">🏭 Programação de Pagamentos por Fornecedor</div>
+      <div class="card-sub">Escolha o fornecedor, informe o valor e rateie automaticamente em dias úteis.</div>
+      <div class="fc-sim-form">
+        <div class="field-group" style="margin-bottom:0;">
+          <label class="field-label">Fornecedor</label>
+          <input type="text" id="fcFornecedorNome" list="fcFornecedoresList" placeholder="Ex.: ESTAMPARIA SALETE LTDA.">
+          <datalist id="fcFornecedoresList"></datalist>
+        </div>
+        <div class="field-group" style="margin-bottom:0;">
+          <label class="field-label">Valor total (R$)</label>
+          <input type="number" id="fcFornecedorValor" placeholder="Ex.: 45100">
+        </div>
+        <div class="field-group" style="margin-bottom:0;">
+          <label class="field-label">Início</label>
+          <input type="date" id="fcFornecedorInicio">
+        </div>
+        <div class="field-group" style="margin-bottom:0;">
+          <label class="field-label">Dias úteis</label>
+          <input type="number" id="fcFornecedorDias" value="10" min="1">
+        </div>
+        <button class="btn btn-primary" onclick="programarFornecedor()">Ratear</button>
+      </div>
+      <div id="fcFornecedorProgramacoes" style="margin-top:14px;"></div>
+    </div>
+
     <!-- ============ NOVO: Simulador de impacto no saldo ============ -->
     <div class="card">
       <div class="card-title">🧪 Simulador de Impacto no Saldo</div>
@@ -355,7 +400,7 @@ function getColNormalized(rowObj, wantedKeyNormalized){
 // aqui é qualquer e-mail @gpsbi.com.br + o Anderson (definido junto com o Gustavo).
 function canAccessFluxo(email){
   email = (email||'').toLowerCase();
-  return email.endsWith('@gpsbi.com.br') || email === 'anderson@tangrampersonalizados.com.br';
+  return email.endsWith('@gpsbi.com.br') || email === 'financeiro@jambuzada.com.br';
 }
 // Alguns recursos (Saldo Inicial, Lançamentos Manuais) são só do time interno GPS —
 // o Anderson/Prieto (cliente) acessa o Fluxo de Caixa, mas não esses controles.
@@ -363,7 +408,7 @@ function isGpsStaff(email){
   return (email||'').toLowerCase().endsWith('@gpsbi.com.br');
 }
 function isOwner(email){
-  const OWNER_EMAILS = ['anderson@tangrampersonalizados.com.br', 'gustavosilveira@gpsbi.com.br'];
+  const OWNER_EMAILS = ['financeiro@jambuzada.com.br', 'gustavosilveira@gpsbi.com.br'];
   return OWNER_EMAILS.includes((email||'').toLowerCase());
 }
 function nameFromEmail(email){ return email.split('@')[0].split('.').map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' '); }
@@ -584,9 +629,7 @@ function rowsFromGvizTable(table, contaLabel){
     if(date <= HISTORICO_CUTOFF) return null; // histórico até 30/06/2026 fica congelado pela planilha antiga
 
     const categoria = (getColNormalized(r, 'categoria')||'').toString().trim();
-    // Transferências não entram no fluxo de recebimentos/pagamentos.
-    // Além de "Transferência entre contas", qualquer categoria contendo "transferencia" é ignorada.
-    if(normalizeTxt(categoria).includes('transferencia')) return null;
+    // Na Jambuzada, transferências entram normalmente no fluxo.
 
     const origem = (getColNormalized(r, 'origem')||'').toString().trim();
     if(normalizeTxt(origem).includes('previsao')) return null; // linha de previsão, não é movimentação realizada
@@ -594,7 +637,12 @@ function rowsFromGvizTable(table, contaLabel){
     const valorRaw = getColNormalized(r, 'valor (r$)');
     const valor = parseMoneyBR(typeof valorRaw==='object' && valorRaw!==null ? (valorRaw.v ?? valorRaw.f) : valorRaw);
 
-    let grupo = resolveGrupoCategoria(categoria, valor);
+    let grupo;
+    if(normalizeTxt(categoria).includes('transferencia')){
+      grupo = valor >= 0 ? 'RECEBIMENTOS' : 'TRANSFERENCIAS';
+    } else {
+      grupo = resolveGrupoCategoria(categoria, valor);
+    }
     const categoriaFinal = canonicalizarCategoria(categoria, grupo);
     const duplicataDescontada = isDuplicataDescontadaRow(r, grupo, valor, date);
     if(duplicataDescontada) grupo = 'DUPLICATAS_DESCONTADAS';
@@ -694,12 +742,12 @@ function buildColumnTree(){
   const todayStr = today.toISOString().slice(0,10);
   const curYear = today.getFullYear(), curMonth = today.getMonth()+1;
 
-  // Fluxo limitado a 3 meses: mês vigente + 2 meses futuros (mesmo padrão
-  // aplicado no Hub Mebrasi) — não gera mais colunas além desse período,
-  // mesmo que atravesse virada de ano.
+  // Exibe desde janeiro/2026 e projeta somente até o mês vigente + 2 meses.
   const mesesPeriodo = [];
-  let cursor = new Date(curYear, today.getMonth(), 1);
-  for(let i=0; i<3; i++){
+  const inicioPeriodo = new Date(2026, 0, 1);
+  const fimPeriodo = new Date(curYear, today.getMonth()+2, 1);
+  let cursor = new Date(inicioPeriodo);
+  while(cursor <= fimPeriodo){
     mesesPeriodo.push({ y: cursor.getFullYear(), m: cursor.getMonth()+1 });
     cursor.setMonth(cursor.getMonth()+1);
   }
@@ -838,7 +886,7 @@ function gerarAnaliseFluxoTexto(){
     ``,
     ...linhasPeriodo,
     ``,
-    `👉 https://tangram.gpsbi.com.br/`
+    `👉 https://jambuzada.gpsbi.com.br/`
   ].join('\n');
 }
 function renderAnaliseFluxoWhats(){
@@ -1515,6 +1563,124 @@ async function salvarEdicaoFcMsg(id, campo){
   if(!error){ fcEditando = null; await loadFcMsgs(); }
   else alert('Erro: '+error.message);
 }
+
+
+/* ================== VISÃO SEMANAL / PRONAMPE / FORNECEDORES ================== */
+let fcProgramacoesFornecedor = JSON.parse(localStorage.getItem('jambuzada_fc_programacoes_fornecedor')||'[]');
+let fcPronampe = JSON.parse(localStorage.getItem('jambuzada_fc_pronampe')||'{"disponivel":0,"valor":0,"devolucao":""}');
+
+function isoLocal(d){
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function inicioSemana(d){
+  const x = new Date(d); const dow = x.getDay(); const diff = dow===0 ? -6 : 1-dow;
+  x.setDate(x.getDate()+diff); x.setHours(0,0,0,0); return x;
+}
+function fimSemana(d){ const x=inicioSemana(d); x.setDate(x.getDate()+6); return x; }
+
+function injetarProgramacoesFornecedor(){
+  rows = rows.filter(r=>r.fonte!=='Programação Fornecedor' && r.fonte!=='Pronampe');
+  fcProgramacoesFornecedor.forEach(p=>p.parcelas.forEach(parcela=>{
+    rows.push({date:parcela.data,categoria:'Programação Fornecedor',grupo:'FORNECEDORES',valor:-Math.abs(parcela.valor),conta:p.fornecedor,fonte:'Programação Fornecedor',nome:p.fornecedor,documento:'Rateio GPS'});
+  }));
+  if(fcPronampe.valor>0){
+    rows.push({date:todayISO(),categoria:'Pronampe - Utilização',grupo:'RECEBIMENTOS',valor:Math.abs(fcPronampe.valor),conta:'Pronampe',fonte:'Pronampe',nome:'Pronampe'});
+    if(fcPronampe.devolucao) rows.push({date:fcPronampe.devolucao,categoria:'Pronampe - Devolução',grupo:'FINANCEIRAS',valor:-Math.abs(fcPronampe.valor),conta:'Pronampe',fonte:'Pronampe',nome:'Pronampe'});
+  }
+  rows.sort((a,b)=>a.date.localeCompare(b.date));
+}
+
+function renderVisaoSemanal(){
+  const wrap=el('fcVisaoSemanal'); if(!wrap) return;
+  const base=inicioSemana(new Date()); const cards=[];
+  for(let i=0;i<4;i++){
+    const ini=new Date(base); ini.setDate(ini.getDate()+i*7);
+    const fim=fimSemana(ini); const iniStr=isoLocal(ini), fimStr=isoLocal(fim);
+    const rec=sumInRange(isRecebimento,iniStr,fimStr);
+    const pag=Math.abs(sumInRange(isPagamento,iniStr,fimStr));
+    const saldoIni=runningBalance(prevDateStr(iniStr));
+    const saldoFim=runningBalance(fimStr);
+    const necessidade=Math.max(0,-saldoFim);
+    cards.push(`<div class="fc-detail-kpi">
+      <div class="fc-detail-kpi-val">${String(ini.getDate()).padStart(2,'0')}/${String(ini.getMonth()+1).padStart(2,'0')} a ${String(fim.getDate()).padStart(2,'0')}/${String(fim.getMonth()+1).padStart(2,'0')}</div>
+      <div class="fc-detail-kpi-lbl">${i===0?'Semana atual':'Semana +'+i}</div>
+      <div style="margin-top:10px;font-size:12px;line-height:1.7">
+        Saldo inicial: <b>${fmtBRL(saldoIni)}</b><br>
+        Recebimentos: <b style="color:#4F8F3A">${fmtBRL(rec)}</b><br>
+        Pagamentos: <b style="color:var(--red)">${fmtBRL(pag)}</b><br>
+        Saldo final: <b>${fmtBRL(saldoFim)}</b><br>
+        Necessidade de caixa: <b style="color:${necessidade?'var(--red)':'#4F8F3A'}">${fmtBRL(necessidade)}</b>
+      </div>
+    </div>`);
+  }
+  wrap.innerHTML=cards.join('');
+}
+
+function carregarFornecedoresDatalist(){
+  const dl=el('fcFornecedoresList'); if(!dl) return;
+  const nomes=[...new Set(rows.filter(r=>r.valor<0 && r.nome).map(r=>r.nome))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  dl.innerHTML=nomes.map(n=>`<option value="${escapeHtml(n)}"></option>`).join('');
+}
+function proximosDiasUteis(inicio,qtd){
+  const out=[]; const d=new Date(inicio+'T00:00:00');
+  while(out.length<qtd){ if(d.getDay()!==0 && d.getDay()!==6) out.push(isoLocal(d)); d.setDate(d.getDate()+1); }
+  return out;
+}
+function programarFornecedor(){
+  const fornecedor=el('fcFornecedorNome').value.trim();
+  const valor=parseFloat(el('fcFornecedorValor').value);
+  const inicio=el('fcFornecedorInicio').value;
+  const dias=parseInt(el('fcFornecedorDias').value,10);
+  if(!fornecedor || !inicio || isNaN(valor) || valor<=0 || isNaN(dias) || dias<1){ alert('Preencha fornecedor, valor, início e dias úteis.'); return; }
+  const datas=proximosDiasUteis(inicio,dias);
+  const base=Math.floor((valor/dias)*100)/100; let acumulado=0;
+  const parcelas=datas.map((data,i)=>{ const v=i===datas.length-1?Math.round((valor-acumulado)*100)/100:base; acumulado+=v; return {data,valor:v}; });
+  fcProgramacoesFornecedor.push({id:Date.now(),fornecedor,valor,dias,inicio,parcelas});
+  localStorage.setItem('jambuzada_fc_programacoes_fornecedor',JSON.stringify(fcProgramacoesFornecedor));
+  injetarProgramacoesFornecedor(); buildAndRenderTable(); renderProgramacoesFornecedor(); renderVisaoSemanal();
+}
+function removerProgramacaoFornecedor(id){
+  fcProgramacoesFornecedor=fcProgramacoesFornecedor.filter(p=>p.id!==id);
+  localStorage.setItem('jambuzada_fc_programacoes_fornecedor',JSON.stringify(fcProgramacoesFornecedor));
+  injetarProgramacoesFornecedor(); buildAndRenderTable(); renderProgramacoesFornecedor(); renderVisaoSemanal();
+}
+function renderProgramacoesFornecedor(){
+  const wrap=el('fcFornecedorProgramacoes'); if(!wrap) return;
+  wrap.innerHTML=fcProgramacoesFornecedor.length?fcProgramacoesFornecedor.map(p=>`
+    <div class="fc-sim-entry">
+      <span class="desc">${escapeHtml(p.fornecedor)} · ${p.dias} dias úteis</span>
+      <span class="data">${formatDateBR(p.inicio)}</span>
+      <span class="valor" style="color:var(--red)">${fmtBRL(-p.valor)}</span>
+      <button class="del" onclick="removerProgramacaoFornecedor(${p.id})">✕</button>
+    </div>`).join(''):'<div style="color:var(--text3);font-size:12.5px;">Nenhuma programação cadastrada.</div>';
+}
+function aplicarPronampe(){
+  const disponivel=parseFloat(el('fcPronampeDisponivel').value)||0;
+  const valor=parseFloat(el('fcPronampeValor').value)||0;
+  const devolucao=el('fcPronampeDevolucao').value;
+  if(valor<0 || valor>disponivel){ alert('O valor utilizado precisa estar entre zero e o saldo disponível.'); return; }
+  fcPronampe={disponivel,valor,devolucao};
+  localStorage.setItem('jambuzada_fc_pronampe',JSON.stringify(fcPronampe));
+  injetarProgramacoesFornecedor(); buildAndRenderTable(); renderPronampe(); renderVisaoSemanal();
+}
+function renderPronampe(){
+  if(el('fcPronampeDisponivel')) el('fcPronampeDisponivel').value=fcPronampe.disponivel||'';
+  if(el('fcPronampeValor')) el('fcPronampeValor').value=fcPronampe.valor||'';
+  if(el('fcPronampeDevolucao')) el('fcPronampeDevolucao').value=fcPronampe.devolucao||'';
+  const wrap=el('fcPronampeResumo'); if(!wrap) return;
+  const restante=Math.max(0,(fcPronampe.disponivel||0)-(fcPronampe.valor||0));
+  wrap.innerHTML=`Disponível: <b>${fmtBRL(fcPronampe.disponivel||0)}</b> · Utilizado: <b>${fmtBRL(fcPronampe.valor||0)}</b> · Restante: <b>${fmtBRL(restante)}</b>${fcPronampe.devolucao?` · Devolução prevista: <b>${formatDateBR(fcPronampe.devolucao)}</b>`:''}`;
+}
+
+const buildAndRenderTableOriginal = buildAndRenderTable;
+buildAndRenderTable = function(){
+  injetarProgramacoesFornecedor();
+  buildAndRenderTableOriginal();
+  renderVisaoSemanal();
+  renderProgramacoesFornecedor();
+  renderPronampe();
+  carregarFornecedoresDatalist();
+};
 
 init();
 </script>
