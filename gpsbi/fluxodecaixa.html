@@ -1,0 +1,1558 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fluxo de Caixa · Hub GPSBI</title>
+<link rel="stylesheet" href="theme.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+html{zoom:.8;}
+.fc-page-content{max-width:100% !important;padding:16px 14px !important;}
+.fc-wrap{overflow:auto;max-height:80vh;border-radius:12px;border:1px solid var(--border2);}
+.fc-table{border-collapse:separate;border-spacing:0;font-size:11.5px;width:max-content;min-width:100%;}
+.fc-table th,.fc-table td{padding:7px 10px;white-space:nowrap;text-align:right;border-bottom:1px solid var(--border);}
+.fc-table th{position:sticky;top:0;background:var(--navy2);z-index:3;color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.03em;}
+.fc-table th.fc-today,.fc-table td.fc-today{background:rgba(45,112,184,.20) !important;}
+.fc-table th:first-child,.fc-table td:first-child{position:sticky;left:0;background:var(--navy2);z-index:4;text-align:left;min-width:220px;}
+html.light .fc-table th,html.light .fc-table td:first-child,html.light .fc-table th:first-child{background:#fff;}
+.fc-toggle{display:inline-block;width:18px;cursor:pointer;user-select:none;color:var(--text2);font-size:14px;font-weight:900;}
+.fc-row-label:hover .fc-toggle{color:var(--cyan);}
+.fc-col-toggle{cursor:pointer;color:var(--cyan);font-weight:900;font-size:15px;padding:2px 4px;}
+.fc-dow{font-size:9px;color:var(--text3);font-weight:700;letter-spacing:.03em;}
+.fc-row-label{cursor:pointer;user-select:none;}
+.fc-row-label:hover{color:var(--cyan);}
+.fc-lvl-0{font-weight:800;font-size:12.5px;}
+.fc-lvl-0 td{background:var(--navy3);}
+html.light .fc-lvl-0 td{background:#eef1f6;}
+.fc-lvl-1{font-weight:700;padding-left:14px;}
+.fc-lvl-2{padding-left:28px;color:var(--text2);}
+.fc-saldo-pos{color:#4F8F3A;font-weight:800;}
+.fc-saldo-neg{color:var(--red);font-weight:800;background:rgba(239,106,106,.08);}
+.fc-limite-alert{position:relative;overflow:visible;}
+.fc-limit-head{position:relative;display:inline-flex;align-items:center;justify-content:center;}
+.fc-day-head{position:relative;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;line-height:1.05;}
+.fc-day-top{display:inline-flex;align-items:center;justify-content:center;gap:5px;}
+.fc-day-num{font-size:10px;color:var(--text);font-weight:800;}
+html.light .fc-day-num{color:#1f2a3d;}
+.fc-limit-dot{width:9px;height:9px;border-radius:999px;background:var(--gold);display:inline-block;box-shadow:0 0 0 0 rgba(245,185,66,.55);animation:fcLimitPulse 1.65s ease-in-out infinite;vertical-align:middle;flex:none;}
+.fc-limit-dot.previo{background:var(--gold);}
+.fc-limit-dot.alert{background:#F5B942;}
+.fc-limit-dot.critico{background:#EF6A6A;box-shadow:0 0 0 0 rgba(239,106,106,.45);}
+.fc-limit-dot.atencao{background:#F08A24;box-shadow:0 0 0 0 rgba(240,138,36,.45);}
+.fc-limit-tooltip{position:absolute;left:50%;top:100%;transform:translate(-50%,8px);min-width:220px;background:var(--navy2);color:var(--text);border:1px solid var(--border2);border-radius:10px;padding:10px 12px;box-shadow:0 18px 45px rgba(0,0,0,.28);font-size:11px;line-height:1.35;text-transform:none;letter-spacing:0;white-space:normal;text-align:left;opacity:0;visibility:hidden;pointer-events:none;z-index:50;}
+.fc-limit-tooltip b{display:block;color:var(--gold);font-size:11.5px;margin-bottom:6px;}
+.fc-limit-tooltip .row{display:flex;justify-content:space-between;gap:12px;margin-top:4px;}
+.fc-limit-tooltip .muted{color:var(--text3);margin-top:7px;}
+.fc-limit-head:hover .fc-limit-tooltip,.fc-day-head:hover .fc-limit-tooltip{opacity:1;visibility:visible;}
+@keyframes fcLimitPulse{0%,100%{transform:scale(.82);opacity:.72;box-shadow:0 0 0 0 rgba(245,185,66,.38);}50%{transform:scale(1.18);opacity:1;box-shadow:0 0 0 6px rgba(245,185,66,0);}}
+.fc-legend{display:flex;gap:18px;align-items:center;font-size:11.5px;color:var(--text3);margin-top:10px;flex-wrap:wrap;}
+.fc-legend span{display:flex;align-items:center;gap:6px;}
+.fc-dot{width:10px;height:10px;border-radius:3px;display:inline-block;}
+.fc-denied{max-width:520px;margin:80px auto;text-align:center;}
+
+/* Novas seções abaixo do fluxo de caixa (não afetam o layout da tabela principal) */
+.fc-sim-form{display:grid;grid-template-columns:1.4fr 1fr 160px auto;gap:10px;align-items:end;}
+.fc-ajustes-row{display:grid;grid-template-columns:1fr 1px 1fr;gap:20px;align-items:start;}
+.fc-ajustes-col{min-width:0;}
+.fc-ajustes-divider{background:var(--border2);align-self:stretch;}
+.fc-mini-form{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;}
+.fc-mini-form-4{grid-template-columns:1fr 1fr 120px auto;}
+.fc-mini-form input{font-size:12px;padding:8px 10px;}
+.fc-mini-title{font-size:13.5px;font-weight:800;margin-bottom:3px;}
+.fc-mini-sub{font-size:11px;color:var(--text3);margin-bottom:12px;line-height:1.4;}
+@media(max-width:900px){
+  .fc-ajustes-row{grid-template-columns:1fr;}
+  .fc-ajustes-divider{display:none;}
+  .fc-mini-form,.fc-mini-form-4{grid-template-columns:1fr;}
+}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.55);display:none;align-items:center;justify-content:center;z-index:300;}
+.modal-overlay.show{display:flex;}
+.modal-box{background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius);padding:24px;width:460px;max-width:92vw;max-height:80vh;overflow-y:auto;box-shadow:0 30px 70px rgba(0,0,0,.5);}
+.modal-title{font-size:16px;font-weight:700;margin-bottom:4px;}
+.modal-sub{font-size:12px;color:var(--text3);margin-bottom:16px;}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;}
+.fc-saldo-form{display:grid;grid-template-columns:200px 200px auto;gap:10px;align-items:end;}
+.fc-saldo-status{font-size:12.5px;color:var(--text2);background:var(--navy3);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.fc-sim-table-wrap{overflow-x:auto;}
+.fc-sim-table{width:100%;border-collapse:collapse;font-size:12px;}
+.fc-sim-table th{text-align:right;font-size:10px;color:var(--text3);text-transform:uppercase;padding:8px 10px;border-bottom:1px solid var(--border2);}
+.fc-sim-table th:first-child,.fc-sim-table td:first-child{text-align:left;}
+.fc-sim-table td{text-align:right;padding:8px 10px;font-family:'DM Mono',monospace;border-bottom:1px solid var(--border);white-space:nowrap;}
+.fc-sim-entry{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;background:var(--navy3);margin-bottom:8px;}
+.fc-sim-entry .desc{flex:1;font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
+.fc-sim-entry .valor{font-family:'DM Mono',monospace;font-weight:700;flex:none;}
+.fc-sim-entry .data{color:var(--text3);font-size:11.5px;flex:none;}
+.fc-sim-entry .del{flex:none;background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:14px;}
+.fc-sim-entry .del:hover{color:var(--red);}
+
+.fc-msg-form{display:grid;grid-template-columns:220px 1fr auto;gap:10px;align-items:start;}
+.fc-msg-item{background:var(--navy3);border-radius:12px;padding:14px 16px;margin-bottom:10px;}
+.fc-msg-head{display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:nowrap;}
+.fc-msg-autor{font-size:12.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1;}
+.fc-msg-date{font-size:10.5px;color:var(--text3);flex:none;white-space:nowrap;}
+.fc-msg-tipo{font-size:10px;font-weight:700;padding:3px 9px;border-radius:999px;flex:none;white-space:nowrap;}
+.fc-msg-tipo.observacao{background:rgba(45,112,184,.15);color:#2D70B8;}
+.fc-msg-tipo.aviso{background:rgba(245,185,66,.15);color:var(--gold);}
+.fc-msg-tipo.solicitacao{background:rgba(155,127,232,.15);color:var(--purple);}
+.fc-msg-text{font-size:13px;color:var(--text2);line-height:1.5;white-space:pre-wrap;margin-bottom:8px;}
+.fc-msg-status{display:inline-block;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;}
+.fc-msg-status.aberto{background:rgba(245,185,66,.15);color:var(--gold);}
+.fc-msg-status.resolvido,.fc-msg-status.aprovado{background:rgba(47,214,184,.15);color:#98C47C;}
+.fc-msg-status.recusado{background:rgba(239,106,106,.15);color:var(--red);}
+.fc-msg-resposta{margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:12px;color:var(--text2);}
+.fc-msg-reacoes-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;}
+.fc-msg-reacao-btn{display:flex;align-items:center;gap:5px;padding:5px 11px;border-radius:999px;background:var(--navy4);border:1px solid var(--border2);cursor:pointer;font-size:12px;font-weight:700;color:var(--text2);}
+.fc-msg-reacao-btn.active{background:rgba(58,233,209,.15);color:var(--cyan);border-color:rgba(58,233,209,.3);}
+.fc-msg-reacao-btn:disabled{cursor:default;opacity:.85;}
+.fc-msg-leram{font-size:11px;color:var(--text3);cursor:help;}
+.fc-msg-resposta-form{margin-top:10px;padding:10px 12px;background:var(--navy4);border-radius:10px;}
+.fc-msg-resposta-form-label{font-size:11.5px;font-weight:700;color:var(--text2);margin-bottom:6px;}
+.fc-msg-edit-link{font-size:11px;color:var(--cyan);cursor:pointer;font-weight:700;white-space:nowrap;}
+.fc-msg-edit-box{margin-bottom:8px;}
+.fc-msg-edit-box textarea{width:100%;}
+.fc-msg-filtros{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;}
+.fc-msg-filtros select{width:auto;min-width:160px;}
+.fc-msg-filtros input{flex:1;min-width:180px;}
+.fc-msg-scroll{margin-top:16px;max-height:600px;overflow-y:auto;padding-right:6px;}
+@media(max-width:900px){ .fc-sim-form,.fc-msg-form,.fc-saldo-form{grid-template-columns:1fr;} }
+
+/* Ficha detalhada ao clicar nos valores do fluxo */
+.fc-clickable-cell{cursor:pointer;transition:background .14s,color .14s,font-weight .14s;}
+.fc-clickable-cell:hover{font-weight:700;}
+.fc-clickable-cell.fc-hover-receita:hover{background:rgba(47,214,184,.12)!important;color:#2fd6b8;}
+.fc-clickable-cell.fc-hover-despesa:hover{background:rgba(239,106,106,.10)!important;color:var(--red);}
+.fc-detail-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}
+.fc-detail-kpi{background:var(--navy3);border-radius:10px;padding:12px 14px;}
+.fc-detail-kpi-val{font-family:'DM Mono',monospace;font-weight:800;font-size:15px;}
+.fc-detail-kpi-lbl{font-size:10.5px;color:var(--text3);margin-top:3px;}
+.fc-detail-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:10px;table-layout:fixed;}
+.fc-detail-table th{font-size:10px;color:var(--text3);text-transform:uppercase;text-align:left;padding:8px;border-bottom:1px solid var(--border2);}
+.fc-detail-table th.num,.fc-detail-table td.num{text-align:right;font-family:'DM Mono',monospace;}
+.fc-detail-table td{padding:9px 8px;border-bottom:1px solid var(--border);}
+.fc-detail-table td.wrap{white-space:normal;line-height:1.35;overflow-wrap:anywhere;}
+.fc-detail-table td.small{font-size:11.5px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.fc-detail-table td.valor-modal{white-space:nowrap;text-align:right;font-family:'DM Mono',monospace;}
+.fc-detail-list{max-height:340px;overflow-y:auto;overflow-x:hidden;margin-top:10px;border-radius:10px;border:1px solid var(--border);}
+.fc-detail-list .fc-detail-table th:nth-child(1),.fc-detail-list .fc-detail-table td:nth-child(1){width:95px;}
+.fc-detail-list .fc-detail-table th:nth-child(2),.fc-detail-list .fc-detail-table td:nth-child(2){width:125px;}
+.fc-detail-list .fc-detail-table th:nth-child(3),.fc-detail-list .fc-detail-table td:nth-child(3){width:auto;}
+.fc-detail-list .fc-detail-table th:nth-child(4),.fc-detail-list .fc-detail-table td:nth-child(4){width:125px;}
+.fc-detail-list .fc-detail-table th:nth-child(5),.fc-detail-list .fc-detail-table td:nth-child(5){width:75px;}
+.fc-detail-list .fc-detail-table th:nth-child(6),.fc-detail-list .fc-detail-table td:nth-child(6){width:95px;}
+.fc-detail-muted{font-size:11.5px;color:var(--text3);line-height:1.45;margin-top:8px;}
+@media(max-width:760px){.fc-detail-summary{grid-template-columns:1fr;}}
+
+</style>
+</head>
+<body>
+
+<div class="loading-screen" id="loadingScreen">
+  <div class="spinner"></div>
+  <p id="loadingMsg">Carregando fluxo de caixa...</p>
+</div>
+
+<div id="deniedScreen" style="display:none;">
+  <div class="content">
+    <div class="card fc-denied">
+      <div class="card-title">🔒 Acesso restrito</div>
+      <div class="card-sub">Essa página é exclusiva pra administração financeira. Fala com o Gustavo ou o Giovanna se precisar de acesso.</div>
+    </div>
+  </div>
+</div>
+
+<div id="mainContent" style="display:none;">
+  <div class="content wide fc-page-content">
+    <div class="card">
+      <div class="card-title">💰 Fluxo de Caixa</div>
+      <div class="card-sub">Clique nas setinhas pra abrir/fechar anos, meses e dias — e as categorias dentro de Recebimentos e Pagamentos. Saldo acumulado dia a dia.</div>
+      <div class="fc-wrap"><table class="fc-table" id="fcTable"></table></div>
+      <div class="fc-legend">
+        <span><span class="fc-dot" style="background:#98C47C"></span> Saldo positivo</span>
+        <span><span class="fc-dot" style="background:var(--red)"></span> Saldo negativo</span>
+        <span><span class="fc-dot" style="background:#2D70B8"></span> Hoje</span>
+      </div>
+      <div id="fcDebugStats" style="font-size:11px;color:var(--text3);margin-top:8px;"></div>
+    </div>
+
+    <!-- Modal: histórico do Saldo Inicial -->
+    <div class="modal-overlay" id="saldoInicialModal">
+      <div class="modal-box">
+        <div class="modal-title">🏁 Saldo Inicial</div>
+        <div class="modal-sub">Status atual do saldo inicial ativo no Fluxo de Caixa.</div>
+        <div class="fc-saldo-status" id="fcSaldoInicialStatus"></div>
+        <div class="modal-actions"><button class="btn btn-ghost" onclick="closeSaldoInicialModal()">Fechar</button></div>
+      </div>
+    </div>
+
+    <!-- Modal: histórico dos Lançamentos Manuais -->
+    <div class="modal-overlay" id="ajustesManuaisModal">
+      <div class="modal-box" style="width:520px;">
+        <div class="modal-title">🖊️ Lançamentos Manuais</div>
+        <div class="modal-sub">Todos os valores lançados à mão que estão entrando no Saldo Acumulado hoje.</div>
+        <div id="fcAjusteList"></div>
+        <div class="modal-actions"><button class="btn btn-ghost" onclick="closeAjustesManuaisModal()">Fechar</button></div>
+      </div>
+    </div>
+
+    <!-- Modal: ficha do item do Fluxo -->
+    <div class="modal-overlay" id="fluxoFichaModal">
+      <div class="modal-box" style="width:1180px;max-width:96vw;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+          <div>
+            <div class="modal-title" id="fluxoFichaTitulo">Ficha do Fluxo</div>
+            <div class="modal-sub" id="fluxoFichaSub">Detalhamento dos lançamentos.</div>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="closeFluxoFicha()">Fechar</button>
+        </div>
+        <div id="fluxoFichaBody"></div>
+      </div>
+    </div>
+
+    <!-- ============ NOVO: Simulador de impacto no saldo ============ -->
+    <div class="card">
+      <div class="card-title">🧪 Simulador de Impacto no Saldo</div>
+      <div class="card-sub">Simule a entrada de uma receita ou despesa e veja como o saldo dos próximos dias mudaria — sem alterar nada na base real.</div>
+      <div class="fc-sim-form">
+        <div class="field-group" style="margin-bottom:0;">
+          <label class="field-label">Descrição</label>
+          <input type="text" id="fcSimDesc" placeholder="Ex: Recebimento cliente X, Pagamento fornecedor Y...">
+        </div>
+        <div class="field-group" style="margin-bottom:0;">
+          <label class="field-label">Valor (R$) — negativo se for despesa</label>
+          <input type="number" id="fcSimValor" placeholder="Ex: 15000 ou -8000">
+        </div>
+        <div class="field-group" style="margin-bottom:0;">
+          <label class="field-label">Data</label>
+          <input type="date" id="fcSimData">
+        </div>
+        <button class="btn btn-primary" onclick="addFcSimEntry()">Adicionar</button>
+      </div>
+      <div id="fcSimList" style="margin:14px 0;"></div>
+      <div class="fc-sim-table-wrap" id="fcSimTableWrap" style="display:none;">
+        <table class="fc-sim-table">
+          <thead><tr><th>Data</th><th>Saldo Real</th><th>Saldo Simulado</th><th>Diferença</th></tr></thead>
+          <tbody id="fcSimTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ============ NOVO: Observações, avisos e solicitações ============ -->
+    <div class="card">
+      <div class="card-title">📋 Observações, Avisos e Solicitações</div>
+      <div class="card-sub">Espaço da GPS e do Giovanna pra registrar observações, avisar algo importante ou pedir uma ação — tudo com histórico.</div>
+      <div class="fc-msg-form">
+        <select id="fcMsgTipo">
+          <option value="observacao">📝 Observação</option>
+          <option value="aviso">⚠️ Aviso</option>
+          <option value="solicitacao">🙋 Solicitação (precisa de resposta)</option>
+        </select>
+        <textarea id="fcMsgTexto" placeholder="Escreva aqui..."></textarea>
+        <button class="btn btn-primary" onclick="submitFcMsg()">Publicar</button>
+      </div>
+      <div class="fc-msg-filtros">
+        <select id="fcMsgFiltroTipo" onchange="aplicarFiltrosFcMsgs()">
+          <option value="">Todos os tipos</option>
+          <option value="observacao">📝 Observação</option>
+          <option value="aviso">⚠️ Aviso</option>
+          <option value="solicitacao">🙋 Solicitação</option>
+        </select>
+        <select id="fcMsgFiltroStatus" onchange="aplicarFiltrosFcMsgs()">
+          <option value="">Todos os status</option>
+          <option value="aberto">⏳ Aberto</option>
+          <option value="resolvido">✓ Resolvido</option>
+          <option value="aprovado">✓ Aprovado</option>
+          <option value="recusado">✕ Recusado</option>
+        </select>
+        <input type="text" id="fcMsgFiltroBusca" placeholder="Buscar no texto..." oninput="aplicarFiltrosFcMsgs()">
+      </div>
+      <div id="fcMsgList" class="fc-msg-scroll"></div>
+    </div>
+
+    <!-- A partir daqui: visões só do time GPS. Ficam sempre por último na
+         página, independente de outras mudanças futuras. -->
+    <div class="card" id="fcAjustesGpsCard">
+      <div class="fc-ajustes-row">
+        <div class="fc-ajustes-col">
+          <div class="fc-mini-title">🏁 Saldo Inicial</div>
+          <div class="fc-mini-sub">Define o saldo numa data — o Acumulado passa a respeitar isso a partir dali. Visível só pro time GPS.</div>
+          <div class="fc-mini-form">
+            <input type="date" id="fcSaldoInicialData">
+            <input type="number" id="fcSaldoInicialValor" placeholder="Saldo (R$)">
+            <button class="btn btn-primary btn-sm" onclick="applySaldoInicial()">Aplicar</button>
+          </div>
+          <button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="openSaldoInicialModal()">Ver detalhes</button>
+
+          <div class="fc-mini-title" style="margin-top:16px;">🚨 Limite da Conta</div>
+          <div class="fc-mini-sub">Marca no Saldo Acumulado o primeiro dia em que o fluxo ultrapassa o limite negativo da conta.</div>
+          <div class="fc-mini-form">
+            <input type="number" id="fcLimiteContaValor" placeholder="Limite (R$)">
+            <button class="btn btn-primary btn-sm" onclick="applyLimiteConta()">Aplicar</button>
+          </div>
+        </div>
+        <div class="fc-ajustes-divider"></div>
+        <div class="fc-ajustes-col">
+          <div class="fc-mini-title">🖊️ Lançamentos Manuais</div>
+          <div class="fc-mini-sub">Valor lançado à mão (despesa sem categoria ainda, etc). Entra de verdade no Saldo Acumulado. Visível só pro time GPS.</div>
+          <div class="fc-mini-form fc-mini-form-4">
+            <input type="text" id="fcAjusteDesc" placeholder="Descrição">
+            <input type="number" id="fcAjusteValor" placeholder="Valor (R$)">
+            <input type="date" id="fcAjusteData">
+            <button class="btn btn-primary btn-sm" onclick="addAjusteManual()">Adicionar</button>
+          </div>
+          <button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="openAjustesManuaisModal()">Ver lançamentos <span id="fcAjusteCount"></span></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="analiseFluxoWhatsCard" style="display:none;">
+      <div class="card-title">📋 Análise pronta pra WhatsApp</div>
+      <div class="card-sub">Texto pronto com o saldo e a previsão do fluxo — cole direto no grupo do cliente. Visível só pro time GPS.</div>
+      <pre id="analiseFluxoWhatsTexto" style="white-space:pre-wrap;font-family:'Sora',sans-serif;font-size:13px;line-height:1.7;background:var(--navy3);border-radius:10px;padding:14px 16px;margin-bottom:12px;max-height:90px;overflow-y:auto;"></pre>
+      <button id="analiseFluxoWhatsBtn" style="padding:9px 18px;border-radius:9px;border:none;font-weight:700;cursor:pointer;color:#fff;background:linear-gradient(90deg,var(--blue),var(--cyan));font-family:'Sora',sans-serif;font-size:12.5px;">📋 Copiar texto</button>
+    </div>
+  </div>
+</div>
+
+<script src="nav.js"></script>
+<script>
+const SUPABASE_URL = 'https://mczggrocmccvmyglnumv.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jemdncm9jbWNjdm15Z2xudW12Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMjM2NzcsImV4cCI6MjA5ODU5OTY3N30.XXzhDvxfNaUW61HvgE4xuqzSICoLEYjbJhd1X52Zp84';
+const SHEET_ID = '14r3oIVB4U7VNM_tVkVVVa4sSUJ_ePVV3iTmHHr5rNb4';
+const GID_MOVIMENTACAO = '0';
+// Aba "Movimentação da Conta Agência" — mesmo arquivo, aba separada.
+const GID_MOVIMENTACAO_AGENCIA = '';
+// Aba "Desconto duplicada" — lista de boletos já descontados/antecipados.
+const GID_DESCONTO_DUPLICADA = '';
+const LOGIN_URL = 'index.html';
+
+// Histórico validado do fluxo antigo: até 30/06/2026.
+// A partir de 01/07/2026, o fluxo volta a ler normalmente as abas de movimentação.
+const HISTORICO_CUTOFF = '1900-01-01';
+const HISTORICO_SALDO = {};
+const HISTORICO_VALORES = {};
+const HISTORICO_ROW_DEFS = [{"categoria":"Inclusão de Ped.","grupo":"RECEBIMENTOS"},{"categoria":"Previsão - Desconto Duplicatas","grupo":"RECEBIMENTOS"},{"categoria":"Realziado - Desconto Duplicatas","grupo":"RECEBIMENTOS"},{"categoria":"Simulador","grupo":"RECEBIMENTOS"},{"categoria":"Itaú Unibanco","grupo":"RECEBIMENTOS"},{"categoria":"Banco do Brasil","grupo":"RECEBIMENTOS"},{"categoria":"Itaú Unibanco - Agencia","grupo":"RECEBIMENTOS"},{"categoria":"Safra","grupo":"RECEBIMENTOS"},{"categoria":"Mercado pago","grupo":"RECEBIMENTOS"},{"categoria":"Adiantamento de Cliente","grupo":"RECEBIMENTOS"},{"categoria":"Itaú Unibanco - Desconto Duplicata","grupo":"RECEBIMENTOS"},{"categoria":"Itaú Unibanco - Garantida","grupo":"RECEBIMENTOS"},{"categoria":"Transferência entre contas","grupo":"RECEBIMENTOS"},{"categoria":"Adiantamento MRS Logística SA.","grupo":"RECEBIMENTOS"},{"categoria":"Aporte - Investimento","grupo":"RECEBIMENTOS"},{"categoria":"Clientes - Revenda De Mercadoria","grupo":"RECEBIMENTOS"},{"categoria":"Clientes - Serviços Prestados","grupo":"RECEBIMENTOS"},{"categoria":"Eventos","grupo":"RECEBIMENTOS"},{"categoria":"Frete","grupo":"RECEBIMENTOS"},{"categoria":"Devoluções de Compra de Mercadoria de Revenda","grupo":"RECEBIMENTOS"},{"categoria":"Estorno desconto duplicata","grupo":"RECEBIMENTOS"},{"categoria":"Reembolso De Despesas","grupo":"RECEBIMENTOS"},{"categoria":"Devoluções de Compra de Serviços","grupo":"RECEBIMENTOS"},{"categoria":"Rendimentos De Aplicações","grupo":"RECEBIMENTOS"},{"categoria":"Empréstimos Bancários","grupo":"RECEBIMENTOS"},{"categoria":"Venda de Veículo","grupo":"RECEBIMENTOS"},{"categoria":"Recebimentos sem identificação","grupo":"RECEBIMENTOS"},{"categoria":"Adiantamento de Clientes","grupo":"RECEBIMENTOS"},{"categoria":"Icms","grupo":"DEDUCOES"},{"categoria":"Cofins","grupo":"DEDUCOES"},{"categoria":"Pis","grupo":"DEDUCOES"},{"categoria":"Darf","grupo":"DEDUCOES"},{"categoria":"GNRE DIFAL","grupo":"DEDUCOES"},{"categoria":"ISS","grupo":"DEDUCOES"},{"categoria":"Simples Nacional (Das)","grupo":"DEDUCOES"},{"categoria":"Comissões","grupo":"DEDUCOES"},{"categoria":"Irpj","grupo":"DEDUCOES"},{"categoria":"Csll","grupo":"DEDUCOES"},{"categoria":"Irrf","grupo":"DEDUCOES"},{"categoria":"Taxas Prefeitura","grupo":"DEDUCOES"},{"categoria":"Tarifa Prefeitura","grupo":"DEDUCOES"},{"categoria":"Bonificações","grupo":"DEDUCOES"},{"categoria":"Estorno De Credito Em Duplicidade","grupo":"DEDUCOES"},{"categoria":"Adiantamento ao Fornecedor","grupo":"FORNECEDORES"},{"categoria":"Compras De Materia Prima","grupo":"FORNECEDORES"},{"categoria":"Serasa","grupo":"FORNECEDORES"},{"categoria":"Compra De Serviços","grupo":"FORNECEDORES"},{"categoria":"Cartão De Crédito Compras","grupo":"FORNECEDORES"},{"categoria":"XBZ","grupo":"FORNECEDORES"},{"categoria":"Compras De Mercadorias Para Revenda","grupo":"FORNECEDORES"},{"categoria":"Consultoria (Gps)","grupo":"FORNECEDORES"},{"categoria":"CONSULTORIA (DOMINIO)","grupo":"FORNECEDORES"},{"categoria":"Consultoria","grupo":"FORNECEDORES"},{"categoria":"Adiantamento Pluris","grupo":"FORNECEDORES"},{"categoria":"Sociedade da Pluris","grupo":"FORNECEDORES"},{"categoria":"Adiantamento Fornecedor","grupo":"FORNECEDORES"},{"categoria":"Eventos - Repasse","grupo":"FORNECEDORES"},{"categoria":"Amostra","grupo":"FORNECEDORES"},{"categoria":"Devoluções de Vendas de Mercadoria","grupo":"FORNECEDORES"},{"categoria":"Juros Sobre Empréstimos","grupo":"FINANCEIRAS"},{"categoria":"Desconto duplicata","grupo":"FINANCEIRAS"},{"categoria":"IOF","grupo":"FINANCEIRAS"},{"categoria":"Cheque Devolvido","grupo":"FINANCEIRAS"},{"categoria":"Tarifas Bancárias","grupo":"FINANCEIRAS"},{"categoria":"Cartão de crédito - Anju","grupo":"FINANCEIRAS"},{"categoria":"Cartão coorporativo","grupo":"FINANCEIRAS"},{"categoria":"Cartão de crédito - Prieto","grupo":"FINANCEIRAS"},{"categoria":"Pagamento De Empréstimos","grupo":"FINANCEIRAS"},{"categoria":"Adiantamento","grupo":"PESSOAL"},{"categoria":"Salários","grupo":"PESSOAL"},{"categoria":"Férias","grupo":"PESSOAL"},{"categoria":"Vale Refeição","grupo":"PESSOAL"},{"categoria":"Vale Transporte","grupo":"PESSOAL"},{"categoria":"Outros Benefícios","grupo":"PESSOAL"},{"categoria":"13º Salário","grupo":"PESSOAL"},{"categoria":"Rescisões","grupo":"PESSOAL"},{"categoria":"Assistência Médica","grupo":"PESSOAL"},{"categoria":"Fgts","grupo":"PESSOAL"},{"categoria":"Funcionários Extras","grupo":"PESSOAL"},{"categoria":"Retirada","grupo":"RETIRADA"},{"categoria":"Mentoria","grupo":"PESSOAL"},{"categoria":"Alimentação","grupo":"PESSOAL"},{"categoria":"Treinamento","grupo":"PESSOAL"},{"categoria":"Exame Admissional","grupo":"PESSOAL"},{"categoria":"Distribuição De Lucros","grupo":"PESSOAL"},{"categoria":"Reembolso de despesas","grupo":"PESSOAL"},{"categoria":"Contribuição Social","grupo":"PESSOAL"},{"categoria":"Inss","grupo":"PESSOAL"},{"categoria":"Seguro De Vida","grupo":"PESSOAL"},{"categoria":"Despesas Viagem China","grupo":"PESSOAL"},{"categoria":"Recrutamento E Seleção","grupo":"PESSOAL"},{"categoria":"Aluguel","grupo":"ADMIN"},{"categoria":"Aluguel Pluris","grupo":"ADMIN"},{"categoria":"Internet","grupo":"ADMIN"},{"categoria":"Telefonia","grupo":"ADMIN"},{"categoria":"Energia Elétrica","grupo":"ADMIN"},{"categoria":"Água E Esgoto","grupo":"ADMIN"},{"categoria":"Contabilidade","grupo":"ADMIN"},{"categoria":"Seguros","grupo":"ADMIN"},{"categoria":"Consultoria (T.I Edson)","grupo":"ADMIN"},{"categoria":"Limpeza","grupo":"ADMIN"},{"categoria":"Aplicação Cdb","grupo":"ADMIN"},{"categoria":"Sistema Erp","grupo":"ADMIN"},{"categoria":"Advogados","grupo":"ADMIN"},{"categoria":"Manutenção De Imobilizado","grupo":"ADMIN"},{"categoria":"Aluguel de equipamento (Impressora)","grupo":"ADMIN"},{"categoria":"ALUGUEL DE EQUIPAMENTOS","grupo":"ADMIN"},{"categoria":"Material De Escritório","grupo":"ADMIN"},{"categoria":"Móveis e Utensílios","grupo":"ADMIN"},{"categoria":"SECRETARIA VIRTUAL","grupo":"ADMIN"},{"categoria":"DOAÇÕES","grupo":"ADMIN"},{"categoria":"Licitações","grupo":"ADMIN"},{"categoria":"Veículos","grupo":"LOGISTICA"},{"categoria":"Sem Parar","grupo":"LOGISTICA"},{"categoria":"Frete","grupo":"LOGISTICA"},{"categoria":"Combustivel","grupo":"LOGISTICA"},{"categoria":"Motorista Extra","grupo":"LOGISTICA"},{"categoria":"IPVA,LICENCIAMENTO E MULTAS","grupo":"LOGISTICA"},{"categoria":"Maquinas e Equipamentos","grupo":"LOGISTICA"},{"categoria":"Marketing","grupo":"MARKETING_TI"},{"categoria":"Site GPSBI","grupo":"MARKETING_TI"},{"categoria":"EBS Feiras","grupo":"MARKETING_TI"},{"categoria":"Feiras e Eventos","grupo":"MARKETING_TI"},{"categoria":"Crédito Celular","grupo":"MARKETING_TI"},{"categoria":"Campanhas Comemorativas - Endomarketing","grupo":"MARKETING_TI"},{"categoria":"Campanhas Comemorativas","grupo":"MARKETING_TI"},{"categoria":"WORKSHOP","grupo":"MARKETING_TI"}];
+
+
+function normalizeTxt(s){
+  return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+}
+// Busca o valor de uma coluna pelo nome "normalizado" (sem acento/maiúscula),
+// pra não depender de bater a grafia exata do cabeçalho vindo do Google Sheets.
+function getColNormalized(rowObj, wantedKeyNormalized){
+  for(const k in rowObj){
+    if(normalizeTxt(k)===wantedKeyNormalized) return rowObj[k];
+  }
+  return undefined;
+}
+
+// Acesso a essa página é diferente do "admin" geral do Hub:
+// aqui é qualquer e-mail @gpsbi.com.br + o Giovanna (definido junto com o Gustavo).
+function canAccessFluxo(email){
+  email = (email||'').toLowerCase();
+  return ['gustavosilveira@gpsbi.com.br','giovanna@gpsbi.com.br'].includes(email);
+}
+// Alguns recursos (Saldo Inicial, Lançamentos Manuais) são só do time interno GPS —
+// o Giovanna/Prieto (cliente) acessa o Fluxo de Caixa, mas não esses controles.
+function isGpsStaff(email){
+  return (email||'').toLowerCase().endsWith('@gpsbi.com.br');
+}
+function isOwner(email){
+  const OWNER_EMAILS = ['gustavosilveira@gpsbi.com.br', 'giovanna@gpsbi.com.br'];
+  return OWNER_EMAILS.includes((email||'').toLowerCase());
+}
+function nameFromEmail(email){ return email.split('@')[0].split('.').map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' '); }
+function el(id){ return document.getElementById(id); }
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ---- Categoria -> Grupo (revisado com o Gustavo) ----
+const CATEGORIA_GRUPO = {"Clientes - Revenda de Mercadoria": "RECEBIMENTOS", "Saque MP": "RECEBIMENTOS", "Empréstimos Bancários": "RECEBIMENTOS", "Adiantamento de Clientes": "RECEBIMENTOS", "Rendimentos de Aplicações": "RECEBIMENTOS", "Devoluções de Compra de Mercadoria de Revenda": "RECEBIMENTOS", "Vendas de Mercadoria - Online": "RECEBIMENTOS", "Eventos": "RECEBIMENTOS", "Recebimentos sem identificação": "RECEBIMENTOS", "Estorno desconto duplicata": "RECEBIMENTOS", "Aporte - Investimento": "RECEBIMENTOS", "Devoluções de Compra de Serviços": "RECEBIMENTOS", "Clientes - Serviços Prestados": "RECEBIMENTOS", "Clientes - Venda de Mercadoria Fabricadas": "RECEBIMENTOS", "amostra": "RECEBIMENTOS", "Reembolso de Despesas": "OUTROS", "REEMBOLSO EMPRESTIMO FUNCIONARIO": "RECEBIMENTOS", "Devoluções de Vendas de Mercadoria": "RECEBIMENTOS", "ICMS": "DEDUCOES", "COFINS": "DEDUCOES", "PIS": "DEDUCOES", "DARF": "DEDUCOES", "GNRE DIFAL": "DEDUCOES", "ISS": "DEDUCOES", "Simples Nacional (DAS)": "DEDUCOES", "COMISSÕES": "DEDUCOES", "IRPJ": "DEDUCOES", "CSLL": "DEDUCOES", "Taxas Prefeitura": "DEDUCOES", "Bonificações": "DEDUCOES", "ESTORNO DE CREDITO EM DUPLICIDADE": "DEDUCOES", "Compras de Mercadorias para Revenda": "FORNECEDORES", "Compras de Materia Prima": "FORNECEDORES", "Compra de Serviços": "FORNECEDORES", "Adiantamento ao Fornecedor": "FORNECEDORES", "XBZ": "FORNECEDORES", "Tarifas Bancárias": "FINANCEIRAS", "Juros sobre Empréstimos": "FINANCEIRAS", "IOF": "FINANCEIRAS", "Desconto duplicata": "FINANCEIRAS", "Cheque Devolvido": "FINANCEIRAS", "Pagamento de Empréstimos": "FINANCEIRAS", "PAGAMENTO DE EMPRÉSTIMOS": "FINANCEIRAS", "Cartão de crédito - Prieto": "FINANCEIRAS", "Cartão de crédito - Anju": "FINANCEIRAS", "Cartão coorporativo": "FINANCEIRAS", "CARTÃO DE CRÉDITO COMPRAS": "FINANCEIRAS", "SERASA": "FINANCEIRAS", "APLICAÇÃO CDB": "FINANCEIRAS", "Salários": "PESSOAL", "Rescisões": "PESSOAL", "Assistência Médica": "PESSOAL", "Vale Refeição": "PESSOAL", "RECRUTAMENTO E SELEÇÃO": "PESSOAL", "EXAME ADMISSIONAL": "PESSOAL", "TREINAMENTO": "PESSOAL", "Motorista extra": "PESSOAL", "FUNCIONÁRIOS EXTRAS": "PESSOAL", "Alimentação": "PESSOAL", "CONTABILIDADE": "ADMIN", "Advogados": "ADMIN", "CONSULTORIA (GPS)": "ADMIN", "CONSULTORIA (DOMINIO)": "ADMIN", "Consultoria": "ADMIN", "Mentoria": "ADMIN", "Material de Escritório": "ADMIN", "LIMPEZA": "ADMIN", "Água e Esgoto": "ADMIN", "Energia Elétrica": "ADMIN", "Aluguel": "ADMIN", "Aluguel Pluris": "ADMIN", "Sociedade da Pluris": "ADMIN", "Adiantamento Pluris": "ADMIN", "Seguros": "ADMIN", "Móveis e Utensílios": "ADMIN", "MÓVEIS E UTENCÍLIOS": "ADMIN", "Maquinas e Equipamentos": "ADMIN", "Manutenção de Imobilizado": "ADMIN", "Telefonia": "ADMIN", "INTERNET": "ADMIN", "Frete": "LOGISTICA", "Combustivel": "LOGISTICA", "Veículos": "LOGISTICA", "Sem Parar": "LOGISTICA", "Aluguel de equipamento (Impressora)": "LOGISTICA", "ALUGUEL DE EQUIPAMENTOS": "LOGISTICA", "IPVA,LICENCIAMENTO E MULTAS": "LOGISTICA", "MARKETING": "MARKETING_TI", "Feiras e Eventos": "MARKETING_TI", "Eventos - Repasse": "MARKETING_TI", "WORKSHOP": "MARKETING_TI", "CAMPANHAS COMEMORATIVAS": "MARKETING_TI", "CAMPANHAS COMEMORATIVAS - ENDOMARKETING": "MARKETING_TI", "SITE TANGRAM": "MARKETING_TI", "SISTEMA ERP": "MARKETING_TI", "Sistema ERP": "MARKETING_TI", "CONSULTORIA (T.I EDSON)": "MARKETING_TI", "Transferência entre contas": "TRANSFERENCIAS", "RETIRADA": "RETIRADA", "Adiantamento": "OUTROS", "Despesas Viagem China": "OUTROS", "REEMBOLSO DE DESPESAS": "OUTROS", "Amostra": "OUTROS", "Investimento": "FINANCEIRAS", "Caixa reserva": "FINANCEIRAS", "Multas": "LOGISTICA", "Entrada de Transferência": "TRANSFERENCIAS"};
+
+
+// Índice normalizado das categorias.
+// Mantém todo o layout/estrutura igual, mas evita erro quando a base vem com
+// maiúsculas/minúsculas, acentos ou espaços diferentes.
+const CATEGORIA_GRUPO_NORMALIZADO = {};
+Object.entries(CATEGORIA_GRUPO).forEach(([categoria, grupo])=>{
+  CATEGORIA_GRUPO_NORMALIZADO[normalizeTxt(categoria)] = grupo;
+});
+
+// Unifica categorias que só diferem por maiúscula/minúscula ou acento (ex:
+// "Fgts" vs "FGTS") — sem isso, a mesma categoria virava duas linhas
+// separadas na tabela. Usa a grafia do histórico como "nome oficial".
+const CATEGORIA_CANONICA_POR_GRUPO = {};
+HISTORICO_ROW_DEFS.forEach(d=>{
+  if(!CATEGORIA_CANONICA_POR_GRUPO[d.grupo]) CATEGORIA_CANONICA_POR_GRUPO[d.grupo] = {};
+  CATEGORIA_CANONICA_POR_GRUPO[d.grupo][normalizeTxt(d.categoria)] = d.categoria;
+});
+function canonicalizarCategoria(categoria, grupo){
+  const porGrupo = CATEGORIA_CANONICA_POR_GRUPO[grupo];
+  if(!porGrupo) return categoria;
+  return porGrupo[normalizeTxt(categoria)] || categoria;
+}
+
+
+// Blindagem para categorias novas:
+// 1) Se a categoria estiver mapeada, respeita o grupo definido acima.
+// 2) Se for categoria nova e o valor for positivo, entra em RECEBIMENTOS
+//    criando a própria linha da categoria dentro de Recebimentos.
+// 3) Se for categoria nova e o valor for negativo, tenta reconhecer automaticamente
+//    uma das contas ativas de despesas pelo texto da categoria.
+// 4) Se não conseguir reconhecer, joga em Despesas Administrativas (não usa "Outros"
+//    nem "Categorias a Classificar"), para nenhuma despesa real ficar fora do fluxo.
+let debugCategoriasNovas = {};
+function resolveGrupoCategoria(categoria, valor){
+  const key = normalizeTxt(categoria);
+  if(CATEGORIA_GRUPO_NORMALIZADO[key]) return CATEGORIA_GRUPO_NORMALIZADO[key];
+
+  const label = (categoria || 'Sem categoria').toString().trim() || 'Sem categoria';
+
+  // Receita nova: cria linha nova dentro de RECEBIMENTOS.
+  if(valor >= 0){
+    debugCategoriasNovas[label] = 'RECEBIMENTOS';
+    return 'RECEBIMENTOS';
+  }
+
+  // Despesa nova: classificador simples por palavras-chave.
+  // Mantém o fluxo andando mesmo quando aparece uma categoria nova no Omie/planilha.
+  const regras = [
+    { grupo:'DEDUCOES', palavras:['imposto','tributo','icms','pis','cofins','darf','das','gnre','iss','irpj','csll','taxa prefeitura','prefeitura','st','difal'] },
+    { grupo:'FORNECEDORES', palavras:['fornecedor','mercadoria','revenda','materia prima','matéria prima','compra','servico','serviço','produto','insumo','embalagem','xbz'] },
+    { grupo:'FINANCEIRAS', palavras:['tarifa','bancaria','bancária','juros','iof','emprestimo','empréstimo','cartao','cartão','serasa','duplicata','cheque','aplicacao','aplicação','cdb','financiamento'] },
+    { grupo:'PESSOAL', palavras:['salario','salário','folha','funcionario','funcionário','rescisao','rescisão','fgts','inss','vale','vr','refeicao','refeição','assistencia medica','assistência médica','beneficio','benefício','exame','treinamento','motorista extra','alimentacao','alimentação'] },
+    { grupo:'ADMIN', palavras:['contabilidade','advogado','consultoria','mentoria','escritorio','escritório','aluguel','agua','água','energia','luz','internet','telefone','telefonia','limpeza','seguro','material','moveis','móveis','utensilio','utensílio','equipamento','manutencao','manutenção','sistema','erp','software','reembolso','despesa'] },
+    { grupo:'LOGISTICA', palavras:['frete','combustivel','combustível','veiculo','veículo','sem parar','ipva','licenciamento','multa','logistica','logística','entrega','transporte'] },
+    { grupo:'MARKETING_TI', palavras:['marketing','campanha','site','evento','feira','workshop','endomarketing','ti','t.i','midia','mídia','anuncio','anúncio'] },
+    { grupo:'RETIRADA', palavras:['retirada','socio','sócio','pro labore','pró labore'] },
+  ];
+
+  for(const regra of regras){
+    if(regra.palavras.some(p=>key.includes(normalizeTxt(p)))){
+      debugCategoriasNovas[label] = regra.grupo;
+      return regra.grupo;
+    }
+  }
+
+  // Fallback final: precisa entrar em uma conta ativa, então entra em Administrativas.
+  debugCategoriasNovas[label] = 'ADMIN';
+  return 'ADMIN';
+}
+
+const GRUPOS_PAGAMENTO = [
+  {key:'DEDUCOES', label:'1.2 Deduções'},
+  {key:'FORNECEDORES', label:'Fornecedores'},
+  {key:'FINANCEIRAS', label:'Despesas Financeiras'},
+  {key:'PESSOAL', label:'Despesas Com Pessoal'},
+  {key:'ADMIN', label:'Despesas Administrativas'},
+  {key:'LOGISTICA', label:'Despesa Logística'},
+  {key:'MARKETING_TI', label:'Despesas Com Marketing / TI'},
+  {key:'RETIRADA', label:'Retiradas de Sócios'},
+  {key:'TRANSFERENCIAS', label:'Transferências Entre Contas'},
+  {key:'OUTROS', label:'Outros'},
+];
+
+let rows = []; // { date, categoria, grupo, valor }
+let currentUser = null;
+let gpsStaff = false;
+let limiteConta = 233300; // limite padrão do cliente; pode ser alterado no fluxo pelo time GPS
+
+function fmtBRL(n){
+  if(n===null||n===undefined||isNaN(n)) return 'R$ 0';
+  const sign = n<0 ? '-' : '';
+  return sign+'R$ '+Math.round(Math.abs(n)).toLocaleString('pt-BR');
+}
+function parseMoneyBR(v){
+  if(v===null||v===undefined||v==='') return 0;
+  if(typeof v==='number') return v;
+  return parseFloat(String(v).replace(/\./g,'').replace(',','.')) || 0;
+}
+
+async function fetchGviz(gid){
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&gid=${gid}&headers=1`;
+  const res = await fetch(url);
+  const text = await res.text();
+  const clean = text.replace(/^[^{]*/, '').replace(/\s*\)\s*;?\s*$/, '');
+  return JSON.parse(clean).table;
+}
+function parseGvizRows(table){
+  if(!table || !table.rows) return [];
+  const cols = table.cols.map(c=>c.label);
+  return table.rows.map(row=>{
+    const obj={};
+    cols.forEach((col,i)=>{ const cell=row.c[i]; obj[col]= cell ? (cell.v!==null?cell.v:(cell.f||null)) : null; });
+    return obj;
+  });
+}
+function parseDateCell(v){
+  if(!v) return null;
+  if(typeof v==='string'){
+    if(/^\d{4}-\d{2}-\d{2}/.test(v)) return v.slice(0,10);
+    if(v.includes('/')){ const [d,m,y]=v.split('/'); return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`; }
+    const dm = v.match(/Date\((\d+),(\d+),(\d+)\)/);
+    if(dm){ const y=dm[1], m=String(parseInt(dm[2])+1).padStart(2,'0'), d=dm[3].padStart(2,'0'); return `${y}-${m}-${d}`; }
+  }
+  return null;
+}
+
+
+// Boletos já descontados/antecipados.
+// A aba "Desconto duplicada" tem o número limpo na coluna A.
+// Nas movimentações, o boleto vem dentro de "Nosso Número" como 109/0008272-3;
+// o fluxo usa os 4 dígitos imediatamente antes do hífen: 8272.
+let boletosDescontados = new Set();
+
+function extractCellValue(cell){
+  if(cell===null || cell===undefined) return '';
+  if(typeof cell==='object') return (cell.v ?? cell.f ?? '').toString().trim();
+  return cell.toString().trim();
+}
+function extractBoletoDesconto(v){
+  const s = extractCellValue(v);
+  if(!s || normalizeTxt(s).includes('numero boleto')) return null;
+  const digits = s.replace(/\D/g,'');
+  return digits ? String(parseInt(digits,10)) : null;
+}
+function extractBoletoFromNossoNumero(v){
+  const s = extractCellValue(v);
+  if(!s) return null;
+
+  // Exemplo: 109/0008272-3 => 8272
+  const beforeDash = s.match(/(\d{4})-\d+\s*$/);
+  if(beforeDash) return String(parseInt(beforeDash[1],10));
+
+  // Fallback: se vier sem hífen, usa os 4 últimos dígitos.
+  const digits = s.replace(/\D/g,'');
+  if(digits.length >= 4) return String(parseInt(digits.slice(-4),10));
+  return null;
+}
+async function loadBoletosDescontados(){
+  boletosDescontados = new Set();
+  if(!GID_DESCONTO_DUPLICADA) return;
+  try{
+    const table = await fetchGviz(GID_DESCONTO_DUPLICADA);
+    if(!table || !table.rows) return;
+    table.rows.forEach(row=>{
+      const cell = row.c && row.c[0] ? row.c[0] : null;
+      const boleto = extractBoletoDesconto(cell);
+      if(boleto) boletosDescontados.add(boleto);
+    });
+  }catch(e){
+    console.error('Erro ao carregar a aba Desconto duplicada:', e);
+  }
+}
+function todayISO(){
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function isDuplicataDescontadaRow(r, grupo, valor, date){
+  // Regra solicitada: duplicatas descontadas passam a valer só de hoje pra frente.
+  // Datas anteriores ao dia vigente ficam zeradas nessa linha nova e seguem o histórico normal.
+  if(date < todayISO()) return false;
+  if(grupo!=='RECEBIMENTOS' || valor<=0 || !boletosDescontados.size) return false;
+  const nossoNumero = getColNormalized(r, 'nosso numero');
+  const boleto = extractBoletoFromNossoNumero(nossoNumero);
+  return !!(boleto && boletosDescontados.has(boleto));
+}
+
+// Transforma as linhas cruas do gviz em lançamentos do fluxo, já aplicando os filtros:
+// - ignora linhas marcadoras de SALDO/SALDO ANTERIOR
+// - ignora linhas de "Previsão" na coluna Origem (não são movimentação realizada)
+// - ignora a categoria "Transferência entre contas" (não é entrada/saída real da empresa)
+// - ignora qualquer linha (Recebimento ou Pagamento) com Situação "Atrasado" (ainda não realizado, não é caixa de verdade)
+let debugAtrasadoExcluidos = 0;
+
+// Saldo real diário informado pelo próprio Omie em cada conta.
+// Usamos esse saldo como fonte de verdade até o dia atual; as projeções futuras
+// continuam sendo calculadas com os lançamentos previstos do fluxo.
+let saldoSistemaPorDia = {};
+function registrarSaldosSistema(table){
+  const raw = parseGvizRows(table);
+  raw.forEach(r=>{
+    const nome = (getColNormalized(r, 'cliente ou fornecedor')||'').toString().trim();
+    if(normalizeTxt(nome)!=='saldo') return;
+    const dateRaw = getColNormalized(r, 'data');
+    const date = parseDateCell(typeof dateRaw==='object' && dateRaw!==null ? (dateRaw.v||dateRaw) : dateRaw);
+    if(!date) return;
+    const saldoRaw = getColNormalized(r, 'saldo (r$)');
+    const saldo = parseMoneyBR(typeof saldoRaw==='object' && saldoRaw!==null ? (saldoRaw.v ?? saldoRaw.f) : saldoRaw);
+    saldoSistemaPorDia[date] = (saldoSistemaPorDia[date]||0) + saldo;
+  });
+}
+function ultimoSaldoSistemaAte(date){
+  const datas = Object.keys(saldoSistemaPorDia).filter(d=>d<=date).sort();
+  if(!datas.length) return null;
+  const d = datas[datas.length-1];
+  return { data:d, valor:saldoSistemaPorDia[d] };
+}
+
+function rowsFromGvizTable(table, contaLabel){
+  const raw = parseGvizRows(table);
+  return raw.map(r=>{
+    // Importante: usar cabeçalhos normalizados aqui.
+    // A aba Agência pode vir do Google Sheets com pequenas diferenças no nome da coluna
+    // (espaço, acento, símbolo ou formatação), e isso fazia o Valor (R$) virar zero.
+    const clienteFornecedor = (getColNormalized(r, 'cliente ou fornecedor')||'').toString().trim();
+    if(normalizeTxt(clienteFornecedor)==='saldo' || normalizeTxt(clienteFornecedor)==='saldo anterior') return null; // linhas marcadoras, não lançamentos
+
+    const dateRaw = getColNormalized(r, 'data');
+    const date = parseDateCell(typeof dateRaw==='object' && dateRaw!==null ? (dateRaw.v||dateRaw) : dateRaw);
+    if(!date) return null;
+    if(date <= HISTORICO_CUTOFF) return null; // histórico até 30/06/2026 fica congelado pela planilha antiga
+
+    const categoria = (getColNormalized(r, 'categoria')||'').toString().trim();
+    // Transferências não entram no fluxo de recebimentos/pagamentos.
+    // Além de "Transferência entre contas", qualquer categoria contendo "transferencia" é ignorada.
+    if(normalizeTxt(categoria).includes('transferencia')) return null;
+
+    const origem = (getColNormalized(r, 'origem')||'').toString().trim();
+    if(normalizeTxt(origem).includes('previsao')) return null; // linha de previsão, não é movimentação realizada
+
+    const valorRaw = getColNormalized(r, 'valor (r$)');
+    const valor = parseMoneyBR(typeof valorRaw==='object' && valorRaw!==null ? (valorRaw.v ?? valorRaw.f) : valorRaw);
+
+    let grupo = resolveGrupoCategoria(categoria, valor);
+    const categoriaFinal = canonicalizarCategoria(categoria, grupo);
+    const duplicataDescontada = isDuplicataDescontadaRow(r, grupo, valor, date);
+    if(duplicataDescontada) grupo = 'DUPLICATAS_DESCONTADAS';
+
+    const situacao = (getColNormalized(r, 'situacao')||'').toString().trim();
+    if(normalizeTxt(situacao)==='atrasado'){ debugAtrasadoExcluidos++; return null; } // recebimento ou pagamento em atraso, não é caixa realizado
+
+    const contaCorrente = (getColNormalized(r, 'conta corrente')||contaLabel||'Conta não informada').toString().trim();
+    const documento = (
+      getColNormalized(r,'documento') ||
+      getColNormalized(r,'nosso numero') ||
+      getColNormalized(r,'numero documento') ||
+      getColNormalized(r,'titulo') ||
+      ''
+    ).toString().trim();
+    const nome = (
+      getColNormalized(r,'cliente ou fornecedor') ||
+      getColNormalized(r,'cliente') ||
+      getColNormalized(r,'fornecedor') ||
+      ''
+    ).toString().trim();
+    const historico = (
+      getColNormalized(r,'historico') ||
+      getColNormalized(r,'descricao') ||
+      getColNormalized(r,'observacao') ||
+      ''
+    ).toString().trim();
+    return { date, categoria: categoriaFinal||'Sem categoria', grupo, valor, conta: contaCorrente||contaLabel, fonte: contaLabel, duplicataDescontada, nome, documento, historico };
+  }).filter(Boolean);
+}
+
+async function init(){
+  const { data } = await sb.auth.getSession();
+  if(!data.session){ window.location.replace(LOGIN_URL); return; }
+  currentUser = data.session.user;
+  const email = currentUser.email;
+
+  if(!canAccessFluxo(email)){
+    el('loadingScreen').style.display='none';
+    el('deniedScreen').style.display='block';
+    document.documentElement.style.visibility='visible';
+    return;
+  }
+
+  gpsStaff = isGpsStaff(email);
+  if(!gpsStaff){
+    const card = el('fcAjustesGpsCard'); if(card) card.style.display='none';
+  }
+
+  renderAppNav({ activePage:'fluxodecaixa.html', userLabel: nameFromEmail(email), userRole: isOwner(email)?'owner':'vendor', onLogout: doLogout, sb, currentUser });
+
+  await loadData();
+}
+
+async function loadData(){
+  try{
+    await loadBoletosDescontados();
+
+    saldoSistemaPorDia = {};
+    const tablePrincipal = await fetchGviz(GID_MOVIMENTACAO);
+    registrarSaldosSistema(tablePrincipal);
+    rows = rowsFromGvizTable(tablePrincipal, 'Principal');
+
+    if(GID_MOVIMENTACAO_AGENCIA){
+      try{
+        const tableAgencia = await fetchGviz(GID_MOVIMENTACAO_AGENCIA);
+        registrarSaldosSistema(tableAgencia);
+        rows = rows.concat(rowsFromGvizTable(tableAgencia, 'Agência'));
+      }catch(e){
+        console.error('Erro ao carregar a aba Movimentação da Conta Agência:', e);
+      }
+    }
+    rows = rows.concat(HISTORICO_ROW_DEFS.map(h=>({ date:HISTORICO_CUTOFF, categoria:h.categoria, grupo:h.grupo, valor:0, conta:'Histórico', fonte:'Histórico' })));
+    rows.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+
+    await loadSaldoInicial();
+    await loadAjustesManuais(); // injeta os lançamentos manuais como movimentação real
+    loadLimiteConta();
+    buildAndRenderTable();
+    el('loadingScreen').style.display='none';
+    el('mainContent').style.display='block';
+    document.documentElement.style.visibility='visible';
+    el('fcSimData').value = new Date().toISOString().slice(0,10);
+    await loadFcMsgs();
+    if(gpsStaff) renderAnaliseFluxoWhats();
+  }catch(e){
+    console.error(e);
+    el('loadingMsg').textContent = 'Erro ao carregar a base. Verifique o acesso à planilha.';
+  }
+}
+
+/* ================== ÁRVORE DE COLUNAS (Ano > Mês > Dia) ================== */
+const MESES_ABBR = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+let columnTree = [];
+
+const DOW_ABBR = ['DOM','SEG','TER','QUA','QUI','SEX','SÁB'];
+function buildColumnTree(){
+  if(!rows.length) return [];
+  const today = new Date();
+  const todayStr = today.toISOString().slice(0,10);
+  const curYear = today.getFullYear(), curMonth = today.getMonth()+1;
+
+  // Exibe todo o histórico desde janeiro/2026 e mantém a projeção somente
+  // até o mês vigente + 2 meses futuros.
+  const startDate = new Date(2026, 0, 1);
+  const endDate = new Date(curYear, today.getMonth()+2, 1);
+  const mesesPeriodo = [];
+  let cursor = new Date(startDate);
+  while(cursor <= endDate){
+    mesesPeriodo.push({ y: cursor.getFullYear(), m: cursor.getMonth()+1 });
+    cursor.setMonth(cursor.getMonth()+1);
+  }
+
+  const anosMap = {};
+  mesesPeriodo.forEach(({y,m})=>{ (anosMap[y] = anosMap[y]||[]).push(m); });
+
+  const years = Object.keys(anosMap).map(Number).sort((a,b)=>a-b).map(y=>{
+    const months = anosMap[y].map(m=>{
+      const lastDay = new Date(y,m,0).getDate();
+      const days = [];
+      for(let d=1; d<=lastDay; d++){
+        const dstr = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        const dow = DOW_ABBR[new Date(y,m-1,d).getDay()];
+        days.push({ type:'day', key:'d'+dstr, label:`<div class="fc-dow">${dow}</div><div>${String(d).padStart(2,'0')}</div>`, start:dstr, end:dstr, isToday: dstr===todayStr, children:[], expanded:false });
+      }
+      return { type:'month', key:`m${y}-${m}`, label:MESES_ABBR[m-1]+'/'+String(y).slice(2),
+        start:`${y}-${String(m).padStart(2,'0')}-01`, end:`${y}-${String(m).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`,
+        isToday:false, children:days, expanded:(y===curYear && m===curMonth) };
+    });
+    return { type:'year', key:'y'+y, label:String(y), start:`${y}-01-01`, end:`${y}-12-31`,
+      isToday:false, children:months, expanded:(y===curYear) };
+  });
+  return years;
+}
+function flattenColumns(nodes){
+  let out = [];
+  for(const n of nodes){
+    out.push(n);
+    if(n.expanded && n.children.length) out = out.concat(flattenColumns(n.children));
+  }
+  return out;
+}
+
+
+function histKeyForNode(rNode){
+  if(!rNode) return null;
+  if(rNode.special==='saldo') return 'TOTAL||SALDO ACUMULADO';
+  if(rNode.type==='recebimentos') return 'TOTAL||RECEBIMENTOS';
+  if(rNode.type==='pagamentos') return 'TOTAL||PAGAMENTOS';
+  return rNode.histKey || null;
+}
+function histSumForNode(rNode, start, end){
+  const key = histKeyForNode(rNode);
+  if(!key) return null;
+  let found = false;
+  let total = 0;
+  for(const d in HISTORICO_VALORES){
+    if(d>=start && d<=end){
+      const v = HISTORICO_VALORES[d] ? HISTORICO_VALORES[d][key] : undefined;
+      if(v!==undefined){ total += v; found = true; }
+    }
+  }
+  return found ? total : null;
+}
+
+/* ================== CÁLCULO DE VALORES ================== */
+function sumInRange(catFilterFn, start, end){
+  let s = 0;
+  for(const r of rows){ if(r.date>=start && r.date<=end && catFilterFn(r)) s += r.valor; }
+  return s;
+}
+// Se houver um saldo inicial definido (ver seção "Saldo Inicial" mais abaixo),
+// datas a partir dele passam a somar em cima desse valor em vez do zero absoluto;
+// datas anteriores continuam com o cálculo normal (soma de todo o histórico).
+let saldoInicialOverride = null; // { data_referencia, valor }
+function valorImpactaSaldo(r){
+  // Duplicatas descontadas são uma linha só de VISIBILIDADE.
+  // Elas saem dos Recebimentos e também não podem alterar o Saldo Acumulado,
+  // senão o saldo fica inflado exatamente pelo valor da duplicata.
+  return r.grupo !== 'DUPLICATAS_DESCONTADAS';
+}
+function runningBalance(uptoDate){
+  if(saldoInicialOverride && uptoDate >= saldoInicialOverride.data_referencia){
+    let s = saldoInicialOverride.valor;
+    for(const r of rows){
+      if(r.date > saldoInicialOverride.data_referencia && r.date<=uptoDate && valorImpactaSaldo(r)) s += r.valor;
+    }
+    return s;
+  }
+
+  // Histórico validado de janeiro a junho/2026.
+  if(uptoDate <= HISTORICO_CUTOFF && HISTORICO_SALDO[uptoDate] !== undefined) return HISTORICO_SALDO[uptoDate];
+
+  const hoje = todayISO();
+
+  // Até hoje, o saldo informado na linha SALDO do Omie é a fonte de verdade.
+  // Isso evita diferença quando há conciliações, alterações retroativas ou
+  // categorias novas na base.
+  if(uptoDate <= hoje){
+    const saldoReal = ultimoSaldoSistemaAte(uptoDate);
+    if(saldoReal && saldoReal.data > HISTORICO_CUTOFF) return saldoReal.valor;
+  }
+
+  // Para datas futuras, parte do último saldo real do sistema e soma somente
+  // os lançamentos posteriores que impactam caixa.
+  const baseReal = ultimoSaldoSistemaAte(hoje);
+  let dataBase = HISTORICO_CUTOFF;
+  let s = HISTORICO_SALDO[HISTORICO_CUTOFF] || 0;
+  if(baseReal && baseReal.data > HISTORICO_CUTOFF){
+    dataBase = baseReal.data;
+    s = baseReal.valor;
+  }
+  for(const r of rows){
+    if(r.date > dataBase && r.date<=uptoDate && valorImpactaSaldo(r)) s += r.valor;
+  }
+  return s;
+}
+const isRecebimento = r => r.grupo==='RECEBIMENTOS';
+const isPagamento = r => r.grupo!=='RECEBIMENTOS' && r.grupo!=='DUPLICATAS_DESCONTADAS' && r.grupo!=='AJUSTES_MANUAIS';
+const isDuplicataDescontada = r => r.grupo==='DUPLICATAS_DESCONTADAS';
+
+/* ---- Análise do Fluxo de Caixa pronta pra WhatsApp (só GPS) ---- */
+let analiseFluxoWhatsBound = false;
+function gerarAnaliseFluxoTexto(){
+  const hoje = new Date();
+hoje.setDate(hoje.getDate()-1);
+  const hojeStr = hoje.toISOString().slice(0,10);
+  const saldoHoje = runningBalance(hojeStr);
+
+  const ano = hoje.getFullYear(), mesNum = hoje.getMonth()+1;
+  const ultimoDiaMes = new Date(ano, mesNum, 0).getDate();
+  const fimMesStr = `${ano}-${String(mesNum).padStart(2,'0')}-${String(ultimoDiaMes).padStart(2,'0')}`;
+
+  const amanha = new Date(hoje); amanha.setDate(amanha.getDate()+1);
+  const amanhaStr = amanha.toISOString().slice(0,10);
+  const temPeriodo = amanhaStr <= fimMesStr;
+
+  const despesasPrevistas = temPeriodo ? Math.abs(sumInRange(isPagamento, amanhaStr, fimMesStr)) : 0;
+  const recebimentosPrevistos = temPeriodo ? sumInRange(isRecebimento, amanhaStr, fimMesStr) : 0;
+  const saldoPrevisto = runningBalance(fimMesStr);
+
+  const fmtDataCurta = d => { const [,m,dd] = d.split('-'); return `${dd}/${m}`; };
+  const mesNomes = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const nomeMes = mesNomes[mesNum-1];
+  const hojeFmt = `${String(hoje.getDate()).padStart(2,'0')}/${String(mesNum).padStart(2,'0')}/${ano}`;
+
+  const linhasPeriodo = temPeriodo ? [
+    `*📊 Previsões para ${nomeMes}*`,
+    ``,
+    `📉 *Despesas Totais (${fmtDataCurta(amanhaStr)} a ${fmtDataCurta(fimMesStr)}):* ${fmtBRL(despesasPrevistas)}`,
+    ``,
+    `📈 *Recebimentos previstos (${fmtDataCurta(amanhaStr)} a ${fmtDataCurta(fimMesStr)}):* ${fmtBRL(recebimentosPrevistos)}`,
+    ``,
+    `➡️ *Saldo Previsto para o período:* ${fmtBRL(saldoPrevisto)}`,
+  ] : [`✅ Hoje já é o último dia do mês — sem período restante pra prever.`];
+
+  return [
+    `*Fluxo de Caixa · GPSBI*`,
+    `🗓️ *${hojeFmt}*`,
+    ``,
+    `💰 *Saldo:* ${fmtBRL(saldoHoje)}`,
+    ``,
+    ...linhasPeriodo,
+    ``,
+    `👉 https://gerencial.gpsbi.com.br/`
+  ].join('\n');
+}
+function renderAnaliseFluxoWhats(){
+  const card = el('analiseFluxoWhatsCard');
+  if(!card) return;
+  card.style.display = 'block';
+  el('analiseFluxoWhatsTexto').textContent = gerarAnaliseFluxoTexto();
+  if(!analiseFluxoWhatsBound){
+    analiseFluxoWhatsBound = true;
+    el('analiseFluxoWhatsBtn').addEventListener('click', async ()=>{
+      const texto = el('analiseFluxoWhatsTexto').textContent;
+      try{
+        await navigator.clipboard.writeText(texto);
+        const btn = el('analiseFluxoWhatsBtn');
+        const original = btn.textContent;
+        btn.textContent = '✅ Copiado!';
+        setTimeout(()=>{ btn.textContent = original; }, 1800);
+      }catch(e){ alert('Não consegui copiar automaticamente. Selecione o texto acima e copie manualmente.'); }
+    });
+  }
+}
+
+const isGrupo = g => r => r.grupo===g;
+const isCategoria = c => r => r.categoria===c;
+const isContaRecebimento = conta => r => r.grupo==='RECEBIMENTOS' && r.conta===conta && r.date > HISTORICO_CUTOFF;
+const isContaCategoriaRecebimento = (conta, categoria) => r => r.grupo==='RECEBIMENTOS' && r.conta===conta && r.categoria===categoria && r.date > HISTORICO_CUTOFF;
+const onlyCurrentRecebimentos = r => r.grupo==='RECEBIMENTOS' && r.date > HISTORICO_CUTOFF;
+const noRowsFilter = r => false;
+
+/* ================== ÁRVORE DE LINHAS ================== */
+let rowTree = [];
+function buildRowTree(){
+  const catsByGrupo = {};
+  rows.forEach(r=>{ if(!catsByGrupo[r.grupo]) catsByGrupo[r.grupo]=new Set(); catsByGrupo[r.grupo].add(r.categoria); });
+
+  // RECEBIMENTOS: a partir de 01/07/2026, a visão principal passa a ser por Conta Corrente.
+  // O histórico até 30/06/2026 continua disponível, recolhido, por categoria.
+  const contasRecebimento = Array.from(new Set(
+    rows
+      .filter(r=>r.grupo==='RECEBIMENTOS' && r.date > HISTORICO_CUTOFF && r.conta && r.conta!=='Histórico')
+      .map(r=>r.conta)
+  )).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+
+  const recebimentoHistoricoCats = Array.from(catsByGrupo['RECEBIMENTOS']||[])
+    .filter(c=>normalizeTxt(c)!=='frete') // Frete é despesa logística, não recebimento.
+    .sort((a,b)=>a.localeCompare(b,'pt-BR'));
+
+  const temDuplicatasDescontadas = rows.some(r=>r.grupo==='DUPLICATAS_DESCONTADAS' && r.date > HISTORICO_CUTOFF);
+
+  const recebimentosNode = {
+    type:'recebimentos', level:0, label:'RECEBIMENTOS', filter:onlyCurrentRecebimentos, expanded:false,
+    children: [
+      ...(temDuplicatasDescontadas ? [{
+        type:'duplicatas_descontadas', level:2, label:'Duplicatas descontadas', filter:isDuplicataDescontada,
+        expanded:false, children:[]
+      }] : []),
+      ...contasRecebimento.map(conta=>{
+        const catsConta = Array.from(new Set(
+          rows
+            .filter(r=>r.grupo==='RECEBIMENTOS' && r.date > HISTORICO_CUTOFF && r.conta===conta)
+            .map(r=>r.categoria)
+        )).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+        return {
+          type:'conta_recebimento', level:2, label:conta, filter:isContaRecebimento(conta), expanded:false,
+          children: catsConta.map(c=>({
+            type:'cat_conta_recebimento', level:2, label:c, filter:isContaCategoriaRecebimento(conta,c), expanded:false, children:[]
+          }))
+        };
+      }),
+      {
+        type:'recebimentos_historico', level:1, label:'Categorias / Histórico', filter:noRowsFilter,
+        histKey:'TOTAL||RECEBIMENTOS', expanded:false,
+        children: recebimentoHistoricoCats.map(c=>({
+          type:'cat', level:2, label:c, filter:noRowsFilter, histKey:'RECEBIMENTOS||'+c, expanded:false, children:[]
+        }))
+      }
+    ].filter(n=>!(n.type==='recebimentos_historico' && !n.children.length))
+  };
+
+  const pagamentoSubgrupos = GRUPOS_PAGAMENTO.map(g=>{
+    const cats = Array.from(catsByGrupo[g.key]||[]).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+    return {
+      type:'subgrupo', level:1, label:g.label, filter:isGrupo(g.key), histKey:g.key+'||'+g.label, expanded:false,
+      children: cats.map(c=>({ type:'cat', level:2, label:c, filter:isCategoria(c), histKey:g.key+'||'+c, expanded:false, children:[] }))
+    };
+  }).filter(sg=>sg.children.length); // esconde grupo sem nenhuma categoria
+
+  const pagamentosNode = { type:'pagamentos', level:0, label:'PAGAMENTOS', filter:isPagamento, expanded:true, children: pagamentoSubgrupos };
+
+  const nodes = [
+    { type:'saldo', level:0, label:'SALDO ACUMULADO', special:'saldo', expanded:false, children:[] },
+    recebimentosNode,
+    pagamentosNode,
+  ];
+
+  // Lançamentos manuais (GPS): entram como uma linha própria, pra ficar claro
+  // que é um valor lançado à mão e não vindo direto da planilha do cliente.
+  const ajustesCats = Array.from(catsByGrupo['AJUSTES_MANUAIS']||[]).sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  if(ajustesCats.length){
+    nodes.push({
+      type:'ajustes', level:0, label:'LANÇAMENTOS MANUAIS (GPS)', filter:r=>r.grupo==='AJUSTES_MANUAIS', expanded:false,
+      children: ajustesCats.map(c=>({ type:'cat', level:2, label:c, filter:isCategoria(c), expanded:false, children:[] }))
+    });
+  }
+
+  return nodes;
+}
+function flattenRows(nodes){
+  let out = [];
+  for(const n of nodes){
+    out.push(n);
+    if(n.expanded && n.children && n.children.length) out = out.concat(flattenRows(n.children));
+  }
+  return out;
+}
+
+/* ================== RENDER ================== */
+function buildAndRenderTable(){
+  columnTree = buildColumnTree();
+  rowTree = buildRowTree();
+  renderTable();
+  renderDebugStats();
+  // espera o layout (e a fonte) estabilizar antes de rolar, senão a posição sai errada
+  const doScroll = ()=>scrollToToday();
+  if(document.fonts && document.fonts.ready){ document.fonts.ready.then(doScroll); }
+  requestAnimationFrame(()=>requestAnimationFrame(doScroll));
+  setTimeout(doScroll, 300);
+}
+
+// Diagnóstico rápido (só GPS): quantas linhas carregaram de cada tipo/conta.
+// Ajuda a identificar rápido se algo sumiu do fluxo sem precisar abrir o console.
+function renderDebugStats(){
+  const wrap = el('fcDebugStats');
+  if(!wrap) return;
+  if(!gpsStaff){ wrap.textContent = ''; return; }
+  const totalPrincipal = rows.filter(r=>r.fonte==='Principal' || r.conta==='Principal').length;
+  const totalAgencia = rows.filter(r=>r.fonte==='Agência' || r.conta==='Agência').length;
+  const totalRec = rows.filter(r=>r.grupo==='RECEBIMENTOS').length;
+  const totalDuplicatas = rows.filter(r=>r.grupo==='DUPLICATAS_DESCONTADAS').length;
+  const totalAjustes = rows.filter(r=>r.grupo==='AJUSTES_MANUAIS').length;
+  const totalPag = rows.filter(isPagamento).length;
+  const categoriasNovas = Object.keys(debugCategoriasNovas);
+  const detalheCategoriasNovas = categoriasNovas.length
+    ? ` · Categorias novas incluídas automaticamente: ${categoriasNovas.map(c=>`${c}→${debugCategoriasNovas[c]}`).join(', ')}`
+    : '';
+  const hoje = todayISO();
+  const saldoSistemaHoje = ultimoSaldoSistemaAte(hoje);
+  const saldoInfo = saldoSistemaHoje ? ` · Saldo Omie (${saldoSistemaHoje.data}): ${fmtBRL(saldoSistemaHoje.valor)}` : '';
+  wrap.textContent = `🔍 Diagnóstico (só GPS): ${rows.length} linhas no total · Conta Principal: ${totalPrincipal} · Conta Agência: ${totalAgencia} · Recebimentos: ${totalRec} · Duplicatas descontadas: ${totalDuplicatas} · Pagamentos: ${totalPag} · Lançamentos manuais: ${totalAjustes} · Atrasados excluídos: ${debugAtrasadoExcluidos} · Boletos descontados importados: ${boletosDescontados.size}${saldoInfo}${detalheCategoriasNovas}`;
+}
+
+function renderColumnHeader(c){
+  const hasChildren = c.children && c.children.length;
+  const arrow = hasChildren ? `<span class="fc-col-toggle" onclick="toggleColumn('${c.key}')">${c.expanded?'−':'+'}</span> ` : '';
+  const limiteInfo = getLimiteContaHeaderInfo(c);
+  const alerta = limiteInfo ? renderLimiteContaHeaderAlert(limiteInfo) : '';
+  if(c.type === 'day'){
+    const datePart = (c.start || '').slice(8,10);
+    const dowMatch = String(c.label||'').match(/<div class="fc-dow">([^<]+)<\/div>/);
+    const dow = dowMatch ? dowMatch[1] : '';
+    return `<th class="${c.isToday?'fc-today':''}"><span class="fc-day-head"><span class="fc-day-top"><span class="fc-dow">${dow}</span>${alerta}</span><span class="fc-day-num">${datePart}</span></span></th>`;
+  }
+  return `<th class="${c.isToday?'fc-today':''}"><span class="fc-limit-head">${arrow}${c.label}</span></th>`;
+}
+
+let fcRowDetailRefs = {};
+let fcColDetailRefs = {};
+
+function renderTable(){
+  const cols = flattenColumns(columnTree);
+  const visibleRows = flattenRows(rowTree);
+  fcRowDetailRefs = {};
+  fcColDetailRefs = {};
+
+  let thead = '<thead><tr><th></th>' + cols.map(c=>renderColumnHeader(c)).join('') + '</tr></thead>';
+
+  let tbody = '<tbody>';
+  visibleRows.forEach((rNode,rowIdx)=>{
+    const rowId = 'r'+rowIdx;
+    fcRowDetailRefs[rowId] = rNode;
+    const cls = `fc-lvl-${rNode.level}`;
+    const hasChildren = rNode.children && rNode.children.length;
+    const arrow = hasChildren ? `<span class="fc-toggle">${rNode.expanded?'▾':'▸'}</span> ` : (rNode.level>0 ? '<span class="fc-toggle"></span> ' : '');
+    const labelClick = hasChildren ? `toggleRowNode('${rNode.label.replace(/'/g,"\\'")}', ${rNode.level})` : '';
+    tbody += `<tr class="${cls}" data-key="${rNode._key||''}">`;
+    tbody += `<td class="fc-row-label" onclick="${labelClick}">${arrow}${rNode.label}</td>`;
+    cols.forEach((c,colIdx)=>{
+      const colId = 'c'+colIdx;
+      fcColDetailRefs[colId] = c;
+      let val;
+      if(rNode.special==='saldo'){
+        val = runningBalance(c.end);
+        const cellCls = (val>=0?'fc-saldo-pos':'fc-saldo-neg') + (c.isToday?' fc-today':'');
+        tbody += `<td class="${cellCls}">${fmtBRL(val)}</td>`;
+      } else {
+        const histVal = histSumForNode(rNode, c.start, c.end);
+        val = (histVal===null ? 0 : histVal) + sumInRange(rNode.filter, c.start, c.end);
+        const clickable = Math.round(val)!==0;
+        const hoverCls = val>=0 ? ' fc-hover-receita' : ' fc-hover-despesa';
+        const cellCls = `${c.isToday?'fc-today':''}${clickable?(' fc-clickable-cell'+hoverCls):''}`.trim();
+        const onClick = clickable ? ` onclick="openFluxoFicha('${rowId}','${colId}')"` : '';
+        tbody += `<td class="${cellCls}"${onClick}>${fmtBRL(val)}</td>`;
+      }
+    });
+    tbody += '</tr>';
+  });
+  tbody += '</tbody>';
+
+  el('fcTable').innerHTML = thead + tbody;
+}
+
+function formatDateBR(dstr){
+  if(!dstr) return '';
+  return new Date(dstr+'T00:00:00').toLocaleDateString('pt-BR');
+}
+function rangeLabel(start,end){
+  return start===end ? formatDateBR(start) : `${formatDateBR(start)} até ${formatDateBR(end)}`;
+}
+function fmtNumeroFicha(n){
+  if(n===null||n===undefined||isNaN(n)) return '0';
+  return Math.round(Math.abs(n)).toLocaleString('pt-BR');
+}
+function escapeFichaHtml(s){
+  return String(s||'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]));
+}
+function rowsForFicha(rNode,start,end){
+  if(!rNode || rNode.special==='saldo') return [];
+  return rows.filter(r=>r.date>=start && r.date<=end && rNode.filter(r) && Math.abs(r.valor||0)>0);
+}
+function openFluxoFicha(rowId,colId){
+  const rNode = fcRowDetailRefs[rowId];
+  const col = fcColDetailRefs[colId];
+  if(!rNode || !col || rNode.special==='saldo') return;
+
+  const detailRows = rowsForFicha(rNode,col.start,col.end);
+  const histVal = histSumForNode(rNode,col.start,col.end);
+  const currentTotal = detailRows.reduce((s,r)=>s+r.valor,0);
+  const total = (histVal===null ? 0 : histVal) + currentTotal;
+
+  const porConta = {};
+  detailRows.forEach(r=>{
+    const conta = r.conta || r.fonte || 'Não informada';
+    porConta[conta] = (porConta[conta]||0) + r.valor;
+  });
+  if(histVal!==null && Math.abs(histVal)>0) porConta['Histórico consolidado'] = (porConta['Histórico consolidado']||0)+histVal;
+
+  const contas = Object.entries(porConta).sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]));
+  const qtd = detailRows.length + ((histVal!==null && Math.abs(histVal)>0)?1:0);
+
+  el('fluxoFichaTitulo').textContent = 'Ficha · '+rNode.label;
+  el('fluxoFichaSub').textContent = 'Período: '+rangeLabel(col.start,col.end);
+
+  const contasHtml = contas.length ? contas.map(([conta,val])=>{
+    const pct = total ? Math.abs(val)/Math.abs(total)*100 : 0;
+    const itens = conta==='Histórico consolidado' ? 1 : detailRows.filter(r=>(r.conta||r.fonte||'Não informada')===conta).length;
+    return `<tr><td>${escapeFichaHtml(conta)}</td><td class="num" style="color:${val>=0?'#4F8F3A':'var(--red)'}">${fmtBRL(val)}</td><td class="num">${pct.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%</td><td class="num">${itens}</td></tr>`;
+  }).join('') : `<tr><td colspan="4" style="color:var(--text3);">Nenhum lançamento encontrado.</td></tr>`;
+
+  const linhas = detailRows.slice().sort((a,b)=>{
+    const d=Math.abs(b.valor||0)-Math.abs(a.valor||0);
+    return d!==0?d:(a.date<b.date?-1:a.date>b.date?1:0);
+  });
+  if(histVal!==null && Math.abs(histVal)>0){
+    linhas.push({date:col.start,conta:'Histórico consolidado',nome:'Dados históricos consolidados',documento:'',historico:'Sem detalhamento individual nesta versão',valor:histVal,_historico:true});
+  }
+
+  const detalheHtml = linhas.slice(0,120).map(r=>{
+    const pct = total ? Math.abs(r.valor)/Math.abs(total)*100 : 0;
+    const nome = r.nome || r.historico || r.categoria || 'Sem nome';
+    const doc = r.documento || r.fonte || '';
+    return `<tr>
+      <td>${formatDateBR(r.date)}</td>
+      <td>${escapeFichaHtml(r.conta||r.fonte||'Não informada')}</td>
+      <td class="wrap" title="${escapeFichaHtml(nome)}">${escapeFichaHtml(nome)}</td>
+      <td class="small" title="${escapeFichaHtml(doc)}">${escapeFichaHtml(doc)}</td>
+      <td class="num">${pct.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%</td>
+      <td class="valor-modal" style="color:${r.valor>=0?'#4F8F3A':'var(--red)'}">${fmtNumeroFicha(r.valor)}</td>
+    </tr>`;
+  }).join('');
+
+  el('fluxoFichaBody').innerHTML = `
+    <div class="fc-detail-summary">
+      <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${fmtBRL(total)}</div><div class="fc-detail-kpi-lbl">Total no período</div></div>
+      <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${contas.length}</div><div class="fc-detail-kpi-lbl">Contas com movimento</div></div>
+      <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${qtd}</div><div class="fc-detail-kpi-lbl">Lançamentos</div></div>
+    </div>
+    <div style="font-size:12.5px;font-weight:800;margin:12px 0 6px;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;">Por conta</div>
+    <table class="fc-detail-table"><thead><tr><th>Conta</th><th class="num">Valor</th><th class="num">%</th><th class="num">Itens</th></tr></thead><tbody>${contasHtml}</tbody></table>
+    <div style="font-size:12.5px;font-weight:800;margin:16px 0 6px;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;">Lançamentos</div>
+    <div class="fc-detail-list"><table class="fc-detail-table" style="margin-top:0;"><thead><tr><th>Data</th><th>Conta</th><th>Nome</th><th>Documento</th><th class="num">%</th><th class="num">Valor</th></tr></thead><tbody>${detalheHtml||`<tr><td colspan="6" style="color:var(--text3);">Sem lançamentos.</td></tr>`}</tbody></table></div>
+    ${linhas.length>120?`<div class="fc-detail-muted">Mostrando os primeiros 120 lançamentos.</div>`:''}
+  `;
+  el('fluxoFichaModal').classList.add('show');
+}
+function closeFluxoFicha(){ el('fluxoFichaModal').classList.remove('show'); }
+el('fluxoFichaModal').addEventListener('click', e=>{ if(e.target.id==='fluxoFichaModal') closeFluxoFicha(); });
+
+function scrollToToday(){
+  const todayTh = document.querySelector('.fc-table th.fc-today');
+  if(!todayTh) return;
+  const wrap = document.querySelector('.fc-wrap');
+  const firstColWidth = document.querySelector('.fc-table td:first-child')?.offsetWidth || 220;
+  wrap.scrollLeft = Math.max(0, todayTh.offsetLeft - firstColWidth - 24);
+}
+
+// localizar nó de coluna pela key (busca recursiva)
+function findColumnNode(nodes, key){
+  for(const n of nodes){
+    if(n.key===key) return n;
+    if(n.children.length){ const f = findColumnNode(n.children, key); if(f) return f; }
+  }
+  return null;
+}
+function toggleColumn(key){
+  const node = findColumnNode(columnTree, key);
+  if(node){ node.expanded = !node.expanded; renderTable(); }
+}
+
+// localizar nó de linha por label+level (simplificação: como não há duplicidade de label no mesmo nível, funciona)
+function findRowNode(nodes, label, level){
+  for(const n of nodes){
+    if(n.label===label && n.level===level) return n;
+    if(n.children && n.children.length){ const f = findRowNode(n.children, label, level); if(f) return f; }
+  }
+  return null;
+}
+function toggleRowNode(label, level){
+  const node = findRowNode(rowTree, label, level);
+  if(node){ node.expanded = !node.expanded; renderTable(); }
+}
+
+async function doLogout(){ await sb.auth.signOut(); window.location.href = LOGIN_URL; }
+
+function openSaldoInicialModal(){ el('saldoInicialModal').classList.add('show'); }
+function closeSaldoInicialModal(){ el('saldoInicialModal').classList.remove('show'); }
+el('saldoInicialModal').addEventListener('click', e=>{ if(e.target.id==='saldoInicialModal') closeSaldoInicialModal(); });
+function openAjustesManuaisModal(){ el('ajustesManuaisModal').classList.add('show'); }
+function closeAjustesManuaisModal(){ el('ajustesManuaisModal').classList.remove('show'); }
+el('ajustesManuaisModal').addEventListener('click', e=>{ if(e.target.id==='ajustesManuaisModal') closeAjustesManuaisModal(); });
+
+/* ================== NOVO: Limite da Conta ================== */
+function loadLimiteConta(){
+  const saved = localStorage.getItem('fcLimiteContaValor');
+  const n = parseFloat(saved);
+  limiteConta = (!isNaN(n) && n > 0) ? n : 233300;
+  const input = el('fcLimiteContaValor');
+  if(input) input.value = limiteConta;
+}
+function applyLimiteConta(){
+  const input = el('fcLimiteContaValor');
+  const valor = parseFloat(input ? input.value : '');
+  if(isNaN(valor) || valor <= 0){ alert('Informe um limite válido.'); return; }
+  limiteConta = valor;
+  localStorage.setItem('fcLimiteContaValor', String(valor));
+  renderTable();
+}
+function prevDateStr(dstr){
+  const d = new Date(dstr+'T00:00:00');
+  d.setDate(d.getDate()-1);
+  return d.toISOString().slice(0,10);
+}
+function nextDateStr(dstr){
+  const d = new Date(dstr+'T00:00:00');
+  d.setDate(d.getDate()+1);
+  return d.toISOString().slice(0,10);
+}
+function escapeHtml(s){
+  return String(s||'').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]));
+}
+function getLimiteContaHeaderInfo(c){
+  if(!c || c.type!=='day' || !limiteConta || limiteConta<=0) return null;
+  const saldo = runningBalance(c.end);
+  const limiteNegativo = -Math.abs(limiteConta);
+  if(saldo < limiteNegativo){
+    return { tipo:'alerta', severidade: getLimiteSeverity(Math.abs(saldo) - Math.abs(limiteConta)), titulo:'⚠ Limite da Conta', data:c.end, saldo, excesso: Math.abs(saldo) - Math.abs(limiteConta), mensagem:'Limite ultrapassado neste dia.' };
+  }
+  const amanha = nextDateStr(c.end);
+  const saldoAmanha = runningBalance(amanha);
+  if(saldo >= limiteNegativo && saldoAmanha < limiteNegativo){
+    return { tipo:'previo', severidade:'previo', titulo:'⚠ Alerta para amanhã', data:amanha, saldo:saldoAmanha, excesso: Math.abs(saldoAmanha) - Math.abs(limiteConta), mensagem:'Amanhã o saldo ultrapassará o limite.' };
+  }
+  return null;
+}
+function getLimiteSeverity(excesso){
+  const ratio = Math.abs(excesso || 0) / Math.abs(limiteConta || 1);
+  if(ratio >= 0.50) return 'critico';
+  if(ratio >= 0.25) return 'atencao';
+  return 'alert';
+}
+function renderLimiteContaHeaderAlert(info){
+  const dataLabel = new Date(info.data+'T00:00:00').toLocaleDateString('pt-BR');
+  return `<span class="fc-limit-dot ${info.severidade || (info.tipo==='alerta'?'alert':'previo')}"></span><span class="fc-limit-tooltip"><b>${escapeHtml(info.titulo)}</b><div class="row"><span>Data</span><strong>${dataLabel}</strong></div><div class="row"><span>Limite</span><strong>${fmtBRL(limiteConta)}</strong></div><div class="row"><span>Saldo previsto</span><strong>${fmtBRL(info.saldo)}</strong></div><div class="row"><span>Excesso</span><strong>${fmtBRL(info.excesso)}</strong></div><div class="muted">${escapeHtml(info.mensagem)}<br>💡 Sugestão: antecipar recebimentos, rever pagamentos ou solicitar aumento do limite.</div></span>`;
+}
+function isLimiteContaCrossing(dstr, saldo){
+  if(!limiteConta || limiteConta <= 0) return false;
+  if(saldo >= -limiteConta) return false;
+  const prevSaldo = runningBalance(prevDateStr(dstr));
+  return prevSaldo >= -limiteConta;
+}
+
+/* ================== NOVO: Saldo Inicial ================== */
+async function loadSaldoInicial(){
+  const { data, error } = await sb.from('fluxo_saldo_inicial').select('*').order('criado_em',{ascending:false}).limit(1);
+  saldoInicialOverride = (!error && data && data.length) ? data[0] : null;
+  renderSaldoInicialStatus();
+}
+function renderSaldoInicialStatus(){
+  const wrap = el('fcSaldoInicialStatus');
+  if(!wrap) return;
+  if(saldoInicialOverride){
+    const dataLabel = new Date(saldoInicialOverride.data_referencia+'T00:00:00').toLocaleDateString('pt-BR');
+    wrap.innerHTML = `✅ Saldo inicial ativo: <b>${fmtBRL(saldoInicialOverride.valor)}</b> em <b>${dataLabel}</b> — o Saldo Acumulado a partir dessa data respeita esse valor.
+      <button class="btn btn-danger btn-sm" onclick="removeSaldoInicial()">Remover</button>`;
+  } else {
+    wrap.innerHTML = 'Nenhum saldo inicial definido — o Saldo Acumulado segue o cálculo padrão (soma de todo o histórico da planilha).';
+  }
+}
+async function applySaldoInicial(){
+  const data_referencia = el('fcSaldoInicialData').value;
+  const valor = parseFloat(el('fcSaldoInicialValor').value);
+  if(!data_referencia || isNaN(valor)){ alert('Preencha a data e o saldo dessa data.'); return; }
+  await sb.from('fluxo_saldo_inicial').delete().gt('id', 0); // só existe um saldo inicial ativo por vez
+  const { error } = await sb.from('fluxo_saldo_inicial').insert({ data_referencia, valor, criado_por: nameFromEmail(currentUser.email) });
+  if(error){ alert('Erro ao salvar: '+error.message); return; }
+  el('fcSaldoInicialData').value=''; el('fcSaldoInicialValor').value='';
+  await loadSaldoInicial();
+  renderTable();
+}
+async function removeSaldoInicial(){
+  if(!confirm('Remover o saldo inicial? O Saldo Acumulado volta a considerar todo o histórico da planilha.')) return;
+  await sb.from('fluxo_saldo_inicial').delete().gt('id', 0);
+  await loadSaldoInicial();
+  renderTable();
+}
+
+/* ================== NOVO: Lançamentos Manuais ================== */
+// Diferente do "Simulador de Impacto" (que é só um "e se"), isso aqui vira
+// movimentação de verdade: entra em `rows` e é somado no Saldo Acumulado real.
+let ajustesManuais = [];
+async function loadAjustesManuais(){
+  const { data, error } = await sb.from('fluxo_ajustes_manuais').select('*').order('data',{ascending:true});
+  ajustesManuais = (!error && data) ? data : [];
+  rows = rows.filter(r=>r.grupo!=='AJUSTES_MANUAIS'); // evita duplicar se recarregar
+  ajustesManuais.forEach(a=>{
+    if(a.data > HISTORICO_CUTOFF){
+      rows.push({ date:a.data, categoria: a.descricao || 'Lançamento manual', grupo:'AJUSTES_MANUAIS', valor:a.valor, conta:'Lançamentos manuais', fonte:'Manual' });
+    }
+  });
+  rows.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+  renderAjustesManuaisList();
+}
+function renderAjustesManuaisList(){
+  const wrap = el('fcAjusteList');
+  if(!wrap) return;
+  wrap.innerHTML = ajustesManuais.length ? ajustesManuais.map(a=>`
+    <div class="fc-sim-entry">
+      <span class="desc">${a.descricao}</span>
+      <span class="data">${new Date(a.data+'T00:00:00').toLocaleDateString('pt-BR')}</span>
+      <span class="valor" style="color:${a.valor>=0?'#98C47C':'var(--red)'}">${fmtBRL(a.valor)}</span>
+      <button class="del" onclick="removeAjusteManual(${a.id})">✕</button>
+    </div>`).join('') : '<div style="color:var(--text3);font-size:12.5px;">Nenhum lançamento manual ativo.</div>';
+  const countEl = el('fcAjusteCount');
+  if(countEl) countEl.textContent = ajustesManuais.length ? `(${ajustesManuais.length})` : '';
+}
+async function addAjusteManual(){
+  const descricao = el('fcAjusteDesc').value.trim();
+  const valor = parseFloat(el('fcAjusteValor').value);
+  const data = el('fcAjusteData').value;
+  if(!descricao || isNaN(valor) || !data){ alert('Preencha descrição, valor e data.'); return; }
+  const { error } = await sb.from('fluxo_ajustes_manuais').insert({ data, descricao, valor, criado_por: nameFromEmail(currentUser.email) });
+  if(error){ alert('Erro ao salvar: '+error.message); return; }
+  el('fcAjusteDesc').value=''; el('fcAjusteValor').value=''; el('fcAjusteData').value='';
+  await loadAjustesManuais();
+  buildAndRenderTable();
+}
+async function removeAjusteManual(id){
+  if(!confirm('Remover esse lançamento manual? Ele deixa de contar no Saldo Acumulado.')) return;
+  await sb.from('fluxo_ajustes_manuais').delete().eq('id', id);
+  await loadAjustesManuais();
+  buildAndRenderTable();
+}
+
+/* ================== NOVO: Simulador de impacto no saldo ================== */
+let fcSimEntries = [];
+function addFcSimEntry(){
+  const descricao = el('fcSimDesc').value.trim();
+  const valor = parseFloat(el('fcSimValor').value);
+  const data = el('fcSimData').value;
+  if(!descricao || !valor || !data){ alert('Preencha descrição, valor e data.'); return; }
+  fcSimEntries.push({ descricao, valor, data });
+  el('fcSimDesc').value=''; el('fcSimValor').value=''; el('fcSimData').value='';
+  renderFcSim();
+}
+function removeFcSimEntry(idx){ fcSimEntries.splice(idx,1); renderFcSim(); }
+function renderFcSim(){
+  const wrap = el('fcSimList');
+  wrap.innerHTML = fcSimEntries.length ? fcSimEntries.map((e,i)=>`
+    <div class="fc-sim-entry">
+      <span class="desc">${e.descricao}</span>
+      <span class="data">${new Date(e.data+'T00:00:00').toLocaleDateString('pt-BR')}</span>
+      <span class="valor" style="color:${e.valor>=0?'#98C47C':'var(--red)'}">${fmtBRL(e.valor)}</span>
+      <button class="del" onclick="removeFcSimEntry(${i})">✕</button>
+    </div>`).join('') : '<div style="color:var(--text3);font-size:12.5px;">Nenhuma simulação adicionada ainda.</div>';
+
+  const tableWrap = el('fcSimTableWrap');
+  if(!fcSimEntries.length){ tableWrap.style.display='none'; return; }
+  tableWrap.style.display='block';
+
+  const minDate = fcSimEntries.map(e=>e.data).sort()[0];
+  const dias = [];
+  const start = new Date(minDate+'T00:00:00');
+  for(let i=0;i<15;i++){
+    const d = new Date(start); d.setDate(start.getDate()+i);
+    dias.push(d.toISOString().slice(0,10));
+  }
+  el('fcSimTableBody').innerHTML = dias.map(dstr=>{
+    const saldoReal = runningBalance(dstr);
+    const impacto = fcSimEntries.filter(e=>e.data<=dstr).reduce((s,e)=>s+e.valor,0);
+    const saldoSim = saldoReal + impacto;
+    const diffCls = impacto>=0 ? 'style="color:#98C47C"' : 'style="color:var(--red)"';
+    const dateLabel = new Date(dstr+'T00:00:00').toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
+    return `<tr><td>${dateLabel}</td><td>${fmtBRL(saldoReal)}</td><td style="font-weight:700">${fmtBRL(saldoSim)}</td><td ${diffCls}>${impacto>=0?'+':''}${fmtBRL(impacto)}</td></tr>`;
+  }).join('');
+}
+
+/* ================== NOVO: Observações, avisos e solicitações ================== */
+let fcMsgsCache = { msgs:[], reacoes:[], leituras:[] };
+let fcRespondendo = null; // { id, status } — qual mensagem/ação está com o formulário de resposta aberto
+let fcEditando = null; // { id, campo: 'mensagem'|'resposta' } — qual mensagem está em edição
+async function loadFcMsgs(){
+  const { data, error } = await sb.from('fluxo_mensagens').select('*').order('criado_em',{ascending:false});
+  if(error){ el('fcMsgList').innerHTML = '<div style="color:var(--gold);font-size:12px;">⚠️ Não consegui carregar. Verifique se a tabela fluxo_mensagens existe no Supabase.</div>'; return; }
+  const { data: reacoes } = await sb.from('fluxo_mensagens_reacoes').select('*');
+  const { data: leituras } = await sb.from('fluxo_mensagens_leituras').select('*');
+  fcMsgsCache = { msgs:data||[], reacoes:reacoes||[], leituras:leituras||[] };
+  renderFcMsgs(fcMsgsCache.msgs, fcMsgsCache.reacoes, fcMsgsCache.leituras);
+}
+function rerenderFcMsgs(){ renderFcMsgs(fcMsgsCache.msgs, fcMsgsCache.reacoes, fcMsgsCache.leituras); }
+function aplicarFiltrosFcMsgs(){ rerenderFcMsgs(); }
+const FC_MSG_REACOES = [ { tipo:'like', emoji:'👍' }, { tipo:'coracao', emoji:'❤️' }, { tipo:'palmas', emoji:'👏' } ];
+function renderFcMsgs(msgsOriginais, reacoes, leituras){
+  if(!msgsOriginais.length){ el('fcMsgList').innerHTML = '<div class="empty-state"><div class="icon">📋</div>Nenhum registro ainda.</div>'; return; }
+  const filtroTipo = el('fcMsgFiltroTipo')?.value || '';
+  const filtroStatus = el('fcMsgFiltroStatus')?.value || '';
+  const filtroBusca = (el('fcMsgFiltroBusca')?.value || '').toLowerCase().trim();
+  const msgsFiltradas = msgsOriginais.filter(m=>{
+    if(filtroTipo && m.tipo!==filtroTipo) return false;
+    if(filtroStatus && m.status!==filtroStatus) return false;
+    if(filtroBusca && !(m.mensagem||'').toLowerCase().includes(filtroBusca)) return false;
+    return true;
+  });
+  if(!msgsFiltradas.length){ el('fcMsgList').innerHTML = '<div class="empty-state"><div class="icon">🔎</div>Nenhum registro encontrado com esse filtro.</div>'; return; }
+  const msgs = msgsFiltradas; // a lista tem rolagem própria (mostra ~4-5 por vez), não precisa paginar
+  const tipoLabel = { observacao:'📝 Observação', aviso:'⚠️ Aviso', solicitacao:'🙋 Solicitação' };
+  const statusLabel = { aberto:'⏳ Aberto', resolvido:'✓ Resolvido', aprovado:'✓ Aprovado', recusado:'✕ Recusado' };
+  el('fcMsgList').innerHTML = msgs.map(m=>{
+    const date = new Date(m.criado_em).toLocaleString('pt-BR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+    const podeResponder = m.tipo==='solicitacao' && m.status==='aberto';
+    const podeResolver = m.status==='aberto' && m.tipo!=='solicitacao';
+    let acoes = '';
+    if(fcRespondendo && fcRespondendo.id===m.id){
+      const acaoLabel = { aprovado:'Aprovar', recusado:'Recusar', resolvido:'Marcar resolvido' }[fcRespondendo.status];
+      acoes = `<div class="fc-msg-resposta-form">
+        <div class="fc-msg-resposta-form-label">${acaoLabel} — deixe uma resposta (opcional):</div>
+        <textarea id="fcRespostaTexto_${m.id}" placeholder="Escreva sua resposta..."></textarea>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <button class="btn btn-primary btn-sm" onclick="confirmarRespostaFcMsg(${m.id})">Confirmar</button>
+          <button class="btn btn-ghost btn-sm" onclick="cancelarRespostaFcMsg()">Cancelar</button>
+        </div>
+      </div>`;
+    } else if(podeResponder){
+      acoes = `<div style="display:flex;gap:8px;margin-top:10px;">
+        <button class="btn btn-primary btn-sm" onclick="abrirRespostaFcMsg(${m.id},'aprovado')">Aprovar</button>
+        <button class="btn btn-danger btn-sm" onclick="abrirRespostaFcMsg(${m.id},'recusado')">Recusar</button>
+        <button class="btn btn-ghost btn-sm" onclick="abrirRespostaFcMsg(${m.id},'resolvido')">Marcar resolvido</button>
+      </div>`;
+    } else if(podeResolver){
+      acoes = `<button class="btn btn-ghost btn-sm" onclick="abrirRespostaFcMsg(${m.id},'resolvido')" style="margin-top:8px;">Marcar resolvido</button>`;
+    }
+    const podeEditarMsg = m.autor_email===currentUser.email || gpsStaff;
+    const podeEditarResposta = !!m.resposta && gpsStaff;
+    const editandoMsg = fcEditando && fcEditando.id===m.id && fcEditando.campo==='mensagem';
+    const editandoResposta = fcEditando && fcEditando.id===m.id && fcEditando.campo==='resposta';
+    const textoMsgBloco = editandoMsg ? `<div class="fc-msg-edit-box">
+        <textarea id="fcEdit_mensagem_${m.id}">${(m.mensagem||'').replace(/</g,'&lt;')}</textarea>
+        <div style="display:flex;gap:8px;margin-top:6px;">
+          <button class="btn btn-primary btn-sm" onclick="salvarEdicaoFcMsg(${m.id},'mensagem')">Salvar</button>
+          <button class="btn btn-ghost btn-sm" onclick="cancelarEdicaoFcMsg()">Cancelar</button>
+        </div>
+      </div>` : `<div class="fc-msg-text">${(m.mensagem||'').replace(/</g,'&lt;')}${podeEditarMsg ? ` <span class="fc-msg-edit-link" onclick="abrirEdicaoFcMsg(${m.id},'mensagem')">✏️ editar</span>` : ''}</div>`;
+    const respostaBloco = editandoResposta ? `<div class="fc-msg-edit-box">
+        <textarea id="fcEdit_resposta_${m.id}">${(m.resposta||'').replace(/</g,'&lt;')}</textarea>
+        <div style="display:flex;gap:8px;margin-top:6px;">
+          <button class="btn btn-primary btn-sm" onclick="salvarEdicaoFcMsg(${m.id},'resposta')">Salvar</button>
+          <button class="btn btn-ghost btn-sm" onclick="cancelarEdicaoFcMsg()">Cancelar</button>
+        </div>
+      </div>` : (m.resposta ? `<div class="fc-msg-resposta"><b>${m.respondido_por||''}:</b> ${m.resposta}${podeEditarResposta ? ` <span class="fc-msg-edit-link" onclick="abrirEdicaoFcMsg(${m.id},'resposta')">✏️ editar</span>` : ''}</div>` : '');
+    let leituraBloco = '';
+    if(m.tipo==='observacao' || m.tipo==='aviso'){
+      const reacoesMsg = reacoes.filter(r=>r.mensagem_id===m.id);
+      const leiturasMsg = leituras.filter(l=>l.mensagem_id===m.id);
+      const jaLeu = leiturasMsg.some(l=>l.usuario_email===currentUser.email);
+      const botoesReacao = FC_MSG_REACOES.map(t=>{
+        const count = reacoesMsg.filter(r=>r.tipo===t.tipo).length;
+        const marcou = reacoesMsg.some(r=>r.tipo===t.tipo && r.usuario_email===currentUser.email);
+        return `<button class="fc-msg-reacao-btn ${marcou?'active':''}" onclick="toggleFcMsgReacao(${m.id},'${t.tipo}',${marcou})">${t.emoji} ${count||''}</button>`;
+      }).join('');
+      const listaLeitores = leiturasMsg.map(l=>`${l.usuario_nome||l.usuario_email} · ${new Date(l.lido_em).toLocaleString('pt-BR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}`).join('<br>') || 'Ninguém confirmou leitura ainda.';
+      leituraBloco = `<div class="fc-msg-reacoes-row">
+        ${botoesReacao}
+        <button class="fc-msg-reacao-btn ${jaLeu?'active':''}" onclick="toggleFcMsgLeitura(${m.id},${jaLeu})" ${jaLeu?'disabled':''}>${jaLeu?'✅ Lido':'☑️ Marcar como lido'}</button>
+        ${gpsStaff ? `<span class="fc-msg-leram" title="${listaLeitores.replace(/"/g,'&quot;')}">👀 ${leiturasMsg.length} leram</span>` : ''}
+      </div>`;
+    }
+    return `<div class="fc-msg-item">
+      <div class="fc-msg-head">
+        <span class="fc-msg-autor">${m.autor_nome||m.autor_email}</span>
+        <span class="fc-msg-tipo ${m.tipo}">${tipoLabel[m.tipo]||m.tipo}</span>
+        <span class="fc-msg-status ${m.status}">${statusLabel[m.status]||m.status}</span>
+        <span class="fc-msg-date">${date}</span>
+      </div>
+      ${textoMsgBloco}
+      ${respostaBloco}
+      ${acoes}
+      ${leituraBloco}
+    </div>`;
+  }).join('');
+}
+async function submitFcMsg(){
+  const tipo = el('fcMsgTipo').value;
+  const mensagem = el('fcMsgTexto').value.trim();
+  if(!mensagem) return;
+  const { error } = await sb.from('fluxo_mensagens').insert({
+    autor_email: currentUser.email, autor_nome: nameFromEmail(currentUser.email), tipo, mensagem, status:'aberto'
+  });
+  if(!error){ el('fcMsgTexto').value=''; await loadFcMsgs(); }
+  else alert('Erro ao publicar: '+error.message);
+}
+function abrirRespostaFcMsg(id, status){ fcRespondendo = { id, status }; rerenderFcMsgs(); }
+function cancelarRespostaFcMsg(){ fcRespondendo = null; rerenderFcMsgs(); }
+async function confirmarRespostaFcMsg(id){
+  const status = fcRespondendo.status;
+  const campo = el('fcRespostaTexto_'+id);
+  const resposta = campo ? campo.value.trim() : '';
+  const { error } = await sb.from('fluxo_mensagens').update({
+    status, resposta, respondido_por: nameFromEmail(currentUser.email), respondido_em: new Date().toISOString()
+  }).eq('id', id);
+  if(!error){ fcRespondendo = null; await loadFcMsgs(); }
+  else alert('Erro: '+error.message);
+}
+async function toggleFcMsgReacao(mensagemId, tipo, already){
+  if(already) await sb.from('fluxo_mensagens_reacoes').delete().eq('mensagem_id',mensagemId).eq('usuario_email',currentUser.email).eq('tipo',tipo);
+  else await sb.from('fluxo_mensagens_reacoes').insert({ mensagem_id:mensagemId, usuario_email:currentUser.email, tipo });
+  await loadFcMsgs();
+}
+async function toggleFcMsgLeitura(mensagemId, already){
+  if(already) return;
+  const { error } = await sb.from('fluxo_mensagens_leituras').insert({ mensagem_id:mensagemId, usuario_email:currentUser.email, usuario_nome:nameFromEmail(currentUser.email) });
+  if(!error){ await loadFcMsgs(); aplicarBadgesNav(currentUser.email); }
+  else alert('Erro: '+error.message);
+}
+function abrirEdicaoFcMsg(id, campo){ fcEditando = { id, campo }; rerenderFcMsgs(); }
+function cancelarEdicaoFcMsg(){ fcEditando = null; rerenderFcMsgs(); }
+async function salvarEdicaoFcMsg(id, campo){
+  const valor = (el('fcEdit_'+campo+'_'+id)?.value || '').trim();
+  if(campo==='mensagem' && !valor) return;
+  const payload = campo==='mensagem' ? { mensagem: valor } : { resposta: valor };
+  const { error } = await sb.from('fluxo_mensagens').update(payload).eq('id', id);
+  if(!error){ fcEditando = null; await loadFcMsgs(); }
+  else alert('Erro: '+error.message);
+}
+
+init();
+</script>
+</body>
+</html>
