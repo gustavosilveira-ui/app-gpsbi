@@ -769,11 +769,70 @@ function flattenRows(nodes){
   return out;
 }
 
+
+/* ================== Visão Semanal · Necessidade de Caixa ================== */
+function fcIsoLocal(d){
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function fcInicioSemana(d){
+  const x = new Date(d);
+  const dia = x.getDay();
+  x.setDate(x.getDate() + (dia===0 ? -6 : 1-dia));
+  x.setHours(0,0,0,0);
+  return x;
+}
+function renderVisaoSemanal(){
+  const wrap = el('fcVisaoSemanal');
+  if(!wrap) return;
+
+  const base = fcInicioSemana(new Date());
+  const scoped = rowsInScope().filter(r=>!r.excluida);
+  const cards = [];
+
+  for(let i=0;i<4;i++){
+    const ini = new Date(base);
+    ini.setDate(ini.getDate() + i*7);
+    const fim = new Date(ini);
+    fim.setDate(fim.getDate() + 6);
+
+    const iniStr = fcIsoLocal(ini);
+    const fimStr = fcIsoLocal(fim);
+    const saldoInicial = runningBalance(prevDateStr(iniStr));
+    let recebimentos = 0;
+    let pagamentos = 0;
+
+    scoped.forEach(r=>{
+      if(!r.date || r.date < iniStr || r.date > fimStr) return;
+      const impacto = Number.isFinite(Number(r.signedValor)) ? Number(r.signedValor) : Number(r.valor||0);
+      if(r.grupo==='RECEBIMENTOS') recebimentos += Math.max(0, impacto);
+      if(r.grupo==='PAGAMENTOS') pagamentos += Math.abs(Math.min(0, impacto || -Math.abs(Number(r.valor||0))));
+    });
+
+    const saldoFinal = runningBalance(fimStr);
+    const necessidade = Math.max(0, -saldoFinal);
+    const periodo = `${String(ini.getDate()).padStart(2,'0')}/${String(ini.getMonth()+1).padStart(2,'0')} a ${String(fim.getDate()).padStart(2,'0')}/${String(fim.getMonth()+1).padStart(2,'0')}`;
+
+    cards.push(`<div class="fc-week-card">
+      <div class="fc-week-title">${periodo}</div>
+      <div class="fc-week-sub">${i===0?'Semana atual':'Semana +'+i}</div>
+      <div class="fc-week-lines">
+        Saldo inicial: <b>${fmtBRL(saldoInicial)}</b><br>
+        Recebimentos: <b style="color:#4F8F3A">${fmtBRL(recebimentos)}</b><br>
+        Pagamentos: <b style="color:var(--red)">${fmtBRL(pagamentos)}</b><br>
+        Saldo final: <b>${fmtBRL(saldoFinal)}</b><br>
+        Necessidade de caixa: <b style="color:${necessidade>0?'var(--red)':'#4F8F3A'}">${fmtBRL(necessidade)}</b>
+      </div>
+    </div>`);
+  }
+  wrap.innerHTML = cards.join('');
+}
+
 /* ================== RENDER ================== */
 function buildAndRenderTable(){
   columnTree = buildColumnTree();
   rowTree = buildRowTree();
   renderTable();
+  renderVisaoSemanal();
   renderDebugStats();
   const doScroll = ()=>scrollToToday();
   if(document.fonts && document.fonts.ready){ document.fonts.ready.then(doScroll); }

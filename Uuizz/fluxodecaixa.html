@@ -121,6 +121,15 @@ html.light .fc-empresa-btn{background:#eef1f6;}
 .fc-detail-list .fc-detail-table th:nth-child(6),.fc-detail-list .fc-detail-table td:nth-child(6){width:95px;}
 .fc-detail-muted{font-size:11.5px;color:var(--text3);line-height:1.45;margin-top:8px;}
 @media(max-width:760px){.fc-detail-summary{grid-template-columns:1fr;}}
+
+/* Visão semanal · necessidade de caixa */
+.fc-week-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;}
+.fc-week-card{background:var(--navy3);border-radius:10px;padding:12px 14px;}
+.fc-week-title{font-family:'DM Mono',monospace;font-weight:800;font-size:14px;margin-bottom:2px;}
+.fc-week-sub{font-size:10.5px;color:var(--text3);margin-bottom:8px;}
+.fc-week-lines{font-size:12px;line-height:1.65;}
+@media(max-width:900px){.fc-week-grid{grid-template-columns:1fr;}}
+
 </style>
 </head>
 <body>
@@ -158,6 +167,13 @@ html.light .fc-empresa-btn{background:#eef1f6;}
         <span><span class="fc-dot" style="background:#2D70B8"></span> Hoje</span>
       </div>
       <div id="fcDebugStats" style="font-size:11px;color:var(--text3);margin-top:8px;"></div>
+    </div>
+
+
+    <div class="card" id="fcVisaoSemanalCard">
+      <div class="card-title">📅 Visão Semanal · Necessidade de Caixa</div>
+      <div class="card-sub">Semana atual e próximas semanas, considerando a empresa selecionada acima.</div>
+      <div id="fcVisaoSemanal" class="fc-week-grid"></div>
     </div>
 
     <!-- Saldo Inicial + Lançamentos Manuais (só time GPS; por empresa) -->
