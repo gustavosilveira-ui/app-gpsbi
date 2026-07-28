@@ -157,7 +157,7 @@ async function init(){
 }
 
 async function loadUserList(){
-  const { data, error } = await sb.from('tarefas_pessoais').select('usuario_email, usuario_nome');
+  const { data, error } = await sb.from('gpsbi_tarefas_pessoais').select('usuario_email, usuario_nome');
   if(error || !data) return;
   const seen = {};
   data.forEach(r=>{ if(r.usuario_email && r.usuario_email!==userEmail) seen[r.usuario_email] = r.usuario_nome || nameFromEmail(r.usuario_email); });
@@ -175,7 +175,7 @@ async function loadUserList(){
 
 async function loadTasks(){
   const targetEmail = viewingEmail || userEmail;
-  const { data, error } = await sb.from('tarefas_pessoais').select('*').eq('usuario_email', targetEmail).order('data_tarefa',{ascending:true});
+  const { data, error } = await sb.from('gpsbi_tarefas_pessoais').select('*').eq('usuario_email', targetEmail).order('data_tarefa',{ascending:true});
   if(error){ console.error('Erro ao carregar tarefas:', error); tasksCache = []; renderCalendar(); return; }
   tasksCache = data || [];
   renderCalendar();
@@ -223,19 +223,19 @@ function closeCalDayModal(){
 async function addTaskFromModal(){
   const titulo = el('calDayModalTitle').value.trim();
   if(!titulo || !calSelectedDay) return;
-  const { error } = await sb.from('tarefas_pessoais').insert({ usuario_email:userEmail, usuario_nome:userName, titulo, data_tarefa:calSelectedDay });
+  const { error } = await sb.from('gpsbi_tarefas_pessoais').insert({ usuario_email:userEmail, usuario_nome:userName, titulo, data_tarefa:calSelectedDay });
   if(!error){ el('calDayModalTitle').value=''; await loadTasks(); }
   else alert('Erro ao salvar: '+error.message);
 }
 async function toggleTask(id, feito){
   if(viewingEmail) return; // somente leitura
-  await sb.from('tarefas_pessoais').update({feito}).eq('id', id);
+  await sb.from('gpsbi_tarefas_pessoais').update({feito}).eq('id', id);
   await loadTasks();
 }
 async function deleteTask(id){
   if(viewingEmail) return;
   if(!confirm('Excluir essa tarefa?')) return;
-  await sb.from('tarefas_pessoais').delete().eq('id', id);
+  await sb.from('gpsbi_tarefas_pessoais').delete().eq('id', id);
   await loadTasks();
 }
 async function doLogout(){ await sb.auth.signOut(); window.location.href = LOGIN_URL; }

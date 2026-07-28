@@ -73,10 +73,10 @@ async function aplicarBadgesNav(email){
   if(!_appNavSb) return;
   try{
     const [fluxoQ, fluxoLidasQ, muralQ, muralLidasQ] = await Promise.all([
-      _appNavSb.from('fluxo_mensagens').select('id').in('tipo',['observacao','aviso']),
-      _appNavSb.from('fluxo_mensagens_leituras').select('mensagem_id').eq('usuario_email', email),
-      _appNavSb.from('comunicados').select('id'),
-      _appNavSb.from('comunicado_leituras').select('comunicado_id').eq('usuario_email', email),
+      _appNavSb.from('gpsbi_fluxo_mensagens').select('id').in('tipo',['observacao','aviso']),
+      _appNavSb.from('gpsbi_fluxo_mensagens_leituras').select('mensagem_id').eq('usuario_email', email),
+      _appNavSb.from('gpsbi_comunicados').select('id'),
+      _appNavSb.from('gpsbi_comunicado_leituras').select('comunicado_id').eq('usuario_email', email),
     ]);
     const naoLidas = (todos, lidas, campoLido) => {
       const lidosSet = new Set((lidas||[]).map(l=>l[campoLido]));

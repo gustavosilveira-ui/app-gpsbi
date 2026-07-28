@@ -102,10 +102,10 @@ async function init(){
 let muralCache = { posts:[], reacoes:[], leituras:[] };
 let muralEditando = null; // id do comunicado em edição
 async function loadPosts(){
-  const { data: posts, error } = await sb.from('comunicados').select('*').order('fixado',{ascending:false}).order('criado_em',{ascending:false});
-  if(error){ el('postsWrap').innerHTML = '<div class="empty-state">⚠️ Não consegui carregar o mural. Verifique se a tabela comunicados existe no Supabase.</div>'; return; }
-  const { data: reacoes } = await sb.from('comunicado_reacoes').select('*');
-  const { data: leituras } = await sb.from('comunicado_leituras').select('*');
+  const { data: posts, error } = await sb.from('gpsbi_comunicados').select('*').order('fixado',{ascending:false}).order('criado_em',{ascending:false});
+  if(error){ el('postsWrap').innerHTML = '<div class="empty-state">⚠️ Não consegui carregar o mural. Verifique se a tabela gpsbi_comunicados existe no Supabase.</div>'; return; }
+  const { data: reacoes } = await sb.from('gpsbi_comunicado_reacoes').select('*');
+  const { data: leituras } = await sb.from('gpsbi_comunicado_leituras').select('*');
   muralCache = { posts:posts||[], reacoes:reacoes||[], leituras:leituras||[] };
   renderPosts(muralCache.posts, muralCache.reacoes, muralCache.leituras);
 }
@@ -171,7 +171,7 @@ function toggleReadList(id){
 }
 async function toggleRead(comunicadoId, already){
   if(already) return;
-  const { error } = await sb.from('comunicado_leituras').insert({ comunicado_id:comunicadoId, usuario_email:userEmail, usuario_nome:userName });
+  const { error } = await sb.from('gpsbi_comunicado_leituras').insert({ comunicado_id:comunicadoId, usuario_email:userEmail, usuario_nome:userName });
   if(!error){ await loadPosts(); aplicarBadgesNav(userEmail); }
   else alert('Erro: '+error.message);
 }
@@ -181,13 +181,13 @@ async function submitPost(){
   const mensagem = el('postMensagem').value.trim();
   const fixado = el('postFixado').checked;
   if(!titulo || !mensagem) return;
-  const { error } = await sb.from('comunicados').insert({ autor_email:userEmail, autor_nome:userName, titulo, mensagem, fixado });
+  const { error } = await sb.from('gpsbi_comunicados').insert({ autor_email:userEmail, autor_nome:userName, titulo, mensagem, fixado });
   if(!error){ el('postTitulo').value=''; el('postMensagem').value=''; el('postFixado').checked=false; await loadPosts(); }
   else alert('Erro ao publicar: '+error.message);
 }
 async function toggleReacaoPost(comunicadoId, tipo, already){
-  if(already) await sb.from('comunicado_reacoes').delete().eq('comunicado_id', comunicadoId).eq('usuario_email', userEmail).eq('tipo', tipo);
-  else await sb.from('comunicado_reacoes').insert({ comunicado_id:comunicadoId, usuario_email:userEmail, tipo });
+  if(already) await sb.from('gpsbi_comunicado_reacoes').delete().eq('comunicado_id', comunicadoId).eq('usuario_email', userEmail).eq('tipo', tipo);
+  else await sb.from('gpsbi_comunicado_reacoes').insert({ comunicado_id:comunicadoId, usuario_email:userEmail, tipo });
   await loadPosts();
 }
 function abrirEdicaoPost(id){ muralEditando = id; rerenderPosts(); }
@@ -196,13 +196,13 @@ async function salvarEdicaoPost(id){
   const titulo = (el('muralEditTitulo_'+id)?.value||'').trim();
   const mensagem = (el('muralEditMensagem_'+id)?.value||'').trim();
   if(!titulo || !mensagem) return;
-  const { error } = await sb.from('comunicados').update({ titulo, mensagem }).eq('id', id);
+  const { error } = await sb.from('gpsbi_comunicados').update({ titulo, mensagem }).eq('id', id);
   if(!error){ muralEditando = null; await loadPosts(); }
   else alert('Erro: '+error.message);
 }
 async function deletePost(id){
   if(!confirm('Excluir esse comunicado?')) return;
-  await sb.from('comunicados').delete().eq('id', id);
+  await sb.from('gpsbi_comunicados').delete().eq('id', id);
   await loadPosts();
 }
 async function doLogout(){ await sb.auth.signOut(); window.location.href = LOGIN_URL; }

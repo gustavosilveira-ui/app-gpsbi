@@ -120,10 +120,10 @@ function setTab(t){
 }
 
 async function loadRequests(){
-  let query = sb.from('aprovacoes_desconto').select('*').order('criado_em',{ascending:false});
+  let query = sb.from('gpsbi_aprovacoes_desconto').select('*').order('criado_em',{ascending:false});
   if(userRole!=='owner') query = query.eq('vendedor_email', userEmail);
   const { data, error } = await query;
-  if(error){ el('reqListWrap').innerHTML = '<div class="empty-state">⚠️ Não consegui carregar. Verifique se a tabela aprovacoes_desconto existe no Supabase.</div>'; return; }
+  if(error){ el('reqListWrap').innerHTML = '<div class="empty-state">⚠️ Não consegui carregar. Verifique se a tabela gpsbi_aprovacoes_desconto existe no Supabase.</div>'; return; }
   requestsCache = data || [];
   renderRequests();
 }
@@ -174,7 +174,7 @@ async function submitRequest(){
   const gestor_email = el('reqGestorEmail').value.trim();
   if(!cliente || !percentual_desconto){ alert('Preencha ao menos o cliente e o % de desconto.'); return; }
   if(!gestor_email){ alert('Preencha o e-mail do gestor que vai aprovar.'); return; }
-  const { error } = await sb.from('aprovacoes_desconto').insert({
+  const { error } = await sb.from('gpsbi_aprovacoes_desconto').insert({
     vendedor_email:userEmail, vendedor_nome:userName, cliente, percentual_desconto, valor_pedido, justificativa, gestor_email, status:'pendente'
   });
   if(!error){
@@ -209,7 +209,7 @@ https://gerencial.gpsbi.com.br/aprovacoes.html
 }
 async function respondRequest(id, status){
   const resposta_dono = prompt(status==='aprovado' ? 'Alguma observação sobre a aprovação? (opcional)' : 'Motivo da recusa (opcional):') || '';
-  const { error } = await sb.from('aprovacoes_desconto').update({
+  const { error } = await sb.from('gpsbi_aprovacoes_desconto').update({
     status, resposta_dono, respondido_em: new Date().toISOString(),
     aprovado_por: userName, aprovado_por_email: userEmail
   }).eq('id', id);
