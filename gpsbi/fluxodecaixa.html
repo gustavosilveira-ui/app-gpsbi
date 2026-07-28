@@ -1337,7 +1337,7 @@ function isLimiteContaCrossing(dstr, saldo){
 
 /* ================== NOVO: Saldo Inicial ================== */
 async function loadSaldoInicial(){
-  const { data, error } = await sb.from('fluxo_saldo_inicial').select('*').order('criado_em',{ascending:false}).limit(1);
+  const { data, error } = await sb.from('gpsbi_fluxo_saldo_inicial').select('*').order('criado_em',{ascending:false}).limit(1);
   saldoInicialOverride = (!error && data && data.length) ? data[0] : null;
   renderSaldoInicialStatus();
 }
@@ -1356,8 +1356,8 @@ async function applySaldoInicial(){
   const data_referencia = el('fcSaldoInicialData').value;
   const valor = parseFloat(el('fcSaldoInicialValor').value);
   if(!data_referencia || isNaN(valor)){ alert('Preencha a data e o saldo dessa data.'); return; }
-  await sb.from('fluxo_saldo_inicial').delete().gt('id', 0); // só existe um saldo inicial ativo por vez
-  const { error } = await sb.from('fluxo_saldo_inicial').insert({ data_referencia, valor, criado_por: nameFromEmail(currentUser.email) });
+  await sb.from('gpsbi_fluxo_saldo_inicial').delete().gt('id', 0); // só existe um saldo inicial ativo por vez
+  const { error } = await sb.from('gpsbi_fluxo_saldo_inicial').insert({ data_referencia, valor, criado_por: nameFromEmail(currentUser.email) });
   if(error){ alert('Erro ao salvar: '+error.message); return; }
   el('fcSaldoInicialData').value=''; el('fcSaldoInicialValor').value='';
   await loadSaldoInicial();
@@ -1365,7 +1365,7 @@ async function applySaldoInicial(){
 }
 async function removeSaldoInicial(){
   if(!confirm('Remover o saldo inicial? O Saldo Acumulado volta a considerar todo o histórico da planilha.')) return;
-  await sb.from('fluxo_saldo_inicial').delete().gt('id', 0);
+  await sb.from('gpsbi_fluxo_saldo_inicial').delete().gt('id', 0);
   await loadSaldoInicial();
   renderTable();
 }
@@ -1375,7 +1375,7 @@ async function removeSaldoInicial(){
 // movimentação de verdade: entra em `rows` e é somado no Saldo Acumulado real.
 let ajustesManuais = [];
 async function loadAjustesManuais(){
-  const { data, error } = await sb.from('fluxo_ajustes_manuais').select('*').order('data',{ascending:true});
+  const { data, error } = await sb.from('gpsbi_fluxo_ajustes_manuais').select('*').order('data',{ascending:true});
   ajustesManuais = (!error && data) ? data : [];
   rows = rows.filter(r=>r.grupo!=='AJUSTES_MANUAIS'); // evita duplicar se recarregar
   ajustesManuais.forEach(a=>{
@@ -1404,7 +1404,7 @@ async function addAjusteManual(){
   const valor = parseFloat(el('fcAjusteValor').value);
   const data = el('fcAjusteData').value;
   if(!descricao || isNaN(valor) || !data){ alert('Preencha descrição, valor e data.'); return; }
-  const { error } = await sb.from('fluxo_ajustes_manuais').insert({ data, descricao, valor, criado_por: nameFromEmail(currentUser.email) });
+  const { error } = await sb.from('gpsbi_fluxo_ajustes_manuais').insert({ data, descricao, valor, criado_por: nameFromEmail(currentUser.email) });
   if(error){ alert('Erro ao salvar: '+error.message); return; }
   el('fcAjusteDesc').value=''; el('fcAjusteValor').value=''; el('fcAjusteData').value='';
   await loadAjustesManuais();
@@ -1412,7 +1412,7 @@ async function addAjusteManual(){
 }
 async function removeAjusteManual(id){
   if(!confirm('Remover esse lançamento manual? Ele deixa de contar no Saldo Acumulado.')) return;
-  await sb.from('fluxo_ajustes_manuais').delete().eq('id', id);
+  await sb.from('gpsbi_fluxo_ajustes_manuais').delete().eq('id', id);
   await loadAjustesManuais();
   buildAndRenderTable();
 }
@@ -1465,10 +1465,10 @@ let fcMsgsCache = { msgs:[], reacoes:[], leituras:[] };
 let fcRespondendo = null; // { id, status } — qual mensagem/ação está com o formulário de resposta aberto
 let fcEditando = null; // { id, campo: 'mensagem'|'resposta' } — qual mensagem está em edição
 async function loadFcMsgs(){
-  const { data, error } = await sb.from('fluxo_mensagens').select('*').order('criado_em',{ascending:false});
-  if(error){ el('fcMsgList').innerHTML = '<div style="color:var(--gold);font-size:12px;">⚠️ Não consegui carregar. Verifique se a tabela fluxo_mensagens existe no Supabase.</div>'; return; }
-  const { data: reacoes } = await sb.from('fluxo_mensagens_reacoes').select('*');
-  const { data: leituras } = await sb.from('fluxo_mensagens_leituras').select('*');
+  const { data, error } = await sb.from('gpsbi_fluxo_mensagens').select('*').order('criado_em',{ascending:false});
+  if(error){ el('fcMsgList').innerHTML = '<div style="color:var(--gold);font-size:12px;">⚠️ Não consegui carregar. Verifique se a tabela gpsbi_fluxo_mensagens existe no Supabase.</div>'; return; }
+  const { data: reacoes } = await sb.from('gpsbi_fluxo_mensagens_reacoes').select('*');
+  const { data: leituras } = await sb.from('gpsbi_fluxo_mensagens_leituras').select('*');
   fcMsgsCache = { msgs:data||[], reacoes:reacoes||[], leituras:leituras||[] };
   renderFcMsgs(fcMsgsCache.msgs, fcMsgsCache.reacoes, fcMsgsCache.leituras);
 }
@@ -1567,7 +1567,7 @@ async function submitFcMsg(){
   const tipo = el('fcMsgTipo').value;
   const mensagem = el('fcMsgTexto').value.trim();
   if(!mensagem) return;
-  const { error } = await sb.from('fluxo_mensagens').insert({
+  const { error } = await sb.from('gpsbi_fluxo_mensagens').insert({
     autor_email: currentUser.email, autor_nome: nameFromEmail(currentUser.email), tipo, mensagem, status:'aberto'
   });
   if(!error){ el('fcMsgTexto').value=''; await loadFcMsgs(); }
@@ -1579,20 +1579,20 @@ async function confirmarRespostaFcMsg(id){
   const status = fcRespondendo.status;
   const campo = el('fcRespostaTexto_'+id);
   const resposta = campo ? campo.value.trim() : '';
-  const { error } = await sb.from('fluxo_mensagens').update({
+  const { error } = await sb.from('gpsbi_fluxo_mensagens').update({
     status, resposta, respondido_por: nameFromEmail(currentUser.email), respondido_em: new Date().toISOString()
   }).eq('id', id);
   if(!error){ fcRespondendo = null; await loadFcMsgs(); }
   else alert('Erro: '+error.message);
 }
 async function toggleFcMsgReacao(mensagemId, tipo, already){
-  if(already) await sb.from('fluxo_mensagens_reacoes').delete().eq('mensagem_id',mensagemId).eq('usuario_email',currentUser.email).eq('tipo',tipo);
-  else await sb.from('fluxo_mensagens_reacoes').insert({ mensagem_id:mensagemId, usuario_email:currentUser.email, tipo });
+  if(already) await sb.from('gpsbi_fluxo_mensagens_reacoes').delete().eq('mensagem_id',mensagemId).eq('usuario_email',currentUser.email).eq('tipo',tipo);
+  else await sb.from('gpsbi_fluxo_mensagens_reacoes').insert({ mensagem_id:mensagemId, usuario_email:currentUser.email, tipo });
   await loadFcMsgs();
 }
 async function toggleFcMsgLeitura(mensagemId, already){
   if(already) return;
-  const { error } = await sb.from('fluxo_mensagens_leituras').insert({ mensagem_id:mensagemId, usuario_email:currentUser.email, usuario_nome:nameFromEmail(currentUser.email) });
+  const { error } = await sb.from('gpsbi_fluxo_mensagens_leituras').insert({ mensagem_id:mensagemId, usuario_email:currentUser.email, usuario_nome:nameFromEmail(currentUser.email) });
   if(!error){ await loadFcMsgs(); aplicarBadgesNav(currentUser.email); }
   else alert('Erro: '+error.message);
 }
@@ -1602,7 +1602,7 @@ async function salvarEdicaoFcMsg(id, campo){
   const valor = (el('fcEdit_'+campo+'_'+id)?.value || '').trim();
   if(campo==='mensagem' && !valor) return;
   const payload = campo==='mensagem' ? { mensagem: valor } : { resposta: valor };
-  const { error } = await sb.from('fluxo_mensagens').update(payload).eq('id', id);
+  const { error } = await sb.from('gpsbi_fluxo_mensagens').update(payload).eq('id', id);
   if(!error){ fcEditando = null; await loadFcMsgs(); }
   else alert('Erro: '+error.message);
 }
