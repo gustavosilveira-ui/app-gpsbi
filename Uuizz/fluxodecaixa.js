@@ -551,31 +551,55 @@ let columnTree = [];
 function buildColumnTree(){
   const scoped = rowsInScope();
   if(!scoped.length) return [];
-  const minYear = parseInt(scoped[0].date.slice(0,4),10);
-  const maxYear = parseInt(scoped[scoped.length-1].date.slice(0,4),10);
-  const today = new Date();
-  const todayStr = today.toISOString().slice(0,10);
-  const curYear = today.getFullYear(), curMonth = today.getMonth()+1;
 
-  const years = [];
-  for(let y=minYear; y<=maxYear; y++){
-    const months = [];
-    for(let m=1; m<=12; m++){
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  const curYear = today.getFullYear();
+  const curMonth = today.getMonth()+1;
+
+  // Mesmo padrão da Tangram: histórico do ano vigente e projeção somente
+  // até o mês atual + 2 meses seguintes.
+  const startDate = new Date(curYear, 0, 1);
+  const endDate = new Date(curYear, today.getMonth()+2, 1);
+  const mesesPeriodo = [];
+  const cursor = new Date(startDate);
+
+  while(cursor <= endDate){
+    mesesPeriodo.push({ y: cursor.getFullYear(), m: cursor.getMonth()+1 });
+    cursor.setMonth(cursor.getMonth()+1);
+  }
+
+  const anosMap = {};
+  mesesPeriodo.forEach(({y,m})=>{ (anosMap[y] = anosMap[y] || []).push(m); });
+
+  return Object.keys(anosMap).map(Number).sort((a,b)=>a-b).map(y=>{
+    const months = anosMap[y].map(m=>{
       const lastDay = new Date(y,m,0).getDate();
       const days = [];
       for(let d=1; d<=lastDay; d++){
         const dstr = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
         const dow = DOW_ABBR[new Date(y,m-1,d).getDay()];
-        days.push({ type:'day', key:'d'+dstr, label:`<div class="fc-dow">${dow}</div><div>${String(d).padStart(2,'0')}</div>`, start:dstr, end:dstr, isToday: dstr===todayStr, children:[], expanded:false });
+        days.push({
+          type:'day', key:'d'+dstr,
+          label:`<div class="fc-dow">${dow}</div><div>${String(d).padStart(2,'0')}</div>`,
+          start:dstr, end:dstr, isToday:dstr===todayStr,
+          children:[], expanded:false
+        });
       }
-      months.push({ type:'month', key:`m${y}-${m}`, label:MESES_ABBR[m-1]+'/'+String(y).slice(2),
-        start:`${y}-${String(m).padStart(2,'0')}-01`, end:`${y}-${String(m).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`,
-        isToday:false, children:days, expanded:(y===curYear && m===curMonth) });
-    }
-    years.push({ type:'year', key:'y'+y, label:String(y), start:`${y}-01-01`, end:`${y}-12-31`,
-      isToday:false, children:months, expanded:(y===curYear) });
-  }
-  return years;
+      return {
+        type:'month', key:`m${y}-${m}`, label:MESES_ABBR[m-1]+'/'+String(y).slice(2),
+        start:`${y}-${String(m).padStart(2,'0')}-01`,
+        end:`${y}-${String(m).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`,
+        isToday:false, children:days,
+        expanded:(y===curYear && m===curMonth)
+      };
+    });
+    return {
+      type:'year', key:'y'+y, label:String(y),
+      start:`${y}-01-01`, end:`${y}-12-31`,
+      isToday:false, children:months, expanded:(y===curYear)
+    };
+  });
 }
 function flattenColumns(nodes){
   let out = [];
@@ -1144,12 +1168,32 @@ function renderAjustesManuaisList(){
 async function addAjusteManual(){
   const empresa = el('fcAjusteEmpresa').value;
   const descricao = el('fcAjusteDesc').value.trim();
-  const valor = parseFloat(el('fcAjusteValor').value);
-  const data = el('fcAjusteData').value;
-  if(!descricao || isNaN(valor) || !data){ alert('Preencha descrição, valor e data.'); return; }
-  const { error } = await sb.from('fluxo_ajustes_manuais').insert({ empresa, data, descricao, valor, criado_por: nameFromEmail(currentUser.email) });
+  const valorTexto = String(el('fcAjusteValor').value || '').trim();
+  const valor = parseMoneyBR(valorTexto);
+  let data = el('fcAjusteData').value;
+
+  // Evita o campo de data ficar vazio ao trocar para Mister Wiz.
+  // Se o navegador não devolver a data, usa o dia de hoje.
+  if(!data){
+    const hoje = new Date();
+    data = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}-${String(hoje.getDate()).padStart(2,'0')}`;
+    el('fcAjusteData').value = data;
+  }
+
+  if(!empresa){ alert('Selecione a empresa.'); return; }
+  if(!descricao){ alert('Preencha a descrição.'); return; }
+  if(!valorTexto || !Number.isFinite(valor)){ alert('Preencha um valor válido.'); return; }
+  if(!data){ alert('Preencha a data.'); return; }
+
+  const { error } = await sb.from('fluxo_ajustes_manuais').insert({
+    empresa, data, descricao, valor,
+    criado_por: nameFromEmail(currentUser.email)
+  });
   if(error){ alert('Erro ao salvar: '+error.message); return; }
-  el('fcAjusteDesc').value=''; el('fcAjusteValor').value=''; el('fcAjusteData').value='';
+
+  el('fcAjusteDesc').value='';
+  el('fcAjusteValor').value='';
+  // Mantém a data preenchida para facilitar lançamentos em sequência.
   await loadAjustesManuais();
   buildAndRenderTable();
 }
@@ -1206,5 +1250,15 @@ function renderFcSim(){
     return `<tr><td>${dateLabel}</td><td>${fmtBRL(saldoReal)}</td><td style="font-weight:700">${fmtBRL(saldoSim)}</td><td ${diffCls}>${impacto>=0?'+':''}${fmtBRL(impacto)}</td></tr>`;
   }).join('');
 }
+
+function preencherDatasPadraoAjustes(){
+  const hoje = new Date();
+  const iso = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}-${String(hoje.getDate()).padStart(2,'0')}`;
+  const ajusteData = el('fcAjusteData');
+  const saldoData = el('fcSaldoInicialData');
+  if(ajusteData && !ajusteData.value) ajusteData.value = iso;
+  if(saldoData && !saldoData.value) saldoData.value = iso;
+}
+window.addEventListener('DOMContentLoaded', preencherDatasPadraoAjustes);
 
 init();
