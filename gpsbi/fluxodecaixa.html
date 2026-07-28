@@ -356,7 +356,7 @@ function getColNormalized(rowObj, wantedKeyNormalized){
 // aqui é qualquer e-mail @gpsbi.com.br + o Giovanna (definido junto com o Gustavo).
 function canAccessFluxo(email){
   email = (email||'').toLowerCase();
-  return ['gustavosilveira@gpsbi.com.br','giovanna@gpsbi.com.br'].includes(email);
+  return ['gustavosilveira@gpsbi.com.br','giovannaxavier@gpsbi.com.br'].includes(email);
 }
 // Alguns recursos (Saldo Inicial, Lançamentos Manuais) são só do time interno GPS —
 // o Giovanna/Prieto (cliente) acessa o Fluxo de Caixa, mas não esses controles.
@@ -364,7 +364,7 @@ function isGpsStaff(email){
   return (email||'').toLowerCase().endsWith('@gpsbi.com.br');
 }
 function isOwner(email){
-  const OWNER_EMAILS = ['gustavosilveira@gpsbi.com.br', 'giovanna@gpsbi.com.br'];
+  const OWNER_EMAILS = ['gustavosilveira@gpsbi.com.br', 'giovannaxavier@gpsbi.com.br'];
   return OWNER_EMAILS.includes((email||'').toLowerCase());
 }
 function nameFromEmail(email){ return email.split('@')[0].split('.').map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' '); }

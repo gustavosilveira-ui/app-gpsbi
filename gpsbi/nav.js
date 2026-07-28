@@ -7,7 +7,7 @@ const APP_PAGES = [
   { href:'mural.html', label:'📣 Mural Corporativo', id:'navMural' },
   { href:'aprovacoes.html', label:'✅ Aprovações' },
 ];
-function _navCanSeeFluxo(email){ return ['gustavosilveira@gpsbi.com.br','giovanna@gpsbi.com.br'].includes((email||'').toLowerCase()); }
+function _navCanSeeFluxo(email){ return ['gustavosilveira@gpsbi.com.br','giovannaxavier@gpsbi.com.br'].includes((email||'').toLowerCase()); }
 
 let _appNavSb = null, _appNavUser = null;
 
