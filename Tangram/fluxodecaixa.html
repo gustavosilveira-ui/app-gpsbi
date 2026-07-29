@@ -318,12 +318,12 @@ html.light .fc-day-num{color:#1f2a3d;}
 <script>
 const SUPABASE_URL = 'https://mczggrocmccvmyglnumv.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jemdncm9jbWNjdm15Z2xudW12Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMjM2NzcsImV4cCI6MjA5ODU5OTY3N30.XXzhDvxfNaUW61HvgE4xuqzSICoLEYjbJhd1X52Zp84';
-const SHEET_ID = '1PMqK9MkeaDQOOoIOPXIof6wNrcSXa_JR1ktQnFiIS7s';
-const GID_MOVIMENTACAO = '0';
+const SHEET_ID = '13pF1S6H59zcn53kW1-MYvIxQVT0-cIDPSB9QNugDfSo';
+const GID_MOVIMENTACAO = '1937017421';
 // Aba "Movimentação da Conta Agência" — mesmo arquivo, aba separada.
-const GID_MOVIMENTACAO_AGENCIA = '2083932624';
+const GID_MOVIMENTACAO_AGENCIA = '1100809045';
 // Aba "Desconto duplicada" — lista de boletos já descontados/antecipados.
-const GID_DESCONTO_DUPLICADA = '30185013';
+const GID_DESCONTO_DUPLICADA = '1846024064';
 const LOGIN_URL = 'index.html';
 
 // Histórico validado do fluxo antigo: até 30/06/2026.
@@ -367,7 +367,7 @@ function el(id){ return document.getElementById(id); }
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ---- Categoria -> Grupo (revisado com o Gustavo) ----
-const CATEGORIA_GRUPO = {"Clientes - Revenda de Mercadoria": "RECEBIMENTOS", "Saque MP": "RECEBIMENTOS", "Empréstimos Bancários": "RECEBIMENTOS", "Adiantamento de Clientes": "RECEBIMENTOS", "Rendimentos de Aplicações": "RECEBIMENTOS", "Devoluções de Compra de Mercadoria de Revenda": "RECEBIMENTOS", "Vendas de Mercadoria - Online": "RECEBIMENTOS", "Eventos": "RECEBIMENTOS", "Recebimentos sem identificação": "RECEBIMENTOS", "Estorno desconto duplicata": "RECEBIMENTOS", "Aporte - Investimento": "RECEBIMENTOS", "Devoluções de Compra de Serviços": "RECEBIMENTOS", "Clientes - Serviços Prestados": "RECEBIMENTOS", "Clientes - Venda de Mercadoria Fabricadas": "RECEBIMENTOS", "amostra": "RECEBIMENTOS", "Reembolso de Despesas": "OUTROS", "REEMBOLSO EMPRESTIMO FUNCIONARIO": "RECEBIMENTOS", "Devoluções de Vendas de Mercadoria": "RECEBIMENTOS", "ICMS": "DEDUCOES", "COFINS": "DEDUCOES", "PIS": "DEDUCOES", "DARF": "DEDUCOES", "GNRE DIFAL": "DEDUCOES", "ISS": "DEDUCOES", "Simples Nacional (DAS)": "DEDUCOES", "COMISSÕES": "DEDUCOES", "IRPJ": "DEDUCOES", "CSLL": "DEDUCOES", "Taxas Prefeitura": "DEDUCOES", "Bonificações": "DEDUCOES", "ESTORNO DE CREDITO EM DUPLICIDADE": "DEDUCOES", "Compras de Mercadorias para Revenda": "FORNECEDORES", "Compras de Materia Prima": "FORNECEDORES", "Compra de Serviços": "FORNECEDORES", "Adiantamento ao Fornecedor": "FORNECEDORES", "XBZ": "FORNECEDORES", "Tarifas Bancárias": "FINANCEIRAS", "Juros sobre Empréstimos": "FINANCEIRAS", "IOF": "FINANCEIRAS", "Desconto duplicata": "FINANCEIRAS", "Cheque Devolvido": "FINANCEIRAS", "Pagamento de Empréstimos": "FINANCEIRAS", "PAGAMENTO DE EMPRÉSTIMOS": "FINANCEIRAS", "Cartão de crédito - Prieto": "FINANCEIRAS", "Cartão de crédito - Anju": "FINANCEIRAS", "Cartão coorporativo": "FINANCEIRAS", "CARTÃO DE CRÉDITO COMPRAS": "FINANCEIRAS", "SERASA": "FINANCEIRAS", "APLICAÇÃO CDB": "FINANCEIRAS", "Salários": "PESSOAL", "Rescisões": "PESSOAL", "Assistência Médica": "PESSOAL", "Vale Refeição": "PESSOAL", "RECRUTAMENTO E SELEÇÃO": "PESSOAL", "EXAME ADMISSIONAL": "PESSOAL", "TREINAMENTO": "PESSOAL", "Motorista extra": "PESSOAL", "FUNCIONÁRIOS EXTRAS": "PESSOAL", "Alimentação": "PESSOAL", "CONTABILIDADE": "ADMIN", "Advogados": "ADMIN", "CONSULTORIA (GPS)": "ADMIN", "CONSULTORIA (DOMINIO)": "ADMIN", "Consultoria": "ADMIN", "Mentoria": "ADMIN", "Material de Escritório": "ADMIN", "LIMPEZA": "ADMIN", "Água e Esgoto": "ADMIN", "Energia Elétrica": "ADMIN", "Aluguel": "ADMIN", "Aluguel Pluris": "ADMIN", "Sociedade da Pluris": "ADMIN", "Adiantamento Pluris": "ADMIN", "Seguros": "ADMIN", "Móveis e Utensílios": "ADMIN", "MÓVEIS E UTENCÍLIOS": "ADMIN", "Maquinas e Equipamentos": "ADMIN", "Manutenção de Imobilizado": "ADMIN", "Telefonia": "ADMIN", "INTERNET": "ADMIN", "Frete": "LOGISTICA", "Combustivel": "LOGISTICA", "Veículos": "LOGISTICA", "Sem Parar": "LOGISTICA", "Aluguel de equipamento (Impressora)": "LOGISTICA", "ALUGUEL DE EQUIPAMENTOS": "LOGISTICA", "IPVA,LICENCIAMENTO E MULTAS": "LOGISTICA", "MARKETING": "MARKETING_TI", "Feiras e Eventos": "MARKETING_TI", "Eventos - Repasse": "MARKETING_TI", "WORKSHOP": "MARKETING_TI", "CAMPANHAS COMEMORATIVAS": "MARKETING_TI", "CAMPANHAS COMEMORATIVAS - ENDOMARKETING": "MARKETING_TI", "SITE TANGRAM": "MARKETING_TI", "SISTEMA ERP": "MARKETING_TI", "Sistema ERP": "MARKETING_TI", "CONSULTORIA (T.I EDSON)": "MARKETING_TI", "Transferência entre contas": "TRANSFERENCIAS", "RETIRADA": "RETIRADA", "Adiantamento": "OUTROS", "Despesas Viagem China": "OUTROS", "REEMBOLSO DE DESPESAS": "OUTROS", "Amostra": "OUTROS", "Investimento": "FINANCEIRAS", "Caixa reserva": "FINANCEIRAS", "Multas": "LOGISTICA", "Entrada de Transferência": "TRANSFERENCIAS"};
+const CATEGORIA_GRUPO = {"Clientes - Revenda de Mercadoria": "RECEBIMENTOS", "Saque MP": "RECEBIMENTOS", "Empréstimos Bancários": "RECEBIMENTOS", "Adiantamento de Clientes": "RECEBIMENTOS", "Rendimentos de Aplicações": "RECEBIMENTOS", "Devoluções de Compra de Mercadoria de Revenda": "RECEBIMENTOS", "Vendas de Mercadoria - Online": "RECEBIMENTOS", "Eventos": "RECEBIMENTOS", "Recebimentos sem identificação": "RECEBIMENTOS", "Estorno desconto duplicata": "RECEBIMENTOS", "Aporte - Investimento": "RECEBIMENTOS", "Devoluções de Compra de Serviços": "RECEBIMENTOS", "Clientes - Serviços Prestados": "RECEBIMENTOS", "Clientes - Venda de Mercadoria Fabricadas": "RECEBIMENTOS", "amostra": "RECEBIMENTOS", "Reembolso de Despesas": "OUTROS", "REEMBOLSO EMPRESTIMO FUNCIONARIO": "RECEBIMENTOS", "Devoluções de Vendas de Mercadoria": "RECEBIMENTOS", "ICMS": "DEDUCOES", "COFINS": "DEDUCOES", "PIS": "DEDUCOES", "DARF": "DEDUCOES", "GNRE DIFAL": "DEDUCOES", "ISS": "DEDUCOES", "Simples Nacional (DAS)": "DEDUCOES", "COMISSÕES": "DEDUCOES", "IRPJ": "DEDUCOES", "CSLL": "DEDUCOES", "Taxas Prefeitura": "DEDUCOES", "Bonificações": "DEDUCOES", "ESTORNO DE CREDITO EM DUPLICIDADE": "DEDUCOES", "Compras de Mercadorias para Revenda": "FORNECEDORES", "Compras de Materia Prima": "FORNECEDORES", "Compra de Serviços": "FORNECEDORES", "Adiantamento ao Fornecedor": "FORNECEDORES", "XBZ": "FORNECEDORES", "Tarifas Bancárias": "FINANCEIRAS", "Juros sobre Empréstimos": "FINANCEIRAS", "IOF": "FINANCEIRAS", "Desconto duplicata": "FINANCEIRAS", "Cheque Devolvido": "FINANCEIRAS", "Pagamento de Empréstimos": "FINANCEIRAS", "PAGAMENTO DE EMPRÉSTIMOS": "FINANCEIRAS", "Cartão de crédito - Prieto": "FINANCEIRAS", "Cartão de crédito - Anju": "FINANCEIRAS", "Cartão coorporativo": "FINANCEIRAS", "CARTÃO DE CRÉDITO COMPRAS": "FINANCEIRAS", "SERASA": "FINANCEIRAS", "APLICAÇÃO CDB": "FINANCEIRAS", "Salários": "PESSOAL", "Rescisões": "PESSOAL", "Assistência Médica": "PESSOAL", "Vale Refeição": "PESSOAL", "RECRUTAMENTO E SELEÇÃO": "PESSOAL", "EXAME ADMISSIONAL": "PESSOAL", "TREINAMENTO": "PESSOAL", "Motorista extra": "PESSOAL", "FUNCIONÁRIOS EXTRAS": "PESSOAL", "Alimentação": "PESSOAL", "CONTABILIDADE": "ADMIN", "Advogados": "ADMIN", "CONSULTORIA (GPS)": "ADMIN", "CONSULTORIA (DOMINIO)": "ADMIN", "Consultoria": "ADMIN", "Mentoria": "ADMIN", "Material de Escritório": "ADMIN", "LIMPEZA": "ADMIN", "Água e Esgoto": "ADMIN", "Energia Elétrica": "ADMIN", "Aluguel": "ADMIN", "Aluguel Pluris": "ADMIN", "Sociedade da Pluris": "ADMIN", "Adiantamento Pluris": "ADMIN", "Seguros": "ADMIN", "Móveis e Utensílios": "ADMIN", "MÓVEIS E UTENCÍLIOS": "ADMIN", "Maquinas e Equipamentos": "ADMIN", "Manutenção de Imobilizado": "ADMIN", "Telefonia": "ADMIN", "INTERNET": "ADMIN", "Frete": "LOGISTICA", "Combustivel": "LOGISTICA", "Veículos": "LOGISTICA", "Sem Parar": "LOGISTICA", "Aluguel de equipamento (Impressora)": "LOGISTICA", "ALUGUEL DE EQUIPAMENTOS": "LOGISTICA", "IPVA,LICENCIAMENTO E MULTAS": "LOGISTICA", "MARKETING": "MARKETING_TI", "Feiras e Eventos": "MARKETING_TI", "Eventos - Repasse": "MARKETING_TI", "WORKSHOP": "MARKETING_TI", "CAMPANHAS COMEMORATIVAS": "MARKETING_TI", "CAMPANHAS COMEMORATIVAS - ENDOMARKETING": "MARKETING_TI", "SITE TANGRAM": "MARKETING_TI", "SISTEMA ERP": "MARKETING_TI", "Sistema ERP": "MARKETING_TI", "CONSULTORIA (T.I EDSON)": "MARKETING_TI", "Transferência entre contas": "TRANSFERENCIAS", "RETIRADA": "RETIRADA", "Adiantamento": "OUTROS", "Despesas Viagem China": "OUTROS", "REEMBOLSO DE DESPESAS": "OUTROS", "Amostra": "OUTROS"};
 
 
 // Índice normalizado das categorias.
@@ -564,31 +564,6 @@ function isDuplicataDescontadaRow(r, grupo, valor, date){
 // - ignora a categoria "Transferência entre contas" (não é entrada/saída real da empresa)
 // - ignora qualquer linha (Recebimento ou Pagamento) com Situação "Atrasado" (ainda não realizado, não é caixa de verdade)
 let debugAtrasadoExcluidos = 0;
-
-// Saldo real diário informado pelo próprio Omie em cada conta.
-// Usamos esse saldo como fonte de verdade até o dia atual; as projeções futuras
-// continuam sendo calculadas com os lançamentos previstos do fluxo.
-let saldoSistemaPorDia = {};
-function registrarSaldosSistema(table){
-  const raw = parseGvizRows(table);
-  raw.forEach(r=>{
-    const nome = (getColNormalized(r, 'cliente ou fornecedor')||'').toString().trim();
-    if(normalizeTxt(nome)!=='saldo') return;
-    const dateRaw = getColNormalized(r, 'data');
-    const date = parseDateCell(typeof dateRaw==='object' && dateRaw!==null ? (dateRaw.v||dateRaw) : dateRaw);
-    if(!date) return;
-    const saldoRaw = getColNormalized(r, 'saldo (r$)');
-    const saldo = parseMoneyBR(typeof saldoRaw==='object' && saldoRaw!==null ? (saldoRaw.v ?? saldoRaw.f) : saldoRaw);
-    saldoSistemaPorDia[date] = (saldoSistemaPorDia[date]||0) + saldo;
-  });
-}
-function ultimoSaldoSistemaAte(date){
-  const datas = Object.keys(saldoSistemaPorDia).filter(d=>d<=date).sort();
-  if(!datas.length) return null;
-  const d = datas[datas.length-1];
-  return { data:d, valor:saldoSistemaPorDia[d] };
-}
-
 function rowsFromGvizTable(table, contaLabel){
   const raw = parseGvizRows(table);
   return raw.map(r=>{
@@ -673,15 +648,12 @@ async function loadData(){
   try{
     await loadBoletosDescontados();
 
-    saldoSistemaPorDia = {};
     const tablePrincipal = await fetchGviz(GID_MOVIMENTACAO);
-    registrarSaldosSistema(tablePrincipal);
     rows = rowsFromGvizTable(tablePrincipal, 'Principal');
 
     if(GID_MOVIMENTACAO_AGENCIA){
       try{
         const tableAgencia = await fetchGviz(GID_MOVIMENTACAO_AGENCIA);
-        registrarSaldosSistema(tableAgencia);
         rows = rows.concat(rowsFromGvizTable(tableAgencia, 'Agência'));
       }catch(e){
         console.error('Erro ao carregar a aba Movimentação da Conta Agência:', e);
@@ -717,17 +689,15 @@ function buildColumnTree(){
   const todayStr = today.toISOString().slice(0,10);
   const curYear = today.getFullYear(), curMonth = today.getMonth()+1;
 
-  // Exibe todo o histórico desde janeiro/2026 e mantém a projeção somente
-  // até o mês vigente + 2 meses futuros.
-  const startDate = new Date(2026, 0, 1);
-  const endDate = new Date(curYear, today.getMonth()+2, 1);
+  // Fluxo limitado a 3 meses: mês vigente + 2 meses futuros (mesmo padrão
+  // aplicado no Hub Mebrasi) — não gera mais colunas além desse período,
+  // mesmo que atravesse virada de ano.
   const mesesPeriodo = [];
-  let cursor = new Date(startDate);
-  while(cursor <= endDate){
+  let cursor = new Date(curYear, today.getMonth(), 1);
+  for(let i=0; i<3; i++){
     mesesPeriodo.push({ y: cursor.getFullYear(), m: cursor.getMonth()+1 });
     cursor.setMonth(cursor.getMonth()+1);
   }
-
   const anosMap = {};
   mesesPeriodo.forEach(({y,m})=>{ (anosMap[y] = anosMap[y]||[]).push(m); });
 
@@ -805,30 +775,15 @@ function runningBalance(uptoDate){
     return s;
   }
 
-  // Histórico validado de janeiro a junho/2026.
+  // Até 30/06/2026, usa exatamente o saldo copiado do fluxo antigo validado.
   if(uptoDate <= HISTORICO_CUTOFF && HISTORICO_SALDO[uptoDate] !== undefined) return HISTORICO_SALDO[uptoDate];
 
-  const hoje = todayISO();
-
-  // Até hoje, o saldo informado na linha SALDO do Omie é a fonte de verdade.
-  // Isso evita diferença quando há conciliações, alterações retroativas ou
-  // categorias novas na base.
-  if(uptoDate <= hoje){
-    const saldoReal = ultimoSaldoSistemaAte(uptoDate);
-    if(saldoReal && saldoReal.data > HISTORICO_CUTOFF) return saldoReal.valor;
-  }
-
-  // Para datas futuras, parte do último saldo real do sistema e soma somente
-  // os lançamentos posteriores que impactam caixa.
-  const baseReal = ultimoSaldoSistemaAte(hoje);
-  let dataBase = HISTORICO_CUTOFF;
+  // A partir de 01/07/2026, parte do saldo final validado em 30/06/2026
+  // e soma somente o que impacta caixa: Recebimentos + Pagamentos + ajustes manuais.
+  // Linhas informativas, como Duplicatas descontadas, não entram no saldo.
   let s = HISTORICO_SALDO[HISTORICO_CUTOFF] || 0;
-  if(baseReal && baseReal.data > HISTORICO_CUTOFF){
-    dataBase = baseReal.data;
-    s = baseReal.valor;
-  }
   for(const r of rows){
-    if(r.date > dataBase && r.date<=uptoDate && valorImpactaSaldo(r)) s += r.valor;
+    if(r.date > HISTORICO_CUTOFF && r.date<=uptoDate && valorImpactaSaldo(r)) s += r.valor;
   }
   return s;
 }
@@ -840,7 +795,6 @@ const isDuplicataDescontada = r => r.grupo==='DUPLICATAS_DESCONTADAS';
 let analiseFluxoWhatsBound = false;
 function gerarAnaliseFluxoTexto(){
   const hoje = new Date();
-hoje.setDate(hoje.getDate()-1);
   const hojeStr = hoje.toISOString().slice(0,10);
   const saldoHoje = runningBalance(hojeStr);
 
@@ -1025,10 +979,7 @@ function renderDebugStats(){
   const detalheCategoriasNovas = categoriasNovas.length
     ? ` · Categorias novas incluídas automaticamente: ${categoriasNovas.map(c=>`${c}→${debugCategoriasNovas[c]}`).join(', ')}`
     : '';
-  const hoje = todayISO();
-  const saldoSistemaHoje = ultimoSaldoSistemaAte(hoje);
-  const saldoInfo = saldoSistemaHoje ? ` · Saldo Omie (${saldoSistemaHoje.data}): ${fmtBRL(saldoSistemaHoje.valor)}` : '';
-  wrap.textContent = `🔍 Diagnóstico (só GPS): ${rows.length} linhas no total · Conta Principal: ${totalPrincipal} · Conta Agência: ${totalAgencia} · Recebimentos: ${totalRec} · Duplicatas descontadas: ${totalDuplicatas} · Pagamentos: ${totalPag} · Lançamentos manuais: ${totalAjustes} · Atrasados excluídos: ${debugAtrasadoExcluidos} · Boletos descontados importados: ${boletosDescontados.size}${saldoInfo}${detalheCategoriasNovas}`;
+  wrap.textContent = `🔍 Diagnóstico (só GPS): ${rows.length} linhas no total · Conta Principal: ${totalPrincipal} · Conta Agência: ${totalAgencia} · Recebimentos: ${totalRec} · Duplicatas descontadas: ${totalDuplicatas} · Pagamentos: ${totalPag} · Lançamentos manuais: ${totalAjustes} · Atrasados excluídos: ${debugAtrasadoExcluidos} · Boletos descontados importados: ${boletosDescontados.size}${detalheCategoriasNovas}`;
 }
 
 function renderColumnHeader(c){
