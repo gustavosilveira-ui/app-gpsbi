@@ -689,12 +689,12 @@ function buildColumnTree(){
   const todayStr = today.toISOString().slice(0,10);
   const curYear = today.getFullYear(), curMonth = today.getMonth()+1;
 
-  // Fluxo limitado a 3 meses: mês vigente + 2 meses futuros (mesmo padrão
-  // aplicado no Hub Mebrasi) — não gera mais colunas além desse período,
-  // mesmo que atravesse virada de ano.
+  // Exibe todo o histórico desde janeiro/2026 até dois meses após o mês vigente.
+  // O período é dinâmico e continua funcionando mesmo quando atravessa a virada do ano.
   const mesesPeriodo = [];
-  let cursor = new Date(curYear, today.getMonth(), 1);
-  for(let i=0; i<3; i++){
+  const cursor = new Date(2026, 0, 1);
+  const limitePeriodo = new Date(curYear, today.getMonth() + 2, 1);
+  while(cursor <= limitePeriodo){
     mesesPeriodo.push({ y: cursor.getFullYear(), m: cursor.getMonth()+1 });
     cursor.setMonth(cursor.getMonth()+1);
   }
@@ -795,8 +795,12 @@ const isDuplicataDescontada = r => r.grupo==='DUPLICATAS_DESCONTADAS';
 let analiseFluxoWhatsBound = false;
 function gerarAnaliseFluxoTexto(){
   const hoje = new Date();
-  const hojeStr = hoje.toISOString().slice(0,10);
-  const saldoHoje = runningBalance(hojeStr);
+
+  // O cabeçalho e o saldo da análise sempre representam o fechamento do dia anterior.
+  const diaAnterior = new Date(hoje);
+  diaAnterior.setDate(diaAnterior.getDate()-1);
+  const diaAnteriorStr = diaAnterior.toISOString().slice(0,10);
+  const saldoDiaAnterior = runningBalance(diaAnteriorStr);
 
   const ano = hoje.getFullYear(), mesNum = hoje.getMonth()+1;
   const ultimoDiaMes = new Date(ano, mesNum, 0).getDate();
@@ -813,7 +817,7 @@ function gerarAnaliseFluxoTexto(){
   const fmtDataCurta = d => { const [,m,dd] = d.split('-'); return `${dd}/${m}`; };
   const mesNomes = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
   const nomeMes = mesNomes[mesNum-1];
-  const hojeFmt = `${String(hoje.getDate()).padStart(2,'0')}/${String(mesNum).padStart(2,'0')}/${ano}`;
+  const diaAnteriorFmt = `${String(diaAnterior.getDate()).padStart(2,'0')}/${String(diaAnterior.getMonth()+1).padStart(2,'0')}/${diaAnterior.getFullYear()}`;
 
   const linhasPeriodo = temPeriodo ? [
     `*📊 Previsões para ${nomeMes}*`,
@@ -827,9 +831,9 @@ function gerarAnaliseFluxoTexto(){
 
   return [
     `*Fluxo de Caixa · Tangram*`,
-    `🗓️ *${hojeFmt}*`,
+    `🗓️ *${diaAnteriorFmt}*`,
     ``,
-    `💰 *Saldo:* ${fmtBRL(saldoHoje)}`,
+    `💰 *Saldo:* ${fmtBRL(saldoDiaAnterior)}`,
     ``,
     ...linhasPeriodo,
     ``,
