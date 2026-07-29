@@ -108,6 +108,13 @@ html.light .fc-day-num{color:#1f2a3d;}
 .fc-msg-leram{font-size:11px;color:var(--text3);cursor:help;}
 .fc-msg-resposta-form{margin-top:10px;padding:10px 12px;background:var(--navy4);border-radius:10px;}
 .fc-msg-resposta-form-label{font-size:11.5px;font-weight:700;color:var(--text2);margin-bottom:6px;}
+.fc-msg-anexo-input{display:block;width:100%;margin-top:8px;padding:9px 10px;border:1px dashed var(--border2);border-radius:9px;background:var(--navy3);color:var(--text2);font-size:11.5px;}
+.fc-msg-anexo-hint{font-size:10.5px;color:var(--text3);margin-top:5px;}
+.fc-msg-anexos{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px;}
+.fc-msg-anexo{display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border:1px solid var(--border2);border-radius:9px;background:var(--navy4);color:var(--cyan);font-size:11.5px;font-weight:700;text-decoration:none;max-width:260px;}
+.fc-msg-anexo span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.fc-msg-anexo-img{display:block;max-width:100%;max-height:360px;margin-top:9px;border-radius:10px;border:1px solid var(--border2);cursor:pointer;}
+.fc-upload-status{font-size:11px;color:var(--gold);margin-top:6px;}
 .fc-msg-edit-link{font-size:11px;color:var(--cyan);cursor:pointer;font-weight:700;white-space:nowrap;}
 .fc-msg-edit-box{margin-bottom:8px;}
 .fc-msg-edit-box textarea{width:100%;}
@@ -1400,6 +1407,9 @@ function renderFcMsgs(msgsOriginais, reacoes, leituras){
       acoes = `<div class="fc-msg-resposta-form">
         <div class="fc-msg-resposta-form-label">${acaoLabel} — deixe uma resposta (opcional):</div>
         <textarea id="fcRespostaTexto_${m.id}" placeholder="Escreva sua resposta..."></textarea>
+        <input class="fc-msg-anexo-input" type="file" id="fcRespostaArquivos_${m.id}" multiple accept=".xlsx,.xls,.csv,.pdf,.png,.jpg,.jpeg,.webp">
+        <div class="fc-msg-anexo-hint">Você pode anexar Excel, CSV, PDF ou imagens. Limite de 20 MB por arquivo.</div>
+        <div id="fcUploadStatus_${m.id}" class="fc-upload-status"></div>
         <div style="display:flex;gap:8px;margin-top:8px;">
           <button class="btn btn-primary btn-sm" onclick="confirmarRespostaFcMsg(${m.id})">Confirmar</button>
           <button class="btn btn-ghost btn-sm" onclick="cancelarRespostaFcMsg()">Cancelar</button>
@@ -1425,13 +1435,23 @@ function renderFcMsgs(msgsOriginais, reacoes, leituras){
           <button class="btn btn-ghost btn-sm" onclick="cancelarEdicaoFcMsg()">Cancelar</button>
         </div>
       </div>` : `<div class="fc-msg-text">${(m.mensagem||'').replace(/</g,'&lt;')}${podeEditarMsg ? ` <span class="fc-msg-edit-link" onclick="abrirEdicaoFcMsg(${m.id},'mensagem')">✏️ editar</span>` : ''}</div>`;
+    const anexosResposta = Array.isArray(m.resposta_anexos) ? m.resposta_anexos : [];
+    const anexosBloco = anexosResposta.length ? `<div class="fc-msg-anexos">${anexosResposta.map(a=>{
+      const nome = escapeHtml(a.nome || 'Arquivo');
+      const url = escapeHtml(a.url || '#');
+      const tipo = (a.tipo || '').toLowerCase();
+      const ehImagem = tipo.startsWith('image/') || /\.(png|jpe?g|webp|gif)$/i.test(a.nome || '');
+      return ehImagem
+        ? `<a href="${url}" target="_blank" rel="noopener" style="width:100%;text-decoration:none;"><img class="fc-msg-anexo-img" src="${url}" alt="${nome}"><span class="fc-msg-anexo">🖼️ <span>${nome}</span></span></a>`
+        : `<a class="fc-msg-anexo" href="${url}" target="_blank" rel="noopener">📎 <span>${nome}</span></a>`;
+    }).join('')}</div>` : '';
     const respostaBloco = editandoResposta ? `<div class="fc-msg-edit-box">
         <textarea id="fcEdit_resposta_${m.id}">${(m.resposta||'').replace(/</g,'&lt;')}</textarea>
         <div style="display:flex;gap:8px;margin-top:6px;">
           <button class="btn btn-primary btn-sm" onclick="salvarEdicaoFcMsg(${m.id},'resposta')">Salvar</button>
           <button class="btn btn-ghost btn-sm" onclick="cancelarEdicaoFcMsg()">Cancelar</button>
         </div>
-      </div>` : (m.resposta ? `<div class="fc-msg-resposta"><b>${m.respondido_por||''}:</b> ${m.resposta}${podeEditarResposta ? ` <span class="fc-msg-edit-link" onclick="abrirEdicaoFcMsg(${m.id},'resposta')">✏️ editar</span>` : ''}</div>` : '');
+      </div>` : (m.resposta ? `<div class="fc-msg-resposta"><b>${m.respondido_por||''}:</b> ${m.resposta}${podeEditarResposta ? ` <span class="fc-msg-edit-link" onclick="abrirEdicaoFcMsg(${m.id},'resposta')">✏️ editar</span>` : ''}${anexosBloco}</div>` : (anexosBloco ? `<div class="fc-msg-resposta">${anexosBloco}</div>` : ''));
     let leituraBloco = '';
     if(m.tipo==='observacao' || m.tipo==='aviso'){
       const reacoesMsg = reacoes.filter(r=>r.mensagem_id===m.id);
@@ -1475,15 +1495,48 @@ async function submitFcMsg(){
 }
 function abrirRespostaFcMsg(id, status){ fcRespondendo = { id, status }; rerenderFcMsgs(); }
 function cancelarRespostaFcMsg(){ fcRespondendo = null; rerenderFcMsgs(); }
+async function uploadRespostaFcArquivos(id){
+  const input = el('fcRespostaArquivos_'+id);
+  const arquivos = input ? Array.from(input.files || []) : [];
+  if(!arquivos.length) return [];
+  const limite = 20 * 1024 * 1024;
+  const excedido = arquivos.find(a=>a.size > limite);
+  if(excedido) throw new Error(`O arquivo "${excedido.name}" ultrapassa 20 MB.`);
+  const statusEl = el('fcUploadStatus_'+id);
+  const enviados = [];
+  for(let i=0;i<arquivos.length;i++){
+    const arq = arquivos[i];
+    if(statusEl) statusEl.textContent = `Enviando ${i+1} de ${arquivos.length}: ${arq.name}`;
+    const nomeSeguro = arq.name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9._-]/g,'_');
+    const caminho = `${id}/${Date.now()}_${Math.random().toString(36).slice(2,8)}_${nomeSeguro}`;
+    const { error } = await sb.storage.from('fluxo-anexos').upload(caminho, arq, { cacheControl:'3600', upsert:false, contentType:arq.type || undefined });
+    if(error) throw new Error(`Erro ao enviar ${arq.name}: ${error.message}`);
+    const { data: urlData } = sb.storage.from('fluxo-anexos').getPublicUrl(caminho);
+    enviados.push({ nome: arq.name, url: urlData.publicUrl, tipo: arq.type || '', tamanho: arq.size, caminho });
+  }
+  if(statusEl) statusEl.textContent = 'Arquivos enviados com sucesso.';
+  return enviados;
+}
 async function confirmarRespostaFcMsg(id){
   const status = fcRespondendo.status;
   const campo = el('fcRespostaTexto_'+id);
   const resposta = campo ? campo.value.trim() : '';
-  const { error } = await sb.from('fluxo_mensagens').update({
-    status, resposta, respondido_por: nameFromEmail(currentUser.email), respondido_em: new Date().toISOString()
-  }).eq('id', id);
-  if(!error){ fcRespondendo = null; await loadFcMsgs(); }
-  else alert('Erro: '+error.message);
+  const btns = document.querySelectorAll(`#fcUploadStatus_${id} ~ div button`);
+  btns.forEach(b=>b.disabled=true);
+  try{
+    const resposta_anexos = await uploadRespostaFcArquivos(id);
+    const payload = {
+      status, resposta, respondido_por: nameFromEmail(currentUser.email), respondido_em: new Date().toISOString()
+    };
+    if(resposta_anexos.length) payload.resposta_anexos = resposta_anexos;
+    const { error } = await sb.from('fluxo_mensagens').update(payload).eq('id', id);
+    if(error) throw error;
+    fcRespondendo = null;
+    await loadFcMsgs();
+  }catch(err){
+    alert('Erro: '+(err.message || err));
+    btns.forEach(b=>b.disabled=false);
+  }
 }
 async function toggleFcMsgReacao(mensagemId, tipo, already){
   if(already) await sb.from('fluxo_mensagens_reacoes').delete().eq('mensagem_id',mensagemId).eq('usuario_email',currentUser.email).eq('tipo',tipo);
