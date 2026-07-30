@@ -745,6 +745,8 @@ const HOJE_ISO = new Date().toISOString().slice(0,10);
 let rows = []; // linhas normalizadas da FatoVendas
 let pendingRows = []; // Pedido / Pedido Aprovado (ainda não faturado) — só pro texto executivo
 let selectedEmpresa = '', selectedAno = '', selectedMes = '', selectedEstado = '', selectedFamilia = '', selectedVendedor = '';
+let selectedPeriodoInicio = '', selectedPeriodoFim = '';
+let evolutionMonths = [], evDragging = false, evDragStartIdx = null, evDragBound = false, evSuppressNextClick = false;
 let chartDiario=null, chartSemanal=null, chartFarol=null, chartEmpresa=null, chartEstado=null, chartFamilia=null, chartEvolucao=null;
 
 async function fetchGvizVendas(){
@@ -876,8 +878,10 @@ async function loadData(){
 function rowsInScope(){
   return rows.filter(r=>{
     if(selectedEmpresa && r.empresa !== selectedEmpresa) return false;
-    if(selectedAno && r.data.slice(0,4) !== selectedAno) return false;
-    if(selectedMes && r.data.slice(5,7) !== selectedMes) return false;
+    if(selectedPeriodoInicio && r.data < selectedPeriodoInicio) return false;
+    if(selectedPeriodoFim && r.data > selectedPeriodoFim) return false;
+    if(!selectedPeriodoInicio && selectedAno && r.data.slice(0,4) !== selectedAno) return false;
+    if(!selectedPeriodoInicio && selectedMes && r.data.slice(5,7) !== selectedMes) return false;
     if(selectedEstado && r.estado !== selectedEstado) return false;
     if(selectedFamilia && (r.familiaComercial || '(sem família)') !== selectedFamilia) return false;
     if(selectedVendedor && nomeVendedor(r.codVendedor) !== selectedVendedor) return false;
@@ -890,8 +894,10 @@ function rowsInScope(){
 function pendingRowsInScope(){
   return pendingRows.filter(r=>{
     if(selectedEmpresa && r.empresa !== selectedEmpresa) return false;
-    if(selectedAno && r.data.slice(0,4) !== selectedAno) return false;
-    if(selectedMes && r.data.slice(5,7) !== selectedMes) return false;
+    if(selectedPeriodoInicio && r.data < selectedPeriodoInicio) return false;
+    if(selectedPeriodoFim && r.data > selectedPeriodoFim) return false;
+    if(!selectedPeriodoInicio && selectedAno && r.data.slice(0,4) !== selectedAno) return false;
+    if(!selectedPeriodoInicio && selectedMes && r.data.slice(5,7) !== selectedMes) return false;
     return true;
   });
 }
@@ -913,7 +919,7 @@ function popularFiltrosAnoMes(){
 }
 
 function limparFiltros(){
-  selectedEmpresa=''; selectedAno=''; selectedMes=''; selectedEstado=''; selectedFamilia=''; selectedVendedor='';
+  selectedEmpresa=''; selectedAno=''; selectedMes=''; selectedEstado=''; selectedFamilia=''; selectedVendedor=''; selectedPeriodoInicio=''; selectedPeriodoFim='';
   el('empresaSelect').value=''; el('anoSelect').value=''; el('mesSelect').value='';
   renderTudo();
 }
@@ -927,6 +933,7 @@ function renderChartEvolucao(){
   const porMes = {};
   rowsEmpresa.forEach(r=>{ const m = r.data.slice(0,7); porMes[m] = (porMes[m]||0) + r.faturamento; });
   const meses = Object.keys(porMes).sort();
+  evolutionMonths = meses.slice();
   const valores = meses.map(m=>porMes[m]);
   const pctVsAnterior = meses.map((m,i)=>{
     if(i===0) return null;
@@ -976,7 +983,7 @@ function renderChartEvolucao(){
     options:{
       responsive:true, maintainAspectRatio:false, animation:{duration:300},
       layout:{ padding:{top:40} },
-      onClick:(evt,els)=>{ if(!els.length) return; const key=meses[els[0].index]; const [a,m]=key.split('-'); selectedAno=a; selectedMes=m; el('anoSelect').value=a; el('mesSelect').value=m; renderTudo(); },
+      onClick:(evt,els)=>{ if(evSuppressNextClick){ evSuppressNextClick=false; return; } if(!els.length) return; const key=meses[els[0].index]; const [a,m]=key.split('-'); selectedPeriodoInicio=''; selectedPeriodoFim=''; selectedAno=a; selectedMes=m; el('anoSelect').value=a; el('mesSelect').value=m; renderTudo(); },
       plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:c=>fmtBRLFull(c.parsed.y) } } },
       scales:{
         x:{ grid:{display:false}, ticks:{color:textColor, font:{size:11}} },
@@ -986,8 +993,68 @@ function renderChartEvolucao(){
     plugins:[pctLabelPlugin]
   };
   if(chartEvolucao){ chartEvolucao.data=cfg.data; chartEvolucao.options=cfg.options; chartEvolucao.update(); }
-  else chartEvolucao = new Chart(el('chartEvolucao'), cfg);
+  else { chartEvolucao = new Chart(el('chartEvolucao'), cfg); setupEvolutionDragSelect(); }
 }
+
+function evolutionIndexAtPixel(px){
+  if(!chartEvolucao || !chartEvolucao.scales || !chartEvolucao.scales.x) return null;
+  const xScale = chartEvolucao.scales.x;
+  const count = evolutionMonths.length;
+  if(!count) return null;
+  let best=0, bestDist=Infinity;
+  for(let i=0;i<count;i++){
+    const cx=xScale.getPixelForValue(i);
+    const dist=Math.abs(cx-px);
+    if(dist<bestDist){ bestDist=dist; best=i; }
+  }
+  return best;
+}
+function setupEvolutionDragSelect(){
+  if(evDragBound) return;
+  evDragBound=true;
+  const canvas=el('chartEvolucao');
+  canvas.style.cursor='crosshair';
+  canvas.addEventListener('mousedown',e=>{
+    const rect=canvas.getBoundingClientRect();
+    const px=(e.clientX-rect.left)*(chartEvolucao.width/rect.width);
+    const idx=evolutionIndexAtPixel(px);
+    if(idx===null) return;
+    evDragStartIdx=idx; evDragging=true;
+  });
+  window.addEventListener('mousemove',e=>{
+    if(!evDragging || !chartEvolucao) return;
+    const rect=canvas.getBoundingClientRect();
+    const px=(e.clientX-rect.left)*(chartEvolucao.width/rect.width);
+    const idx=evolutionIndexAtPixel(px);
+    if(idx===null) return;
+    const lo=Math.min(evDragStartIdx,idx), hi=Math.max(evDragStartIdx,idx);
+    chartEvolucao.data.datasets[0].backgroundColor=evolutionMonths.map((m,i)=>i>=lo&&i<=hi?'#36E2C9':'#123C68');
+    chartEvolucao.update('none');
+  });
+  window.addEventListener('mouseup',e=>{
+    if(!evDragging) return;
+    evDragging=false;
+    const rect=canvas.getBoundingClientRect();
+    const px=(e.clientX-rect.left)*(chartEvolucao.width/rect.width);
+    const idx=evolutionIndexAtPixel(px);
+    if(idx===null || evDragStartIdx===null) return;
+    const lo=Math.min(evDragStartIdx,idx), hi=Math.max(evDragStartIdx,idx);
+    evDragStartIdx=null;
+    if(lo===hi) return;
+    const startMonth=evolutionMonths[lo], endMonth=evolutionMonths[hi];
+    if(!startMonth || !endMonth) return;
+    const [sy,sm]=startMonth.split('-').map(Number);
+    const [ey,em]=endMonth.split('-').map(Number);
+    const lastDay=new Date(ey,em,0).getDate();
+    selectedPeriodoInicio=`${sy}-${String(sm).padStart(2,'0')}-01`;
+    selectedPeriodoFim=`${ey}-${String(em).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+    selectedAno=''; selectedMes='';
+    el('anoSelect').value=''; el('mesSelect').value='';
+    evSuppressNextClick=true;
+    renderTudo();
+  });
+}
+
 
 function renderKpis(){
   const scoped = rowsInScope().filter(r=>!isClienteMulticopos(r));
@@ -2262,8 +2329,8 @@ async function init(){
   el('detalheImprimir').addEventListener('click', imprimirDetalhe);
 
   el('empresaSelect').addEventListener('change', e=>{ selectedEmpresa = e.target.value; renderTudo(); });
-  el('anoSelect').addEventListener('change', e=>{ selectedAno = e.target.value; renderTudo(); });
-  el('mesSelect').addEventListener('change', e=>{ selectedMes = e.target.value; renderTudo(); });
+  el('anoSelect').addEventListener('change', e=>{ selectedPeriodoInicio=''; selectedPeriodoFim=''; selectedAno = e.target.value; renderTudo(); });
+  el('mesSelect').addEventListener('change', e=>{ selectedPeriodoInicio=''; selectedPeriodoFim=''; selectedMes = e.target.value; renderTudo(); });
 
   try{
     await loadData();
