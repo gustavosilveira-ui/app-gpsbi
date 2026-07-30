@@ -1229,34 +1229,67 @@ function render(){
   renderActiveFilters();
   renderDebugStats();
   const vendFilter = selectedVendedor, canalFilter = selectedCanal;
-  // Visão principal do BI = anos selecionados. Por padrão: 2025 e 2026.
-  const capPeriodo = filterRowsYears(captadaRows, vendFilter, canalFilter);
-  const fatPeriodo = filterRowsYears(faturadaRows, vendFilter, canalFilter);
-  // Apenas gráficos diário/semanal usam o mês selecionado.
-  const capMes = filterRows(captadaRows, selectedMes, vendFilter, canalFilter);
+
+  // Quando um mês (ou intervalo arrastado) está selecionado no gráfico,
+  // TODO o dashboard passa a obedecer esse período. Sem seleção, mantém
+  // a visão consolidada dos anos marcados.
+  const hasPeriodFilter = !!(selectedMes || dateFrom || dateTo);
+  const capPeriodo = hasPeriodFilter
+    ? filterRows(captadaRows, selectedMes, vendFilter, canalFilter)
+    : filterRowsYears(captadaRows, vendFilter, canalFilter);
+  const fatPeriodo = hasPeriodFilter
+    ? filterRows(faturadaRows, selectedMes, vendFilter, canalFilter)
+    : filterRowsYears(faturadaRows, vendFilter, canalFilter);
+  const capMes = capPeriodo;
+
   const totalCap = capPeriodo.reduce((s,r)=>s+r.total,0);
   const totalFat = fatPeriodo.reduce((s,r)=>s+r.total,0);
 
-  const totalMeta = totalMetaYears(vendFilter);
+  let totalMeta;
+  if(selectedMes && !dateFrom && !dateTo){
+    totalMeta = vendFilter
+      ? getMeta(selectedMes, vendFilter)
+      : allVendors.reduce((s,v)=>s+getMeta(selectedMes,v),0);
+  } else if(dateFrom || dateTo){
+    const mesesNoPeriodo = Array.from(new Set(capPeriodo.map(r=>r.mes).filter(Boolean)));
+    totalMeta = mesesNoPeriodo.reduce((s,m)=> s + (vendFilter ? getMeta(m,vendFilter) : allVendors.reduce((sv,v)=>sv+getMeta(m,v),0)), 0);
+  } else {
+    totalMeta = totalMetaYears(vendFilter);
+  }
+
   const pct = totalMeta>0 ? Math.round(totalCap/totalMeta*100) : 0;
   const pedidosUnicos = new Set(capPeriodo.map(r=>r.pedido)).size;
   const ticketMedio = pedidosUnicos>0 ? totalCap/pedidosUnicos : 0;
+  const periodoLabel = selectedMes ? mesLabelFull(selectedMes) : ((dateFrom||dateTo) ? ((dateFrom||'início')+' a '+(dateTo||'fim')) : ('anos '+periodYearsLabel()));
 
   el('kpiCaptado').textContent = fmtBRL(totalCap);
-  el('kpiCaptadoSub').textContent = pedidosUnicos + ' pedidos · anos ' + periodYearsLabel();
+  el('kpiCaptadoSub').textContent = pedidosUnicos + ' pedidos · ' + periodoLabel;
   el('kpiFaturado').textContent = fmtBRL(totalFat);
-  el('kpiFaturadoSub').textContent = new Set(fatPeriodo.map(r=>r.pedido)).size + ' pedidos faturados';
+  el('kpiFaturadoSub').textContent = new Set(fatPeriodo.map(r=>r.pedido)).size + ' pedidos faturados · ' + periodoLabel;
   el('kpiClientes').textContent = new Set(capPeriodo.map(r=>r.cliente).filter(Boolean)).size.toLocaleString('pt-BR');
   el('kpiItens').textContent = capPeriodo.reduce((s,r)=>s+(r.qtd||1),0).toLocaleString('pt-BR',{maximumFractionDigits:0});
   el('kpiPedidos').textContent = pedidosUnicos.toLocaleString('pt-BR');
   el('kpiPedidosSub').textContent = totalMeta>0 ? 'Meta: '+fmtBRL(totalMeta)+' · '+pct+'%' : 'Meta: —';
   el('kpiTicket').textContent = fmtBRL(ticketMedio);
-  el('kpiTicketSub').textContent = 'Sobre anos ' + periodYearsLabel();
-
-
+  el('kpiTicketSub').textContent = 'Sobre ' + periodoLabel;
 
   renderEvolution();
-  renderProjetoChart(filterRowsYears(captadaRows, vendFilter, canalFilter, true));
+  // O gráfico de projeto também precisa seguir o mês/intervalo selecionado,
+  // apenas ignorando o próprio filtro de projeto para permitir nova seleção.
+  const projetoRows = (hasPeriodFilter
+    ? captadaRows.filter(r=>{
+        if(dateFrom || dateTo){ if(!inDateRange(r.date)) return false; }
+        else if(selectedMes && r.mes!==selectedMes) return false;
+        if(vendFilter && r.vendedor.toLowerCase()!==vendFilter.toLowerCase()) return false;
+        if(canalFilter && r.canal!==canalFilter) return false;
+        if(selectedFamilia && (r.familia||'Sem família')!==selectedFamilia) return false;
+        if(selectedProdutoFiltro && (r.produto||'Sem descrição')!==selectedProdutoFiltro) return false;
+        if(searchCliente && !(r.cliente||'').toLowerCase().includes(searchCliente)) return false;
+        if(searchProduto && !(r.produto||'').toLowerCase().includes(searchProduto)) return false;
+        return true;
+      })
+    : filterRowsYears(captadaRows, vendFilter, canalFilter, true));
+  renderProjetoChart(projetoRows);
   renderDailyWeekly(capMes);
   renderMonthlyHistory();
   renderMap(capMes);
