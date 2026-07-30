@@ -1725,14 +1725,16 @@ function setupEvolutionDragSelect(){
   canvas.style.cursor = 'crosshair';
   canvas.addEventListener('mousedown', e=>{
     const rect = canvas.getBoundingClientRect();
-    const idx = evolutionIndexAtPixel(e.clientX-rect.left);
+    const px = (e.clientX - rect.left) * (evChart.width / rect.width);
+    const idx = evolutionIndexAtPixel(px);
     if(idx===null) return;
     evDragStartIdx = idx; evDragging = true;
   });
   window.addEventListener('mousemove', e=>{
     if(!evDragging || !evChart) return;
     const rect = canvas.getBoundingClientRect();
-    const idx = evolutionIndexAtPixel(e.clientX-rect.left);
+    const px = (e.clientX - rect.left) * (evChart.width / rect.width);
+    const idx = evolutionIndexAtPixel(px);
     if(idx===null) return;
     const lo = Math.min(evDragStartIdx, idx), hi = Math.max(evDragStartIdx, idx);
     const cyan = getComputedStyle(document.documentElement).getPropertyValue('--cyan').trim();
@@ -1744,7 +1746,8 @@ function setupEvolutionDragSelect(){
     if(!evDragging) return;
     evDragging = false;
     const rect = canvas.getBoundingClientRect();
-    const idx = evolutionIndexAtPixel(e.clientX-rect.left);
+    const px = (e.clientX - rect.left) * (evChart.width / rect.width);
+    const idx = evolutionIndexAtPixel(px);
     if(idx===null || evDragStartIdx===null) return;
     const lo = Math.min(evDragStartIdx, idx), hi = Math.max(evDragStartIdx, idx);
     evDragStartIdx = null;
