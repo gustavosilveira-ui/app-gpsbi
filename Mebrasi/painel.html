@@ -617,7 +617,7 @@ const EMPRESA_COR = { Gymis:'#071B33', Multicopos:'#2D70B8', Ryngavi:'#008D90', 
 // de vendedor (é venda direta de marketplace, sem representante).
 const VENDEDOR_NOME = {
   '42':'ARLINDO', '307':'ANA PAULA', '304':'ARNALDO', '234':'BAIAO',
-  '34':'CARLOS (PR)', '40':'CHRISTIAN', '31':'ELAINE/FRANCISCO', '36':'EGBERTO',
+  '34':'CARLOS', '40':'CHRISTIAN', '31':'ELAINE/FRANCISCO', '36':'EGBERTO',
   '37':'FELISBERTO', '308':'FLÁVIO', '248':'MARRON', '47':'MEBRASI',
   '35':'MESQUITA', '39':'MENEZES', '312':'MICHELLE', '32':'NELSON',
   '170':'NOBRE', '238':'REGIS', '214':'RITA', '144':'SÉRGIO',
@@ -629,11 +629,24 @@ function nomeVendedor(codVendedor){
   return VENDEDOR_NOME[cod] || `Cód. ${cod}`;
 }
 
+function codigoVendedorPorNome(nome){
+  const encontrado = Object.entries(VENDEDOR_NOME).find(([,nomeMapeado])=>nomeMapeado===nome);
+  if(encontrado) return encontrado[0];
+
+  const codigoNaoMapeado = String(nome||'').match(/^Cód\.\s*(.+)$/i);
+  return codigoNaoMapeado ? codigoNaoMapeado[1].trim() : '';
+}
+
+function rotuloVendedor(nome, uf, codigo){
+  const nomeComUf = uf ? `${nome} (${uf})` : nome;
+  return codigo ? `${nomeComUf} · Cód. ${codigo}` : nomeComUf;
+}
+
 // UF principal de cada representante, conforme a planilha "Relação de
 // Representação". MEBRASI é interno (não tem UF de representação).
 const VENDEDOR_UF = {
   'ARLINDO':'SP', 'ANA PAULA':'SP', 'ARNALDO':'PI', 'BAIAO':'MG',
-  'CARLOS (PR)':'PR', 'CHRISTIAN':'PE', 'ELAINE/FRANCISCO':'RJ', 'EGBERTO':'SP',
+  'CARLOS':'PR', 'CHRISTIAN':'PE', 'ELAINE/FRANCISCO':'RJ', 'EGBERTO':'SP',
   'FELISBERTO':'SE', 'FLÁVIO':'RN', 'MARRON':'BA', 'MESQUITA':'MT',
   'MENEZES':'AM', 'MICHELLE':'MG', 'NELSON':'RO', 'NOBRE':'CE',
   'REGIS':'AM', 'RITA':'RS', 'SÉRGIO':'BA', 'SILVIO':'RJ', 'SUELI':'MG',
@@ -1369,7 +1382,12 @@ function renderTreemapVendedor(){
 
   const items = Object.entries(porVendedor)
     .filter(([nome,v])=>v>0 && nome!=='MEBRASI')
-    .map(([nome,valor])=>({ nome, valor, uf: VENDEDOR_UF[nome] || '' }));
+    .map(([nome,valor])=>({
+      nome,
+      valor,
+      uf: VENDEDOR_UF[nome] || '',
+      codigo: codigoVendedorPorNome(nome)
+    }));
 
   const wrap = el('bolhaVendedor');
   wrap.innerHTML = '';
@@ -1397,7 +1415,7 @@ function renderTreemapVendedor(){
   nodes.each(function(d){
     if(d.r < 18) return; // esconde texto em bolha minúscula
     const g = d3.select(this);
-    const nomeUf = d.data.uf ? `${d.data.nome} (${d.data.uf})` : d.data.nome;
+    const nomeUf = rotuloVendedor(d.data.nome, d.data.uf, d.data.codigo);
     g.append('text').attr('text-anchor','middle').attr('dy','-0.2em')
       .style('font-size', Math.max(10, d.r/5.5)+'px').style('font-weight','700').style('fill','#fff')
       .text(nomeUf);
@@ -1407,7 +1425,7 @@ function renderTreemapVendedor(){
   });
 
   nodes.on('click', (evt,d)=>{ selectedVendedor = selectedVendedor===d.data.nome ? '' : d.data.nome; renderTudo(); })
-    .on('mouseenter', (evt,d)=>{ tooltipShow(evt, d.data.uf ? `${d.data.nome} (${d.data.uf})` : d.data.nome, fmtBRLFull(d.data.valor)); })
+    .on('mouseenter', (evt,d)=>{ tooltipShow(evt, rotuloVendedor(d.data.nome, d.data.uf, d.data.codigo), fmtBRLFull(d.data.valor)); })
     .on('mousemove', tooltipMove)
     .on('mouseleave', tooltipHide);
 }
