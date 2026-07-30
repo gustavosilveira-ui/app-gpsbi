@@ -387,6 +387,13 @@ const HISTORICO_ROW_DEFS = [];
 function normalizeTxt(s){
   return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
 }
+// Neste cliente, transferências devem entrar no fluxo. Reconhece tanto o nome
+// completo quanto abreviações comuns da base, como "Transf", "Transf." e
+// "Transferência entre contas".
+function ehTransferenciaCategoria(categoria){
+  const c = normalizeTxt(categoria);
+  return c.includes('transf') || c.includes('entre contas');
+}
 // Busca o valor de uma coluna pelo nome "normalizado" (sem acento/maiúscula),
 // pra não depender de bater a grafia exata do cabeçalho vindo do Google Sheets.
 function getColNormalized(rowObj, wantedKeyNormalized){
@@ -611,7 +618,7 @@ function isDuplicataDescontadaRow(r, grupo, valor, date){
 // Transforma as linhas cruas do gviz em lançamentos do fluxo, já aplicando os filtros:
 // - ignora linhas marcadoras de SALDO/SALDO ANTERIOR
 // - ignora linhas de "Previsão" na coluna Origem (não são movimentação realizada)
-// - ignora a categoria "Transferência entre contas" (não é entrada/saída real da empresa)
+// - considera transferências entre contas, inclusive abreviações como "Transf"
 // - ignora qualquer linha (Recebimento ou Pagamento) com Situação "Atrasado" (ainda não realizado, não é caixa de verdade)
 let debugAtrasadoExcluidos = 0;
 function rowsFromGvizTable(table, contaLabel){
@@ -638,7 +645,7 @@ function rowsFromGvizTable(table, contaLabel){
     const valor = parseMoneyBR(typeof valorRaw==='object' && valorRaw!==null ? (valorRaw.v ?? valorRaw.f) : valorRaw);
 
     let grupo;
-    if(normalizeTxt(categoria).includes('transferencia')){
+    if(ehTransferenciaCategoria(categoria)){
       grupo = valor >= 0 ? 'RECEBIMENTOS' : 'TRANSFERENCIAS';
     } else {
       grupo = resolveGrupoCategoria(categoria, valor);
