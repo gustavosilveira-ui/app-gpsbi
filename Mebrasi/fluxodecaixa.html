@@ -693,6 +693,7 @@ function finalizarLinha(categoriaOriginal, valor, formaPagto, origem, date){
 }
 
 let rowsByEmpresa = {}; // { empresa: [{date,categoria,grupo,valor}] }
+let pagosRealizadosByEmpresa = {}; // pagamentos realizados vindos de pg_<empresa>, sem filtro de banco
 let abertoByEmpresa = {}; // { empresa: [{date,categoria,valor}] } (cap/venc só "Aberto")
 let rows = []; // linhas no escopo atual (Global soma as 4, ou só a empresa selecionada)
 let currentUser = null;
@@ -1039,7 +1040,7 @@ function rebuildRowsNoEscopo(){
 
 async function loadData(){
   try{
-    rowsByEmpresa = {}; abertoByEmpresa = {};
+    rowsByEmpresa = {}; pagosRealizadosByEmpresa = {}; abertoByEmpresa = {};
     await carregarVendasParaCruzamento();
     for(const empresa of EMPRESAS){
       const [tPg, tCr, tCap, tVenc] = await Promise.all([
@@ -1047,6 +1048,7 @@ async function loadData(){
         fetchGvizSheet('cap_'+empresa), fetchGvizSheet('venc_'+empresa)
       ]);
       const pgRows = rowsFromPG(tPg, empresa);
+      pagosRealizadosByEmpresa[empresa] = pgRows.slice();
       const crRows = rowsFromCR(tCr, empresa);
       const capRows = rowsFromCAP(tCap, empresa);
       const vencRows = rowsFromVENC(tVenc, empresa);
@@ -1237,7 +1239,15 @@ function renderFcKpiStrip(){
   if(!wrap) return;
   const mesAtual = HOJE_ISO.slice(0,7);
   const { start: periodoStart, end: periodoEnd } = getPeriodoFluxo();
-  const pago = rows.filter(r=>r.origem==='pg' && r.categoria!==CATEGORIA_CHEQUE_TERCEIROS && r.date.slice(0,7)===mesAtual).reduce((s,r)=>s+Math.abs(r.valor),0);
+  // O card Pago usa diretamente as linhas realizadas de pg_<empresa>,
+  // antes de qualquer filtro visual/projetado. Assim ele fecha com o relatório
+  // do ERP e com a aba pg_gymis, incluindo todos os bancos e Cheque Terceiros.
+  const empresasNoEscopo = selectedEmpresa ? [selectedEmpresa] : EMPRESAS;
+  const pagoRowsCard = empresasNoEscopo.flatMap(emp => pagosRealizadosByEmpresa[emp] || []);
+  const pago = pagoRowsCard
+    .filter(r=>r.date && r.date.slice(0,7)===mesAtual)
+    .reduce((s,r)=>s+Math.abs(r.valor),0);
+
   const recebido = rows.filter(r=>r.origem==='cr' && r.categoria!==CATEGORIA_CHEQUE_TERCEIROS && r.date.slice(0,7)===mesAtual).reduce((s,r)=>s+Math.abs(r.valor),0);
   // Cards "Em Aberto" agora respeitam o mesmo período de 3 meses (mês
   // vigente + 2 futuros) que limita o restante do fluxo — decisão de
@@ -1283,7 +1293,7 @@ function renderDebugStats(){
   const detalheCategoriasNovas = categoriasNovas.length
     ? ` · Categorias novas incluídas automaticamente: ${categoriasNovas.map(c=>`${c}→${debugCategoriasNovas[c]}`).join(', ')}`
     : '';
-  wrap.textContent = `🔍 Diagnóstico (só GPS): ${rows.length} linhas no escopo atual (${selectedEmpresa?EMPRESA_LABEL[selectedEmpresa]:'Global'}) · ${porEmpresa} · Recebimentos: ${totalRec} · Pagamentos: ${totalPag} · Lançamentos manuais: ${totalAjustes}${detalheCategoriasNovas}`;
+  wrap.textContent = `✅ Versão pagamentos ERP 30/07 · 🔍 Diagnóstico (só GPS): ${rows.length} linhas no escopo atual (${selectedEmpresa?EMPRESA_LABEL[selectedEmpresa]:'Global'}) · ${porEmpresa} · Recebimentos: ${totalRec} · Pagamentos: ${totalPag} · Lançamentos manuais: ${totalAjustes}${detalheCategoriasNovas}`;
 }
 
 function renderColumnHeader(c){
