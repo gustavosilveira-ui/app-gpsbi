@@ -176,6 +176,13 @@ html.light .fc-empresa-btn{background:#eef1f6;}
       <div id="fcVisaoSemanal" class="fc-week-grid"></div>
     </div>
 
+    <div class="card" id="analiseFluxoWhatsCard" style="display:none;">
+      <div class="card-title">📋 Análise pronta pra WhatsApp</div>
+      <div class="card-sub">Texto pronto com o saldo e a previsão do fluxo — copie e cole direto no grupo do cliente. A análise acompanha a empresa selecionada acima e fica visível só para o time GPS.</div>
+      <pre id="analiseFluxoWhatsTexto" style="white-space:pre-wrap;font-family:'Sora',sans-serif;font-size:13px;line-height:1.7;background:var(--navy3);border-radius:10px;padding:14px 16px;margin-bottom:12px;max-height:220px;overflow-y:auto;"></pre>
+      <button id="analiseFluxoWhatsBtn" style="padding:9px 18px;border-radius:9px;border:none;font-weight:700;cursor:pointer;color:#fff;background:linear-gradient(90deg,var(--blue),var(--cyan));font-family:'Sora',sans-serif;font-size:12.5px;">📋 Copiar texto</button>
+    </div>
+
     <!-- Saldo Inicial + Lançamentos Manuais (só time GPS; por empresa) -->
     <div class="card" id="fcAjustesGpsCard">
       <div class="fc-ajustes-row">
@@ -286,5 +293,93 @@ html.light .fc-empresa-btn{background:#eef1f6;}
 
 <script src="nav.js"></script>
 <script src="fluxodecaixa.js"></script>
+<script>
+/* Análise pronta para WhatsApp — adicionada sem alterar a visão semanal atual */
+let analiseFluxoWhatsBound = false;
+
+function gerarAnaliseFluxoTextoUuizz(){
+  const hoje = new Date();
+  const diaAnterior = new Date(hoje);
+  diaAnterior.setDate(diaAnterior.getDate()-1);
+  const diaAnteriorStr = fcIsoLocal(diaAnterior);
+  const saldoDiaAnterior = runningBalance(diaAnteriorStr);
+
+  const ano = hoje.getFullYear();
+  const mesNum = hoje.getMonth()+1;
+  const ultimoDiaMes = new Date(ano, mesNum, 0).getDate();
+  const fimMesStr = `${ano}-${String(mesNum).padStart(2,'0')}-${String(ultimoDiaMes).padStart(2,'0')}`;
+
+  const amanha = new Date(hoje);
+  amanha.setDate(amanha.getDate()+1);
+  const amanhaStr = fcIsoLocal(amanha);
+  const temPeriodo = amanhaStr <= fimMesStr;
+
+  const despesasPrevistas = temPeriodo ? Math.abs(sumInRange(isPagamentoTotal, amanhaStr, fimMesStr)) : 0;
+  const recebimentosPrevistos = temPeriodo ? sumInRange(isRecebimentoTotal, amanhaStr, fimMesStr) : 0;
+  const saldoPrevisto = runningBalance(fimMesStr);
+  const necessidadeCaixa = Math.max(0, -saldoPrevisto);
+
+  const fmtDataCurta = d => { const [,m,dd] = d.split('-'); return `${dd}/${m}`; };
+  const mesNomes = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const nomeMes = mesNomes[mesNum-1];
+  const diaAnteriorFmt = diaAnterior.toLocaleDateString('pt-BR');
+  const empresaNome = empresaFiltro==='global' ? 'Grupo Uuizz' : empresaFiltro;
+
+  const linhasPeriodo = temPeriodo ? [
+    `*📊 Previsões para ${nomeMes}*`,
+    ``,
+    `📉 *Pagamentos previstos (${fmtDataCurta(amanhaStr)} a ${fmtDataCurta(fimMesStr)}):* ${fmtBRL(despesasPrevistas)}`,
+    ``,
+    `📈 *Recebimentos previstos (${fmtDataCurta(amanhaStr)} a ${fmtDataCurta(fimMesStr)}):* ${fmtBRL(recebimentosPrevistos)}`,
+    ``,
+    `➡️ *Saldo previsto no fim do período:* ${fmtBRL(saldoPrevisto)}`,
+    necessidadeCaixa>0 ? `🚨 *Necessidade de caixa:* ${fmtBRL(necessidadeCaixa)}` : `✅ *Sem necessidade de caixa prevista no período.*`
+  ] : [`✅ Hoje já é o último dia do mês — sem período restante para prever.`];
+
+  return [
+    `*Fluxo de Caixa · ${empresaNome}*`,
+    `🗓️ *${diaAnteriorFmt}*`,
+    ``,
+    `💰 *Saldo:* ${fmtBRL(saldoDiaAnterior)}`,
+    ``,
+    ...linhasPeriodo,
+    ``,
+    `👉 ${window.location.href.split('#')[0]}`
+  ].join('\n');
+}
+
+function renderAnaliseFluxoWhatsUuizz(){
+  const card = el('analiseFluxoWhatsCard');
+  const textoEl = el('analiseFluxoWhatsTexto');
+  const btn = el('analiseFluxoWhatsBtn');
+  if(!card || !textoEl || !btn) return;
+  if(!gpsStaff){ card.style.display='none'; return; }
+  card.style.display='block';
+  textoEl.textContent = gerarAnaliseFluxoTextoUuizz();
+  if(!analiseFluxoWhatsBound){
+    analiseFluxoWhatsBound = true;
+    btn.addEventListener('click', async ()=>{
+      const texto = textoEl.textContent;
+      try{
+        await navigator.clipboard.writeText(texto);
+        const original = btn.textContent;
+        btn.textContent = '✅ Copiado!';
+        setTimeout(()=>{ btn.textContent = original; }, 1800);
+      }catch(e){
+        alert('Não consegui copiar automaticamente. Selecione o texto acima e copie manualmente.');
+      }
+    });
+  }
+}
+
+const renderVisaoSemanalOriginalUuizz = renderVisaoSemanal;
+renderVisaoSemanal = function(){
+  renderVisaoSemanalOriginalUuizz();
+  renderAnaliseFluxoWhatsUuizz();
+};
+
+window.addEventListener('load', ()=>setTimeout(renderAnaliseFluxoWhatsUuizz, 500));
+</script>
+
 </body>
 </html>
