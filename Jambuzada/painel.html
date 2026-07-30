@@ -1243,38 +1243,47 @@ function render(){
   renderActiveFilters();
   renderDebugStats();
   const vendFilter = selectedVendedor, canalFilter = selectedCanal;
-  // Visão principal do BI = anos selecionados. Por padrão: 2025 e 2026.
-  const capPeriodo = filterRowsYears(captadaRows, vendFilter, canalFilter);
-  const fatPeriodo = filterRowsYears(faturadaRows, vendFilter, canalFilter);
-  // Apenas gráficos diário/semanal usam o mês selecionado.
+  // Quando um mês é selecionado (inclusive pelo clique no gráfico), TODO o painel
+  // passa a refletir esse mês. Sem mês selecionado, mantém a visão dos anos marcados.
+  const capPeriodo = selectedMes
+    ? filterRows(captadaRows, selectedMes, vendFilter, canalFilter)
+    : filterRowsYears(captadaRows, vendFilter, canalFilter);
+  const fatPeriodo = selectedMes
+    ? filterRows(faturadaRows, selectedMes, vendFilter, canalFilter)
+    : filterRowsYears(faturadaRows, vendFilter, canalFilter);
   const capMes = filterRows(captadaRows, selectedMes, vendFilter, canalFilter);
   const totalCap = capPeriodo.reduce((s,r)=>s+r.total,0);
   const totalFat = fatPeriodo.reduce((s,r)=>s+r.total,0);
 
-  const totalMeta = totalMetaYears(vendFilter);
+  const totalMeta = selectedMes
+    ? (vendFilter ? getMeta(selectedMes, vendFilter) : allVendors.reduce((s,v)=>s+getMeta(selectedMes,v),0))
+    : totalMetaYears(vendFilter);
   const pct = totalMeta>0 ? Math.round(totalCap/totalMeta*100) : 0;
   const pedidosUnicos = new Set(capPeriodo.map(r=>r.pedido)).size;
   const ticketMedio = pedidosUnicos>0 ? totalCap/pedidosUnicos : 0;
 
   el('kpiCaptado').textContent = fmtBRL(totalCap);
-  el('kpiCaptadoSub').textContent = pedidosUnicos + ' pedidos · anos ' + periodYearsLabel();
+  el('kpiCaptadoSub').textContent = selectedMes
+    ? pedidosUnicos + ' pedidos · ' + mesLabelFull(selectedMes)
+    : pedidosUnicos + ' pedidos · anos ' + periodYearsLabel();
   el('kpiFaturado').textContent = fmtBRL(totalFat);
-  el('kpiFaturadoSub').textContent = new Set(fatPeriodo.map(r=>r.pedido)).size + ' pedidos faturados';
+  el('kpiFaturadoSub').textContent = new Set(fatPeriodo.map(r=>r.pedido)).size + ' pedidos faturados' + (selectedMes ? ' · '+mesLabelFull(selectedMes) : '');
   el('kpiClientes').textContent = new Set(capPeriodo.map(r=>r.cliente).filter(Boolean)).size.toLocaleString('pt-BR');
   el('kpiItens').textContent = capPeriodo.reduce((s,r)=>s+(r.qtd||1),0).toLocaleString('pt-BR',{maximumFractionDigits:0});
   el('kpiPedidos').textContent = pedidosUnicos.toLocaleString('pt-BR');
   el('kpiPedidosSub').textContent = totalMeta>0 ? 'Meta: '+fmtBRL(totalMeta)+' · '+pct+'%' : 'Meta: —';
   el('kpiTicket').textContent = fmtBRL(ticketMedio);
-  el('kpiTicketSub').textContent = 'Sobre anos ' + periodYearsLabel();
+  el('kpiTicketSub').textContent = selectedMes ? 'Sobre '+mesLabelFull(selectedMes) : 'Sobre anos ' + periodYearsLabel();
 
-  // Resumo executivo: sempre usa o mês vigente e respeita vendedor/canal selecionados.
-  // O comparativo usa exatamente a mesma quantidade de dias que tiveram faturamento,
-  // tomando os primeiros N dias faturados do mês anterior (não o mês anterior fechado).
+  // Resumo executivo acompanha o mês selecionado no gráfico/filtro.
+  // Sem seleção, usa o mês vigente. O comparativo considera os primeiros N dias
+  // faturados do mês anterior, preservando a comparação de ritmo.
   const hojeResumo = new Date();
-  const mesVigenteResumo = `${hojeResumo.getFullYear()}-${String(hojeResumo.getMonth()+1).padStart(2,'0')}`;
+  const mesVigenteResumo = selectedMes || `${hojeResumo.getFullYear()}-${String(hojeResumo.getMonth()+1).padStart(2,'0')}`;
+  const mesAtualCalendario = `${hojeResumo.getFullYear()}-${String(hojeResumo.getMonth()+1).padStart(2,'0')}`;
   const mesAnteriorResumo = monthAdd(mesVigenteResumo,-1);
   const fatMesVigente = filterRows(faturadaRows, mesVigenteResumo, vendFilter, canalFilter)
-    .filter(r=>!r.date || Number(String(r.date).slice(8,10))<=hojeResumo.getDate());
+    .filter(r=>mesVigenteResumo!==mesAtualCalendario || !r.date || Number(String(r.date).slice(8,10))<=hojeResumo.getDate());
   const diasVigentes = [...new Set(fatMesVigente.map(r=>r.date).filter(Boolean))].sort();
   const qtdDiasFaturados = diasVigentes.length;
   const diasAnteriorDisponiveis = [...new Set(filterRows(faturadaRows, mesAnteriorResumo, vendFilter, canalFilter).map(r=>r.date).filter(Boolean))].sort();
