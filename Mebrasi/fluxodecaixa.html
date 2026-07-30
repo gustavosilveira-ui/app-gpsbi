@@ -653,15 +653,14 @@ function addDaysISO(dateStr, days){
   d.setDate(d.getDate()+days);
   return d.toISOString().slice(0,10);
 }
-// Período exibido no fluxo: mês vigente + 2 meses futuros (decisão de
-// 22/07/2026 — limitar o fluxo a 3 meses). Usado tanto pra montar as
-// colunas do calendário quanto pros cards "Em Aberto".
+// Período exibido no fluxo: de janeiro do ano vigente até o fim do
+// mês vigente + 2 meses futuros.
 function getPeriodoFluxo(){
   const hoje = new Date();
   const ano = hoje.getFullYear(), mes = hoje.getMonth(); // mes é 0-based
-  const start = `${ano}-${String(mes+1).padStart(2,'0')}-01`;
-  const fimDate = new Date(ano, mes+3, 0); // último dia do 3º mês do período (mes+2, 0-based)
-  const end = fimDate.toISOString().slice(0,10);
+  const start = `${ano}-01-01`;
+  const fimDate = new Date(ano, mes+3, 0); // último dia do mês vigente + 2
+  const end = `${fimDate.getFullYear()}-${String(fimDate.getMonth()+1).padStart(2,'0')}-${String(fimDate.getDate()).padStart(2,'0')}`;
   return { start, end };
 }
 function finalizarLinha(categoriaOriginal, valor, formaPagto, origem, date){
@@ -1113,12 +1112,11 @@ function buildColumnTree(){
   const todayStr = today.toISOString().slice(0,10);
   const curYear = today.getFullYear(), curMonth = today.getMonth()+1;
 
-  // Fluxo limitado a 3 meses: mês vigente + 2 meses futuros (decisão de
-  // 22/07/2026) — não gera mais colunas além desse período, mesmo que
-  // atravesse virada de ano.
+  // Exibe de janeiro do ano vigente até o mês vigente + 2 meses futuros.
   const mesesPeriodo = [];
-  let cursor = new Date(curYear, today.getMonth(), 1);
-  for(let i=0; i<3; i++){
+  let cursor = new Date(curYear, 0, 1);
+  const fimPeriodo = new Date(curYear, today.getMonth()+2, 1);
+  while(cursor <= fimPeriodo){
     mesesPeriodo.push({ y: cursor.getFullYear(), m: cursor.getMonth()+1 });
     cursor.setMonth(cursor.getMonth()+1);
   }
@@ -1274,16 +1272,15 @@ function renderFcKpiStrip(){
     .reduce((s,r)=>s+Math.abs(r.valor),0);
 
   const recebido = rows.filter(r=>r.origem==='cr' && r.categoria!==CATEGORIA_CHEQUE_TERCEIROS && r.date.slice(0,7)===mesAtual).reduce((s,r)=>s+Math.abs(r.valor),0);
-  // Cards "Em Aberto" agora respeitam o mesmo período de 3 meses (mês
-  // vigente + 2 futuros) que limita o restante do fluxo — decisão de
-  // 22/07/2026 — em vez do total geral sem filtro de período.
+  // Cards "Em Aberto" respeitam o período exibido no fluxo:
+  // janeiro do ano vigente até o mês vigente + 2 meses futuros.
   const aPagarAberto = rows.filter(r=>r.origem==='cap' && r.date>=periodoStart && r.date<=periodoEnd).reduce((s,r)=>s+Math.abs(r.valor),0);
   const aReceberAberto = rows.filter(r=>r.origem==='venc' && r.date>=periodoStart && r.date<=periodoEnd).reduce((s,r)=>s+Math.abs(r.valor),0);
   const cards = [
     { lbl:'Pago (mês vigente)', val:pago, cor:'var(--red)' },
     { lbl:'Recebido (mês vigente)', val:recebido, cor:'#4F8F3A' },
-    { lbl:'A Pagar em Aberto (mês vigente + 2 meses)', val:aPagarAberto, cor:'var(--red)' },
-    { lbl:'A Receber em Aberto (mês vigente + 2 meses)', val:aReceberAberto, cor:'#4F8F3A' },
+    { lbl:'A Pagar em Aberto (jan até mês vigente + 2 meses)', val:aPagarAberto, cor:'var(--red)' },
+    { lbl:'A Receber em Aberto (jan até mês vigente + 2 meses)', val:aReceberAberto, cor:'#4F8F3A' },
   ];
   wrap.innerHTML = cards.map(c=>`
     <div class="fc-kpi-mini">
