@@ -1138,8 +1138,11 @@ function runningBalanceEmpresa(empresa, uptoDate){
   const rowsEmp = (rowsByEmpresa[empresa] || []).filter(r=>r.contaNoSaldo !== false);
   const override = saldoIniciais[empresa];
   if(override && uptoDate >= override.data_referencia){
+    // O saldo inicial representa o saldo de abertura da data informada.
+    // Portanto, as movimentações da própria data também precisam entrar
+    // no acumulado (ex.: saldo de 31/08 usado como abertura de 01/09).
     let s = override.valor;
-    for(const r of rowsEmp){ if(r.date > override.data_referencia && r.date<=uptoDate) s += r.valor; }
+    for(const r of rowsEmp){ if(r.date >= override.data_referencia && r.date<=uptoDate) s += r.valor; }
     return s;
   }
   let s = 0;
