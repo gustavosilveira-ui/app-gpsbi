@@ -856,7 +856,10 @@ let analiseFluxoWhatsBound = false;
 function gerarAnaliseFluxoTexto(){
   const hoje = new Date();
   const hojeStr = hoje.toISOString().slice(0,10);
-  const saldoHoje = runningBalance(hojeStr);
+  const ontem = new Date(hoje);
+ontem.setDate(ontem.getDate()-1);
+const ontemStr = ontem.toISOString().slice(0,10);
+const saldoHoje = runningBalance(ontemStr);
 
   const ano = hoje.getFullYear(), mesNum = hoje.getMonth()+1;
   const ultimoDiaMes = new Date(ano, mesNum, 0).getDate();
@@ -889,7 +892,7 @@ function gerarAnaliseFluxoTexto(){
     `*Fluxo de Caixa · Jambuzada*`,
     `🗓️ *${hojeFmt}*`,
     ``,
-    `💰 *Saldo:* ${fmtBRL(saldoHoje)}`,
+    `💰 *Saldo até ontem:* ${fmtBRL(saldoHoje)}`,
     ``,
     ...linhasPeriodo,
     ``,
