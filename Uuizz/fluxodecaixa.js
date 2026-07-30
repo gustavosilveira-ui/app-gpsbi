@@ -285,11 +285,11 @@ const REGRAS_FALLBACK_GRUPO = [
   { grupo:'5. Despesas Administrativas', palavras:['advogado','juridic','contabil','contador','material de escritorio','escritorio','franquia','distrato'] },
   { grupo:'2. Fornecedores', palavras:['fornecedor','revenda','mercadoria','servico prestado','prestador'] },
 ];
-const CATEGORIAS_EXCLUIDAS_NORM = new Set([
-  'entre contas empoderamento',
-  'entre contas empoderamento-despesa',
-  'transferencia entre contas',
-].map(normalizeTxt));
+// Empoderamento (Uuizz) não trata "entre contas" como transferência interna
+// excluída do total — isso só fazia sentido na Tangram. Removido a pedido do
+// Gustavo (30/07/2026): conjunto vazio, então categoriaExcluida nunca marca
+// nada como transferência — tudo conta normalmente no total de Pagamentos.
+const CATEGORIAS_EXCLUIDAS_NORM = new Set([].map(normalizeTxt));
 function categoriaExcluida(categoria){
   return CATEGORIAS_EXCLUIDAS_NORM.has(normalizeTxt(categoria));
 }
