@@ -888,7 +888,12 @@ function rowsFromVENC(table, empresa){
 function rowsFromPG(table, empresa){
   const raw = parseGvizRows(table);
   return raw.filter(r=>!isSubtotalRow(r)).map(r=>{
-    if(!isChequeTerceiros(r) && !bancoValido(r, empresa)) return null;
+    // Pagamentos realizados precisam fechar com o relatório de Contas a Pagar
+    // do ERP. Por isso, pg_<empresa> considera todos os títulos pagos,
+    // independentemente do código do banco ou da forma de pagamento.
+    // O filtro de bancos continua valendo apenas para o fluxo projetado
+    // (cap_/venc_). Cheque de Terceiros permanece visível nas categorias,
+    // mas não altera o Saldo Acumulado, conforme a regra já existente.
     const situacao = normalizeTxt(getColNormalized(r,'situacao'));
     if(situacao.includes('cancel')) return null;
     // Mesma correção do cap_: aceita "Data" ou "Data Pagto".
