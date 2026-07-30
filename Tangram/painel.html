@@ -1752,7 +1752,10 @@ function setupEvolutionDragSelect(){
     const lo = Math.min(evDragStartIdx, idx), hi = Math.max(evDragStartIdx, idx);
     evDragStartIdx = null;
     if(lo===hi){
-      // clique simples (sem arrastar de verdade) -> já tratado pelo onClick do chart.js
+      const clickedMonth = evolutionMonths[lo];
+      if(!clickedMonth) return;
+      evSuppressNextClick = true;
+      toggleMonthFilter(clickedMonth);
       return;
     }
     const startMonth = evolutionMonths[lo], endMonth = evolutionMonths[hi];
