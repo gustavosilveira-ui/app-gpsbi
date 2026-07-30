@@ -1586,10 +1586,50 @@ function inicioSemana(d){
 function fimSemana(d){ const x=inicioSemana(d); x.setDate(x.getDate()+6); return x; }
 
 function injetarProgramacoesFornecedor(){
+  // Remove apenas projeções criadas pelo próprio painel antes de recalcular.
   rows = rows.filter(r=>r.fonte!=='Programação Fornecedor' && r.fonte!=='Pronampe');
+
+  // Evita duplicar uma programação quando o pagamento real já existe na base.
+  // Compara data + fornecedor/nome + valor absoluto.
+  const existeLancamentoRealEquivalente = (fornecedor, parcela)=>{
+    const fornecedorNorm = normalizeTxt(fornecedor);
+    const valorEsperado = Math.abs(Number(parcela.valor)||0);
+
+    return rows.some(r=>{
+      if(r.fonte==='Programação Fornecedor' || r.fonte==='Pronampe') return false;
+      if(r.date !== parcela.data) return false;
+
+      const nomeNorm = normalizeTxt(r.nome || '');
+      const contaNorm = normalizeTxt(r.conta || '');
+      const categoriaNorm = normalizeTxt(r.categoria || '');
+      const mesmoFornecedor =
+        nomeNorm === fornecedorNorm ||
+        contaNorm === fornecedorNorm ||
+        nomeNorm.includes(fornecedorNorm) ||
+        fornecedorNorm.includes(nomeNorm);
+
+      const mesmoValor = Math.abs(Math.abs(Number(r.valor)||0) - valorEsperado) < 0.01;
+      const ehPagamentoReal = Number(r.valor) < 0 && categoriaNorm !== 'programacao fornecedor';
+
+      return mesmoFornecedor && mesmoValor && ehPagamentoReal;
+    });
+  };
+
   fcProgramacoesFornecedor.forEach(p=>p.parcelas.forEach(parcela=>{
-    rows.push({date:parcela.data,categoria:'Programação Fornecedor',grupo:'FORNECEDORES',valor:-Math.abs(parcela.valor),conta:p.fornecedor,fonte:'Programação Fornecedor',nome:p.fornecedor,documento:'Rateio GPS'});
+    if(existeLancamentoRealEquivalente(p.fornecedor, parcela)) return;
+
+    rows.push({
+      date:parcela.data,
+      categoria:'Programação Fornecedor',
+      grupo:'FORNECEDORES',
+      valor:-Math.abs(parcela.valor),
+      conta:p.fornecedor,
+      fonte:'Programação Fornecedor',
+      nome:p.fornecedor,
+      documento:'Rateio GPS'
+    });
   }));
+
   if(fcPronampe.valor>0){
     rows.push({date:todayISO(),categoria:'Pronampe - Utilização',grupo:'RECEBIMENTOS',valor:Math.abs(fcPronampe.valor),conta:'Pronampe',fonte:'Pronampe',nome:'Pronampe'});
     if(fcPronampe.devolucao) rows.push({date:fcPronampe.devolucao,categoria:'Pronampe - Devolução',grupo:'FINANCEIRAS',valor:-Math.abs(fcPronampe.valor),conta:'Pronampe',fonte:'Pronampe',nome:'Pronampe'});
