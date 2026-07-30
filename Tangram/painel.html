@@ -1685,14 +1685,9 @@ function renderEvolution(){
   const opts={responsive:true,maintainAspectRatio:false,animation:{duration:300},
     layout:{padding:{top:40}},
     interaction:{mode:'index', intersect:false},
-    onClick:(evt, elements)=>{
-      if(evSuppressNextClick){ evSuppressNextClick = false; return; }
-      if(!elements.length) return;
-      const idx = elements[0].index;
-      const clickedMonth = allMonths[idx];
-      if(!clickedMonth) return;
-      toggleMonthFilter(clickedMonth);
-    },
+    // A seleção do mês é tratada pelo controle de ponteiro abaixo.
+    // Deixar o onClick do Chart.js ativo fazia o clique simples alternar duas vezes.
+    onClick:null,
     onHover:(evt, elements)=>{ evt.native.target.style.cursor = elements.length ? 'pointer' : 'default'; },
     plugins:{legend:{display:true,position:'top',align:'end',labels:{color:textColor,boxWidth:10,font:{size:11}}},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${fmtBRLFull(c.parsed.y)}`}}},
     scales:{
@@ -1722,53 +1717,75 @@ function setupEvolutionDragSelect(){
   if(evDragBound) return;
   evDragBound = true;
   const canvas = el('evolutionChart');
-  canvas.style.cursor = 'crosshair';
-  canvas.addEventListener('mousedown', e=>{
+  canvas.style.cursor = 'pointer';
+  let startX = 0;
+
+  const getIndex = clientX=>{
+    if(!evChart) return null;
     const rect = canvas.getBoundingClientRect();
-    const px = (e.clientX - rect.left) * (evChart.width / rect.width);
-    const idx = evolutionIndexAtPixel(px);
+    const px = (clientX - rect.left) * (evChart.width / rect.width);
+    return evolutionIndexAtPixel(px);
+  };
+
+  canvas.addEventListener('pointerdown', e=>{
+    if(e.button!==0) return;
+    const idx = getIndex(e.clientX);
     if(idx===null) return;
-    evDragStartIdx = idx; evDragging = true;
+    evDragStartIdx = idx;
+    evDragging = true;
+    startX = e.clientX;
+    canvas.setPointerCapture?.(e.pointerId);
   });
-  window.addEventListener('mousemove', e=>{
-    if(!evDragging || !evChart) return;
-    const rect = canvas.getBoundingClientRect();
-    const px = (e.clientX - rect.left) * (evChart.width / rect.width);
-    const idx = evolutionIndexAtPixel(px);
+
+  canvas.addEventListener('pointermove', e=>{
+    if(!evDragging || evDragStartIdx===null || !evChart) return;
+    const idx = getIndex(e.clientX);
     if(idx===null) return;
     const lo = Math.min(evDragStartIdx, idx), hi = Math.max(evDragStartIdx, idx);
     const cyan = getComputedStyle(document.documentElement).getPropertyValue('--cyan').trim();
-    const navy3 = getComputedStyle(document.documentElement).getPropertyValue('--navy3').trim();
-    evChart.data.datasets[0].backgroundColor = evolutionMonths.map((m,i)=> (i>=lo && i<=hi) ? cyan : navy3);
+    const blue = getComputedStyle(document.documentElement).getPropertyValue('--blue').trim();
+    evChart.data.datasets[0].backgroundColor = evolutionMonths.map((m,i)=> (i>=lo && i<=hi) ? cyan : blue);
     evChart.update('none');
   });
-  window.addEventListener('mouseup', e=>{
-    if(!evDragging) return;
+
+  canvas.addEventListener('pointerup', e=>{
+    if(!evDragging || evDragStartIdx===null) return;
+    const idx = getIndex(e.clientX);
+    const startIdx = evDragStartIdx;
     evDragging = false;
-    const rect = canvas.getBoundingClientRect();
-    const px = (e.clientX - rect.left) * (evChart.width / rect.width);
-    const idx = evolutionIndexAtPixel(px);
-    if(idx===null || evDragStartIdx===null) return;
-    const lo = Math.min(evDragStartIdx, idx), hi = Math.max(evDragStartIdx, idx);
     evDragStartIdx = null;
-    if(lo===hi){
-      const clickedMonth = evolutionMonths[lo];
-      if(!clickedMonth) return;
-      evSuppressNextClick = true;
-      toggleMonthFilter(clickedMonth);
+    canvas.releasePointerCapture?.(e.pointerId);
+    if(idx===null) return;
+
+    const lo = Math.min(startIdx, idx), hi = Math.max(startIdx, idx);
+    const moved = Math.abs(e.clientX - startX) > 6;
+
+    // Clique simples: filtra exatamente o mês clicado e todo o dashboard responde.
+    if(!moved || lo===hi){
+      const clickedMonth = evolutionMonths[idx];
+      if(clickedMonth) toggleMonthFilter(clickedMonth);
       return;
     }
+
+    // Arraste: seleciona o intervalo completo entre os meses.
     const startMonth = evolutionMonths[lo], endMonth = evolutionMonths[hi];
     if(!startMonth || !endMonth) return;
     const [sy,sm] = startMonth.split('-').map(Number);
     const [ey,em] = endMonth.split('-').map(Number);
     const lastDay = new Date(ey, em, 0).getDate();
-    const from = `${sy}-${String(sm).padStart(2,'0')}-01`;
-    const to = `${ey}-${String(em).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
-    evSuppressNextClick = true;
-    selectedMes = ''; const sel=el('monthSelect'); if(sel) sel.value='';
-    toggleDateRange(from, to);
+    selectedMes = '';
+    const sel=el('monthSelect'); if(sel) sel.value='';
+    setDateRange(
+      `${sy}-${String(sm).padStart(2,'0')}-01`,
+      `${ey}-${String(em).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`
+    );
     render();
+  });
+
+  canvas.addEventListener('pointercancel', ()=>{
+    evDragging = false;
+    evDragStartIdx = null;
+    renderEvolution();
   });
 }
 

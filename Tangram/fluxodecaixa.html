@@ -1375,6 +1375,26 @@ function renderFcSim(){
 let fcMsgsCache = { msgs:[], reacoes:[], leituras:[] };
 let fcRespondendo = null; // { id, status } — qual mensagem/ação está com o formulário de resposta aberto
 let fcEditando = null; // { id, campo: 'mensagem'|'resposta' } — qual mensagem está em edição
+function atualizarBadgeFluxoAberto(){
+  // O badge do Fluxo representa apenas solicitações realmente pendentes.
+  // Mensagens já resolvidas/aprovadas/recusadas e avisos apenas não lidos não entram.
+  const abertas = (fcMsgsCache.msgs || []).filter(m=>m.status==='aberto' && m.tipo==='solicitacao').length;
+  const links = Array.from(document.querySelectorAll('a')).filter(a=>{
+    const href=(a.getAttribute('href')||'').toLowerCase();
+    const txt=(a.textContent||'').toLowerCase();
+    return href.includes('fluxodecaixa') || txt.includes('fluxo de caixa');
+  });
+  links.forEach(link=>{
+    link.querySelectorAll('.nav-badge').forEach(b=>b.remove());
+    if(abertas>0){
+      const badge=document.createElement('span');
+      badge.className='nav-badge';
+      badge.textContent=abertas>99?'99+':String(abertas);
+      link.appendChild(badge);
+    }
+  });
+}
+
 async function loadFcMsgs(){
   const { data, error } = await sb.from('fluxo_mensagens').select('*').order('criado_em',{ascending:false});
   if(error){ el('fcMsgList').innerHTML = '<div style="color:var(--gold);font-size:12px;">⚠️ Não consegui carregar. Verifique se a tabela fluxo_mensagens existe no Supabase.</div>'; return; }
@@ -1382,6 +1402,8 @@ async function loadFcMsgs(){
   const { data: leituras } = await sb.from('fluxo_mensagens_leituras').select('*');
   fcMsgsCache = { msgs:data||[], reacoes:reacoes||[], leituras:leituras||[] };
   renderFcMsgs(fcMsgsCache.msgs, fcMsgsCache.reacoes, fcMsgsCache.leituras);
+  atualizarBadgeFluxoAberto();
+  setTimeout(atualizarBadgeFluxoAberto, 250);
 }
 function rerenderFcMsgs(){ renderFcMsgs(fcMsgsCache.msgs, fcMsgsCache.reacoes, fcMsgsCache.leituras); }
 function aplicarFiltrosFcMsgs(){ rerenderFcMsgs(); }
@@ -1597,7 +1619,7 @@ async function toggleFcMsgReacao(mensagemId, tipo, already){
 async function toggleFcMsgLeitura(mensagemId, already){
   if(already) return;
   const { error } = await sb.from('fluxo_mensagens_leituras').insert({ mensagem_id:mensagemId, usuario_email:currentUser.email, usuario_nome:nameFromEmail(currentUser.email) });
-  if(!error){ await loadFcMsgs(); aplicarBadgesNav(currentUser.email); }
+  if(!error){ await loadFcMsgs(); atualizarBadgeFluxoAberto(); }
   else alert('Erro: '+error.message);
 }
 function abrirEdicaoFcMsg(id, campo){ fcEditando = { id, campo }; rerenderFcMsgs(); }
