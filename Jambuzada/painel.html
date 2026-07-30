@@ -552,9 +552,9 @@ html.light .period-summary-item{background:#F6F9FC;}
         <div class="chart-sub" id="resumoPeriodoSub">Comparativo com o mesmo número de dias faturados do mês anterior</div>
         <div class="period-summary-grid">
           <div class="period-summary-item"><div class="period-summary-value" id="resumoReceitaFaturada">--</div><div class="period-summary-label">Receita Faturada</div><div class="period-summary-growth neutral" id="resumoCrescimento">—</div></div>
-          <div class="period-summary-item"><div class="period-summary-value" id="resumoTicketMedio">--</div><div class="period-summary-label">Ticket Médio por Nota</div></div>
-          <div class="period-summary-item"><div class="period-summary-value" id="resumoNotasFaturadas">--</div><div class="period-summary-label">Notas Faturadas</div></div>
-          <div class="period-summary-item"><div class="period-summary-value" id="resumoDiasFaturados">--</div><div class="period-summary-label">Dias Faturados</div></div>
+          <div class="period-summary-item"><div class="period-summary-value" id="resumoTicketMedio">--</div><div class="period-summary-label">Ticket Médio por Nota</div><div class="period-summary-growth neutral" id="resumoCrescimentoTicket">—</div></div>
+          <div class="period-summary-item"><div class="period-summary-value" id="resumoNotasFaturadas">--</div><div class="period-summary-label">Notas Faturadas</div><div class="period-summary-growth neutral" id="resumoCrescimentoNotas">—</div></div>
+          <div class="period-summary-item"><div class="period-summary-value" id="resumoDiasFaturados">--</div><div class="period-summary-label">Dias Faturados</div><div class="period-summary-growth neutral" id="resumoCrescimentoDias">—</div></div>
         </div>
       </div>
     </div>
@@ -1284,21 +1284,33 @@ function render(){
   const totalFatResumo = fatMesVigente.reduce((s,r)=>s+r.total,0);
   const totalFatAnteriorResumo = fatMesAnteriorMesmoRitmo.reduce((s,r)=>s+r.total,0);
   const notasFaturadasSet = new Set(fatMesVigente.map(r=>String(r.nf||r.pedido||'').trim()).filter(Boolean));
+  const notasFaturadasAnteriorSet = new Set(fatMesAnteriorMesmoRitmo.map(r=>String(r.nf||r.pedido||'').trim()).filter(Boolean));
   const qtdNotasFaturadas = notasFaturadasSet.size;
+  const qtdNotasFaturadasAnterior = notasFaturadasAnteriorSet.size;
+  const qtdDiasFaturadosAnterior = diasAnteriorComparaveis.size;
   const ticketMedioNota = qtdNotasFaturadas>0 ? totalFatResumo/qtdNotasFaturadas : 0;
+  const ticketMedioNotaAnterior = qtdNotasFaturadasAnterior>0 ? totalFatAnteriorResumo/qtdNotasFaturadasAnterior : 0;
   const crescimentoResumo = totalFatAnteriorResumo>0 ? ((totalFatResumo-totalFatAnteriorResumo)/totalFatAnteriorResumo*100) : null;
+  const crescimentoTicketResumo = ticketMedioNotaAnterior>0 ? ((ticketMedioNota-ticketMedioNotaAnterior)/ticketMedioNotaAnterior*100) : null;
+  const crescimentoNotasResumo = qtdNotasFaturadasAnterior>0 ? ((qtdNotasFaturadas-qtdNotasFaturadasAnterior)/qtdNotasFaturadasAnterior*100) : null;
+  const crescimentoDiasResumo = qtdDiasFaturadosAnterior>0 ? ((qtdDiasFaturados-qtdDiasFaturadosAnterior)/qtdDiasFaturadosAnterior*100) : null;
   el('resumoReceitaFaturada').textContent = fmtBRL(totalFatResumo);
   el('resumoTicketMedio').textContent = fmtBRL(ticketMedioNota);
   el('resumoNotasFaturadas').textContent = qtdNotasFaturadas.toLocaleString('pt-BR');
   el('resumoDiasFaturados').textContent = qtdDiasFaturados.toLocaleString('pt-BR');
   const resumoSub = el('resumoPeriodoSub');
   if(resumoSub) resumoSub.textContent = `${mesLabelFull(mesVigenteResumo)} · comparação com os primeiros ${qtdDiasFaturados} dia${qtdDiasFaturados===1?'':'s'} faturado${qtdDiasFaturados===1?'':'s'} de ${mesLabelFull(mesAnteriorResumo)}`;
-  const resumoCrescimento = el('resumoCrescimento');
-  if(resumoCrescimento){
-    resumoCrescimento.className = 'period-summary-growth ' + (crescimentoResumo===null?'neutral':crescimentoResumo>=0?'positive':'negative');
-    resumoCrescimento.textContent = crescimentoResumo===null ? '—' : `${crescimentoResumo>=0?'▲':'▼'} ${Math.abs(crescimentoResumo).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%`;
-    resumoCrescimento.title = 'Crescimento da receita faturada versus o mesmo número de dias faturados do mês anterior';
+  function aplicarCrescimentoResumo(id, valor, titulo){
+    const node=el(id);
+    if(!node) return;
+    node.className='period-summary-growth '+(valor===null?'neutral':valor>=0?'positive':'negative');
+    node.textContent=valor===null?'—':`${valor>=0?'▲':'▼'} ${Math.abs(valor).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%`;
+    node.title=titulo;
   }
+  aplicarCrescimentoResumo('resumoCrescimento',crescimentoResumo,'Crescimento da receita faturada versus o mesmo número de dias faturados do mês anterior');
+  aplicarCrescimentoResumo('resumoCrescimentoTicket',crescimentoTicketResumo,'Crescimento do ticket médio por nota versus o mesmo número de dias faturados do mês anterior');
+  aplicarCrescimentoResumo('resumoCrescimentoNotas',crescimentoNotasResumo,'Crescimento da quantidade de notas versus o mesmo número de dias faturados do mês anterior');
+  aplicarCrescimentoResumo('resumoCrescimentoDias',crescimentoDiasResumo,'Crescimento da quantidade de dias faturados versus o período comparável do mês anterior');
 
   renderEvolution();
   renderDailyWeekly(capMes);
@@ -1421,8 +1433,8 @@ function gerarAnaliseTexto(){
   let projecao=(info.dayLimit && info.dayLimit<diasNoMes && diasComReceita>0) ? (fatAtual/diasComReceita*diasUteisNoMes) : null;
   if(projecao!==null) projecao=Math.max(projecao,fatAtual);
 
-  const linhaMes = pctMes===null ? '*📈 Crescimento vs mesmo período do mês anterior:* —' : `*📈 Crescimento vs mesmo período do mês anterior:* ${Math.round(pctMes)}% (${fmtBRLFull(fatAtual-fatMesAnterior)})`;
-  const linhaAno = pctAno===null ? '*📊 Crescimento vs mesmo período do ano anterior:* —' : `*📊 Crescimento vs mesmo período do ano anterior:* ${Math.round(pctAno)}% (${fmtBRLFull(fatAtual-fatAnoAnterior)})`;
+  const linhaMes = pctMes===null ? '*📈 Crescimento vs mês anterior:* —' : `*📈 Crescimento vs mês anterior:* ${Math.round(pctMes)}% (${fmtBRLFull(fatAtual-fatMesAnterior)})`;
+  const linhaAno = pctAno===null ? '*📊 Crescimento vs ano anterior:* —' : `*📊 Crescimento vs ano anterior:* ${Math.round(pctAno)}% (${fmtBRLFull(fatAtual-fatAnoAnterior)})`;
   const linhaProjecao = projecao!==null ? [``, `*🚀 Projeção de fechamento:* ${fmtBRLFull(projecao)} (no ritmo atual)`] : [];
 
   const ausentes=topClientesRecorrentesSemCompra(mes,vendFilter,canalFilter,3);
