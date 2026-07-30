@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Hub GPSBI · Tangram Personalizados</title>
+<title>Hub GPSBI · Jambuzada</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -386,9 +386,13 @@ html.light .kpi-card{background:#fff}
 /* Ajustes Jambuzada — resumo executivo no lugar do gráfico de projetos */
 .period-summary-card{display:flex;flex-direction:column;height:100%;padding:18px 14px;}
 .period-summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;flex:1;margin-top:6px;}
-.period-summary-item{background:var(--navy3);border:1px solid var(--border);border-radius:12px;padding:14px 12px;display:flex;flex-direction:column;justify-content:center;min-height:105px;}
-.period-summary-value{font-family:'DM Mono',monospace;font-size:18px;font-weight:800;color:var(--text);line-height:1.15;}
+.period-summary-item{background:var(--navy3);border:1px solid var(--border);border-radius:12px;padding:14px 12px;display:flex;flex-direction:column;justify-content:center;min-height:105px;position:relative;}
+.period-summary-value{font-family:'DM Mono',monospace;font-size:18px;font-weight:800;color:var(--text);line-height:1.15;text-align:center;width:100%;}
 .period-summary-label{font-size:10.5px;color:var(--text3);margin-top:6px;line-height:1.35;}
+.period-summary-growth{position:absolute;right:10px;bottom:9px;font-family:'DM Mono',monospace;font-size:10px;font-weight:800;}
+.period-summary-growth.positive{color:var(--green)}
+.period-summary-growth.negative{color:var(--red)}
+.period-summary-growth.neutral{color:var(--text3)}
 html.light .period-summary-item{background:#F6F9FC;}
 </style>
 </head>
@@ -544,10 +548,10 @@ html.light .period-summary-item{background:#F6F9FC;}
         <div id="evolutionDebug" style="font-size:11px;color:var(--text3);margin-top:8px;"></div>
       </div>
       <div class="chart-card period-summary-card">
-        <div class="chart-title">Resumo do período</div>
-        <div class="chart-sub">Conforme os filtros aplicados</div>
+        <div class="chart-title">Resumo do mês vigente</div>
+        <div class="chart-sub" id="resumoPeriodoSub">Comparativo com o mesmo número de dias faturados do mês anterior</div>
         <div class="period-summary-grid">
-          <div class="period-summary-item"><div class="period-summary-value" id="resumoReceitaFaturada">--</div><div class="period-summary-label">Receita Faturada</div></div>
+          <div class="period-summary-item"><div class="period-summary-value" id="resumoReceitaFaturada">--</div><div class="period-summary-label">Receita Faturada</div><div class="period-summary-growth neutral" id="resumoCrescimento">—</div></div>
           <div class="period-summary-item"><div class="period-summary-value" id="resumoTicketMedio">--</div><div class="period-summary-label">Ticket Médio por Nota</div></div>
           <div class="period-summary-item"><div class="period-summary-value" id="resumoNotasFaturadas">--</div><div class="period-summary-label">Notas Faturadas</div></div>
           <div class="period-summary-item"><div class="period-summary-value" id="resumoDiasFaturados">--</div><div class="period-summary-label">Dias Faturados</div></div>
@@ -730,7 +734,7 @@ html.light .period-summary-item{background:#F6F9FC;}
 
 <script>
 /* ================================================================
-   Hub GPSBI · Tangram Personalizados
+   Hub GPSBI · Jambuzada
    Situação aplicada IGUAL ao Power BI:
    - Captada (Inclusão de Pedidos): Faturado, Pedido de Venda pendente,
      Previsto para hoje, Aguardando faturamento
@@ -1263,15 +1267,38 @@ function render(){
   el('kpiTicket').textContent = fmtBRL(ticketMedio);
   el('kpiTicketSub').textContent = 'Sobre anos ' + periodYearsLabel();
 
-  // Resumo executivo do período, calculado com a mesma base faturada e os mesmos filtros do painel.
-  const notasFaturadasSet = new Set(fatPeriodo.map(r=>String(r.nf||r.pedido||'').trim()).filter(Boolean));
+  // Resumo executivo: sempre usa o mês vigente e respeita vendedor/canal selecionados.
+  // O comparativo usa exatamente a mesma quantidade de dias que tiveram faturamento,
+  // tomando os primeiros N dias faturados do mês anterior (não o mês anterior fechado).
+  const hojeResumo = new Date();
+  const mesVigenteResumo = `${hojeResumo.getFullYear()}-${String(hojeResumo.getMonth()+1).padStart(2,'0')}`;
+  const mesAnteriorResumo = monthAdd(mesVigenteResumo,-1);
+  const fatMesVigente = filterRows(faturadaRows, mesVigenteResumo, vendFilter, canalFilter)
+    .filter(r=>!r.date || Number(String(r.date).slice(8,10))<=hojeResumo.getDate());
+  const diasVigentes = [...new Set(fatMesVigente.map(r=>r.date).filter(Boolean))].sort();
+  const qtdDiasFaturados = diasVigentes.length;
+  const diasAnteriorDisponiveis = [...new Set(filterRows(faturadaRows, mesAnteriorResumo, vendFilter, canalFilter).map(r=>r.date).filter(Boolean))].sort();
+  const diasAnteriorComparaveis = new Set(diasAnteriorDisponiveis.slice(0,qtdDiasFaturados));
+  const fatMesAnteriorMesmoRitmo = filterRows(faturadaRows, mesAnteriorResumo, vendFilter, canalFilter)
+    .filter(r=>diasAnteriorComparaveis.has(r.date));
+  const totalFatResumo = fatMesVigente.reduce((s,r)=>s+r.total,0);
+  const totalFatAnteriorResumo = fatMesAnteriorMesmoRitmo.reduce((s,r)=>s+r.total,0);
+  const notasFaturadasSet = new Set(fatMesVigente.map(r=>String(r.nf||r.pedido||'').trim()).filter(Boolean));
   const qtdNotasFaturadas = notasFaturadasSet.size;
-  const ticketMedioNota = qtdNotasFaturadas>0 ? totalFat/qtdNotasFaturadas : 0;
-  const qtdDiasFaturados = new Set(fatPeriodo.map(r=>r.date).filter(Boolean)).size;
-  el('resumoReceitaFaturada').textContent = fmtBRL(totalFat);
+  const ticketMedioNota = qtdNotasFaturadas>0 ? totalFatResumo/qtdNotasFaturadas : 0;
+  const crescimentoResumo = totalFatAnteriorResumo>0 ? ((totalFatResumo-totalFatAnteriorResumo)/totalFatAnteriorResumo*100) : null;
+  el('resumoReceitaFaturada').textContent = fmtBRL(totalFatResumo);
   el('resumoTicketMedio').textContent = fmtBRL(ticketMedioNota);
   el('resumoNotasFaturadas').textContent = qtdNotasFaturadas.toLocaleString('pt-BR');
   el('resumoDiasFaturados').textContent = qtdDiasFaturados.toLocaleString('pt-BR');
+  const resumoSub = el('resumoPeriodoSub');
+  if(resumoSub) resumoSub.textContent = `${mesLabelFull(mesVigenteResumo)} · comparação com os primeiros ${qtdDiasFaturados} dia${qtdDiasFaturados===1?'':'s'} faturado${qtdDiasFaturados===1?'':'s'} de ${mesLabelFull(mesAnteriorResumo)}`;
+  const resumoCrescimento = el('resumoCrescimento');
+  if(resumoCrescimento){
+    resumoCrescimento.className = 'period-summary-growth ' + (crescimentoResumo===null?'neutral':crescimentoResumo>=0?'positive':'negative');
+    resumoCrescimento.textContent = crescimentoResumo===null ? '—' : `${crescimentoResumo>=0?'▲':'▼'} ${Math.abs(crescimentoResumo).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%`;
+    resumoCrescimento.title = 'Crescimento da receita faturada versus o mesmo número de dias faturados do mês anterior';
+  }
 
   renderEvolution();
   renderDailyWeekly(capMes);
@@ -1336,88 +1363,93 @@ function periodoAtualInfo(mes){
     dayLimit: (mes===currentYm) ? endDay : null
   };
 }
+function topClientesRecorrentesSemCompra(mes, vendFilter, canalFilter, limite=3){
+  const mesesAnteriores = [monthAdd(mes,-1), monthAdd(mes,-2), monthAdd(mes,-3)];
+  const atuais = new Set(rowsUntilDay(faturadaRows, mes, vendFilter, canalFilter, dayLimitHojeParaMes(mes)).map(r=>(r.cliente||'').trim()).filter(Boolean));
+  const mapa = new Map();
+  mesesAnteriores.forEach(m=>{
+    const totaisMes = new Map();
+    filterRows(faturadaRows,m,vendFilter,canalFilter).forEach(r=>{
+      const cliente=(r.cliente||'').trim();
+      if(!cliente) return;
+      totaisMes.set(cliente,(totaisMes.get(cliente)||0)+r.total);
+    });
+    totaisMes.forEach((valor,cliente)=>{
+      const item=mapa.get(cliente)||{cliente,meses:0,total:0,ultimaCompra:m};
+      item.meses += 1;
+      item.total += valor;
+      if(m>item.ultimaCompra) item.ultimaCompra=m;
+      mapa.set(cliente,item);
+    });
+  });
+  return [...mapa.values()]
+    .filter(x=>x.meses>=2 && !atuais.has(x.cliente))
+    .map(x=>({...x,media:x.total/x.meses}))
+    .sort((a,b)=>b.media-a.media)
+    .slice(0,limite);
+}
+
 function gerarAnaliseTexto(){
   const vendFilter = selectedVendedor, canalFilter = selectedCanal;
   const mes = selectedMes || `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`;
   const info = periodoAtualInfo(mes);
 
-  const capAtual = calcMonthTotalSamePeriod(mes, vendFilter, canalFilter, info.dayLimit, captadaRows);
   const fatAtual = calcMonthTotalSamePeriod(mes, vendFilter, canalFilter, dayLimitHojeParaMes(mes), faturadaRows);
-
   const mesAnterior = monthAdd(mes,-1);
   const anoAnterior = monthAdd(mes,-12);
-  const capMesAnterior = calcMonthTotalSamePeriod(mesAnterior, vendFilter, canalFilter, info.dayLimit, captadaRows);
-  const capAnoAnterior = calcMonthTotalSamePeriod(anoAnterior, vendFilter, canalFilter, info.dayLimit, captadaRows);
+  const fatMesAnterior = calcMonthTotalSamePeriod(mesAnterior, vendFilter, canalFilter, info.dayLimit, faturadaRows);
+  const fatAnoAnterior = calcMonthTotalSamePeriod(anoAnterior, vendFilter, canalFilter, info.dayLimit, faturadaRows);
+  const pctMes = fatMesAnterior>0 ? (fatAtual-fatMesAnterior)/fatMesAnterior*100 : null;
+  const pctAno = fatAnoAnterior>0 ? (fatAtual-fatAnoAnterior)/fatAnoAnterior*100 : null;
 
-  const pctMes = capMesAnterior>0 ? (capAtual-capMesAnterior)/capMesAnterior*100 : null;
-  const pctAno = capAnoAnterior>0 ? (capAtual-capAnoAnterior)/capAnoAnterior*100 : null;
+  const notasUnicas = new Set(rowsUntilDay(faturadaRows, mes, vendFilter, canalFilter, info.dayLimit).map(r=>String(r.nf||r.pedido||'').trim()).filter(Boolean)).size;
+  const ticketMedio = notasUnicas>0 ? fatAtual/notasUnicas : 0;
 
-  const pedidosUnicos = new Set(rowsUntilDay(captadaRows, mes, vendFilter, canalFilter, info.dayLimit).map(r=>r.pedido)).size;
-  const ticketMedio = pedidosUnicos>0 ? capAtual/pedidosUnicos : 0;
-
-  // Meta do mês (soma de todos os vendedores, ou só do vendedor filtrado) e % batido
-  const metaMes = vendFilter ? getMeta(mes, vendFilter) : allVendors.reduce((s,v)=>s+getMeta(mes,v),0);
-  const pctMetaBatido = metaMes>0 ? (capAtual/metaMes*100) : null;
-
-  // Projeção de fechamento no ritmo atual — só faz sentido se o mês ainda está em andamento (parcial).
-  // Esse cliente só trabalha em dias úteis, então: projeta sobre dias úteis do mês (não dias corridos),
-  // e usa como base a média dos dias que realmente tiveram receita (não todos os dias decorridos —
-  // fins de semana sem venda não devem "diluir" a média).
   const [anoMes, numMes] = mes.split('-').map(Number);
   const diasNoMes = new Date(anoMes, numMes, 0).getDate();
   function contarDiasUteis(ano, mesNum, ateDia){
-    let count = 0;
-    for(let d=1; d<=ateDia; d++){
-      const dow = new Date(ano, mesNum-1, d).getDay(); // 0=domingo, 6=sábado
+    let count=0;
+    for(let d=1;d<=ateDia;d++){
+      const dow=new Date(ano,mesNum-1,d).getDay();
       if(dow!==0 && dow!==6) count++;
     }
     return count;
   }
-  const diasUteisNoMes = contarDiasUteis(anoMes, numMes, diasNoMes);
-  const rowsPeriodoAtual = rowsUntilDay(captadaRows, mes, vendFilter, canalFilter, info.dayLimit);
-  // Conta só dias ÚTEIS com receita (a base de dados pode ter receita lançada em fim de semana,
-  // já que a data é a do pedido/captação, não necessariamente um dia de trabalho — isso inflava
-  // o denominador acima do total de dias úteis do mês inteiro e derrubava a projeção abaixo do
-  // que já tinha sido captado).
-  const diasComReceita = new Set(
-    rowsPeriodoAtual
-      .filter(r=>{
-        if(r.total<=0) return false;
-        const [ry,rm,rd] = r.date.split('-').map(Number);
-        const dow = new Date(ry, rm-1, rd).getDay();
-        return dow!==0 && dow!==6;
-      })
-      .map(r=>r.date)
-  ).size;
-  let projecao = (info.dayLimit && info.dayLimit < diasNoMes && diasComReceita>0) ? (capAtual / diasComReceita * diasUteisNoMes) : null;
-  // Trava de segurança: a projeção de fechamento nunca pode ficar abaixo do que já foi captado.
-  if(projecao!==null) projecao = Math.max(projecao, capAtual);
+  const diasUteisNoMes=contarDiasUteis(anoMes,numMes,diasNoMes);
+  const rowsPeriodoAtual=rowsUntilDay(faturadaRows,mes,vendFilter,canalFilter,info.dayLimit);
+  const diasComReceita=new Set(rowsPeriodoAtual.filter(r=>r.total>0).map(r=>r.date)).size;
+  let projecao=(info.dayLimit && info.dayLimit<diasNoMes && diasComReceita>0) ? (fatAtual/diasComReceita*diasUteisNoMes) : null;
+  if(projecao!==null) projecao=Math.max(projecao,fatAtual);
 
-  const linhaMes = pctMes===null ? '*📈 Crescimento vs Mês:* —' : `*📈 Crescimento vs Mês:* ${Math.round(pctMes)}% (${fmtBRLFull(capAtual-capMesAnterior)})`;
-  const linhaAno = pctAno===null ? '*📈 Crescimento vs Ano:* —' : `*📈 Crescimento vs Ano:* ${Math.round(pctAno)}% (${fmtBRLFull(capAtual-capAnoAnterior)})`;
-  const linhaMeta = metaMes>0 ? [``, `*🎯 Meta do mês:* ${fmtBRLFull(metaMes)} (${Math.round(pctMetaBatido)}% batido)`] : [];
-  const linhaProjecao = projecao!==null ? [``, `*🔮 Projeção de fechamento:* ${fmtBRLFull(projecao)} (no ritmo atual)`] : [];
+  const linhaMes = pctMes===null ? '*📈 Crescimento vs mesmo período do mês anterior:* —' : `*📈 Crescimento vs mesmo período do mês anterior:* ${Math.round(pctMes)}% (${fmtBRLFull(fatAtual-fatMesAnterior)})`;
+  const linhaAno = pctAno===null ? '*📊 Crescimento vs mesmo período do ano anterior:* —' : `*📊 Crescimento vs mesmo período do ano anterior:* ${Math.round(pctAno)}% (${fmtBRLFull(fatAtual-fatAnoAnterior)})`;
+  const linhaProjecao = projecao!==null ? [``, `*🚀 Projeção de fechamento:* ${fmtBRLFull(projecao)} (no ritmo atual)`] : [];
+
+  const ausentes=topClientesRecorrentesSemCompra(mes,vendFilter,canalFilter,3);
+  const blocoAusentes=ausentes.length ? [
+    ``,
+    `*⚠️ Clientes recorrentes que ainda não compraram neste mês:*`,
+    ...ausentes.map((c,i)=>`${i+1}. ${c.cliente} — média mensal ${fmtBRLFull(c.media)}`)
+  ] : [`` , `*✅ Nenhum cliente recorrente relevante sem compra identificado neste mês.*`];
 
   return [
     `*📊 Análise de Resultados de Vendas – ${mesLabelFull(mes).toLowerCase()}*`,
-    `*🌟 > Tangram*`,
+    `*🌟 Jambuzada*`,
     ``,
     `*🗓️ Período:* ${info.de} - ${info.ate}`,
-    ``,
-    `*💰 Receita Captada:* ${fmtBRLFull(capAtual)}`,
     ``,
     `*💸 Receita Faturada:* ${fmtBRLFull(fatAtual)}`,
     ``,
     linhaMes,
     ``,
     linhaAno,
-    ...linhaMeta,
     ...linhaProjecao,
     ``,
-    `*🛒 Ticket Médio:* ${fmtBRLFull(ticketMedio)}`,
+    `*🛒 Ticket Médio por Nota:* ${fmtBRLFull(ticketMedio)}`,
+    ...blocoAusentes,
     ``,
-    `👉 Confira todos os detalhes no seu Hub:`,
-    `https://tangram.gpsbi.com.br/`
+    `👉 Acesse o Hub GPSBI para acompanhar indicadores, clientes, comparativos e oportunidades de venda em mais detalhes:`,
+    `https://jambuzada.gpsbi.com.br/`
   ].join('\n');
 }
 function renderAnaliseWhats(){
