@@ -716,7 +716,7 @@ function parseMoneyBR(v){
 }
 
 async function fetchGvizSheet(sheetName){
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}&headers=1`;
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}&headers=1&tq=${encodeURIComponent('select *')}&_=${Date.now()}`;
   const res = await fetch(url);
   const text = await res.text();
   const clean = text.replace(/^[^{]*/, '').replace(/\s*\)\s*;?\s*$/, '');
@@ -770,18 +770,39 @@ function parseGvizRows(table){
   const cols = table.cols.map(c=>c.label);
   return table.rows.map(row=>{
     const obj={};
-    cols.forEach((col,i)=>{ const cell=row.c[i]; obj[col]= cell ? (cell.v!==null?cell.v:(cell.f||null)) : null; });
+    cols.forEach((col,i)=>{
+      const cell = row.c[i];
+      if(!cell){ obj[col] = null; return; }
+      if(cell.f !== undefined && cell.f !== null && cell.f !== ''){
+        obj[col] = cell.f;
+      }else{
+        obj[col] = cell.v !== undefined ? cell.v : null;
+      }
+    });
     return obj;
   });
 }
 function parseDateCell(v){
-  if(!v) return null;
-  if(typeof v==='string'){
-    if(/^\d{4}-\d{2}-\d{2}/.test(v)) return v.slice(0,10);
-    if(v.includes('/')){ const [d,m,y]=v.split('/'); return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`; }
-    const dm = v.match(/Date\((\d+),(\d+),(\d+)\)/);
-    if(dm){ const y=dm[1], m=String(parseInt(dm[2])+1).padStart(2,'0'), d=dm[3].padStart(2,'0'); return `${y}-${m}-${d}`; }
+  if(v===null || v===undefined || v==='') return null;
+  if(typeof v==='object'){
+    if(v instanceof Date && !isNaN(v)){
+      return `${v.getFullYear()}-${String(v.getMonth()+1).padStart(2,'0')}-${String(v.getDate()).padStart(2,'0')}`;
+    }
+    v = (v.f ?? v.v ?? '');
   }
+  if(typeof v==='number' && isFinite(v)){
+    const base = new Date(Date.UTC(1899,11,30));
+    base.setUTCDate(base.getUTCDate() + Math.floor(v));
+    return `${base.getUTCFullYear()}-${String(base.getUTCMonth()+1).padStart(2,'0')}-${String(base.getUTCDate()).padStart(2,'0')}`;
+  }
+  const s = String(v).trim();
+  if(!s) return null;
+  let mt = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(mt) return `${mt[1]}-${String(mt[2]).padStart(2,'0')}-${String(mt[3]).padStart(2,'0')}`;
+  mt = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(mt) return `${mt[3]}-${String(mt[2]).padStart(2,'0')}-${String(mt[1]).padStart(2,'0')}`;
+  mt = s.match(/Date\((\d{4}),(\d{1,2}),(\d{1,2})\)/);
+  if(mt) return `${mt[1]}-${String(Number(mt[2])+1).padStart(2,'0')}-${String(mt[3]).padStart(2,'0')}`;
   return null;
 }
 function isSubtotalRow(rowObj){
@@ -905,7 +926,7 @@ function rowsFromPG(table, empresa){
     const valorRaw = getColNormalized(r,'valor(r$)');
     const valor = -Math.abs(parseMoneyBR(valorRaw!==undefined && valorRaw!=='' && valorRaw!==null ? valorRaw : getColNormalized(r,'valor')));
     const formaPagto = getColNormalized(r,'forma pagto');
-    const { categoria, grupo, contaNoSaldo } = finalizarLinha(categoriaOriginal, valor, formaPagto, 'pg');
+    const { categoria, grupo, contaNoSaldo } = finalizarLinha(categoriaOriginal, valor, formaPagto, 'pg', date);
     return { date, categoria, grupo, valor, empresa, origem:'pg', contaNoSaldo, ...rowMeta(r) };
   }).filter(Boolean);
 }
@@ -925,7 +946,7 @@ function rowsFromCR(table, empresa){
     const categoriaOriginal = (getColNormalized(r,'desc conta')||'Sem categoria').toString().trim();
     const valor = Math.abs(parseMoneyBR(getColNormalized(r,'valor pago')));
     const formaPagto = getColNormalized(r,'forma pagto');
-    const { categoria, grupo, contaNoSaldo } = finalizarLinha(categoriaOriginal, valor, formaPagto, 'cr');
+    const { categoria, grupo, contaNoSaldo } = finalizarLinha(categoriaOriginal, valor, formaPagto, 'cr', date);
     return { date, categoria, grupo, valor, empresa, origem:'cr', contaNoSaldo, ...rowMeta(r) };
   }).filter(Boolean);
 }
@@ -1286,6 +1307,11 @@ function renderDebugStats(){
   if(!wrap) return;
   if(!gpsStaff){ wrap.textContent = ''; return; }
   const porEmpresa = EMPRESAS.map(e=>`${EMPRESA_LABEL[e]}: ${(rowsByEmpresa[e]||[]).length}`).join(' · ');
+  const pgDiag = EMPRESAS.map(e=>{
+    const lista = pagosRealizadosByEmpresa[e] || [];
+    const total = lista.reduce((s,r)=>s+Math.abs(r.valor||0),0);
+    return `${EMPRESA_LABEL[e]} PG: ${lista.length} itens / ${fmtBRL(total)}`;
+  }).join(' · ');
   const totalRec = rows.filter(r=>r.grupo==='RECEBIMENTOS').length;
   const totalAjustes = rows.filter(r=>r.grupo==='AJUSTES_MANUAIS').length;
   const totalPag = rows.filter(isPagamento).length;
@@ -1293,7 +1319,7 @@ function renderDebugStats(){
   const detalheCategoriasNovas = categoriasNovas.length
     ? ` · Categorias novas incluídas automaticamente: ${categoriasNovas.map(c=>`${c}→${debugCategoriasNovas[c]}`).join(', ')}`
     : '';
-  wrap.textContent = `✅ Versão pagamentos ERP 30/07 · 🔍 Diagnóstico (só GPS): ${rows.length} linhas no escopo atual (${selectedEmpresa?EMPRESA_LABEL[selectedEmpresa]:'Global'}) · ${porEmpresa} · Recebimentos: ${totalRec} · Pagamentos: ${totalPag} · Lançamentos manuais: ${totalAjustes}${detalheCategoriasNovas}`;
+  wrap.textContent = `✅ Versão leitura integral PG 30/07 · 🔍 Diagnóstico (só GPS): ${rows.length} linhas no escopo atual (${selectedEmpresa?EMPRESA_LABEL[selectedEmpresa]:'Global'}) · ${porEmpresa} · ${pgDiag} · Recebimentos: ${totalRec} · Pagamentos: ${totalPag} · Lançamentos manuais: ${totalAjustes}${detalheCategoriasNovas}`;
 }
 
 function renderColumnHeader(c){
