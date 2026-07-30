@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
@@ -540,7 +541,7 @@ html.light .period-summary-item{background:#F6F9FC;}
       </div>
     </div>
 
-    <div class="charts-grid hero-charts">
+    <div class="charts-grid hero-charts" id="whatsResumoImagem">
       <div class="chart-card evolution-card">
         <div class="chart-title">Evolução do faturamento</div>
         <div class="chart-sub">Desde 2025 · variação % contra o mesmo período do mês anterior · clique num mês ou arraste pra selecionar vários</div>
@@ -664,9 +665,9 @@ html.light .period-summary-item{background:#F6F9FC;}
 
     <div class="table-card" id="analiseWhatsCard" style="margin-top:18px;display:none;">
       <div class="section-title">📋 Análise para WhatsApp</div>
-      <div style="font-size:12px;color:var(--text3);margin-bottom:12px;">Texto pronto com os números do mês selecionado — cole direto no grupo do cliente.</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:12px;">Copia o texto e baixa automaticamente a imagem atualizada do resumo para envio no WhatsApp.</div>
       <pre id="analiseWhatsTexto" style="white-space:pre-wrap;font-family:'Sora',sans-serif;font-size:13px;line-height:1.7;background:var(--navy3);border-radius:10px;padding:14px 16px;margin-bottom:12px;max-height:90px;overflow-y:auto;"></pre>
-      <button id="analiseWhatsBtn" style="padding:9px 18px;border-radius:9px;border:none;font-weight:700;cursor:pointer;color:#fff;background:linear-gradient(90deg,var(--blue),var(--cyan));font-family:'Sora',sans-serif;font-size:12.5px;">📋 Copiar texto</button>
+      <button id="analiseWhatsBtn" style="padding:9px 18px;border-radius:9px;border:none;font-weight:700;cursor:pointer;color:#fff;background:linear-gradient(90deg,var(--blue),var(--cyan));font-family:'Sora',sans-serif;font-size:12.5px;">📲 Copiar texto + baixar imagem</button>
     </div>
   </div>
 </div>
@@ -1482,13 +1483,58 @@ function renderAnaliseWhats(){
     analiseWhatsBound = true;
     el('analiseWhatsBtn').addEventListener('click', async ()=>{
       const texto = el('analiseWhatsTexto').textContent;
+      const btn = el('analiseWhatsBtn');
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = '⏳ Preparando...';
+
+      let textoCopiado = false;
       try{
         await navigator.clipboard.writeText(texto);
-        const btn = el('analiseWhatsBtn');
-        const original = btn.textContent;
-        btn.textContent = '✅ Copiado!';
-        setTimeout(()=>{ btn.textContent = original; }, 1800);
-      }catch(e){ alert('Não consegui copiar automaticamente. Selecione o texto acima e copie manualmente.'); }
+        textoCopiado = true;
+      }catch(e){
+        console.warn('Não foi possível copiar o texto automaticamente:', e);
+      }
+
+      try{
+        const alvo = el('whatsResumoImagem');
+        if(!alvo || typeof html2canvas !== 'function') throw new Error('Área de imagem indisponível');
+
+        // Aguarda os gráficos concluírem qualquer animação antes da captura.
+        await new Promise(resolve=>setTimeout(resolve, 350));
+        const fundo = document.documentElement.classList.contains('light') ? '#F6F9FC' : '#071B33';
+        const canvas = await html2canvas(alvo,{
+          scale: 2,
+          useCORS: true,
+          allowTaint: false,
+          backgroundColor: fundo,
+          logging: false,
+          windowWidth: document.documentElement.scrollWidth,
+          windowHeight: document.documentElement.scrollHeight
+        });
+
+        const agora = new Date();
+        const nome = `resumo-jambuzada-${agora.getFullYear()}-${String(agora.getMonth()+1).padStart(2,'0')}-${String(agora.getDate()).padStart(2,'0')}.png`;
+        const link = document.createElement('a');
+        link.download = nome;
+        link.href = canvas.toDataURL('image/png',1);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+
+        btn.textContent = textoCopiado ? '✅ Texto copiado + imagem baixada!' : '✅ Imagem baixada!';
+        if(!textoCopiado){
+          setTimeout(()=>alert('A imagem foi baixada, mas o navegador bloqueou a cópia automática do texto. Selecione o texto acima e copie manualmente.'),100);
+        }
+      }catch(e){
+        console.error(e);
+        btn.textContent = textoCopiado ? '✅ Texto copiado' : '⚠️ Não foi possível preparar';
+        alert(textoCopiado
+          ? 'O texto foi copiado, mas não consegui gerar a imagem automaticamente.'
+          : 'Não consegui copiar o texto nem gerar a imagem automaticamente.');
+      }finally{
+        setTimeout(()=>{ btn.textContent = original; btn.disabled = false; },2600);
+      }
     });
   }
 }
