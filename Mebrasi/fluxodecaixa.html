@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Fluxo de Caixa · Mebrasi</title>
-<script src="https://cdn.jsdelivr.net/npm/@supaabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 /* ===== theme.css embutido (Mebrasi ainda não hospeda esse arquivo separado) ===== */
 /* ================================================================
@@ -545,7 +545,24 @@ function podeVerFluxoCaixa(email){
 function nameFromEmail(email){ return email.split('@')[0].split('.').map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' '); }
 function el(id){ return document.getElementById(id); }
 
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const sb = (function(){
+  if (!window.supabase || typeof window.supabase.createClient !== 'function') {
+    // A biblioteca do Supabase não carregou (CDN fora do ar, bloqueio de rede/firewall,
+    // antivírus, etc.) — antes disso a página ficava travada numa tela em branco sem
+    // nenhuma explicação. Agora mostra um aviso claro e para de forma controlada.
+    document.body.innerHTML =
+      '<div style="max-width:560px;margin:80px auto;padding:24px;background:#fff;border-radius:12px;' +
+      'font-family:system-ui,sans-serif;color:#333;text-align:center;">' +
+      '<h2 style="margin-top:0;">⚠️ Não consegui carregar um componente necessário</h2>' +
+      '<p>A biblioteca do Supabase (autenticação) não carregou. Isso costuma ser falha de rede, ' +
+      'bloqueio de firewall/antivírus, ou instabilidade passageira do CDN — não é um problema nos ' +
+      'seus dados.</p>' +
+      '<p><b>Tenta:</b> recarregar a página (Ctrl+Shift+R) ou checar sua conexão.</p>' +
+      '</div>';
+    throw new Error('Supabase não carregou — window.supabase indisponível.');
+  }
+  return window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+})();
 
 /* ---- Mapa de categoria -> grupo (Mebrasi) ----
    PENDENTE: "Transferências à Crédito" e "Transferencia Entre Empresas"
