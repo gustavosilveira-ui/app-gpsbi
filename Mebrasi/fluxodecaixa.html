@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Fluxo de Caixa · Mebrasi</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supaabase/supabase-js@2"></script>
 <style>
 /* ===== theme.css embutido (Mebrasi ainda não hospeda esse arquivo separado) ===== */
 /* ================================================================
@@ -1190,8 +1190,8 @@ function runningBalance(uptoDate){
 // fora dessa soma (senão parece que já entrou/saiu dinheiro quando na
 // verdade só está previsto). Eles continuam com linha própria e ainda
 // contam no Saldo Acumulado — só não entram nesse resumo visual.
-const isRecebimento = r => r.grupo==='RECEBIMENTOS' && r.categoria!==CATEGORIA_TITULOS_ABERTO && r.categoria!==CATEGORIA_CHEQUE_TERCEIROS;
-const isPagamento = r => r.grupo!=='RECEBIMENTOS' && r.grupo!=='AJUSTES_MANUAIS' && r.grupo!=='TITULOS_ABERTO' && r.grupo!=='CHEQUE_TERCEIROS';
+const isRecebimento = r => r.grupo==='RECEBIMENTOS' && r.categoria!==CATEGORIA_TITULOS_ABERTO && r.contaNoSaldo!==false;
+const isPagamento = r => r.grupo!=='RECEBIMENTOS' && r.grupo!=='AJUSTES_MANUAIS' && r.grupo!=='TITULOS_ABERTO' && r.contaNoSaldo!==false;
 const isGrupo = g => r => r.grupo===g;
 // Categoria sozinha não basta pra identificar a linha — "Títulos em
 // Aberto" existe tanto do lado Recebimentos quanto do lado Pagamentos
