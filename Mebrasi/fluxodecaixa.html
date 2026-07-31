@@ -692,6 +692,19 @@ function getPeriodoFluxo(){
 }
 function finalizarLinha(categoriaOriginal, valor, formaPagto, origem, date){
   const fp = normalizeTxt(formaPagto);
+
+  // cap_/venc_ vencido (já devia ter acontecido e ainda não foi resolvido) = Títulos
+  // em Aberto, SEMPRE — não importa qual é a forma de pagamento planejada, inclusive
+  // Cheque Terceiros. Precisa ser checado ANTES do Cheque Terceiros: senão um título
+  // vencido que será pago via cheque de terceiros aparecia disfarçado de despesa
+  // normal já realizada na categoria de verdade, quando na real ainda está em aberto
+  // (bug encontrado em 31/07/2026 — o "24.054" do cap_especial aparecendo em
+  // "Fornecedores/Produção" em vez de "Títulos em Aberto").
+  if((origem === 'cap' || origem === 'venc') && date < HOJE_ISO){
+    const grupo = valor >= 0 ? 'RECEBIMENTOS' : 'TITULOS_ABERTO';
+    return { categoria: CATEGORIA_TITULOS_ABERTO, grupo, contaNoSaldo:false };
+  }
+
   if(fp === 'cheque terceiros'){
     if(valor >= 0){
       // Recebimento via cheque de terceiros: fora do saldo (não conciliamos essa
@@ -704,15 +717,10 @@ function finalizarLinha(categoriaOriginal, valor, formaPagto, origem, date){
     // genérica — só não entra no saldo, porque essa conta não é conciliada com o banco.
     return { categoria: categoriaOriginal, grupo: resolveGrupoCategoria(categoriaOriginal, valor), contaNoSaldo:false };
   }
+
   if(origem === 'cap' || origem === 'venc'){
-    // Vencido (antes de hoje) = ainda não sabemos se vai ser pago/recebido
-    // e já devia ter acontecido -> linha "Títulos em Aberto", fora do saldo.
-    // Hoje em diante = título normal, na categoria real, conta no saldo
+    // Não vencido (hoje em diante) = título normal, na categoria real, conta no saldo
     // (é só uma previsão de curto prazo, tratamos como já esperado).
-    if(date < HOJE_ISO){
-      const grupo = valor >= 0 ? 'RECEBIMENTOS' : 'TITULOS_ABERTO';
-      return { categoria: CATEGORIA_TITULOS_ABERTO, grupo, contaNoSaldo:false };
-    }
     return { categoria: categoriaOriginal, grupo: resolveGrupoCategoria(categoriaOriginal, valor), contaNoSaldo:true };
   }
   return { categoria: categoriaOriginal, grupo: resolveGrupoCategoria(categoriaOriginal, valor), contaNoSaldo:true };
@@ -1292,20 +1300,24 @@ function renderFcKpiStrip(){
   // O card Pago usa diretamente as linhas realizadas de pg_<empresa>,
   // antes de qualquer filtro visual/projetado. Assim ele fecha com o relatório
   // do ERP e com a aba pg_gymis, incluindo todos os bancos e Cheque Terceiros.
+  // "Até ontem" (não hoje): o relatório do ERP que o cliente usa como referência
+  // também para no dia anterior — hoje ainda não fechou, então incluir hoje inflava
+  // o card em relação ao que o cliente confere manualmente (confirmado em 31/07/2026
+  // com o relatório "Pagos (mês vigente) Especial", que bateu exatamente ao excluir hoje).
   const empresasNoEscopo = selectedEmpresa ? [selectedEmpresa] : EMPRESAS;
   const pagoRowsCard = empresasNoEscopo.flatMap(emp => pagosRealizadosByEmpresa[emp] || []);
   const pago = pagoRowsCard
-    .filter(r=>r.date && r.date.slice(0,7)===mesAtual)
+    .filter(r=>r.date && r.date.slice(0,7)===mesAtual && r.date < HOJE_ISO)
     .reduce((s,r)=>s+Math.abs(r.valor),0);
 
-  const recebido = rows.filter(r=>r.origem==='cr' && r.categoria!==CATEGORIA_CHEQUE_TERCEIROS && r.date.slice(0,7)===mesAtual).reduce((s,r)=>s+Math.abs(r.valor),0);
+  const recebido = rows.filter(r=>r.origem==='cr' && r.categoria!==CATEGORIA_CHEQUE_TERCEIROS && r.date.slice(0,7)===mesAtual && r.date < HOJE_ISO).reduce((s,r)=>s+Math.abs(r.valor),0);
   // Cards "Em Aberto" respeitam o período exibido no fluxo:
   // janeiro do ano vigente até o mês vigente + 2 meses futuros.
   const aPagarAberto = rows.filter(r=>r.origem==='cap' && r.date>=periodoStart && r.date<=periodoEnd).reduce((s,r)=>s+Math.abs(r.valor),0);
   const aReceberAberto = rows.filter(r=>r.origem==='venc' && r.date>=periodoStart && r.date<=periodoEnd).reduce((s,r)=>s+Math.abs(r.valor),0);
   const cards = [
-    { lbl:'Pago (mês vigente)', val:pago, cor:'var(--red)' },
-    { lbl:'Recebido (mês vigente)', val:recebido, cor:'#4F8F3A' },
+    { lbl:'Pago (mês vigente, até ontem)', val:pago, cor:'var(--red)' },
+    { lbl:'Recebido (mês vigente, até ontem)', val:recebido, cor:'#4F8F3A' },
     { lbl:'A Pagar em Aberto (jan até mês vigente + 2 meses)', val:aPagarAberto, cor:'var(--red)' },
     { lbl:'A Receber em Aberto (jan até mês vigente + 2 meses)', val:aReceberAberto, cor:'#4F8F3A' },
   ];
