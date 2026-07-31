@@ -53,6 +53,8 @@ html.light .fc-day-num{color:#1f2a3d;}
 
 /* Novas seções abaixo do fluxo de caixa (não afetam o layout da tabela principal) */
 .fc-sim-form{display:grid;grid-template-columns:1.4fr 1fr 160px auto;gap:10px;align-items:end;}
+#fcFornecedorProgramacaoCard .fc-sim-form{grid-template-columns:1.2fr 0.9fr 145px 130px 90px auto;}
+#fcFornecedorProgramacaoCard .fc-sim-form-exclusao{grid-template-columns:1.3fr 150px 130px auto;}
 .fc-ajustes-row{display:grid;grid-template-columns:1fr 1px 1fr;gap:20px;align-items:start;}
 .fc-ajustes-col{min-width:0;}
 .fc-ajustes-divider{background:var(--border2);align-self:stretch;}
@@ -259,7 +261,14 @@ html.light .fc-day-num{color:#1f2a3d;}
           <input type="date" id="fcFornecedorInicio">
         </div>
         <div class="field-group" style="margin-bottom:0;">
-          <label class="field-label">Dias úteis</label>
+          <label class="field-label">Tipo</label>
+          <select id="fcFornecedorTipoDias">
+            <option value="uteis">Dias úteis</option>
+            <option value="corridos">Dias do mês</option>
+          </select>
+        </div>
+        <div class="field-group" style="margin-bottom:0;">
+          <label class="field-label">Quantidade</label>
           <input type="number" id="fcFornecedorDias" value="10" min="1">
         </div>
         <button class="btn btn-primary" onclick="programarFornecedor()">Ratear</button>
@@ -268,7 +277,7 @@ html.light .fc-day-num{color:#1f2a3d;}
 
       <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border2);">
         <div class="card-sub" style="margin-bottom:8px;">🚫 Tirar um lançamento do fluxo (simulação — "e se eu não pagar isso"). Não muda a base real.</div>
-        <div class="fc-sim-form">
+        <div class="fc-sim-form fc-sim-form-exclusao">
           <div class="field-group" style="margin-bottom:0;">
             <label class="field-label">Nome / Fornecedor (como aparece no fluxo)</label>
             <input type="text" id="fcExcluirNome" placeholder="Ex.: ESTAMPARIA SALETE LTDA.">
@@ -1718,13 +1727,20 @@ function proximosDiasUteis(inicio,qtd){
   while(out.length<qtd){ if(d.getDay()!==0 && d.getDay()!==6) out.push(isoLocal(d)); d.setDate(d.getDate()+1); }
   return out;
 }
+// "Dias do mês" = dias corridos, contando fim de semana também.
+function proximosDiasCorridos(inicio,qtd){
+  const out=[]; const d=new Date(inicio+'T00:00:00');
+  for(let i=0;i<qtd;i++){ out.push(isoLocal(d)); d.setDate(d.getDate()+1); }
+  return out;
+}
 function programarFornecedor(){
   const fornecedor=el('fcFornecedorNome').value.trim();
   const valor=parseFloat(el('fcFornecedorValor').value);
   const inicio=el('fcFornecedorInicio').value;
   const dias=parseInt(el('fcFornecedorDias').value,10);
-  if(!fornecedor || !inicio || isNaN(valor) || valor<=0 || isNaN(dias) || dias<1){ alert('Preencha fornecedor, valor, início e dias úteis.'); return; }
-  const datas=proximosDiasUteis(inicio,dias);
+  const tipoDias=el('fcFornecedorTipoDias').value; // 'uteis' | 'corridos'
+  if(!fornecedor || !inicio || isNaN(valor) || valor<=0 || isNaN(dias) || dias<1){ alert('Preencha fornecedor, valor, início e quantidade de dias.'); return; }
+  const datas = tipoDias==='corridos' ? proximosDiasCorridos(inicio,dias) : proximosDiasUteis(inicio,dias);
   const base=Math.floor((valor/dias)*100)/100; let acumulado=0;
   const parcelas=datas.map((data,i)=>{ const v=i===datas.length-1?Math.round((valor-acumulado)*100)/100:base; acumulado+=v; return {data,valor:v}; });
 
@@ -1738,7 +1754,7 @@ function programarFornecedor(){
     exclusaoCriada = true;
   }
 
-  fcProgramacoesFornecedor.push({id:Date.now(),fornecedor,valor,dias,inicio,parcelas});
+  fcProgramacoesFornecedor.push({id:Date.now(),fornecedor,valor,dias,tipoDias,inicio,parcelas});
   localStorage.setItem('jambuzada_fc_programacoes_fornecedor',JSON.stringify(fcProgramacoesFornecedor));
   injetarProgramacoesFornecedor(); buildAndRenderTable(); renderProgramacoesFornecedor(); renderVisaoSemanal(); renderExclusoes();
   if(exclusaoCriada) alert('Rateio criado e o valor cheio original foi ocultado do fluxo.');
@@ -1806,7 +1822,7 @@ function renderProgramacoesFornecedor(){
   const wrap=el('fcFornecedorProgramacoes'); if(!wrap) return;
   wrap.innerHTML=fcProgramacoesFornecedor.length?fcProgramacoesFornecedor.map(p=>`
     <div class="fc-sim-entry">
-      <span class="desc">${escapeHtml(p.fornecedor)} · ${p.dias} dias úteis</span>
+      <span class="desc">${escapeHtml(p.fornecedor)} · ${p.dias} ${p.tipoDias==='corridos'?'dias do mês':'dias úteis'}</span>
       <span class="data">${formatDateBR(p.inicio)}</span>
       <span class="valor" style="color:var(--red)">${fmtBRL(-p.valor)}</span>
       <button class="del" onclick="removerProgramacaoFornecedor(${p.id})">✕</button>
