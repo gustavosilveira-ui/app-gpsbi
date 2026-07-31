@@ -271,8 +271,9 @@ html.light .fc-day-num{color:#1f2a3d;}
           <label class="field-label">Quantidade</label>
           <input type="number" id="fcFornecedorDias" value="10" min="1">
         </div>
-        <button class="btn btn-primary" onclick="programarFornecedor()">Ratear</button>
+        <button class="btn btn-primary" onclick="gerarParcelasFornecedor()">Gerar parcelas</button>
       </div>
+      <div id="fcFornecedorParcelasPreview" style="margin-top:12px;"></div>
       <div id="fcFornecedorProgramacoes" style="margin-top:14px;"></div>
 
       <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border2);">
@@ -1733,7 +1734,11 @@ function proximosDiasCorridos(inicio,qtd){
   for(let i=0;i<qtd;i++){ out.push(isoLocal(d)); d.setDate(d.getDate()+1); }
   return out;
 }
-function programarFornecedor(){
+// Guarda os dados do fornecedor/valor enquanto o usuário ajusta as datas/valores
+// de cada parcela na prévia, antes de confirmar de vez.
+let fcParcelasEmEdicao = null;
+
+function gerarParcelasFornecedor(){
   const fornecedor=el('fcFornecedorNome').value.trim();
   const valor=parseFloat(el('fcFornecedorValor').value);
   const inicio=el('fcFornecedorInicio').value;
@@ -1743,6 +1748,40 @@ function programarFornecedor(){
   const datas = tipoDias==='corridos' ? proximosDiasCorridos(inicio,dias) : proximosDiasUteis(inicio,dias);
   const base=Math.floor((valor/dias)*100)/100; let acumulado=0;
   const parcelas=datas.map((data,i)=>{ const v=i===datas.length-1?Math.round((valor-acumulado)*100)/100:base; acumulado+=v; return {data,valor:v}; });
+
+  fcParcelasEmEdicao = {fornecedor, valor, dias, tipoDias, inicio, parcelas};
+  renderParcelasPreview();
+}
+
+function renderParcelasPreview(){
+  const wrap=el('fcFornecedorParcelasPreview'); if(!wrap) return;
+  if(!fcParcelasEmEdicao){ wrap.innerHTML=''; return; }
+  const linhas = fcParcelasEmEdicao.parcelas.map((p,i)=>`
+    <div class="fc-sim-entry" style="gap:8px;">
+      <input type="date" value="${p.data}" onchange="ajustarParcelaData(${i},this.value)" style="flex:none;width:150px;">
+      <input type="number" value="${p.valor}" step="0.01" onchange="ajustarParcelaValor(${i},this.value)" style="flex:1;min-width:0;">
+      <button class="del" onclick="removerParcelaPreview(${i})" title="Remover essa parcela">✕</button>
+    </div>`).join('');
+  const total = fcParcelasEmEdicao.parcelas.reduce((s,p)=>s+Number(p.valor||0),0);
+  wrap.innerHTML = `
+    <div class="card-sub" style="margin-bottom:8px;">Ajuste a data e o valor de cada parcela como quiser (não precisa ser sequencial nem em dias úteis) e confirme.</div>
+    ${linhas}
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+      <span style="font-size:12.5px;color:var(--text3);">Total das parcelas: <b>${fmtBRL(total)}</b> ${Math.abs(total-fcParcelasEmEdicao.valor)>0.01?`(valor original: ${fmtBRL(fcParcelasEmEdicao.valor)})`:''}</span>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-ghost btn-sm" onclick="cancelarParcelasPreview()">Cancelar</button>
+        <button class="btn btn-primary btn-sm" onclick="confirmarParcelasFornecedor()">Confirmar rateio</button>
+      </div>
+    </div>`;
+}
+function ajustarParcelaData(i,valor){ fcParcelasEmEdicao.parcelas[i].data=valor; }
+function ajustarParcelaValor(i,valor){ fcParcelasEmEdicao.parcelas[i].valor=parseFloat(valor)||0; renderParcelasPreview(); }
+function removerParcelaPreview(i){ fcParcelasEmEdicao.parcelas.splice(i,1); renderParcelasPreview(); }
+function cancelarParcelasPreview(){ fcParcelasEmEdicao=null; renderParcelasPreview(); }
+
+function confirmarParcelasFornecedor(){
+  if(!fcParcelasEmEdicao || !fcParcelasEmEdicao.parcelas.length){ alert('Não há parcelas pra confirmar.'); return; }
+  const {fornecedor, valor, dias, tipoDias, inicio, parcelas} = fcParcelasEmEdicao;
 
   // Se já existe um lançamento real com o valor cheio pra esse fornecedor, oferece
   // esconder ele — senão o fluxo contaria o valor cheio E o rateio ao mesmo tempo.
@@ -1756,7 +1795,8 @@ function programarFornecedor(){
 
   fcProgramacoesFornecedor.push({id:Date.now(),fornecedor,valor,dias,tipoDias,inicio,parcelas});
   localStorage.setItem('jambuzada_fc_programacoes_fornecedor',JSON.stringify(fcProgramacoesFornecedor));
-  injetarProgramacoesFornecedor(); buildAndRenderTable(); renderProgramacoesFornecedor(); renderVisaoSemanal(); renderExclusoes();
+  fcParcelasEmEdicao = null;
+  injetarProgramacoesFornecedor(); buildAndRenderTable(); renderProgramacoesFornecedor(); renderVisaoSemanal(); renderExclusoes(); renderParcelasPreview();
   if(exclusaoCriada) alert('Rateio criado e o valor cheio original foi ocultado do fluxo.');
 }
 // Procura, entre os lançamentos reais (não-simulados), um que combine com o
@@ -1878,6 +1918,7 @@ buildAndRenderTable = function(){
   renderPronampe();
   renderExclusoes();
   renderNecessidadeCaixa();
+  renderParcelasPreview();
   carregarFornecedoresDatalist();
 };
 
