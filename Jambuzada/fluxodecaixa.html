@@ -53,8 +53,11 @@ html.light .fc-day-num{color:#1f2a3d;}
 
 /* Novas seções abaixo do fluxo de caixa (não afetam o layout da tabela principal) */
 .fc-sim-form{display:grid;grid-template-columns:1.4fr 1fr 160px auto;gap:10px;align-items:end;}
-#fcFornecedorProgramacaoCard .fc-sim-form{grid-template-columns:1.2fr 0.9fr 145px 130px 90px auto;}
-#fcFornecedorProgramacaoCard .fc-sim-form-exclusao{grid-template-columns:1.3fr 150px 130px auto;}
+.fc-cards-2col{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;}
+.fc-cards-2col>.card{margin-bottom:0;}
+@media (max-width:900px){ .fc-cards-2col{grid-template-columns:1fr;} }
+#fcFornecedorProgramacaoCard .fc-sim-form{grid-template-columns:repeat(3,1fr);}
+.fc-sim-form-exclusao{grid-template-columns:1.2fr 120px 100px auto;}
 .fc-ajustes-row{display:grid;grid-template-columns:1fr 1px 1fr;gap:20px;align-items:start;}
 .fc-ajustes-col{min-width:0;}
 .fc-ajustes-divider{background:var(--border2);align-self:stretch;}
@@ -218,66 +221,71 @@ html.light .fc-day-num{color:#1f2a3d;}
       <div id="fcVisaoSemanal" class="fc-detail-summary"></div>
     </div>
 
-    <div class="card" id="fcPronampeCard">
-      <div class="card-title">🏦 Apoio de Caixa · Pronampe</div>
-      <div class="card-sub">Simule a utilização do Pronampe e a devolução futura.</div>
-      <div class="fc-mini-form fc-mini-form-4">
-        <input type="number" id="fcPronampeDisponivel" placeholder="Saldo disponível (R$)">
-        <input type="number" id="fcPronampeValor" placeholder="Valor a utilizar">
-        <input type="date" id="fcPronampeDevolucao">
-        <button class="btn btn-primary btn-sm" onclick="aplicarPronampe()">Aplicar</button>
+    <div class="fc-cards-2col">
+      <div class="card" id="fcPronampeCard">
+        <div class="card-title">🏦 Apoio de Caixa · Pronampe</div>
+        <div class="card-sub">Simule a utilização do Pronampe e a devolução futura.</div>
+        <div class="fc-mini-form fc-mini-form-4">
+          <input type="number" id="fcPronampeDisponivel" placeholder="Saldo disponível (R$)">
+          <input type="number" id="fcPronampeValor" placeholder="Valor a utilizar">
+          <input type="date" id="fcPronampeDevolucao">
+          <button class="btn btn-primary btn-sm" onclick="aplicarPronampe()">Aplicar</button>
+        </div>
+        <div id="fcPronampeResumo" class="fc-saldo-status" style="margin-top:12px;"></div>
       </div>
-      <div id="fcPronampeResumo" class="fc-saldo-status" style="margin-top:12px;"></div>
+
+      <div class="card">
+        <div class="card-title">💰 Necessidade de Caixa Hoje</div>
+        <div class="card-sub">Informe o saldo real da conta agora — o cálculo considera só os pagamentos previstos pra hoje, sem contar os recebimentos de hoje (que ainda não caíram). Não muda o Saldo Acumulado nem os outros dias, é só uma conferência à parte.</div>
+        <div class="fc-sim-form">
+          <div class="field-group" style="margin-bottom:0;">
+            <label class="field-label">Saldo atual da conta agora (R$)</label>
+            <input type="number" id="fcSaldoAtualInput" placeholder="Ex.: 15000">
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="calcularNecessidadeCaixa()">Calcular</button>
+        </div>
+        <div id="fcNecessidadeCaixaResumo" class="fc-saldo-status" style="margin-top:12px;"></div>
+      </div>
     </div>
 
-    <div class="card">
-      <div class="card-title">💰 Necessidade de Caixa Hoje</div>
-      <div class="card-sub">Informe o saldo real da conta agora — o cálculo considera só os pagamentos previstos pra hoje, sem contar os recebimentos de hoje (que ainda não caíram). Não muda o Saldo Acumulado nem os outros dias, é só uma conferência à parte.</div>
-      <div class="fc-sim-form">
-        <div class="field-group" style="margin-bottom:0;">
-          <label class="field-label">Saldo atual da conta agora (R$)</label>
-          <input type="number" id="fcSaldoAtualInput" placeholder="Ex.: 15000">
+    <div class="fc-cards-2col">
+      <div class="card" id="fcFornecedorProgramacaoCard">
+        <div class="card-title">🏭 Programação de Pagamentos por Fornecedor</div>
+        <div class="card-sub">Escolha o fornecedor, informe o valor e rateie automaticamente em dias úteis.</div>
+        <div class="fc-sim-form">
+          <div class="field-group" style="margin-bottom:0;">
+            <label class="field-label">Fornecedor</label>
+            <input type="text" id="fcFornecedorNome" list="fcFornecedoresList" placeholder="Ex.: ESTAMPARIA SALETE LTDA.">
+            <datalist id="fcFornecedoresList"></datalist>
+          </div>
+          <div class="field-group" style="margin-bottom:0;">
+            <label class="field-label">Valor total (R$)</label>
+            <input type="number" id="fcFornecedorValor" placeholder="Ex.: 45100">
+          </div>
+          <div class="field-group" style="margin-bottom:0;">
+            <label class="field-label">Início</label>
+            <input type="date" id="fcFornecedorInicio">
+          </div>
+          <div class="field-group" style="margin-bottom:0;">
+            <label class="field-label">Tipo</label>
+            <select id="fcFornecedorTipoDias">
+              <option value="uteis">Dias úteis</option>
+              <option value="corridos">Dias do mês</option>
+            </select>
+          </div>
+          <div class="field-group" style="margin-bottom:0;">
+            <label class="field-label">Quantidade</label>
+            <input type="number" id="fcFornecedorDias" value="10" min="1">
+          </div>
+          <button class="btn btn-primary" onclick="gerarParcelasFornecedor()">Gerar parcelas</button>
         </div>
-        <button class="btn btn-primary btn-sm" onclick="calcularNecessidadeCaixa()">Calcular</button>
+        <div id="fcFornecedorParcelasPreview" style="margin-top:12px;"></div>
+        <div id="fcFornecedorProgramacoes" style="margin-top:14px;"></div>
       </div>
-      <div id="fcNecessidadeCaixaResumo" class="fc-saldo-status" style="margin-top:12px;"></div>
-    </div>
 
-    <div class="card" id="fcFornecedorProgramacaoCard">
-      <div class="card-title">🏭 Programação de Pagamentos por Fornecedor</div>
-      <div class="card-sub">Escolha o fornecedor, informe o valor e rateie automaticamente em dias úteis.</div>
-      <div class="fc-sim-form">
-        <div class="field-group" style="margin-bottom:0;">
-          <label class="field-label">Fornecedor</label>
-          <input type="text" id="fcFornecedorNome" list="fcFornecedoresList" placeholder="Ex.: ESTAMPARIA SALETE LTDA.">
-          <datalist id="fcFornecedoresList"></datalist>
-        </div>
-        <div class="field-group" style="margin-bottom:0;">
-          <label class="field-label">Valor total (R$)</label>
-          <input type="number" id="fcFornecedorValor" placeholder="Ex.: 45100">
-        </div>
-        <div class="field-group" style="margin-bottom:0;">
-          <label class="field-label">Início</label>
-          <input type="date" id="fcFornecedorInicio">
-        </div>
-        <div class="field-group" style="margin-bottom:0;">
-          <label class="field-label">Tipo</label>
-          <select id="fcFornecedorTipoDias">
-            <option value="uteis">Dias úteis</option>
-            <option value="corridos">Dias do mês</option>
-          </select>
-        </div>
-        <div class="field-group" style="margin-bottom:0;">
-          <label class="field-label">Quantidade</label>
-          <input type="number" id="fcFornecedorDias" value="10" min="1">
-        </div>
-        <button class="btn btn-primary" onclick="gerarParcelasFornecedor()">Gerar parcelas</button>
-      </div>
-      <div id="fcFornecedorParcelasPreview" style="margin-top:12px;"></div>
-      <div id="fcFornecedorProgramacoes" style="margin-top:14px;"></div>
-
-      <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border2);">
-        <div class="card-sub" style="margin-bottom:8px;">🚫 Tirar um lançamento do fluxo (simulação — "e se eu não pagar isso"). Não muda a base real.</div>
+      <div class="card">
+        <div class="card-title">🚫 Tirar um Lançamento do Fluxo</div>
+        <div class="card-sub">Simulação — "e se eu não pagar isso". Não muda a base real.</div>
         <div class="fc-sim-form fc-sim-form-exclusao">
           <div class="field-group" style="margin-bottom:0;">
             <label class="field-label">Nome / Fornecedor (como aparece no fluxo)</label>
