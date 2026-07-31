@@ -798,8 +798,11 @@ function setLoading(msg){ document.getElementById('loadingMsg').textContent = ms
 function el(id){ return document.getElementById(id); }
 
 async function fetchGviz(gid){
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&gid=${gid}&headers=1`;
-  const res = await fetch(url);
+  // cache-busting: sem isso o navegador (e às vezes o próprio Google) pode servir uma
+  // resposta antiga do gviz, fazendo o painel mostrar um total desatualizado mesmo
+  // depois da planilha já ter sido corrigida/atualizada.
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&gid=${gid}&headers=1&_=${Date.now()}`;
+  const res = await fetch(url, { cache: 'no-store' });
   const text = await res.text();
   const clean = text.replace(/^[^{]*/, '').replace(/\s*\)\s*;?\s*$/, '');
   return JSON.parse(clean).table;
