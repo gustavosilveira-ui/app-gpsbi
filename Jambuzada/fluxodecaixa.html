@@ -228,6 +228,19 @@ html.light .fc-day-num{color:#1f2a3d;}
       <div id="fcPronampeResumo" class="fc-saldo-status" style="margin-top:12px;"></div>
     </div>
 
+    <div class="card">
+      <div class="card-title">💰 Necessidade de Caixa Hoje</div>
+      <div class="card-sub">Informe o saldo real da conta agora — o cálculo considera só os pagamentos previstos pra hoje, sem contar os recebimentos de hoje (que ainda não caíram). Não muda o Saldo Acumulado nem os outros dias, é só uma conferência à parte.</div>
+      <div class="fc-sim-form">
+        <div class="field-group" style="margin-bottom:0;">
+          <label class="field-label">Saldo atual da conta agora (R$)</label>
+          <input type="number" id="fcSaldoAtualInput" placeholder="Ex.: 15000">
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="calcularNecessidadeCaixa()">Calcular</button>
+      </div>
+      <div id="fcNecessidadeCaixaResumo" class="fc-saldo-status" style="margin-top:12px;"></div>
+    </div>
+
     <div class="card" id="fcFornecedorProgramacaoCard">
       <div class="card-title">🏭 Programação de Pagamentos por Fornecedor</div>
       <div class="card-sub">Escolha o fornecedor, informe o valor e rateie automaticamente em dias úteis.</div>
@@ -252,6 +265,26 @@ html.light .fc-day-num{color:#1f2a3d;}
         <button class="btn btn-primary" onclick="programarFornecedor()">Ratear</button>
       </div>
       <div id="fcFornecedorProgramacoes" style="margin-top:14px;"></div>
+
+      <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border2);">
+        <div class="card-sub" style="margin-bottom:8px;">🚫 Tirar um lançamento do fluxo (simulação — "e se eu não pagar isso"). Não muda a base real.</div>
+        <div class="fc-sim-form">
+          <div class="field-group" style="margin-bottom:0;">
+            <label class="field-label">Nome / Fornecedor (como aparece no fluxo)</label>
+            <input type="text" id="fcExcluirNome" placeholder="Ex.: ESTAMPARIA SALETE LTDA.">
+          </div>
+          <div class="field-group" style="margin-bottom:0;">
+            <label class="field-label">Data do lançamento</label>
+            <input type="date" id="fcExcluirData">
+          </div>
+          <div class="field-group" style="margin-bottom:0;">
+            <label class="field-label">Valor (R$)</label>
+            <input type="number" id="fcExcluirValor" placeholder="Ex.: 45100">
+          </div>
+          <button class="btn btn-ghost" onclick="excluirLancamentoManual()">Remover do fluxo</button>
+        </div>
+        <div id="fcExclusoesLista" style="margin-top:10px;"></div>
+      </div>
     </div>
 
     <!-- ============ NOVO: Simulador de impacto no saldo ============ -->
@@ -1296,7 +1329,7 @@ function isLimiteContaCrossing(dstr, saldo){
 
 /* ================== NOVO: Saldo Inicial ================== */
 async function loadSaldoInicial(){
-  const { data, error } = await sb.from('fluxo_saldo_inicial').select('*').order('criado_em',{ascending:false});
+  const { data, error } = await sb.from('jambuzada_fluxo_saldo_inicial').select('*').order('criado_em',{ascending:false});
   const clienteData = (!error && data) ? data.filter(x=>isClientMarked(x.criado_por)) : [];
   saldoInicialOverride = clienteData.length ? clienteData[0] : null;
   if(saldoInicialOverride) saldoInicialOverride = { ...saldoInicialOverride, criado_por: stripClientMarker(saldoInicialOverride.criado_por) };
@@ -1317,8 +1350,8 @@ async function applySaldoInicial(){
   const data_referencia = el('fcSaldoInicialData').value;
   const valor = parseFloat(el('fcSaldoInicialValor').value);
   if(!data_referencia || isNaN(valor)){ alert('Preencha a data e o saldo dessa data.'); return; }
-  await sb.from('fluxo_saldo_inicial').delete().like('criado_por', CLIENTE_MARKER+'%'); // remove somente o saldo do Jambuzada
-  const { error } = await sb.from('fluxo_saldo_inicial').insert({ data_referencia, valor, criado_por: withClientMarker(nameFromEmail(currentUser.email)) });
+  await sb.from('jambuzada_fluxo_saldo_inicial').delete().like('criado_por', CLIENTE_MARKER+'%'); // remove somente o saldo do Jambuzada
+  const { error } = await sb.from('jambuzada_fluxo_saldo_inicial').insert({ data_referencia, valor, criado_por: withClientMarker(nameFromEmail(currentUser.email)) });
   if(error){ alert('Erro ao salvar: '+error.message); return; }
   el('fcSaldoInicialData').value=''; el('fcSaldoInicialValor').value='';
   await loadSaldoInicial();
@@ -1326,7 +1359,7 @@ async function applySaldoInicial(){
 }
 async function removeSaldoInicial(){
   if(!confirm('Remover o saldo inicial? O Saldo Acumulado volta a considerar todo o histórico da planilha.')) return;
-  await sb.from('fluxo_saldo_inicial').delete().like('criado_por', CLIENTE_MARKER+'%');
+  await sb.from('jambuzada_fluxo_saldo_inicial').delete().like('criado_por', CLIENTE_MARKER+'%');
   await loadSaldoInicial();
   renderTable();
 }
@@ -1336,7 +1369,7 @@ async function removeSaldoInicial(){
 // movimentação de verdade: entra em `rows` e é somado no Saldo Acumulado real.
 let ajustesManuais = [];
 async function loadAjustesManuais(){
-  const { data, error } = await sb.from('fluxo_ajustes_manuais').select('*').order('data',{ascending:true});
+  const { data, error } = await sb.from('jambuzada_fluxo_ajustes_manuais').select('*').order('data',{ascending:true});
   ajustesManuais = (!error && data) ? data.filter(a=>isClientMarked(a.descricao)).map(a=>({ ...a, descricao: stripClientMarker(a.descricao) })) : [];
   rows = rows.filter(r=>r.grupo!=='AJUSTES_MANUAIS'); // evita duplicar se recarregar
   ajustesManuais.forEach(a=>{
@@ -1365,7 +1398,7 @@ async function addAjusteManual(){
   const valor = parseFloat(el('fcAjusteValor').value);
   const data = el('fcAjusteData').value;
   if(!descricao || isNaN(valor) || !data){ alert('Preencha descrição, valor e data.'); return; }
-  const { error } = await sb.from('fluxo_ajustes_manuais').insert({ data, descricao: withClientMarker(descricao), valor, criado_por: nameFromEmail(currentUser.email) });
+  const { error } = await sb.from('jambuzada_fluxo_ajustes_manuais').insert({ data, descricao: withClientMarker(descricao), valor, criado_por: nameFromEmail(currentUser.email) });
   if(error){ alert('Erro ao salvar: '+error.message); return; }
   el('fcAjusteDesc').value=''; el('fcAjusteValor').value=''; el('fcAjusteData').value='';
   await loadAjustesManuais();
@@ -1373,7 +1406,7 @@ async function addAjusteManual(){
 }
 async function removeAjusteManual(id){
   if(!confirm('Remover esse lançamento manual? Ele deixa de contar no Saldo Acumulado.')) return;
-  await sb.from('fluxo_ajustes_manuais').delete().eq('id', id);
+  await sb.from('jambuzada_fluxo_ajustes_manuais').delete().eq('id', id);
   await loadAjustesManuais();
   buildAndRenderTable();
 }
@@ -1426,10 +1459,10 @@ let fcMsgsCache = { msgs:[], reacoes:[], leituras:[] };
 let fcRespondendo = null; // { id, status } — qual mensagem/ação está com o formulário de resposta aberto
 let fcEditando = null; // { id, campo: 'mensagem'|'resposta' } — qual mensagem está em edição
 async function loadFcMsgs(){
-  const { data, error } = await sb.from('fluxo_mensagens').select('*').order('criado_em',{ascending:false});
+  const { data, error } = await sb.from('jambuzada_fluxo_mensagens').select('*').order('criado_em',{ascending:false});
   if(error){ el('fcMsgList').innerHTML = '<div style="color:var(--gold);font-size:12px;">⚠️ Não consegui carregar. Verifique se a tabela fluxo_mensagens existe no Supabase.</div>'; return; }
-  const { data: reacoes } = await sb.from('fluxo_mensagens_reacoes').select('*');
-  const { data: leituras } = await sb.from('fluxo_mensagens_leituras').select('*');
+  const { data: reacoes } = await sb.from('jambuzada_fluxo_mensagens_reacoes').select('*');
+  const { data: leituras } = await sb.from('jambuzada_fluxo_mensagens_leituras').select('*');
   const msgsCliente = (data||[]).filter(m=>isClientMarked(m.mensagem)).map(m=>({ ...m, mensagem: stripClientMarker(m.mensagem) }));
   const idsCliente = new Set(msgsCliente.map(m=>m.id));
   fcMsgsCache = {
@@ -1534,7 +1567,7 @@ async function submitFcMsg(){
   const tipo = el('fcMsgTipo').value;
   const mensagem = el('fcMsgTexto').value.trim();
   if(!mensagem) return;
-  const { error } = await sb.from('fluxo_mensagens').insert({
+  const { error } = await sb.from('jambuzada_fluxo_mensagens').insert({
     autor_email: currentUser.email, autor_nome: nameFromEmail(currentUser.email), tipo, mensagem: withClientMarker(mensagem), status:'aberto'
   });
   if(!error){ el('fcMsgTexto').value=''; await loadFcMsgs(); }
@@ -1546,20 +1579,20 @@ async function confirmarRespostaFcMsg(id){
   const status = fcRespondendo.status;
   const campo = el('fcRespostaTexto_'+id);
   const resposta = campo ? campo.value.trim() : '';
-  const { error } = await sb.from('fluxo_mensagens').update({
+  const { error } = await sb.from('jambuzada_fluxo_mensagens').update({
     status, resposta, respondido_por: nameFromEmail(currentUser.email), respondido_em: new Date().toISOString()
   }).eq('id', id);
   if(!error){ fcRespondendo = null; await loadFcMsgs(); }
   else alert('Erro: '+error.message);
 }
 async function toggleFcMsgReacao(mensagemId, tipo, already){
-  if(already) await sb.from('fluxo_mensagens_reacoes').delete().eq('mensagem_id',mensagemId).eq('usuario_email',currentUser.email).eq('tipo',tipo);
-  else await sb.from('fluxo_mensagens_reacoes').insert({ mensagem_id:mensagemId, usuario_email:currentUser.email, tipo });
+  if(already) await sb.from('jambuzada_fluxo_mensagens_reacoes').delete().eq('mensagem_id',mensagemId).eq('usuario_email',currentUser.email).eq('tipo',tipo);
+  else await sb.from('jambuzada_fluxo_mensagens_reacoes').insert({ mensagem_id:mensagemId, usuario_email:currentUser.email, tipo });
   await loadFcMsgs();
 }
 async function toggleFcMsgLeitura(mensagemId, already){
   if(already) return;
-  const { error } = await sb.from('fluxo_mensagens_leituras').insert({ mensagem_id:mensagemId, usuario_email:currentUser.email, usuario_nome:nameFromEmail(currentUser.email) });
+  const { error } = await sb.from('jambuzada_fluxo_mensagens_leituras').insert({ mensagem_id:mensagemId, usuario_email:currentUser.email, usuario_nome:nameFromEmail(currentUser.email) });
   if(!error){ await loadFcMsgs(); aplicarBadgesNav(currentUser.email); }
   else alert('Erro: '+error.message);
 }
@@ -1569,7 +1602,7 @@ async function salvarEdicaoFcMsg(id, campo){
   const valor = (el('fcEdit_'+campo+'_'+id)?.value || '').trim();
   if(campo==='mensagem' && !valor) return;
   const payload = campo==='mensagem' ? { mensagem: withClientMarker(valor) } : { resposta: valor };
-  const { error } = await sb.from('fluxo_mensagens').update(payload).eq('id', id);
+  const { error } = await sb.from('jambuzada_fluxo_mensagens').update(payload).eq('id', id);
   if(!error){ fcEditando = null; await loadFcMsgs(); }
   else alert('Erro: '+error.message);
 }
@@ -1578,6 +1611,10 @@ async function salvarEdicaoFcMsg(id, campo){
 /* ================== VISÃO SEMANAL / PRONAMPE / FORNECEDORES ================== */
 let fcProgramacoesFornecedor = JSON.parse(localStorage.getItem('jambuzada_fc_programacoes_fornecedor')||'[]');
 let fcPronampe = JSON.parse(localStorage.getItem('jambuzada_fc_pronampe')||'{"disponivel":0,"valor":0,"devolucao":""}');
+// Lançamentos reais que o usuário decidiu tirar da visão/cálculo do fluxo (só simulação,
+// nunca mexe na base) — usado tanto pra "e se eu não pagar isso" quanto pra esconder o
+// valor cheio original quando ele é substituído por um rateio.
+let fcExclusoes = JSON.parse(localStorage.getItem('jambuzada_fc_exclusoes')||'[]');
 
 function isoLocal(d){
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -1591,6 +1628,11 @@ function fimSemana(d){ const x=inicioSemana(d); x.setDate(x.getDate()+6); return
 function injetarProgramacoesFornecedor(){
   // Remove apenas projeções criadas pelo próprio painel antes de recalcular.
   rows = rows.filter(r=>r.fonte!=='Programação Fornecedor' && r.fonte!=='Pronampe');
+
+  // Remove da visão/cálculo qualquer lançamento real que o usuário marcou como
+  // "excluído" (simulação de "e se eu não pagar isso", ou pra esconder o valor
+  // cheio original quando ele foi substituído por um rateio).
+  rows = rows.filter(r=>!lancamentoExcluido(r));
 
   // Evita duplicar uma programação quando o pagamento real já existe na base.
   // Compara data + fornecedor/nome + valor absoluto.
@@ -1685,9 +1727,75 @@ function programarFornecedor(){
   const datas=proximosDiasUteis(inicio,dias);
   const base=Math.floor((valor/dias)*100)/100; let acumulado=0;
   const parcelas=datas.map((data,i)=>{ const v=i===datas.length-1?Math.round((valor-acumulado)*100)/100:base; acumulado+=v; return {data,valor:v}; });
+
+  // Se já existe um lançamento real com o valor cheio pra esse fornecedor, oferece
+  // esconder ele — senão o fluxo contaria o valor cheio E o rateio ao mesmo tempo.
+  const original = encontrarLancamentoValorCheio(fornecedor, valor);
+  let exclusaoCriada = false;
+  if(original && confirm(`Encontrei um lançamento de ${fmtBRL(-Math.abs(original.valor))} em ${formatDateBR(original.date)} pra "${original.nome||fornecedor}" — parece ser o valor cheio que você está rateando agora.\n\nQuer ocultar esse lançamento do fluxo (fica só o rateio)?`)){
+    fcExclusoes.push({nome:original.nome||fornecedor, data:original.date, valor:original.valor, criadoEm:Date.now(), motivo:'Substituído por rateio'});
+    localStorage.setItem('jambuzada_fc_exclusoes', JSON.stringify(fcExclusoes));
+    exclusaoCriada = true;
+  }
+
   fcProgramacoesFornecedor.push({id:Date.now(),fornecedor,valor,dias,inicio,parcelas});
   localStorage.setItem('jambuzada_fc_programacoes_fornecedor',JSON.stringify(fcProgramacoesFornecedor));
-  injetarProgramacoesFornecedor(); buildAndRenderTable(); renderProgramacoesFornecedor(); renderVisaoSemanal();
+  injetarProgramacoesFornecedor(); buildAndRenderTable(); renderProgramacoesFornecedor(); renderVisaoSemanal(); renderExclusoes();
+  if(exclusaoCriada) alert('Rateio criado e o valor cheio original foi ocultado do fluxo.');
+}
+// Procura, entre os lançamentos reais (não-simulados), um que combine com o
+// fornecedor (nome parecido) e o valor total do rateio (tolerância de 1 centavo).
+function encontrarLancamentoValorCheio(fornecedor, valorTotal){
+  const fornecedorNorm = normalizeTxt(fornecedor);
+  return rows.find(r=>{
+    if(r.fonte==='Programação Fornecedor' || r.fonte==='Pronampe') return false;
+    if(Number(r.valor) >= 0) return false; // só pagamento (negativo)
+    const nomeNorm = normalizeTxt(r.nome || '');
+    const contaNorm = normalizeTxt(r.conta || '');
+    const mesmoFornecedor = nomeNorm===fornecedorNorm || contaNorm===fornecedorNorm ||
+      nomeNorm.includes(fornecedorNorm) || fornecedorNorm.includes(nomeNorm);
+    const mesmoValor = Math.abs(Math.abs(Number(r.valor)||0) - Math.abs(valorTotal)) < 0.01;
+    return mesmoFornecedor && mesmoValor;
+  }) || null;
+}
+// Compara uma linha de `rows` contra a lista de exclusões ativas (mesma data + nome
+// parecido + valor igual, com tolerância de 1 centavo).
+function lancamentoExcluido(row){
+  if(row.fonte==='Programação Fornecedor' || row.fonte==='Pronampe') return false;
+  return fcExclusoes.some(ex=>{
+    if(ex.data !== row.date) return false;
+    const nomeNorm = normalizeTxt(row.nome || row.conta || '');
+    const exNorm = normalizeTxt(ex.nome || '');
+    const mesmoNome = nomeNorm===exNorm || nomeNorm.includes(exNorm) || exNorm.includes(nomeNorm);
+    const mesmoValor = Math.abs(Math.abs(Number(row.valor)||0) - Math.abs(ex.valor)) < 0.01;
+    return mesmoNome && mesmoValor;
+  });
+}
+// Exclusão manual (independente de criar rateio) — "e se eu não pagar isso".
+function excluirLancamentoManual(){
+  const nome=el('fcExcluirNome').value.trim();
+  const data=el('fcExcluirData').value;
+  const valor=parseFloat(el('fcExcluirValor').value);
+  if(!nome || !data || isNaN(valor)){ alert('Preencha nome/fornecedor, data e valor do lançamento que você quer tirar do fluxo.'); return; }
+  fcExclusoes.push({nome, data, valor:-Math.abs(valor), criadoEm:Date.now(), motivo:'Removido manualmente'});
+  localStorage.setItem('jambuzada_fc_exclusoes', JSON.stringify(fcExclusoes));
+  el('fcExcluirNome').value=''; el('fcExcluirData').value=''; el('fcExcluirValor').value='';
+  injetarProgramacoesFornecedor(); buildAndRenderTable(); renderExclusoes(); renderVisaoSemanal();
+}
+function removerExclusao(criadoEm){
+  fcExclusoes = fcExclusoes.filter(ex=>ex.criadoEm!==criadoEm);
+  localStorage.setItem('jambuzada_fc_exclusoes', JSON.stringify(fcExclusoes));
+  injetarProgramacoesFornecedor(); buildAndRenderTable(); renderExclusoes(); renderVisaoSemanal();
+}
+function renderExclusoes(){
+  const wrap=el('fcExclusoesLista'); if(!wrap) return;
+  wrap.innerHTML=fcExclusoes.length?fcExclusoes.map(ex=>`
+    <div class="fc-sim-entry">
+      <span class="desc">${escapeHtml(ex.nome)} · ${escapeHtml(ex.motivo||'')}</span>
+      <span class="data">${formatDateBR(ex.data)}</span>
+      <span class="valor" style="color:var(--text3);text-decoration:line-through;">${fmtBRL(-Math.abs(ex.valor))}</span>
+      <button class="del" onclick="removerExclusao(${ex.criadoEm})">✕</button>
+    </div>`).join(''):'<div style="color:var(--text3);font-size:12.5px;">Nenhum lançamento removido do fluxo.</div>';
 }
 function removerProgramacaoFornecedor(id){
   fcProgramacoesFornecedor=fcProgramacoesFornecedor.filter(p=>p.id!==id);
@@ -1722,6 +1830,29 @@ function renderPronampe(){
   wrap.innerHTML=`Disponível: <b>${fmtBRL(fcPronampe.disponivel||0)}</b> · Utilizado: <b>${fmtBRL(fcPronampe.valor||0)}</b> · Restante: <b>${fmtBRL(restante)}</b>${fcPronampe.devolucao?` · Devolução prevista: <b>${formatDateBR(fcPronampe.devolucao)}</b>`:''}`;
 }
 
+function calcularNecessidadeCaixa(){
+  const saldoAtual = parseFloat(el('fcSaldoAtualInput').value);
+  if(isNaN(saldoAtual)){ alert('Informe o saldo atual da conta.'); return; }
+  localStorage.setItem('jambuzada_fc_saldo_atual_hoje', JSON.stringify({valor:saldoAtual, data:todayISO()}));
+  renderNecessidadeCaixa();
+}
+function renderNecessidadeCaixa(){
+  const wrap = el('fcNecessidadeCaixaResumo'); if(!wrap) return;
+  const hoje = todayISO();
+  const pagamentosHoje = Math.abs(sumInRange(isPagamento, hoje, hoje));
+  const salvo = JSON.parse(localStorage.getItem('jambuzada_fc_saldo_atual_hoje')||'null');
+
+  if(!salvo || salvo.data !== hoje){
+    wrap.innerHTML = `Pagamentos previstos pra hoje: <b>${fmtBRL(pagamentosHoje)}</b> · informe o saldo atual da conta pra calcular a necessidade de caixa.`;
+    return;
+  }
+  el('fcSaldoAtualInput').value = salvo.valor;
+  const necessidade = pagamentosHoje - salvo.valor;
+  wrap.innerHTML = necessidade > 0
+    ? `Saldo informado: <b>${fmtBRL(salvo.valor)}</b> · Pagamentos de hoje: <b>${fmtBRL(pagamentosHoje)}</b> · <span style="color:var(--red)">Falta ${fmtBRL(necessidade)}</span> (sem contar recebimentos previstos de hoje)`
+    : `Saldo informado: <b>${fmtBRL(salvo.valor)}</b> · Pagamentos de hoje: <b>${fmtBRL(pagamentosHoje)}</b> · <span style="color:var(--green)">Sobra ${fmtBRL(-necessidade)}</span>`;
+}
+
 const buildAndRenderTableOriginal = buildAndRenderTable;
 buildAndRenderTable = function(){
   injetarProgramacoesFornecedor();
@@ -1729,6 +1860,8 @@ buildAndRenderTable = function(){
   renderVisaoSemanal();
   renderProgramacoesFornecedor();
   renderPronampe();
+  renderExclusoes();
+  renderNecessidadeCaixa();
   carregarFornecedoresDatalist();
 };
 
