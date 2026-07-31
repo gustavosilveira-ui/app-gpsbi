@@ -1300,24 +1300,25 @@ function renderFcKpiStrip(){
   // O card Pago usa diretamente as linhas realizadas de pg_<empresa>,
   // antes de qualquer filtro visual/projetado. Assim ele fecha com o relatório
   // do ERP e com a aba pg_gymis, incluindo todos os bancos e Cheque Terceiros.
-  // "Até ontem" (não hoje): o relatório do ERP que o cliente usa como referência
-  // também para no dia anterior — hoje ainda não fechou, então incluir hoje inflava
-  // o card em relação ao que o cliente confere manualmente (confirmado em 31/07/2026
-  // com o relatório "Pagos (mês vigente) Especial", que bateu exatamente ao excluir hoje).
+  // "Até ontem" (não hoje) SÓ NO PAGO: os relatórios do ERP que a Shirley usa como
+  // referência confirmam esse padrão nas 4 empresas em 31/07/2026 — "Pagos (mês
+  // vigente)" sempre para no dia anterior (contas a pagar fecha em lote no dia
+  // seguinte), mas "Recebidos (mês vigente)" já vai até hoje (recebimento bancário
+  // atualiza na hora). Por isso o corte de dia é assimétrico entre os dois cards.
   const empresasNoEscopo = selectedEmpresa ? [selectedEmpresa] : EMPRESAS;
   const pagoRowsCard = empresasNoEscopo.flatMap(emp => pagosRealizadosByEmpresa[emp] || []);
   const pago = pagoRowsCard
     .filter(r=>r.date && r.date.slice(0,7)===mesAtual && r.date < HOJE_ISO)
     .reduce((s,r)=>s+Math.abs(r.valor),0);
 
-  const recebido = rows.filter(r=>r.origem==='cr' && r.categoria!==CATEGORIA_CHEQUE_TERCEIROS && r.date.slice(0,7)===mesAtual && r.date < HOJE_ISO).reduce((s,r)=>s+Math.abs(r.valor),0);
+  const recebido = rows.filter(r=>r.origem==='cr' && r.categoria!==CATEGORIA_CHEQUE_TERCEIROS && r.date.slice(0,7)===mesAtual).reduce((s,r)=>s+Math.abs(r.valor),0);
   // Cards "Em Aberto" respeitam o período exibido no fluxo:
   // janeiro do ano vigente até o mês vigente + 2 meses futuros.
   const aPagarAberto = rows.filter(r=>r.origem==='cap' && r.date>=periodoStart && r.date<=periodoEnd).reduce((s,r)=>s+Math.abs(r.valor),0);
   const aReceberAberto = rows.filter(r=>r.origem==='venc' && r.date>=periodoStart && r.date<=periodoEnd).reduce((s,r)=>s+Math.abs(r.valor),0);
   const cards = [
     { lbl:'Pago (mês vigente, até ontem)', val:pago, cor:'var(--red)' },
-    { lbl:'Recebido (mês vigente, até ontem)', val:recebido, cor:'#4F8F3A' },
+    { lbl:'Recebido (mês vigente)', val:recebido, cor:'#4F8F3A' },
     { lbl:'A Pagar em Aberto (jan até mês vigente + 2 meses)', val:aPagarAberto, cor:'var(--red)' },
     { lbl:'A Receber em Aberto (jan até mês vigente + 2 meses)', val:aReceberAberto, cor:'#4F8F3A' },
   ];
