@@ -635,6 +635,16 @@ function resolveGrupoCategoria(categoria, valor){
   return 'OUTROS';
 }
 
+// ================== MODO DE VALIDAÇÃO (temporário — decisão de 31/07/2026) ==================
+// Ideia do Gustavo: antes de reintroduzir qualquer exclusão (Cheque Terceiros, Títulos em
+// Aberto), primeiro bater 100% com a soma crua das bases (cap_/pg_/venc_/cr_), pra confirmar
+// com a Shirley que os números fecham exatamente com o que está nas planilhas dela. Só depois
+// disso as exceções voltam a ser reintroduzidas, uma de cada vez, com confirmação dela em cada
+// caso específico (ex: cheque terceiros já pago vs. ainda em aberto).
+// Pra reintroduzir uma exclusão: mude esta flag pra false (reativa as duas de uma vez) ou crie
+// flags separadas por caso, se for parcial.
+const VALIDACAO_BATER_COM_BASE = true;
+
 const GRUPOS_PAGAMENTO = [
   { key:'TITULOS_ABERTO', label:'Títulos em Aberto' },
   { key:'CHEQUE_TERCEIROS', label:'Cheque Terceiros (não conta no saldo)' },
@@ -983,7 +993,7 @@ function gerarAnaliseWhatsTextoFluxo(){
   // Só conta o que realmente afeta o saldo (mesmo critério do runningBalance
   // — exclui Cheque Terceiros, que nunca conta no saldo mesmo já recebido).
   // Sem esse filtro, o Saldo Previsto não batia com o saldo real da grade.
-  const rowsPeriodo = rows.filter(r=>r.date>=amanhaIso && r.date<=fimDoMesIso && r.contaNoSaldo!==false);
+  const rowsPeriodo = rows.filter(r=>r.date>=amanhaIso && r.date<=fimDoMesIso && (VALIDACAO_BATER_COM_BASE || r.contaNoSaldo!==false));
   const despesasTotais = rowsPeriodo.filter(r=>r.valor<0).reduce((s,r)=>s+Math.abs(r.valor),0);
   const recebimentosPrevistos = rowsPeriodo.filter(r=>r.valor>=0).reduce((s,r)=>s+r.valor,0);
   const ontem = new Date(hoje); ontem.setDate(hoje.getDate()-1);
@@ -1182,7 +1192,7 @@ let saldoIniciais = {}; // { empresa: {data_referencia, valor} }
 // Saldo acumulado de UMA empresa até uma data, respeitando o saldo inicial
 // dela (se houver). Os lançamentos manuais já estão dentro de rowsByEmpresa.
 function runningBalanceEmpresa(empresa, uptoDate){
-  const rowsEmp = (rowsByEmpresa[empresa] || []).filter(r=>r.contaNoSaldo !== false);
+  const rowsEmp = (rowsByEmpresa[empresa] || []).filter(r=>VALIDACAO_BATER_COM_BASE || r.contaNoSaldo !== false);
   const override = saldoIniciais[empresa];
   if(override && uptoDate >= override.data_referencia){
     // O valor salvo é o saldo de abertura da data de referência.
@@ -1207,8 +1217,8 @@ function runningBalance(uptoDate){
 // fora dessa soma (senão parece que já entrou/saiu dinheiro quando na
 // verdade só está previsto). Eles continuam com linha própria e ainda
 // contam no Saldo Acumulado — só não entram nesse resumo visual.
-const isRecebimento = r => r.grupo==='RECEBIMENTOS' && r.categoria!==CATEGORIA_TITULOS_ABERTO && r.contaNoSaldo!==false;
-const isPagamento = r => r.grupo!=='RECEBIMENTOS' && r.grupo!=='AJUSTES_MANUAIS' && r.grupo!=='TITULOS_ABERTO' && r.contaNoSaldo!==false;
+const isRecebimento = r => r.grupo==='RECEBIMENTOS' && (VALIDACAO_BATER_COM_BASE || (r.categoria!==CATEGORIA_TITULOS_ABERTO && r.contaNoSaldo!==false));
+const isPagamento = r => r.grupo!=='RECEBIMENTOS' && r.grupo!=='AJUSTES_MANUAIS' && (VALIDACAO_BATER_COM_BASE || (r.grupo!=='TITULOS_ABERTO' && r.contaNoSaldo!==false));
 const isGrupo = g => r => r.grupo===g;
 // Categoria sozinha não basta pra identificar a linha — "Títulos em
 // Aberto" existe tanto do lado Recebimentos quanto do lado Pagamentos
@@ -1387,7 +1397,7 @@ function renderTable(){
         const cellCls = (val>=0?'fc-saldo-pos':'fc-saldo-neg') + (c.isToday?' fc-today':'');
         tbody += `<td class="${cellCls}">${fmtBRL(val)}</td>`;
       } else {
-        val = sumInRange(r => rNode.filter(r) && r.contaNoSaldo!==false, c.start, c.end);
+        val = sumInRange(r => rNode.filter(r) && (VALIDACAO_BATER_COM_BASE || r.contaNoSaldo!==false), c.start, c.end);
         const clickable = Math.round(val) !== 0;
         const hoverCls = val>=0 ? ' fc-hover-receita' : ' fc-hover-despesa';
         const cellCls = `${c.isToday?'fc-today':''}${clickable?(' fc-clickable-cell'+hoverCls):''}`.trim();
@@ -1431,7 +1441,7 @@ function openFluxoFicha(rowId, colId){
   // linhas que contam pra Saldo/totais (exclui Cheque Terceiros e Títulos em Aberto);
   // detailRows continua com tudo, porque a lista de lançamentos abaixo deve mostrar
   // esses lançamentos também — só não devem inflar o total nem o "por empresa".
-  const rowsParaTotal = detailRows.filter(r=>r.contaNoSaldo!==false);
+  const rowsParaTotal = VALIDACAO_BATER_COM_BASE ? detailRows : detailRows.filter(r=>r.contaNoSaldo!==false);
   const total = rowsParaTotal.reduce((s,r)=>s+r.valor,0);
   const porEmpresa = {};
   rowsParaTotal.forEach(r=>{
