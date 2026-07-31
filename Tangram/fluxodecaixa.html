@@ -762,10 +762,17 @@ function histSumForNode(rNode, start, end){
 }
 
 /* ================== CÁLCULO DE VALORES ================== */
+function moneyToCents(v){
+  const n = Number(v) || 0;
+  return Math.round((n + Number.EPSILON) * 100);
+}
+function centsToMoney(c){ return c / 100; }
 function sumInRange(catFilterFn, start, end){
-  let s = 0;
-  for(const r of rows){ if(r.date>=start && r.date<=end && catFilterFn(r)) s += r.valor; }
-  return s;
+  let cents = 0;
+  for(const r of rows){
+    if(r.date>=start && r.date<=end && catFilterFn(r)) cents += moneyToCents(r.valor);
+  }
+  return centsToMoney(cents);
 }
 // Se houver um saldo inicial definido (ver seção "Saldo Inicial" mais abaixo),
 // datas a partir dele passam a somar em cima desse valor em vez do zero absoluto;
@@ -779,27 +786,28 @@ function valorImpactaSaldo(r){
 }
 function runningBalance(uptoDate){
   if(saldoInicialOverride && uptoDate >= saldoInicialOverride.data_referencia){
-    let s = saldoInicialOverride.valor;
+    let cents = moneyToCents(saldoInicialOverride.valor);
     for(const r of rows){
-      if(r.date > saldoInicialOverride.data_referencia && r.date<=uptoDate && valorImpactaSaldo(r)) s += r.valor;
+      if(r.date > saldoInicialOverride.data_referencia && r.date<=uptoDate && valorImpactaSaldo(r)) cents += moneyToCents(r.valor);
     }
-    return s;
+    return centsToMoney(cents);
   }
 
   // Até 30/06/2026, usa exatamente o saldo copiado do fluxo antigo validado.
   if(uptoDate <= HISTORICO_CUTOFF && HISTORICO_SALDO[uptoDate] !== undefined) return HISTORICO_SALDO[uptoDate];
 
   // A partir de 01/07/2026, parte do saldo final validado em 30/06/2026
-  // e soma somente o que impacta caixa: Recebimentos + Pagamentos + ajustes manuais.
-  // Linhas informativas, como Duplicatas descontadas, não entram no saldo.
-  let s = HISTORICO_SALDO[HISTORICO_CUTOFF] || 0;
+  // e soma em centavos para evitar qualquer diferença de precisão.
+  let cents = moneyToCents(HISTORICO_SALDO[HISTORICO_CUTOFF] || 0);
   for(const r of rows){
-    if(r.date > HISTORICO_CUTOFF && r.date<=uptoDate && valorImpactaSaldo(r)) s += r.valor;
+    if(r.date > HISTORICO_CUTOFF && r.date<=uptoDate && valorImpactaSaldo(r)) cents += moneyToCents(r.valor);
   }
-  return s;
+  return centsToMoney(cents);
 }
-const isRecebimento = r => r.grupo==='RECEBIMENTOS';
-const isPagamento = r => r.grupo!=='RECEBIMENTOS' && r.grupo!=='DUPLICATAS_DESCONTADAS' && r.grupo!=='AJUSTES_MANUAIS';
+// Lançamentos manuais também entram nos totais de Recebimentos/Pagamentos,
+// conforme o sinal, para o resumo sempre reconciliar com o Saldo Acumulado.
+const isRecebimento = r => r.grupo==='RECEBIMENTOS' || (r.grupo==='AJUSTES_MANUAIS' && r.valor>0);
+const isPagamento = r => (r.grupo!=='RECEBIMENTOS' && r.grupo!=='DUPLICATAS_DESCONTADAS' && r.grupo!=='AJUSTES_MANUAIS') || (r.grupo==='AJUSTES_MANUAIS' && r.valor<0);
 const isDuplicataDescontada = r => r.grupo==='DUPLICATAS_DESCONTADAS';
 
 /* ---- Análise do Fluxo de Caixa pronta pra WhatsApp (só GPS) ---- */
