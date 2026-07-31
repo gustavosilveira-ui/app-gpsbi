@@ -1387,7 +1387,7 @@ function renderTable(){
         const cellCls = (val>=0?'fc-saldo-pos':'fc-saldo-neg') + (c.isToday?' fc-today':'');
         tbody += `<td class="${cellCls}">${fmtBRL(val)}</td>`;
       } else {
-        val = sumInRange(rNode.filter, c.start, c.end);
+        val = sumInRange(r => rNode.filter(r) && r.contaNoSaldo!==false, c.start, c.end);
         const clickable = Math.round(val) !== 0;
         const hoverCls = val>=0 ? ' fc-hover-receita' : ' fc-hover-despesa';
         const cellCls = `${c.isToday?'fc-today':''}${clickable?(' fc-clickable-cell'+hoverCls):''}`.trim();
@@ -1428,9 +1428,13 @@ function openFluxoFicha(rowId, colId){
   if(!range.start || !range.end) return;
 
   const detailRows = rowsForFicha(rNode, range.start, range.end);
-  const total = detailRows.reduce((s,r)=>s+r.valor,0);
+  // linhas que contam pra Saldo/totais (exclui Cheque Terceiros e Títulos em Aberto);
+  // detailRows continua com tudo, porque a lista de lançamentos abaixo deve mostrar
+  // esses lançamentos também — só não devem inflar o total nem o "por empresa".
+  const rowsParaTotal = detailRows.filter(r=>r.contaNoSaldo!==false);
+  const total = rowsParaTotal.reduce((s,r)=>s+r.valor,0);
   const porEmpresa = {};
-  detailRows.forEach(r=>{
+  rowsParaTotal.forEach(r=>{
     const emp = r.empresa || 'geral';
     porEmpresa[emp] = (porEmpresa[emp] || 0) + r.valor;
   });
@@ -1463,7 +1467,13 @@ function openFluxoFicha(rowId, colId){
       const pct = total ? (Math.abs(r.valor) / Math.abs(total)) * 100 : 0;
       const doc = r.titulo || r.banco || r.forma || r.situacao || '';
       const ehAberto = r.categoria === CATEGORIA_TITULOS_ABERTO;
-      const ehCheque = r.categoria === CATEGORIA_CHEQUE_TERCEIROS;
+      // Do lado de recebimento, cheque de terceiros vem com a categoria genérica
+      // (CATEGORIA_CHEQUE_TERCEIROS). Do lado de pagamento, a categoria continua
+      // sendo a real (ex: "Materia Prima") — o único jeito de identificar os dois
+      // casos de forma consistente é pelo contaNoSaldo (que finalizarLinha já marca
+      // como false nos dois), já que ele nunca é false por causa de Título em Aberto
+      // sozinho sem também ser cheque (esse caso já foi tratado acima por ehAberto).
+      const ehCheque = !ehAberto && r.contaNoSaldo===false;
       const tagCategoria = ehAberto
         ? `<span class="fc-tag-aberto" title="Ainda não foi pago/recebido — só está previsto">⏳ Em aberto</span>`
         : ehCheque
