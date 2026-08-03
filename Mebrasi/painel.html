@@ -1725,7 +1725,13 @@ function ehSituacaoNfValida(item){
   const s = normalizeTxt(item.situacao);
   return s === 'faturado' || s === 'faturado (nf)';
 }
-const TETO_FAROL = 450000;
+// Teto do Farol — Sr. Roberto pediu (29/07/2026, confirmado "Exato"): Ryngavi e
+// Multicopos passam de R$450.000 pra R$400.000, a partir de 31/07/2026. Gymis e
+// Especial não mudam.
+function tetoFarol(empresa){
+  if((empresa==='Ryngavi' || empresa==='Multicopos') && HOJE_ISO>='2026-07-31') return 400000;
+  return 450000;
+}
 
 // Escala do farol do texto executivo — vem da medida DAX original
 // "Texto Analítico Executivo (Diário) vFinal", confirmada com o
@@ -1868,8 +1874,8 @@ function gerarAnaliseTexto(){
   // confirmado com o Gustavo em 20/07/2026). O farol da Gymis usa essa
   // mesma base (Especial).
   const fEspecialTotal = porEmpresa['Especial'] || 0;
-  const pctRyngavi = TETO_FAROL>0 ? farolRyngavi.totalFarol/TETO_FAROL : 0;
-  const pctMulticopos = TETO_FAROL>0 ? farolMulticopos.totalFarol/TETO_FAROL : 0;
+  const pctRyngavi = tetoFarol('Ryngavi')>0 ? farolRyngavi.totalFarol/tetoFarol('Ryngavi') : 0;
+  const pctMulticopos = tetoFarol('Multicopos')>0 ? farolMulticopos.totalFarol/tetoFarol('Multicopos') : 0;
 
   // Alerta no topo — só dispara pra Ryngavi/Multicopos acima de 105%.
   const empresasBloqueadas = [];
