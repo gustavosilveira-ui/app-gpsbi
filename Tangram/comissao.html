@@ -402,6 +402,12 @@ function cleanVendorName(raw){
   const c=['de','da','do','das','dos'];
   return s.split(' ').filter(Boolean).map((w,i)=>i>0&&c.includes(w.toLowerCase())?w.toLowerCase():w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' ');
 }
+function normalizarPedido(p){
+  // Compara pedidos só pelos dígitos, ignorando prefixos de texto
+  // como "Orçamento nº" que podem existir em uma base (Faturada)
+  // e não na outra (Captada), ou vice-versa.
+  return String(p||'').replace(/\D+/g,'');
+}
 function parseDate(v){
   if(v===null||v===undefined||v==='')return null;
 
@@ -1010,11 +1016,11 @@ function renderPremiacao(vendedores,cap,capRowsMes){
     const pedidosExcluidos=pedidosExcluidosMap[v]||[];
     const devolucoesAprovadasDoVendedor=devolucoesDetectadas.filter(d=>d.aprovado&&d.localizada&&cleanVendorName(d.vendedor)===v);
     const setPedidosAbatidos=new Set([
-      ...pedidosExcluidos.map(p=>String(p.pedido).trim()),
-      ...devolucoesAprovadasDoVendedor.map(d=>String(d.pedido).trim())
-    ].filter(p=>p&&p!=='—'));
+      ...pedidosExcluidos.map(p=>normalizarPedido(p.pedido)),
+      ...devolucoesAprovadasDoVendedor.map(d=>normalizarPedido(d.pedido))
+    ].filter(p=>p));
     const abatimentoCaptadaPedidos=(capRowsMes||[])
-      .filter(r=>r.vendedor===v && setPedidosAbatidos.has(String(r.pedido).trim()))
+      .filter(r=>r.vendedor===v && setPedidosAbatidos.has(normalizarPedido(r.pedido)))
       .reduce((s,r)=>s+Number(r.total||0),0);
 
     // Ajuste manual (mesmo mecanismo genérico usado no Faturado).
