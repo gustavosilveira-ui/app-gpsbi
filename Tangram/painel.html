@@ -375,7 +375,7 @@ html.light .kpi-card{background:#fff}
    Se a tela for muito estreita, o painel ganha rolagem horizontal
    em vez de empilhar os cards.
    ================================================================ */
-.kpi-grid{grid-template-columns:repeat(6,minmax(150px,1fr)) !important;}
+.kpi-grid{grid-template-columns:repeat(7,minmax(145px,1fr)) !important;}
 .charts-grid.hero-charts{grid-template-columns:minmax(0,2.35fr) minmax(280px,.65fr) !important;}
 .history-map-grid{grid-template-columns:minmax(0,1.72fr) minmax(470px,.92fr) !important;}
 .micro-grid{grid-template-columns:minmax(250px,.75fr) minmax(250px,.75fr) minmax(450px,1.25fr) !important;}
@@ -476,6 +476,10 @@ html.light .kpi-card{background:#fff}
       <div class="kpi-card kpi-faturado">
         <div class="kpi-icon">NF</div>
         <div><div class="kpi-value" id="kpiFaturado">--</div><div class="kpi-label">Receita Faturada</div><div class="kpi-sub" id="kpiFaturadoSub"></div></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon green-i">🧾</div>
+        <div><div class="kpi-value" id="kpiServicos">--</div><div class="kpi-label">Faturamento de Serviços</div><div class="kpi-sub" id="kpiServicosSub"></div></div>
       </div>
       <div class="kpi-card">
         <div class="kpi-icon teal-i">👥</div>
@@ -732,6 +736,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const SHEET_ID = '13pF1S6H59zcn53kW1-MYvIxQVT0-cIDPSB9QNugDfSo';
 const GID_CAPTADA = '0';
 const GID_FATURADA = '1703975608';
+const GID_SERVICOS = '1035503870';
 const LOGIN_URL = 'index.html';
 const OWNER_EMAILS = ['anderson@tangrampersonalizados.com.br', 'gustavosilveira@gpsbi.com.br'];
 
@@ -750,7 +755,7 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 let currentUser=null, userRole='vendor', vendorName='';
 let gpsStaff = false, previewAsClient = false;
 function isGpsStaff(email){ return (email||'').toLowerCase().endsWith('@gpsbi.com.br'); }
-let captadaRows=[], faturadaRows=[], metasMap={}, allVendors=[], allCanais=[];
+let captadaRows=[], faturadaRows=[], servicosRows=[], metasMap={}, allVendors=[], allCanais=[];
 let debugStats = {};
 let selectedMes='', selectedVendedor='', selectedCanal='', selectedProjeto='', selectedFamilia='', selectedProdutoFiltro='', selectedYears=['2025','2026'];
 let dateFrom='', dateTo='';
@@ -864,6 +869,64 @@ function rowToRecord(row, tipo){
   const qtd = parseMoney(row['Quantidade']||row['Qtde']||row['Qtd']||row['Quantidade do Item']||1) || 1;
   const uf = (row['UF']||row['Estado']||row['Estado (UF)']||row['UF Cliente']||row['Estado Cliente']||'').toString().trim().toUpperCase();
   return { mes, date:dateStr, vendedor, cliente, familia, produto, projeto, situacao, operacao, canal, total, pedido, nf, qtd, uf, tipo };
+}
+
+
+function rowToServiceRecord(row){
+  const dateRaw =
+    getColNormalized(row,'data de emissao (completa)') ??
+    getColNormalized(row,'data de emissao') ??
+    getColNormalized(row,'data emissao') ??
+    getColNormalized(row,'data do faturamento') ??
+    getColNormalized(row,'data faturamento') ??
+    getColNormalized(row,'data');
+  const dateStr=parseDate(typeof dateRaw==='object' && dateRaw!==null?(dateRaw.v||dateRaw):dateRaw);
+  if(!dateStr)return null;
+
+  const vendedor=cleanVendorName(
+    getColNormalized(row,'vendedor') ??
+    getColNormalized(row,'responsavel') ??
+    getColNormalized(row,'consultor') ??
+    getColNormalized(row,'comercial')
+  );
+  if(!vendedor)return null;
+
+  const totalRaw =
+    getColNormalized(row,'total da nota fiscal') ??
+    getColNormalized(row,'valor total') ??
+    getColNormalized(row,'valor do servico') ??
+    getColNormalized(row,'valor faturado') ??
+    getColNormalized(row,'faturamento') ??
+    getColNormalized(row,'valor') ??
+    getColNormalized(row,'total');
+  const total=parseMoney(typeof totalRaw==='object' && totalRaw!==null?totalRaw.v:totalRaw);
+  if(!total)return null;
+
+  const cliente=String(
+    getColNormalized(row,'cliente (razao social)') ??
+    getColNormalized(row,'cliente') ??
+    getColNormalized(row,'razao social') ?? ''
+  ).trim();
+  const situacao=String(
+    getColNormalized(row,'situacao') ??
+    getColNormalized(row,'status') ?? ''
+  ).trim();
+  const pedido=String(
+    getColNormalized(row,'pedido') ??
+    getColNormalized(row,'numero pedido') ??
+    getColNormalized(row,'n pedido') ??
+    getColNormalized(row,'os') ?? ''
+  ).trim();
+
+  return {
+    mes:dateStr.slice(0,7),date:dateStr,vendedor,cliente,total,situacao,pedido,
+    canal:'Serviços',familia:'Serviços',produto:'Serviço',projeto:'Serviços',
+    qtd:1,uf:'',tipo:'servico'
+  };
+}
+function servicoOk(r){
+  const s=normalizeTxt(r.situacao);
+  return !s.includes('cancelado') && !s.includes('rejeitad');
 }
 
 function situacaoOk(situacao, tipo){
@@ -1068,6 +1131,11 @@ async function loadData(){
       .filter(r=>operacaoOk(r.operacao,'faturada'))
       .filter(r=>!PEDIDOS_EXCLUIDOS_FATURADA.has(String(r.pedido).trim()) && !NF_EXCLUIDAS_FATURADA.has(String(r.nf).trim()));
 
+    setLoading('Buscando faturamento de serviços...');
+    const tableServ = await fetchGviz(GID_SERVICOS);
+    const rawServ = parseGvizRows(tableServ).map(rowToServiceRecord).filter(Boolean);
+    servicosRows = rawServ.filter(servicoOk);
+
     // Diagnóstico (só pra owner): ajuda a achar rápido se uma coluna/filtro está zerando a base.
     debugStats = {
       totalRawCap: rawCap.length,
@@ -1083,7 +1151,7 @@ async function loadData(){
     await fetchMetas();
 
     allVendors = Array.from(
-      captadaRows.reduce((map, r)=>{
+      [...captadaRows,...servicosRows].reduce((map, r)=>{
         if(!r.vendedor) return map;
         const key = r.vendedor.trim().toLowerCase();
         if(!map.has(key)) map.set(key, r.vendedor.trim());
@@ -1248,10 +1316,14 @@ function render(){
   const fatPeriodo = hasPeriodFilter
     ? filterRows(faturadaRows, selectedMes, vendFilter, canalFilter)
     : filterRowsYears(faturadaRows, vendFilter, canalFilter);
+  const servPeriodo = hasPeriodFilter
+    ? filterRows(servicosRows, selectedMes, vendFilter, '')
+    : filterRowsYears(servicosRows, vendFilter, '');
   const capMes = capPeriodo;
 
   const totalCap = capPeriodo.reduce((s,r)=>s+r.total,0);
   const totalFat = fatPeriodo.reduce((s,r)=>s+r.total,0);
+  const totalServicos = servPeriodo.reduce((s,r)=>s+r.total,0);
 
   let totalMeta;
   if(selectedMes && !dateFrom && !dateTo){
@@ -1274,6 +1346,8 @@ function render(){
   el('kpiCaptadoSub').textContent = pedidosUnicos + ' pedidos · ' + periodoLabel;
   el('kpiFaturado').textContent = fmtBRL(totalFat);
   el('kpiFaturadoSub').textContent = new Set(fatPeriodo.map(r=>r.pedido)).size + ' pedidos faturados · ' + periodoLabel;
+  el('kpiServicos').textContent = fmtBRL(totalServicos);
+  el('kpiServicosSub').textContent = servPeriodo.length.toLocaleString('pt-BR') + ' lançamentos · ' + periodoLabel;
   el('kpiClientes').textContent = new Set(capPeriodo.map(r=>r.cliente).filter(Boolean)).size.toLocaleString('pt-BR');
   el('kpiItens').textContent = capPeriodo.reduce((s,r)=>s+(r.qtd||1),0).toLocaleString('pt-BR',{maximumFractionDigits:0});
   el('kpiPedidos').textContent = pedidosUnicos.toLocaleString('pt-BR');

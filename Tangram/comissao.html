@@ -10,7 +10,7 @@
 html{zoom:.8;}
 .com-filtros{display:flex;gap:14px;align-items:end;margin-bottom:18px;flex-wrap:wrap}
 .com-filtros .field-group{margin-bottom:0}.com-filtros select{min-width:150px}
-.com-kpis{display:grid;grid-template-columns:repeat(4,minmax(180px,1fr));gap:12px;margin-bottom:18px}
+.com-kpis{display:grid;grid-template-columns:repeat(5,minmax(170px,1fr));gap:12px;margin-bottom:18px}
 .com-kpi{background:var(--navy3);border:1px solid var(--border2);border-radius:12px;padding:16px}
 .com-kpi-val{font-family:'DM Mono',monospace;font-size:20px;font-weight:800}
 .com-kpi-lbl{font-size:11px;color:var(--text3);margin-top:4px}
@@ -89,7 +89,7 @@ html{zoom:.8;}
 
     <div class="card">
       <div class="card-title">💰 Comissão e Premiação de Vendas</div>
-      <div class="card-sub">Comissão oficial sobre faturados e premiação por meta sobre receita captada.</div>
+      <div class="card-sub">Comissão oficial sobre produtos, premiação por meta e comissão sobre serviços.</div>
 
       <div class="com-filtros">
         <div class="field-group"><label class="field-label">Mês</label><select id="comMes"></select></div>
@@ -101,17 +101,18 @@ html{zoom:.8;}
         <div class="com-kpi"><div class="com-kpi-val" id="kpiFat">—</div><div class="com-kpi-lbl">Receita faturada</div></div>
         <div class="com-kpi"><div class="com-kpi-val" id="kpiCom">—</div><div class="com-kpi-lbl">Comissão oficial</div></div>
         <div class="com-kpi"><div class="com-kpi-val" id="kpiPrem">—</div><div class="com-kpi-lbl">Premiação por meta</div></div>
+        <div class="com-kpi"><div class="com-kpi-val" id="kpiServ">—</div><div class="com-kpi-lbl">Comissão sobre serviços</div></div>
         <div class="com-kpi"><div class="com-kpi-val" id="kpiTotal">—</div><div class="com-kpi-lbl">Total a pagar</div></div>
       </div>
     </div>
 
     <div class="card">
       <div class="card-title">💼 Comissão oficial sobre faturados</div>
-      <div class="card-sub">Padrão de 1,5%. O percentual pode ser alterado por vendedor e mês. Ajustes reduzem a base de cálculo.</div>
+      <div class="card-sub">Padrão de 1,5%. O percentual pode ser alterado por vendedor e mês.</div>
       <div style="overflow-x:auto">
         <table class="com-table">
           <thead><tr>
-            <th>Vendedor</th><th style="text-align:right">Faturado</th><th style="text-align:right">Ajustes</th>
+            <th>Vendedor</th><th style="text-align:right">Faturado</th>
             <th style="text-align:right">Base</th><th style="text-align:right">% Comissão</th>
             <th style="text-align:right">Comissão</th><th></th>
           </tr></thead>
@@ -151,6 +152,31 @@ html{zoom:.8;}
         <div id="proofListPremiacao" class="com-proof-list"></div>
       </div>
 
+    </div>
+
+
+    <div class="card">
+      <div class="card-title">🧾 Comissão sobre faturamento de serviços</div>
+      <div class="card-sub">Base da aba “Faturamento de Serviços”. Padrão de 1,5%, com percentual editável por vendedor e mês.</div>
+      <div style="overflow-x:auto">
+        <table class="com-table">
+          <thead><tr>
+            <th>Vendedor</th>
+            <th>Faturamento de Serviços</th>
+            <th>Base</th>
+            <th>% Comissão</th>
+            <th>Comissão</th>
+          </tr></thead>
+          <tbody id="tbodyServicos"></tbody>
+        </table>
+      </div>
+
+      <div class="com-proof-box">
+        <div class="com-proof-title">📎 Evidência da comissão sobre serviços</div>
+        <div class="com-proof-hint">Clique no campo e pressione Ctrl + V para colar um print. A imagem ficará salva no mês selecionado.</div>
+        <div id="pasteServicos" class="com-paste-zone" contenteditable="true">Clique aqui e cole a imagem</div>
+        <div id="proofListServicos" class="com-proof-list"></div>
+      </div>
     </div>
 
     <div class="card">
@@ -217,6 +243,7 @@ const LOGIN_URL='index.html';
 const SHEET_ID='13pF1S6H59zcn53kW1-MYvIxQVT0-cIDPSB9QNugDfSo';
 const GID_CAPTADA='0';
 const GID_FATURADA='1703975608';
+const GID_SERVICOS='1035503870';
 const ANDERSON_EMAIL='anderson@tangrampersonalizados.com.br';
 
 const SITUACOES_FATURADA=['autorizado','faturado','nfs-e autorizada'];
@@ -226,7 +253,7 @@ const NF_EXCLUIDAS_FATURADA=new Set(['14024','18081','18089']);
 
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 let currentUser=null;
-let faturadaRows=[],captadaRows=[],metasMap={},regrasMap={},ajustesMap={};
+let faturadaRows=[],captadaRows=[],servicosRows=[],metasMap={},regrasMap={},ajustesMap={};
 let pedidosExcluidosMap={}, evidenciasCache=[];
 let pedidoEncontradoAtual=null;
 let mesAnoAtual='';
@@ -285,6 +312,44 @@ function rowToRecord(row,tipo){
   const cliente=String(row['Cliente']||row['Nome do Cliente']||row['Razão Social']||row['Parceiro']||'').trim();
   return{mes:date.slice(0,7),date,vendedor,situacao,operacao,total,pedido,nf,cliente,tipo};
 }
+
+function firstCol(row, nomes){
+  for(const nome of nomes){
+    const v=getColNormalized(row, normalizeTxt(nome));
+    if(v!==undefined && v!==null && String(v).trim()!=='') return v;
+  }
+  return '';
+}
+function rowToServiceRecord(row){
+  const date=parseDate(firstCol(row,[
+    'Data de Emissão (completa)','Data de Emissão','Data Emissão',
+    'Data do Faturamento','Data Faturamento','Data','Emissão'
+  ]));
+  if(!date)return null;
+
+  const vendedor=cleanVendorName(firstCol(row,[
+    'Vendedor','Responsável','Responsavel','Consultor','Comercial'
+  ]));
+  if(!vendedor)return null;
+
+  const total=parseMoney(firstCol(row,[
+    'Total da Nota Fiscal','Valor Total','Valor','Total','Valor do Serviço',
+    'Valor do Servico','Faturamento','Valor Faturado'
+  ]));
+  if(!total)return null;
+
+  const situacao=String(firstCol(row,['Situação','Situacao','Status'])).trim();
+  const pedido=String(firstCol(row,['Pedido','Nº Pedido','Numero Pedido','Número Pedido','OS','Ordem de Serviço'])).trim();
+  const nf=String(firstCol(row,['Nota Fiscal','NF','NFS-e','NFS'])||'').trim();
+  const cliente=String(firstCol(row,['Cliente (Razão Social)','Cliente','Razão Social','Nome do Cliente'])||'').trim();
+
+  return {mes:date.slice(0,7),date,vendedor,total,situacao,pedido,nf,cliente,tipo:'servico'};
+}
+function servicoOk(r){
+  const s=normalizeTxt(r.situacao);
+  return !s.includes('cancelado') && !s.includes('rejeitad');
+}
+
 function captadaOk(r){
   const s=normalizeTxt(r.situacao);
   if(s.includes('cancelado')||s.includes('rejeitada'))return false;
@@ -325,9 +390,14 @@ function montarFiltros(){
 }
 async function carregarBases(){
   el('loadingMsg').textContent='Buscando bases de vendas...';
-  const[capTable,fatTable]=await Promise.all([fetchGviz(GID_CAPTADA),fetchGviz(GID_FATURADA)]);
+  const[capTable,fatTable,servTable]=await Promise.all([
+    fetchGviz(GID_CAPTADA),
+    fetchGviz(GID_FATURADA),
+    fetchGviz(GID_SERVICOS)
+  ]);
   captadaRows=parseRows(capTable).map(r=>rowToRecord(r,'captada')).filter(Boolean).filter(captadaOk);
   faturadaRows=parseRows(fatTable).map(r=>rowToRecord(r,'faturada')).filter(Boolean).filter(faturadaOk);
+  servicosRows=parseRows(servTable).map(rowToServiceRecord).filter(Boolean).filter(servicoOk);
 }
 async function carregarTudo(){
   const mes=String(el('comMes').value).padStart(2,'0'),ano=el('comAno').value;
@@ -383,17 +453,21 @@ async function carregarTudo(){
     (ajustesMap[nome]=ajustesMap[nome]||[]).push({...a, vendedor:nome});
   });
 
-  const fat={},cap={};
+  const fat={},cap={},serv={};
   faturadaRows.filter(r=>r.mes===mesAnoAtual).forEach(r=>fat[r.vendedor]=(fat[r.vendedor]||0)+r.total);
   captadaRows.filter(r=>r.mes===mesAnoAtual).forEach(r=>cap[r.vendedor]=(cap[r.vendedor]||0)+r.total);
-  const vendedores=Array.from(new Set([...Object.keys(fat),...Object.keys(cap),...Object.keys(metasMap)])).sort((a,b)=>(fat[b]||cap[b]||0)-(fat[a]||cap[a]||0));
+  servicosRows.filter(r=>r.mes===mesAnoAtual).forEach(r=>serv[r.vendedor]=(serv[r.vendedor]||0)+r.total);
+  const vendedores=Array.from(new Set([
+    ...Object.keys(fat),...Object.keys(cap),...Object.keys(serv),...Object.keys(metasMap)
+  ])).sort((a,b)=>(fat[b]||cap[b]||serv[b]||0)-(fat[a]||cap[a]||serv[a]||0));
   renderComissao(vendedores,fat);
   renderPremiacao(vendedores,cap);
+  renderServicos(vendedores,serv);
   renderEvidencias();
   renderPedidosExcluidos();
 }
 function regra(v){
-  return regrasMap[v]||{percentual_faturado:.015,percentual_premiacao:.01};
+  return regrasMap[v]||{percentual_faturado:.015,percentual_premiacao:.01,percentual_servicos:.015};
 }
 function renderComissao(vendedores,fat){
   let totFat=0,totAj=0,totCom=0;
@@ -405,21 +479,33 @@ function renderComissao(vendedores,fat){
     const abatimentoPedidos=pedidosExcluidos.reduce((s,p)=>s+Number(p.valor||0),0);
     const totalAbatimentos=aj+abatimentoPedidos;
     const base=Math.max(0,faturado-totalAbatimentos);
-    const pct=Number(regra(v).percentual_faturado??.015),com=base*pct;
-    totFat+=faturado;totAj+=totalAbatimentos;totCom+=com;
-    const itensAjuste=[
-      ...ajs.map(a=>`${a.motivo||'Ajuste'} · ${fmtBRL(a.valor)} <span class="rm" onclick="removerAjuste(${a.id})">✕</span>`),
-      ...pedidosExcluidos.map(p=>`Pedido ${p.pedido} · ${fmtBRL(p.valor)}`)
-    ];
-    const lista=itensAjuste.length?`<div class="com-ajustes-list">${itensAjuste.join('<br>')}</div>`:'';
-    return `<tr><td>${v}</td><td class="com-valor">${fmtBRL(faturado)}</td><td class="com-valor">${totalAbatimentos?'-'+fmtBRL(totalAbatimentos):'—'}${lista}</td><td class="com-valor">${fmtBRL(base)}</td>
-      <td style="text-align:right"><input class="com-pct-input" type="number" step="0.1" min="0" value="${(pct*100).toFixed(2)}" onchange="salvarRegra('${v.replace(/'/g,"\\'")}','faturado',this.value)"> %</td>
-      <td class="com-valor"><b>${fmtBRL(com)}</b></td><td><button class="com-ajuste-btn" onclick="abrirAjusteModal('${v.replace(/'/g,"\\'")}')">➕</button></td></tr>`;
+    const pct=Number(regra(v).percentual_faturado??.015);
+    const comissao=base*pct;
+    totFat+=faturado;totAj+=totalAbatimentos;totCom+=comissao;
+    return `<tr>
+      <td>${v}</td>
+      <td class="com-valor">${fmtBRL(faturado)}</td>
+      <td class="com-valor">${fmtBRL(base)}</td>
+      <td><input class="com-pct-input" type="number" step="0.1" min="0"
+        value="${(pct*100).toFixed(2)}"
+        onchange="salvarRegra('${v.replace(/'/g,"\\'")}','faturado',this.value)"> %</td>
+      <td class="com-valor"><b>${fmtBRL(comissao)}</b></td>
+      <td><button class="com-ajuste-btn" onclick="abrirAjusteModal('${v.replace(/'/g,"\\'")}')">➕</button></td>
+    </tr>`;
   }).join('');
-  el('tbodyComissao').innerHTML=(linhas||'<tr><td colspan="7" style="text-align:center;color:var(--text3)">Nenhum faturamento neste mês.</td></tr>')+
-    `<tr class="total-row"><td>Total Geral</td><td class="com-valor">${fmtBRL(totFat)}</td><td class="com-valor">${totAj?'-'+fmtBRL(totAj):'—'}</td><td class="com-valor">${fmtBRL(totFat-totAj)}</td><td></td><td class="com-valor">${fmtBRL(totCom)}</td><td></td></tr>`;
-  el('kpiFat').textContent=fmtBRL(totFat);el('kpiCom').textContent=fmtBRL(totCom);
-  window._totalComissao=totCom;atualizarTotal();
+  el('tbodyComissao').innerHTML=(linhas||'<tr><td colspan="6" style="text-align:center;color:var(--text3)">Nenhum faturamento neste mês.</td></tr>')+
+    `<tr class="total-row">
+      <td>Total Geral</td>
+      <td class="com-valor">${fmtBRL(totFat)}</td>
+      <td class="com-valor">${fmtBRL(totFat-totAj)}</td>
+      <td></td>
+      <td class="com-valor">${fmtBRL(totCom)}</td>
+      <td></td>
+    </tr>`;
+  el('kpiFat').textContent=fmtBRL(totFat);
+  el('kpiCom').textContent=fmtBRL(totCom);
+  window._totalComissao=totCom;
+  atualizarTotal();
 }
 function renderPremiacao(vendedores,cap){
   let total=0;
@@ -441,13 +527,59 @@ function renderPremiacao(vendedores,cap){
     </tr>`;
   el('kpiPrem').textContent=fmtBRL(total);window._totalPremiacao=total;atualizarTotal();
 }
-function atualizarTotal(){el('kpiTotal').textContent=fmtBRL((window._totalComissao||0)+(window._totalPremiacao||0))}
+
+function renderServicos(vendedores,serv){
+  let totalServicos=0,totalComissaoServicos=0;
+  const linhas=vendedores.filter(v=>(serv[v]||0)>0).map(v=>{
+    const valor=serv[v]||0;
+    const pct=Number(regra(v).percentual_servicos??.015);
+    const comissao=valor*pct;
+    totalServicos+=valor;
+    totalComissaoServicos+=comissao;
+    return `<tr>
+      <td>${v}</td>
+      <td class="com-valor">${fmtBRL(valor)}</td>
+      <td class="com-valor">${fmtBRL(valor)}</td>
+      <td><input class="com-pct-input" type="number" step="0.1" min="0"
+        value="${(pct*100).toFixed(2)}"
+        onchange="salvarRegra('${v.replace(/'/g,"\\'")}','servicos',this.value)"> %</td>
+      <td class="com-valor"><b>${fmtBRL(comissao)}</b></td>
+    </tr>`;
+  }).join('');
+  el('tbodyServicos').innerHTML=(linhas||'<tr><td colspan="5" style="text-align:center;color:var(--text3)">Nenhum faturamento de serviços neste mês.</td></tr>')+
+    `<tr class="total-row">
+      <td>Total Geral</td>
+      <td class="com-valor">${fmtBRL(totalServicos)}</td>
+      <td class="com-valor">${fmtBRL(totalServicos)}</td>
+      <td></td>
+      <td class="com-valor">${fmtBRL(totalComissaoServicos)}</td>
+    </tr>`;
+  el('kpiServ').textContent=fmtBRL(totalComissaoServicos);
+  window._totalComissaoServicos=totalComissaoServicos;
+  atualizarTotal();
+}
+function atualizarTotal(){
+  el('kpiTotal').textContent=fmtBRL(
+    (window._totalComissao||0)+
+    (window._totalPremiacao||0)+
+    (window._totalComissaoServicos||0)
+  );
+}
 async function salvarRegra(v,tipo,valorPct){
   const pct=parseFloat(String(valorPct).replace(',','.'))/100;
   if(!isFinite(pct)||pct<0){alert('Percentual inválido.');return}
   const atual=regra(v);
-  const payload={vendedor:v,mes_ano:mesAnoAtual,percentual_faturado:Number(atual.percentual_faturado??.015),percentual_premiacao:Number(atual.percentual_premiacao??.01),atualizado_por:currentUser.email,atualizado_em:new Date().toISOString()};
-  if(tipo==='faturado')payload.percentual_faturado=pct;else payload.percentual_premiacao=pct;
+  const payload={
+    vendedor:v,mes_ano:mesAnoAtual,
+    percentual_faturado:Number(atual.percentual_faturado??.015),
+    percentual_premiacao:Number(atual.percentual_premiacao??.01),
+    percentual_servicos:Number(atual.percentual_servicos??.015),
+    atualizado_por:currentUser.email,
+    atualizado_em:new Date().toISOString()
+  };
+  if(tipo==='faturado') payload.percentual_faturado=pct;
+  else if(tipo==='servicos') payload.percentual_servicos=pct;
+  else payload.percentual_premiacao=pct;
   const{error}=await sb.from('tangram_comissao_regras').upsert(payload,{onConflict:'vendedor,mes_ano'});
   if(error){alert('Erro ao salvar percentual: '+error.message);return}
   await carregarTudo();
@@ -465,7 +597,7 @@ async function salvarAjuste(){
 async function removerAjuste(id){if(!confirm('Remover este ajuste?'))return;await sb.from('tangram_comissao_ajustes').delete().eq('id',id);await carregarTudo()}
 
 function initPasteZones(){
-  [['pasteFaturado','faturado'],['pastePremiacao','premiacao']].forEach(([id,tipo])=>{
+  [['pasteFaturado','faturado'],['pastePremiacao','premiacao'],['pasteServicos','servicos']].forEach(([id,tipo])=>{
     const zone=el(id);
     if(!zone)return;
     zone.addEventListener('paste',async e=>{
@@ -494,8 +626,8 @@ async function salvarEvidencia(file,tipo){
   await carregarTudo();
 }
 function renderEvidencias(){
-  ['faturado','premiacao'].forEach(tipo=>{
-    const wrap=el(tipo==='faturado'?'proofListFaturado':'proofListPremiacao');
+  ['faturado','premiacao','servicos'].forEach(tipo=>{
+    const wrap=el(tipo==='faturado'?'proofListFaturado':tipo==='premiacao'?'proofListPremiacao':'proofListServicos');
     if(!wrap)return;
     const list=evidenciasCache.filter(e=>e.tipo===tipo);
     wrap.innerHTML=list.length?list.map(e=>`
