@@ -494,9 +494,14 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
 // Hoje só temos o domínio da Daniela (gestora principal). Se Mister Wiz usar outro domínio,
 // adicionar aqui antes do deploy.
 const ALLOWED_SIGNUP_DOMAINS = ['empoderamentoadolescente.com.br', 'gpsbi.com.br'];
+// Acessos externos liberados individualmente. Não abrimos os domínios inteiros
+// da Mister Wiz/Sforza: somente estas contas podem se cadastrar e, depois do
+// login, continuam restritas exclusivamente à visão Mister Wiz.
+const ALLOWED_SIGNUP_EMAILS = ['miria@misterwiz.com.br', 'custodio@sforza.com.br'];
 function isAllowedSignupEmail(email){
-  const domain = (email.split('@')[1] || '').toLowerCase();
-  return ALLOWED_SIGNUP_DOMAINS.includes(domain);
+  const normalizedEmail = (email || '').trim().toLowerCase();
+  const domain = (normalizedEmail.split('@')[1] || '').toLowerCase();
+  return ALLOWED_SIGNUP_DOMAINS.includes(domain) || ALLOWED_SIGNUP_EMAILS.includes(normalizedEmail);
 }
 
 let pendingResetEmail = null;
@@ -781,7 +786,7 @@ async function doReset(){
     } else if(!isAllowedSignupEmail(email)){
       setFieldError('fg-activate-email', true);
       document.getElementById('activateEmailError').textContent =
-        `Cadastro permitido apenas para e-mails ${ALLOWED_SIGNUP_DOMAINS.map(d=>'@'+d).join(' ou ')}.`;
+        'Este e-mail não está autorizado para cadastro. Fale com a GPSBI para liberar o acesso.';
       bad = true;
     }
   }
