@@ -439,6 +439,7 @@ html.light .kpi-card{background:#fff}
     <a href="agenda.html">🗓️ Minha Agenda</a>
     <a href="mural.html">📣 Mural</a>
     <a href="aprovacoes.html">✅ Aprovações</a>
+    <a href="comissao.html" id="navComissao" style="display:none;">💰 Comissão</a>
     <a href="fluxodecaixa.html" id="navFluxoCaixa" style="display:none;">💰 Fluxo de Caixa</a>
   </div>
 
@@ -1010,11 +1011,15 @@ async function initAuth(){
   // sem preferência salva ainda, mantém o padrão (claro) sem forçar nada.
   const savedTheme = currentUser.user_metadata && currentUser.user_metadata.theme;
   applyTheme(savedTheme || currentTheme, true);
+  const emailNormalizado = email.toLowerCase();
+  const canRestrito = emailNormalizado.endsWith('@gpsbi.com.br')
+    || emailNormalizado === 'anderson@tangrampersonalizados.com.br';
+
+  const comissaoLink = document.getElementById('navComissao');
+  if(comissaoLink) comissaoLink.style.display = canRestrito ? '' : 'none';
+
   const fcLink = document.getElementById('navFluxoCaixa');
-  if(fcLink){
-    const canFluxo = email.toLowerCase().endsWith('@gpsbi.com.br') || email.toLowerCase()==='anderson@tangrampersonalizados.com.br';
-    fcLink.style.display = canFluxo ? '' : 'none';
-  }
+  if(fcLink) fcLink.style.display = canRestrito ? '' : 'none';
   document.documentElement.style.visibility='visible';
   setupUI();
   await loadData();
