@@ -182,11 +182,11 @@ html{zoom:.8;}
 
     <div class="card">
       <div class="card-title">🏆 Premiação por meta — receita captada</div>
-      <div class="card-sub">Padrão de 1,0%. A premiação é liberada somente quando a receita captada alcança a meta cadastrada no Dashboard.</div>
+      <div class="card-sub">Padrão de 1,0%. A premiação é liberada somente quando a receita captada líquida (já descontado o abatimento) alcança a meta cadastrada no Dashboard.</div>
       <div style="overflow-x:auto">
         <table class="com-table">
           <thead><tr>
-            <th>Vendedor</th><th style="text-align:right">Receita captada</th><th style="text-align:right">Meta</th>
+            <th>Vendedor</th><th style="text-align:right">Receita Captada Bruta</th><th style="text-align:right">Receita Captada Líquida</th><th style="text-align:right">Meta</th>
             <th style="text-align:right">% Atingido</th><th>Status</th><th style="text-align:right">% Premiação</th>
             <th style="text-align:right">Premiação</th>
           </tr></thead>
@@ -996,20 +996,43 @@ function abrirDetalheAbatimentos(vendedor){
 }
 
 function renderPremiacao(vendedores,cap){
-  let total=0;
+  let total=0,totalBrutaGeral=0,totalLiquidaGeral=0;
   const linhas=vendedores.filter(v=>(cap[v]||0)>0||(metasMap[v]||0)>0).map(v=>{
-    const captada=cap[v]||0,meta=metasMap[v]||0,pct=Number(regra(v).percentual_premiacao??.01),atingido=meta>0?captada/meta*100:0,liberada=meta>0&&captada>=meta,premio=liberada?meta*pct:0;
-    total+=premio;
-    const status=meta<=0?'<span class="com-status sem">Sem meta</span>':liberada?'<span class="com-status ok">Meta atingida</span>':'<span class="com-status no">Ainda não atingiu</span>';
-    return `<tr><td>${v}</td><td class="com-valor">${fmtBRL(captada)}</td><td class="com-valor">${meta?fmtBRL(meta):'—'}</td><td class="com-valor">${meta?atingido.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%':'—'}</td>
+    const captadaBruta=cap[v]||0;
+    // Mesmo ajuste manual usado na Comissão sobre Faturados — reaproveita
+    // ajustesMap (é um ajuste do vendedor, não fica preso a um dos dois).
+    const ajusteManual=(ajustesMap[v]||[]).reduce((s,a)=>s+Number(a.valor||0),0);
+    const captadaLiquida=Math.max(0,captadaBruta-ajusteManual);
+    const meta=metasMap[v]||0;
+    const pct=Number(regra(v).percentual_premiacao??.01);
+    // A meta agora é comparada com a LÍQUIDA — combinado com o Gustavo (04/08/2026):
+    // se o abatimento derrubar a receita líquida abaixo da meta, a premiação não libera.
+    const atingido=meta>0?captadaLiquida/meta*100:0;
+    const liberada=meta>0&&captadaLiquida>=meta;
+    const premio=liberada?meta*pct:0;
+    total+=premio; totalBrutaGeral+=captadaBruta; totalLiquidaGeral+=captadaLiquida;
+
+    let status;
+    if(meta<=0){
+      status='<span class="com-status sem">Sem meta</span>';
+    } else if(liberada){
+      status='<span class="com-status ok">Meta atingida</span>';
+    } else if(captadaBruta>=meta){
+      // Bruta batia a meta, mas o abatimento derrubou a líquida pra baixo dela.
+      status='<span class="com-status no" title="Receita líquida ficou abaixo da meta por causa de abatimento">Não atingiu (abatimento)</span>';
+    } else {
+      status='<span class="com-status no">Ainda não atingiu</span>';
+    }
+
+    return `<tr><td>${v}</td><td class="com-valor">${fmtBRL(captadaBruta)}</td><td class="com-valor">${fmtBRL(captadaLiquida)}</td><td class="com-valor">${meta?fmtBRL(meta):'—'}</td><td class="com-valor">${meta?atingido.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%':'—'}</td>
       <td>${status}</td><td style="text-align:right"><input class="com-pct-input" type="number" step="0.1" min="0" value="${(pct*100).toFixed(2)}" onchange="salvarRegra('${v.replace(/'/g,"\\'")}','premiacao',this.value)"> %</td>
       <td class="com-valor"><b>${fmtBRL(premio)}</b></td></tr>`;
   }).join('');
-  const totalCaptada = vendedores.reduce((s,v)=>s+(cap[v]||0),0);
-  el('tbodyPremiacao').innerHTML=(linhas||'<tr><td colspan="7" style="text-align:center;color:var(--text3)">Nenhum vendedor ou meta neste mês.</td></tr>')+
+  el('tbodyPremiacao').innerHTML=(linhas||'<tr><td colspan="8" style="text-align:center;color:var(--text3)">Nenhum vendedor ou meta neste mês.</td></tr>')+
     `<tr class="total-row">
       <td>Total Geral</td>
-      <td class="com-valor">${fmtBRL(totalCaptada)}</td>
+      <td class="com-valor">${fmtBRL(totalBrutaGeral)}</td>
+      <td class="com-valor">${fmtBRL(totalLiquidaGeral)}</td>
       <td colspan="4"></td>
       <td class="com-valor">${fmtBRL(total)}</td>
     </tr>`;
