@@ -747,13 +747,14 @@ async function carregarTudo(){
 
   const fat={},cap={},serv={};
   faturadaRows.filter(r=>r.mes===mesAnoAtual).forEach(r=>fat[r.vendedor]=(fat[r.vendedor]||0)+r.total);
-  captadaRows.filter(r=>r.mes===mesAnoAtual).forEach(r=>cap[r.vendedor]=(cap[r.vendedor]||0)+r.total);
+  const capRowsMes=captadaRows.filter(r=>r.mes===mesAnoAtual);
+  capRowsMes.forEach(r=>cap[r.vendedor]=(cap[r.vendedor]||0)+r.total);
   servicosRows.filter(r=>r.mes===mesAnoAtual).forEach(r=>serv[r.vendedor]=(serv[r.vendedor]||0)+r.total);
   const vendedores=Array.from(new Set([
     ...Object.keys(fat),...Object.keys(cap),...Object.keys(serv),...Object.keys(metasMap)
   ])).sort((a,b)=>(fat[b]||cap[b]||serv[b]||0)-(fat[a]||cap[a]||serv[a]||0));
   renderComissao(vendedores,fat);
-  renderPremiacao(vendedores,cap);
+  renderPremiacao(vendedores,cap,capRowsMes);
   renderServicos(vendedores,serv);
   renderEvidencias();
   renderDevolucoes();
@@ -995,17 +996,29 @@ function abrirDetalheAbatimentos(vendedor){
   );
 }
 
-function renderPremiacao(vendedores,cap){
+function renderPremiacao(vendedores,cap,capRowsMes){
   let total=0,totalBrutaGeral=0,totalLiquidaGeral=0;
   const linhas=vendedores.filter(v=>(cap[v]||0)>0||(metasMap[v]||0)>0).map(v=>{
     const captadaBruta=cap[v]||0;
-    // Mesmo ajuste manual usado na Comissão sobre Faturados — reaproveita
-    // ajustesMap (é um ajuste do vendedor, não fica preso a um dos dois).
+
+    // Abatimento da Captada: pega os MESMOS pedidos marcados como excluídos
+    // (usados pra abater o Faturado) e busca o valor deles na base de
+    // Captada ("Inclusão de Pedidos") — pode ser diferente do valor
+    // faturado, por isso cruza de novo em vez de reaproveitar o valor.
+    const pedidosExcluidos=pedidosExcluidosMap[v]||[];
+    const setPedidosExcluidos=new Set(pedidosExcluidos.map(p=>String(p.pedido).trim()).filter(Boolean));
+    const abatimentoCaptadaPedidos=(capRowsMes||[])
+      .filter(r=>r.vendedor===v && setPedidosExcluidos.has(String(r.pedido).trim()))
+      .reduce((s,r)=>s+Number(r.total||0),0);
+
+    // Ajuste manual (mesmo mecanismo genérico usado no Faturado).
     const ajusteManual=(ajustesMap[v]||[]).reduce((s,a)=>s+Number(a.valor||0),0);
-    const captadaLiquida=Math.max(0,captadaBruta-ajusteManual);
+
+    const totalAbatimentoCaptada=abatimentoCaptadaPedidos+ajusteManual;
+    const captadaLiquida=Math.max(0,captadaBruta-totalAbatimentoCaptada);
     const meta=metasMap[v]||0;
     const pct=Number(regra(v).percentual_premiacao??.01);
-    // A meta agora é comparada com a LÍQUIDA — combinado com o Gustavo (04/08/2026):
+    // A meta é comparada com a LÍQUIDA — combinado com o Gustavo (04/08/2026):
     // se o abatimento derrubar a receita líquida abaixo da meta, a premiação não libera.
     const atingido=meta>0?captadaLiquida/meta*100:0;
     const liberada=meta>0&&captadaLiquida>=meta;
