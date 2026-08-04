@@ -8,11 +8,14 @@ const APP_PAGES = [
   { href:'mural.html', label:'📣 Mural Corporativo', id:'navMural' },
   { href:'aprovacoes.html', label:'✅ Aprovações' },
 ];
+const APP_PAGE_COMISSAO = { href:'comissao.html', label:'💰 Comissão', id:'navComissao' };
 const APP_PAGE_FLUXO = { href:'fluxodecaixa.html', label:'💰 Fluxo de Caixa', id:'navFluxo' };
-function _navCanSeeFluxo(email){
+function _navCanSeeRestrito(email){
   email = (email||'').toLowerCase();
   return email.endsWith('@gpsbi.com.br') || email === 'anderson@tangrampersonalizados.com.br';
 }
+function _navCanSeeFluxo(email){ return _navCanSeeRestrito(email); }
+function _navCanSeeComissao(email){ return _navCanSeeRestrito(email); }
 
 let _appNavSb = null, _appNavUser = null;
 
@@ -36,7 +39,10 @@ function renderAppNav({ activePage, userLabel, userRole, onLogout, sb, currentUs
   const theme = savedInAccount || localStorage.getItem('tangram_theme') || 'light';
   document.documentElement.classList.toggle('light', theme==='light');
 
-  const pages = _navCanSeeFluxo(currentUser && currentUser.email) ? [...APP_PAGES, APP_PAGE_FLUXO] : APP_PAGES;
+  const emailAtual = currentUser && currentUser.email;
+  let pages = [...APP_PAGES];
+  if(_navCanSeeComissao(emailAtual)) pages.push(APP_PAGE_COMISSAO);
+  if(_navCanSeeFluxo(emailAtual)) pages.push(APP_PAGE_FLUXO);
   const navLinks = pages.map(p=>{
     const cls = p.href===activePage ? 'active' : '';
     const idAttr = p.id ? ` id="${p.id}"` : '';

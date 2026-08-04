@@ -115,12 +115,11 @@ const SHEET_ID = '13pF1S6H59zcn53kW1-MYvIxQVT0-cIDPSB9QNugDfSo';
 const GID_FATURADA = '1703975608';
 const SITUACOES_FATURADA = ['autorizado','faturado','nfs-e autorizada'];
 
-// Acesso restrito — só GPS e o Prieto (mesmo padrão do Fluxo de Caixa).
-// TODO: confirmar o e-mail exato do Prieto com o Gustavo e substituir abaixo.
-const PRIETO_EMAIL = 'prieto@tangrampersonalizados.com.br';
+// Acesso restrito — equipe GPSBI e Anderson, igual ao Fluxo de Caixa.
+const ANDERSON_EMAIL = 'anderson@tangrampersonalizados.com.br';
 function canAccessComissao(email){
   email = (email||'').toLowerCase();
-  return email.endsWith('@gpsbi.com.br') || email === PRIETO_EMAIL;
+  return email.endsWith('@gpsbi.com.br') || email === ANDERSON_EMAIL;
 }
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
