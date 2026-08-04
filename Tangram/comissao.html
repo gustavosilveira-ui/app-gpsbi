@@ -1001,14 +1001,20 @@ function renderPremiacao(vendedores,cap,capRowsMes){
   const linhas=vendedores.filter(v=>(cap[v]||0)>0||(metasMap[v]||0)>0).map(v=>{
     const captadaBruta=cap[v]||0;
 
-    // Abatimento da Captada: pega os MESMOS pedidos marcados como excluídos
-    // (usados pra abater o Faturado) e busca o valor deles na base de
-    // Captada ("Inclusão de Pedidos") — pode ser diferente do valor
-    // faturado, por isso cruza de novo em vez de reaproveitar o valor.
+    // Abatimento da Captada: cruza os pedidos das DEVOLUÇÕES APROVADAS
+    // (detectadas por Nota de Entrada) e dos pedidos marcados como
+    // excluídos manualmente — em ambos os casos, busca o valor de cada
+    // pedido na base de Captada ("Inclusão de Pedidos"), que pode ser
+    // diferente do valor faturado, por isso cruza de novo em vez de
+    // reaproveitar o valor já calculado do lado do Faturado.
     const pedidosExcluidos=pedidosExcluidosMap[v]||[];
-    const setPedidosExcluidos=new Set(pedidosExcluidos.map(p=>String(p.pedido).trim()).filter(Boolean));
+    const devolucoesAprovadasDoVendedor=devolucoesDetectadas.filter(d=>d.aprovado&&d.localizada&&cleanVendorName(d.vendedor)===v);
+    const setPedidosAbatidos=new Set([
+      ...pedidosExcluidos.map(p=>String(p.pedido).trim()),
+      ...devolucoesAprovadasDoVendedor.map(d=>String(d.pedido).trim())
+    ].filter(p=>p&&p!=='—'));
     const abatimentoCaptadaPedidos=(capRowsMes||[])
-      .filter(r=>r.vendedor===v && setPedidosExcluidos.has(String(r.pedido).trim()))
+      .filter(r=>r.vendedor===v && setPedidosAbatidos.has(String(r.pedido).trim()))
       .reduce((s,r)=>s+Number(r.total||0),0);
 
     // Ajuste manual (mesmo mecanismo genérico usado no Faturado).
