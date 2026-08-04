@@ -43,6 +43,31 @@ html{zoom:.8;}
 .com-table td.com-valor{text-align:center!important;}
 .com-table .com-pct-input{margin:0 auto;}
 
+
+.com-proof-box{margin-top:14px;border:1px dashed var(--border2);border-radius:10px;padding:12px 14px;background:var(--navy3)}
+.com-proof-title{font-size:11.5px;font-weight:800;color:var(--text2);margin-bottom:4px}
+.com-proof-hint{font-size:10.5px;color:var(--text3);margin-bottom:9px}
+.com-paste-zone{min-height:46px;border:1px dashed var(--border2);border-radius:9px;display:flex;align-items:center;justify-content:center;text-align:center;padding:10px;color:var(--text3);font-size:11.5px;cursor:text;background:var(--field-bg)}
+.com-paste-zone:focus{outline:2px solid rgba(54,226,201,.25);border-color:var(--cyan)}
+.com-proof-list{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+.com-proof-item{position:relative;width:150px;border:1px solid var(--border2);border-radius:9px;padding:6px;background:var(--navy2)}
+.com-proof-item img{width:100%;height:90px;object-fit:cover;border-radius:6px;cursor:pointer}
+.com-proof-meta{font-size:9.5px;color:var(--text3);margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.com-proof-del{position:absolute;right:3px;top:3px;width:23px;height:23px;border:none;border-radius:50%;background:rgba(7,27,51,.8);color:#fff;cursor:pointer;font-weight:800}
+.com-excluir-grid{display:grid;grid-template-columns:180px 1fr auto;gap:10px;align-items:end}
+.com-order-result{margin-top:12px;padding:12px 14px;border-radius:10px;background:var(--navy3);border:1px solid var(--border2);display:none}
+.com-order-result.show{display:block}
+.com-order-kpis{display:grid;grid-template-columns:repeat(5,minmax(130px,1fr));gap:8px;margin-top:10px}
+.com-order-kpi{background:var(--navy2);border-radius:8px;padding:9px 10px}
+.com-order-kpi b{display:block;font-family:'DM Mono',monospace;font-size:12px}
+.com-order-kpi span{display:block;font-size:9.5px;color:var(--text3);margin-top:3px}
+.com-doc-table{width:100%;border-collapse:collapse;font-size:11.5px}
+.com-doc-table th,.com-doc-table td{padding:8px 9px;border-bottom:1px solid var(--border);vertical-align:top}
+.com-doc-table th{font-size:9.5px;text-transform:uppercase;color:var(--text3);text-align:left}
+.com-doc-table td.num,.com-doc-table th.num{text-align:center;font-family:'DM Mono',monospace}
+.com-doc-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap}
+@media(max-width:900px){.com-excluir-grid{grid-template-columns:1fr}.com-order-kpis{grid-template-columns:1fr 1fr}}
+
 </style>
 </head>
 <body>
@@ -93,6 +118,14 @@ html{zoom:.8;}
           <tbody id="tbodyComissao"></tbody>
         </table>
       </div>
+
+      <div class="com-proof-box">
+        <div class="com-proof-title">📎 Evidência da comissão</div>
+        <div class="com-proof-hint">Clique no campo e pressione Ctrl + V para colar um print. A imagem será salva no mês selecionado.</div>
+        <div id="pasteFaturado" class="com-paste-zone" contenteditable="true">Clique aqui e cole a imagem</div>
+        <div id="proofListFaturado" class="com-proof-list"></div>
+      </div>
+
     </div>
 
     <div class="card">
@@ -108,7 +141,50 @@ html{zoom:.8;}
           <tbody id="tbodyPremiacao"></tbody>
         </table>
       </div>
+
       <div class="com-note">Regra aplicada: ao atingir a meta, a premiação corresponde ao percentual informado sobre o valor da meta.</div>
+
+      <div class="com-proof-box">
+        <div class="com-proof-title">📎 Evidência da premiação</div>
+        <div class="com-proof-hint">Clique no campo e pressione Ctrl + V para colar um print. A imagem será salva no mês selecionado.</div>
+        <div id="pastePremiacao" class="com-paste-zone" contenteditable="true">Clique aqui e cole a imagem</div>
+        <div id="proofListPremiacao" class="com-proof-list"></div>
+      </div>
+
+    </div>
+
+    <div class="card">
+      <div class="card-title">🚫 Pedidos desconsiderados da comissão</div>
+      <div class="card-sub">Informe um pedido de qualquer mês. O valor será abatido da comissão do mês atualmente selecionado e ficará documentado.</div>
+      <div class="com-excluir-grid">
+        <div class="field-group" style="margin-bottom:0">
+          <label class="field-label">Número do pedido</label>
+          <input type="text" id="pedidoExcluirNumero" placeholder="Ex.: 17371">
+        </div>
+        <div class="field-group" style="margin-bottom:0">
+          <label class="field-label">Motivo do desconto</label>
+          <input type="text" id="pedidoExcluirMotivo" placeholder="Ex.: devolução, cancelamento ou comissão já paga">
+        </div>
+        <button class="btn btn-ghost" onclick="buscarPedidoExcluir()">Buscar pedido</button>
+      </div>
+      <div id="pedidoExcluirResultado" class="com-order-result"></div>
+      <div class="com-doc-actions">
+        <button class="btn btn-primary" id="btnConfirmarExclusao" style="display:none" onclick="confirmarPedidoExclusao()">Desconsiderar no mês selecionado</button>
+      </div>
+
+      <div style="overflow-x:auto;margin-top:18px">
+        <table class="com-doc-table">
+          <thead><tr>
+            <th>Pedido</th><th>Vendedor</th><th>Cliente</th><th>Mês original</th>
+            <th class="num">Valor abatido</th><th>Motivo</th><th>Incluído por</th><th></th>
+          </tr></thead>
+          <tbody id="tbodyPedidosExcluidos"></tbody>
+        </table>
+      </div>
+
+      <div class="com-doc-actions">
+        <button class="btn btn-ghost" onclick="imprimirDocumentacao()">🖨️ Imprimir documentação</button>
+      </div>
     </div>
 
   </div>
@@ -151,6 +227,8 @@ const NF_EXCLUIDAS_FATURADA=new Set(['14024','18081','18089']);
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 let currentUser=null;
 let faturadaRows=[],captadaRows=[],metasMap={},regrasMap={},ajustesMap={};
+let pedidosExcluidosMap={}, evidenciasCache=[];
+let pedidoEncontradoAtual=null;
 let mesAnoAtual='';
 
 function el(id){return document.getElementById(id)}
@@ -204,7 +282,8 @@ function rowToRecord(row,tipo){
   const total=parseMoney(row['Total da Nota Fiscal']);
   const pedido=String(row['Pedido']||'').trim();
   const nf=String(row['Nota Fiscal']||'').trim();
-  return{mes:date.slice(0,7),vendedor,situacao,operacao,total,pedido,nf,tipo};
+  const cliente=String(row['Cliente']||row['Nome do Cliente']||row['Razão Social']||row['Parceiro']||'').trim();
+  return{mes:date.slice(0,7),date,vendedor,situacao,operacao,total,pedido,nf,cliente,tipo};
 }
 function captadaOk(r){
   const s=normalizeTxt(r.situacao);
@@ -232,6 +311,7 @@ async function init(){
   await carregarBases();
   await carregarTudo();
   el('loadingScreen').style.display='none';el('mainContent').style.display='block';
+  initPasteZones();
   document.documentElement.style.visibility='visible';
 }
 function montarFiltros(){
@@ -252,10 +332,18 @@ async function carregarTudo(){
   mesAnoAtual=`${ano}-${mes}`;
   el('loadingMsg').textContent='Calculando comissão e premiação...';
 
-  const[{data:metas,error:erroMetas},{data:regras,error:erroRegras},{data:ajustes,error:erroAjustes}]=await Promise.all([
+  const[
+    {data:metas,error:erroMetas},
+    {data:regras,error:erroRegras},
+    {data:ajustes,error:erroAjustes},
+    {data:pedidosExcluidos,error:erroPedidosExcluidos},
+    {data:evidencias,error:erroEvidencias}
+  ]=await Promise.all([
     sb.from('metas_tangram').select('*').eq('mes_ano',mesAnoAtual),
     sb.from('tangram_comissao_regras').select('*').eq('mes_ano',mesAnoAtual),
-    sb.from('tangram_comissao_ajustes').select('*').eq('mes_ano',mesAnoAtual).order('criado_em',{ascending:true})
+    sb.from('tangram_comissao_ajustes').select('*').eq('mes_ano',mesAnoAtual).order('criado_em',{ascending:true}),
+    sb.from('tangram_comissao_pedidos_excluidos').select('*').eq('mes_aplicacao',mesAnoAtual).order('criado_em',{ascending:true}),
+    sb.from('tangram_comissao_evidencias').select('*').eq('mes_ano',mesAnoAtual).order('criado_em',{ascending:true})
   ]);
   if(erroMetas){
     console.error('Erro ao carregar metas_tangram:', erroMetas);
@@ -265,9 +353,16 @@ async function carregarTudo(){
     console.error('Erro ao carregar tangram_comissao_regras:', erroRegras);
     alert('Não consegui carregar as regras de comissão: ' + erroRegras.message);
   }
-  if(erroAjustes){
-    console.error('Erro ao carregar tangram_comissao_ajustes:', erroAjustes);
-  }
+  if(erroAjustes) console.error('Erro ao carregar tangram_comissao_ajustes:', erroAjustes);
+  if(erroPedidosExcluidos) console.error('Erro ao carregar pedidos excluídos:', erroPedidosExcluidos);
+  if(erroEvidencias) console.error('Erro ao carregar evidências:', erroEvidencias);
+
+  pedidosExcluidosMap={};
+  (pedidosExcluidos||[]).forEach(p=>{
+    const nome=cleanVendorName(p.vendedor);
+    (pedidosExcluidosMap[nome]=pedidosExcluidosMap[nome]||[]).push({...p,vendedor:nome});
+  });
+  evidenciasCache=evidencias||[];
 
   metasMap={};
   (metas||[]).forEach(r=>{
@@ -292,6 +387,8 @@ async function carregarTudo(){
   const vendedores=Array.from(new Set([...Object.keys(fat),...Object.keys(cap),...Object.keys(metasMap)])).sort((a,b)=>(fat[b]||cap[b]||0)-(fat[a]||cap[a]||0));
   renderComissao(vendedores,fat);
   renderPremiacao(vendedores,cap);
+  renderEvidencias();
+  renderPedidosExcluidos();
 }
 function regra(v){
   return regrasMap[v]||{percentual_faturado:.015,percentual_premiacao:.01};
@@ -299,10 +396,21 @@ function regra(v){
 function renderComissao(vendedores,fat){
   let totFat=0,totAj=0,totCom=0;
   const linhas=vendedores.filter(v=>(fat[v]||0)>0).map(v=>{
-    const faturado=fat[v]||0,ajs=ajustesMap[v]||[],aj=ajs.reduce((s,a)=>s+Number(a.valor||0),0),base=Math.max(0,faturado-aj),pct=Number(regra(v).percentual_faturado??.015),com=base*pct;
-    totFat+=faturado;totAj+=aj;totCom+=com;
-    const lista=ajs.length?`<div class="com-ajustes-list">${ajs.map(a=>`${a.motivo||'Ajuste'} · ${fmtBRL(a.valor)} <span class="rm" onclick="removerAjuste(${a.id})">✕</span>`).join('<br>')}</div>`:'';
-    return `<tr><td>${v}</td><td class="com-valor">${fmtBRL(faturado)}</td><td class="com-valor">${aj?'-'+fmtBRL(aj):'—'}${lista}</td><td class="com-valor">${fmtBRL(base)}</td>
+    const faturado=fat[v]||0;
+    const ajs=ajustesMap[v]||[];
+    const aj=ajs.reduce((s,a)=>s+Number(a.valor||0),0);
+    const pedidosExcluidos=pedidosExcluidosMap[v]||[];
+    const abatimentoPedidos=pedidosExcluidos.reduce((s,p)=>s+Number(p.valor||0),0);
+    const totalAbatimentos=aj+abatimentoPedidos;
+    const base=Math.max(0,faturado-totalAbatimentos);
+    const pct=Number(regra(v).percentual_faturado??.015),com=base*pct;
+    totFat+=faturado;totAj+=totalAbatimentos;totCom+=com;
+    const itensAjuste=[
+      ...ajs.map(a=>`${a.motivo||'Ajuste'} · ${fmtBRL(a.valor)} <span class="rm" onclick="removerAjuste(${a.id})">✕</span>`),
+      ...pedidosExcluidos.map(p=>`Pedido ${p.pedido} · ${fmtBRL(p.valor)}`)
+    ];
+    const lista=itensAjuste.length?`<div class="com-ajustes-list">${itensAjuste.join('<br>')}</div>`:'';
+    return `<tr><td>${v}</td><td class="com-valor">${fmtBRL(faturado)}</td><td class="com-valor">${totalAbatimentos?'-'+fmtBRL(totalAbatimentos):'—'}${lista}</td><td class="com-valor">${fmtBRL(base)}</td>
       <td style="text-align:right"><input class="com-pct-input" type="number" step="0.1" min="0" value="${(pct*100).toFixed(2)}" onchange="salvarRegra('${v.replace(/'/g,"\\'")}','faturado',this.value)"> %</td>
       <td class="com-valor"><b>${fmtBRL(com)}</b></td><td><button class="com-ajuste-btn" onclick="abrirAjusteModal('${v.replace(/'/g,"\\'")}')">➕</button></td></tr>`;
   }).join('');
@@ -353,6 +461,121 @@ async function salvarAjuste(){
   fecharAjusteModal();await carregarTudo();
 }
 async function removerAjuste(id){if(!confirm('Remover este ajuste?'))return;await sb.from('tangram_comissao_ajustes').delete().eq('id',id);await carregarTudo()}
+
+function initPasteZones(){
+  [['pasteFaturado','faturado'],['pastePremiacao','premiacao']].forEach(([id,tipo])=>{
+    const zone=el(id);
+    if(!zone)return;
+    zone.addEventListener('paste',async e=>{
+      const items=[...(e.clipboardData?.items||[])];
+      const imageItem=items.find(i=>i.type&&i.type.startsWith('image/'));
+      if(!imageItem)return;
+      e.preventDefault();
+      const file=imageItem.getAsFile();
+      if(file) await salvarEvidencia(file,tipo);
+      zone.textContent='Clique aqui e cole a imagem';
+    });
+  });
+}
+async function salvarEvidencia(file,tipo){
+  const ext=(file.type.split('/')[1]||'png').replace('jpeg','jpg');
+  const safeEmail=(currentUser.email||'usuario').replace(/[^a-z0-9@._-]/gi,'_');
+  const path=`${mesAnoAtual}/${tipo}/${Date.now()}_${safeEmail}.${ext}`;
+  const {error:upErr}=await sb.storage.from('tangram-comissao-evidencias').upload(path,file,{contentType:file.type,upsert:false});
+  if(upErr){alert('Erro ao salvar imagem: '+upErr.message);return}
+  const {data:urlData}=sb.storage.from('tangram-comissao-evidencias').getPublicUrl(path);
+  const {error:dbErr}=await sb.from('tangram_comissao_evidencias').insert({
+    mes_ano:mesAnoAtual,tipo,arquivo_path:path,arquivo_url:urlData.publicUrl,
+    criado_por:currentUser.email
+  });
+  if(dbErr){alert('Imagem enviada, mas não consegui registrar: '+dbErr.message);return}
+  await carregarTudo();
+}
+function renderEvidencias(){
+  ['faturado','premiacao'].forEach(tipo=>{
+    const wrap=el(tipo==='faturado'?'proofListFaturado':'proofListPremiacao');
+    if(!wrap)return;
+    const list=evidenciasCache.filter(e=>e.tipo===tipo);
+    wrap.innerHTML=list.length?list.map(e=>`
+      <div class="com-proof-item">
+        <button class="com-proof-del" onclick="removerEvidencia(${e.id},'${(e.arquivo_path||'').replace(/'/g,"\\'")}')">✕</button>
+        <img src="${e.arquivo_url}" onclick="window.open('${e.arquivo_url}','_blank')" alt="Evidência">
+        <div class="com-proof-meta">${new Date(e.criado_em).toLocaleString('pt-BR')}</div>
+      </div>`).join(''):'';
+  });
+}
+async function removerEvidencia(id,path){
+  if(!confirm('Excluir esta evidência?'))return;
+  if(path) await sb.storage.from('tangram-comissao-evidencias').remove([path]);
+  await sb.from('tangram_comissao_evidencias').delete().eq('id',id);
+  await carregarTudo();
+}
+function buscarPedidoExcluir(){
+  const numero=el('pedidoExcluirNumero').value.trim();
+  const motivo=el('pedidoExcluirMotivo').value.trim();
+  if(!numero){alert('Informe o número do pedido.');return}
+  const linhas=faturadaRows.filter(r=>String(r.pedido).trim()===numero);
+  const box=el('pedidoExcluirResultado');
+  const btn=el('btnConfirmarExclusao');
+  if(!linhas.length){
+    pedidoEncontradoAtual=null;btn.style.display='none';
+    box.classList.add('show');
+    box.innerHTML='⚠️ Pedido não encontrado na base faturada carregada.';
+    return;
+  }
+  const valor=linhas.reduce((s,r)=>s+r.total,0);
+  const first=linhas[0];
+  pedidoEncontradoAtual={
+    pedido:numero,vendedor:first.vendedor,cliente:first.cliente||'—',
+    mes_original:first.mes,valor,motivo
+  };
+  box.classList.add('show');
+  box.innerHTML=`<b>Pedido localizado</b>
+    <div class="com-order-kpis">
+      <div class="com-order-kpi"><b>${numero}</b><span>Pedido</span></div>
+      <div class="com-order-kpi"><b>${first.vendedor}</b><span>Vendedor</span></div>
+      <div class="com-order-kpi"><b>${first.cliente||'—'}</b><span>Cliente</span></div>
+      <div class="com-order-kpi"><b>${first.mes}</b><span>Mês original</span></div>
+      <div class="com-order-kpi"><b>${fmtBRL(valor)}</b><span>Valor a abater</span></div>
+    </div>`;
+  btn.style.display='';
+}
+async function confirmarPedidoExclusao(){
+  if(!pedidoEncontradoAtual)return;
+  const motivo=el('pedidoExcluirMotivo').value.trim();
+  if(!motivo){alert('Informe o motivo do desconto.');return}
+  const p=pedidoEncontradoAtual;
+  const {error}=await sb.from('tangram_comissao_pedidos_excluidos').insert({
+    mes_aplicacao:mesAnoAtual,pedido:p.pedido,mes_original:p.mes_original,
+    vendedor:p.vendedor,cliente:p.cliente,valor:p.valor,motivo,
+    criado_por:currentUser.email
+  });
+  if(error){alert('Erro ao salvar pedido desconsiderado: '+error.message);return}
+  el('pedidoExcluirNumero').value='';el('pedidoExcluirMotivo').value='';
+  el('pedidoExcluirResultado').classList.remove('show');
+  el('btnConfirmarExclusao').style.display='none';
+  pedidoEncontradoAtual=null;
+  await carregarTudo();
+}
+function renderPedidosExcluidos(){
+  const rows=Object.values(pedidosExcluidosMap).flat();
+  const tb=el('tbodyPedidosExcluidos');
+  if(!tb)return;
+  tb.innerHTML=rows.length?rows.map(p=>`<tr>
+    <td>${p.pedido}</td><td>${p.vendedor}</td><td>${p.cliente||'—'}</td><td>${p.mes_original||'—'}</td>
+    <td class="num">${fmtBRL(p.valor)}</td><td>${p.motivo||'—'}</td><td>${p.criado_por||'—'}</td>
+    <td><button class="btn btn-danger btn-sm" onclick="removerPedidoExcluido(${p.id})">Excluir</button></td>
+  </tr>`).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--text3)">Nenhum pedido desconsiderado neste mês.</td></tr>';
+}
+async function removerPedidoExcluido(id){
+  if(!confirm('Remover este pedido da documentação e devolver o valor à base de comissão?'))return;
+  await sb.from('tangram_comissao_pedidos_excluidos').delete().eq('id',id);
+  await carregarTudo();
+}
+function imprimirDocumentacao(){
+  window.print();
+}
+
 async function doLogout(){await sb.auth.signOut();location.href=LOGIN_URL}
 init();
 </script>
