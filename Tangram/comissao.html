@@ -159,7 +159,7 @@ html{zoom:.8;}
         <table class="com-table">
           <thead><tr>
             <th>Vendedor</th>
-            <th>Faturado considerado</th>
+            <th>Faturado</th>
             <th>% Comissão</th>
             <th>Comissão líquida</th>
             <th>Abatido</th>
@@ -784,7 +784,7 @@ function renderComissao(vendedores,fat){
       <td>${v}</td>
       <td class="com-valor">
         <button class="com-click-value" title="Ver notas consideradas"
-          onclick="abrirDetalheFaturado('${safeV}')">${fmtBRL(faturadoConsiderado)}</button>
+          onclick="abrirDetalheFaturado('${safeV}')">${fmtBRL(faturadoBruto)}</button>
       </td>
       <td><input class="com-pct-input" type="number" step="0.1" min="0"
         value="${(pct*100).toFixed(2)}"
@@ -803,14 +803,14 @@ function renderComissao(vendedores,fat){
   el('tbodyComissao').innerHTML=(linhas||'<tr><td colspan="6" style="text-align:center;color:var(--text3)">Nenhum faturamento neste mês.</td></tr>')+
     `<tr class="total-row">
       <td>Total Geral</td>
-      <td class="com-valor">${fmtBRL(totalLiquido)}</td>
+      <td class="com-valor">${fmtBRL(totalLiquido+totalAbatido)}</td>
       <td></td>
       <td class="com-valor">${fmtBRL(totalComissao)}</td>
       <td class="com-valor"><span class="${totalAbatido>0?'com-abatido':''}">${totalAbatido>0?'-'+fmtBRL(totalAbatido):'—'}</span></td>
       <td></td>
     </tr>`;
 
-  el('kpiFat').textContent=fmtBRL(totalLiquido);
+  el('kpiFat').textContent=fmtBRL(totalLiquido+totalAbatido);
   el('kpiCom').textContent=fmtBRL(totalComissao);
   window._totalComissao=totalComissao;
   atualizarTotal();
@@ -844,61 +844,71 @@ function abrirDetalheFaturado(vendedor){
   const nfsExcluidas=getNfsDevolvidasAprovadas(vendedor);
   const pedidosExcluidos=new Set((pedidosExcluidosMap[vendedor]||[]).map(p=>String(p.pedido).trim()));
 
-  const linhas=faturadaRows.filter(r=>
-    r.mes===mesAnoAtual &&
-    r.vendedor===vendedor &&
+  const linhasBrutas=faturadaRows.filter(r=>
+    r.mes===mesAnoAtual && r.vendedor===vendedor
+  );
+  const linhasConsideradas=linhasBrutas.filter(r=>
     !nfsExcluidas.has(digitsOnly(r.nf)) &&
     !pedidosExcluidos.has(String(r.pedido).trim())
   );
 
-  const porNota={};
-  linhas.forEach(r=>{
-    const nf=digitsOnly(r.nf)||'Sem NF';
-    if(!porNota[nf]){
-      porNota[nf]={
-        nf,
-        data:r.date,
-        pedido:r.pedido||'—',
-        cliente:r.cliente||'—',
-        valor:0,
-        itens:0
-      };
-    }
-    porNota[nf].valor+=Number(r.total||0);
-    porNota[nf].itens++;
-  });
+  function agruparPorNota(linhas){
+    const map={};
+    linhas.forEach(r=>{
+      const nf=digitsOnly(r.nf)||'Sem NF';
+      if(!map[nf]) map[nf]={nf,data:r.date,pedido:r.pedido||'—',cliente:r.cliente||'—',valor:0,itens:0};
+      map[nf].valor+=Number(r.total||0);
+      map[nf].itens++;
+    });
+    return Object.values(map).sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+  }
 
-  const notas=Object.values(porNota).sort((a,b)=>(a.data||'').localeCompare(b.data||''));
-  const total=notas.reduce((s,n)=>s+n.valor,0);
+  const notasBrutas=agruparPorNota(linhasBrutas);
+  const notasConsideradas=agruparPorNota(linhasConsideradas);
+  const totalBruto=notasBrutas.reduce((s,n)=>s+n.valor,0);
+  const totalConsiderado=notasConsideradas.reduce((s,n)=>s+n.valor,0);
   const devolucoes=getDevolucoesAprovadasVendedor(vendedor);
-  const valorDevolvido=devolucoes.reduce((s,d)=>s+Number(d.valor||0),0);
+  const pedidos=pedidosExcluidosMap[vendedor]||[];
+  const ajustes=ajustesMap[vendedor]||[];
+  const totalAbatido=Math.max(0,totalBruto-totalConsiderado)+ajustes.reduce((s,a)=>s+Number(a.valor||0),0);
 
-  const tabela=notas.length?`
-    <div style="overflow-x:auto">
-      <table class="com-detail-table">
-        <thead><tr>
-          <th>NF</th><th>Data</th><th>Pedido</th><th>Cliente</th><th>Linhas</th><th>Valor considerado</th>
-        </tr></thead>
-        <tbody>${notas.map(n=>`<tr>
-          <td class="num">${escapeHtml(n.nf)}</td>
-          <td>${n.data?n.data.split('-').reverse().join('/'):'—'}</td>
-          <td>${escapeHtml(n.pedido)}</td>
-          <td>${escapeHtml(n.cliente)}</td>
-          <td class="num">${n.itens}</td>
-          <td class="num">${fmtBRL(n.valor)}</td>
-        </tr>`).join('')}</tbody>
-      </table>
-    </div>`:'<div class="com-detail-empty">Nenhuma nota considerada para este vendedor.</div>';
+  const abatimentos=[
+    ...devolucoes.map(d=>({tipo:'Nota de entrada',ref:`NF ${d.notaFaturamento}`,pedido:d.pedido||'—',cliente:d.cliente||'—',mes:d.mesOriginal||'—',valor:Number(d.valor||0),motivo:d.detalhes?.[0]||'Devolução aprovada'})),
+    ...pedidos.map(p=>({tipo:'Pedido desconsiderado',ref:`Pedido ${p.pedido}`,pedido:p.pedido||'—',cliente:p.cliente||'—',mes:p.mes_original||'—',valor:Number(p.valor||0),motivo:p.motivo||'Pedido desconsiderado'})),
+    ...ajustes.map(a=>({tipo:'Ajuste manual',ref:'Ajuste',pedido:'—',cliente:'—',mes:mesAnoAtual,valor:Number(a.valor||0),motivo:a.motivo||'Ajuste manual'}))
+  ];
+
+  const tabelaAbatimentos=abatimentos.length?`
+    <div class="client-section-title">Motivos da redução</div>
+    <div style="overflow-x:auto"><table class="com-detail-table">
+      <thead><tr><th>Tipo</th><th>Referência</th><th>Pedido</th><th>Cliente</th><th>Mês original</th><th>Valor abatido</th><th>Motivo</th></tr></thead>
+      <tbody>${abatimentos.map(i=>`<tr>
+        <td>${escapeHtml(i.tipo)}</td><td>${escapeHtml(i.ref)}</td><td>${escapeHtml(i.pedido)}</td>
+        <td>${escapeHtml(i.cliente)}</td><td>${escapeHtml(i.mes)}</td>
+        <td class="num">-${fmtBRL(i.valor)}</td><td>${escapeHtml(i.motivo)}</td>
+      </tr>`).join('')}</tbody>
+    </table></div>`:'<div class="com-detail-empty">Nenhum abatimento aplicado.</div>';
+
+  const tabelaConsideradas=notasConsideradas.length?`
+    <div class="client-section-title">Notas que permaneceram no faturamento considerado</div>
+    <div style="overflow-x:auto"><table class="com-detail-table">
+      <thead><tr><th>NF</th><th>Data</th><th>Pedido</th><th>Cliente</th><th>Linhas</th><th>Valor considerado</th></tr></thead>
+      <tbody>${notasConsideradas.map(n=>`<tr>
+        <td class="num">${escapeHtml(n.nf)}</td><td>${n.data?n.data.split('-').reverse().join('/'):'—'}</td>
+        <td>${escapeHtml(n.pedido)}</td><td>${escapeHtml(n.cliente)}</td><td class="num">${n.itens}</td>
+        <td class="num">${fmtBRL(n.valor)}</td>
+      </tr>`).join('')}</tbody>
+    </table></div>`:'<div class="com-detail-empty">Nenhuma nota considerada para este vendedor.</div>';
 
   abrirModalDetalhe(
-    `Receita faturada considerada — ${vendedor}`,
-    `Competência ${mesAnoAtual}. Notas de entrada aprovadas e pedidos desconsiderados não aparecem neste detalhamento.`,
+    `Detalhamento do faturamento — ${vendedor}`,
+    `O valor da tela principal é o faturamento bruto. Abaixo está a composição do faturamento reduzido utilizado na comissão.`,
     `<div class="com-detail-summary">
-      <div><b>${fmtBRL(total)}</b><span>Faturado considerado</span></div>
-      <div><b>${notas.length}</b><span>Notas fiscais consideradas</span></div>
-      <div><b>${fmtBRL(valorDevolvido)}</b><span>Notas de entrada abatidas</span></div>
-      <div><b>${devolucoes.length}</b><span>Devoluções aprovadas</span></div>
-    </div>${tabela}`
+      <div><b>${fmtBRL(totalBruto)}</b><span>Faturamento bruto</span></div>
+      <div><b>-${fmtBRL(totalAbatido)}</b><span>Total abatido</span></div>
+      <div><b>${fmtBRL(Math.max(0,totalBruto-totalAbatido))}</b><span>Faturamento considerado</span></div>
+      <div><b>${abatimentos.length}</b><span>Abatimentos registrados</span></div>
+    </div>${tabelaAbatimentos}${tabelaConsideradas}`
   );
 }
 function abrirDetalheAbatimentos(vendedor){
