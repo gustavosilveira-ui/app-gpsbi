@@ -128,7 +128,7 @@ html{zoom:.8;}
 <script src="nav.js"></script>
 <script>
 const SUPABASE_URL='https://mczggrocmccvmyglnumv.supabase.co';
-const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJIUzI1NiIsInJlZiI6Im1jemdncm9jbWNjdm15Z2xudW12Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMjM2NzcsImV4cCI6MjA5ODU5OTY3N30.XXzhDvxfNaUW61HvgE4xuqzSICoLEYjbJhd1X52Zp84';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jemdncm9jbWNjdm15Z2xudW12Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMjM2NzcsImV4cCI6MjA5ODU5OTY3N30.XXzhDvxfNaUW61HvgE4xuqzSICoLEYjbJhd1X52Zp84';
 const LOGIN_URL='index.html';
 const SHEET_ID='13pF1S6H59zcn53kW1-MYvIxQVT0-cIDPSB9QNugDfSo';
 const GID_CAPTADA='0';
@@ -249,10 +249,34 @@ async function carregarTudo(){
     sb.from('tangram_comissao_regras').select('*').eq('mes_ano',mesAnoAtual),
     sb.from('tangram_comissao_ajustes').select('*').eq('mes_ano',mesAnoAtual).order('criado_em',{ascending:true})
   ]);
-  if(erroRegras){alert('Rode o arquivo comissao_dupla.sql no Supabase antes de usar esta tela.');console.error(erroRegras)}
-  metasMap={};(metas||[]).forEach(r=>metasMap[r.vendedor]=Number(r.meta_captada||0));
-  regrasMap={};(regras||[]).forEach(r=>regrasMap[r.vendedor]=r);
-  ajustesMap={};(ajustes||[]).forEach(a=>(ajustesMap[a.vendedor]=ajustesMap[a.vendedor]||[]).push(a));
+  if(erroMetas){
+    console.error('Erro ao carregar metas_tangram:', erroMetas);
+    alert('Não consegui carregar as metas do Dashboard: ' + erroMetas.message);
+  }
+  if(erroRegras){
+    console.error('Erro ao carregar tangram_comissao_regras:', erroRegras);
+    alert('Não consegui carregar as regras de comissão: ' + erroRegras.message);
+  }
+  if(erroAjustes){
+    console.error('Erro ao carregar tangram_comissao_ajustes:', erroAjustes);
+  }
+
+  metasMap={};
+  (metas||[]).forEach(r=>{
+    const nome = cleanVendorName(r.vendedor);
+    metasMap[nome] = Number(r.meta_captada||0);
+  });
+  regrasMap={};
+  (regras||[]).forEach(r=>{
+    const nome = cleanVendorName(r.vendedor);
+    regrasMap[nome] = {...r, vendedor:nome};
+  });
+
+  ajustesMap={};
+  (ajustes||[]).forEach(a=>{
+    const nome = cleanVendorName(a.vendedor);
+    (ajustesMap[nome]=ajustesMap[nome]||[]).push({...a, vendedor:nome});
+  });
 
   const fat={},cap={};
   faturadaRows.filter(r=>r.mes===mesAnoAtual).forEach(r=>fat[r.vendedor]=(fat[r.vendedor]||0)+r.total);
