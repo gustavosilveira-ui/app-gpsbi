@@ -154,6 +154,8 @@ html.light .fc-empresa-btn{background:#eef1f6;}
       <div class="card-title">💰 Fluxo de Caixa · Grupo Uuizz</div>
       <div class="card-sub">Empoderamento (Conta Azul) + Mister Wiz (Omie), consolidados ou por empresa. Clique nas setinhas pra abrir/fechar anos, meses e dias — e as categorias dentro de Recebimentos e Pagamentos. Saldo acumulado dia a dia.</div>
 
+      <!-- Para e-mails restritos (ex.: Mister Wiz), o JS esconde os botões
+           "Global"/"Empoderamento" em runtime e mantém só "Mister Wiz" ativo. -->
       <div class="fc-empresa-toggle" id="fcEmpresaToggle">
         <button class="fc-empresa-btn active" data-empresa="global" onclick="setEmpresaFiltro('global')">🏢 Global (Uuizz)</button>
         <button class="fc-empresa-btn" data-empresa="Empoderamento" onclick="setEmpresaFiltro('Empoderamento')">Empoderamento</button>

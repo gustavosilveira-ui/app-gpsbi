@@ -10,10 +10,15 @@ const APP_PAGES = [
 ];
 const APP_PAGE_FLUXO = { href:'fluxodecaixa.html', label:'💰 Fluxo de Caixa' };
 
-// Acesso ao Fluxo: equipe GPSBI + gestora principal da Uuizz (Daniela).
+// Acesso ao Fluxo: equipe GPSBI + gestora principal da Uuizz (Daniela) +
+// e-mails restritos que só enxergam a empresa Mister Wiz (restrição aplicada
+// dentro do fluxodecaixa.js/html, não aqui — aqui só decide se o link aparece).
+const _NAV_EMAILS_SOMENTE_MISTERWIZ = ['miria@misterwiz.com.br', 'custodio@sforza.com.br'];
 function _navCanSeeFluxo(email){
   email = (email||'').toLowerCase();
-  return email.endsWith('@gpsbi.com.br') || email === 'daniela@empoderamentoadolescente.com.br';
+  return email.endsWith('@gpsbi.com.br')
+    || email === 'daniela@empoderamentoadolescente.com.br'
+    || _NAV_EMAILS_SOMENTE_MISTERWIZ.includes(email);
 }
 
 let _appNavSb = null, _appNavUser = null;

@@ -679,9 +679,14 @@ function getUserDisplay(user){
 }
 
 // Mesma regra de acesso ao Fluxo usada em nav.js / fluxodecaixa.html.
+// E-mails restritos (ex.: Mister Wiz) também têm acesso — só enxergam a
+// empresa Mister Wiz depois de entrar (restrição aplicada dentro do fluxodecaixa.js).
+const EMAILS_SOMENTE_MISTERWIZ = ['miria@misterwiz.com.br', 'custodio@sforza.com.br'];
 function canAccessFluxo(email){
   email = (email||'').toLowerCase();
-  return email.endsWith('@gpsbi.com.br') || email === 'daniela@empoderamentoadolescente.com.br';
+  return email.endsWith('@gpsbi.com.br')
+    || email === 'daniela@empoderamentoadolescente.com.br'
+    || EMAILS_SOMENTE_MISTERWIZ.includes(email);
 }
 
 function enterApp(user){

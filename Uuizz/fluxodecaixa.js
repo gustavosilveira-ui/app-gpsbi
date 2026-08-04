@@ -50,10 +50,18 @@ function getColNormalized(rowObj, wantedKeyNormalized){
   return undefined;
 }
 
-// Acesso à página: equipe GPSBI + gestora principal da Uuizz (Daniela).
+// E-mails restritos: só enxergam a empresa Mister Wiz, nunca Global nem Empoderamento.
+const EMAILS_SOMENTE_MISTERWIZ = ['miria@misterwiz.com.br', 'custodio@sforza.com.br'];
+function isRestritoMisterWiz(email){
+  return EMAILS_SOMENTE_MISTERWIZ.includes((email||'').toLowerCase());
+}
+
+// Acesso à página: equipe GPSBI + gestora principal da Uuizz (Daniela) + e-mails restritos à Mister Wiz.
 function canAccessFluxo(email){
   email = (email||'').toLowerCase();
-  return email.endsWith('@gpsbi.com.br') || email === 'daniela@empoderamentoadolescente.com.br';
+  return email.endsWith('@gpsbi.com.br')
+    || email === 'daniela@empoderamentoadolescente.com.br'
+    || isRestritoMisterWiz(email);
 }
 // Recursos de ajuste (Saldo Inicial, Lançamentos Manuais) são só do time interno GPS.
 function isGpsStaff(email){
@@ -477,6 +485,7 @@ function rowsFromVindi(table){
 let rows = []; // { date, categoria, grupoDisplay, grupo, valor, signedValor, conta, empresa, fonte, nome, documento, historico }
 let currentUser = null;
 let gpsStaff = false;
+let restritoMisterWiz = false; // true = e-mail que só pode ver a empresa Mister Wiz
 let empresaFiltro = 'global'; // 'global' | 'Empoderamento' | 'Mister Wiz'
 const LIMITE_CONTA = 0; // nenhuma das duas empresas pode operar no vermelho
 
@@ -502,6 +511,16 @@ async function init(){
     const card = el('fcAjustesGpsCard'); if(card) card.style.display='none';
   }
 
+  restritoMisterWiz = isRestritoMisterWiz(email);
+  if(restritoMisterWiz){
+    empresaFiltro = 'Mister Wiz';
+    // Esconde os botões "Global" e "Empoderamento" — só sobra Mister Wiz, já ativo.
+    document.querySelectorAll('#fcEmpresaToggle .fc-empresa-btn').forEach(b=>{
+      if(b.dataset.empresa !== 'Mister Wiz') b.style.display = 'none';
+      else b.classList.add('active');
+    });
+  }
+
   renderAppNav({ activePage:'fluxodecaixa.html', userLabel: nameFromEmail(email), userRole: isOwner(email)?'owner':'vendor', onLogout: doLogout, sb, currentUser });
 
   await loadData();
@@ -509,6 +528,28 @@ async function init(){
 
 async function loadData(){
   try{
+    if(restritoMisterWiz){
+      // E-mail restrito: nem busca os dados do Empoderamento (CAP/CAR/histórico) —
+      // assim a informação da outra empresa nunca chega no navegador desse usuário.
+      const [tableMov, tableVindi] = await Promise.all([
+        fetchGviz(GID_MOVIMENTACAO_UUIZZ),
+        fetchGviz(GID_VINDI),
+      ]);
+      rows = [
+        ...rowsFromMovimentacao(tableMov),
+        ...rowsFromVindi(tableVindi),
+      ];
+      rows.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+
+      await loadSaldoInicial();
+      await loadAjustesManuais();
+      buildAndRenderTable();
+      el('loadingScreen').style.display='none';
+      el('mainContent').style.display='block';
+      document.documentElement.style.visibility='visible';
+      return;
+    }
+
     const [tableCap, tableCar, tableMov, tableVindi] = await Promise.all([
       fetchGviz(GID_CAP),
       fetchGviz(GID_CAR),
@@ -537,6 +578,7 @@ async function loadData(){
 }
 
 function setEmpresaFiltro(v){
+  if(restritoMisterWiz && v!=='Mister Wiz') return; // e-mail restrito não troca de empresa
   empresaFiltro = v;
   document.querySelectorAll('#fcEmpresaToggle .fc-empresa-btn').forEach(b=>{
     b.classList.toggle('active', b.dataset.empresa===v);
