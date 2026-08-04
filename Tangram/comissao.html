@@ -6,6 +6,7 @@
 <title>Comissão e Premiação · Hub GPSBI</title>
 <link rel="stylesheet" href="theme.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 html{zoom:.8;}
 .com-filtros{display:flex;gap:14px;align-items:end;margin-bottom:18px;flex-wrap:wrap}
@@ -68,6 +69,34 @@ html{zoom:.8;}
 .com-doc-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap}
 @media(max-width:900px){.com-excluir-grid{grid-template-columns:1fr}.com-order-kpis{grid-template-columns:1fr 1fr}}
 
+
+.com-dev-head{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
+.com-dev-head .chev{margin-left:auto;color:var(--text3);transition:transform .18s}
+.com-dev-head.open .chev{transform:rotate(90deg)}
+.com-dev-badge{display:inline-flex;padding:3px 8px;border-radius:999px;font-size:10px;font-weight:800;background:rgba(245,185,66,.15);color:var(--gold)}
+.com-dev-body{display:none;margin-top:14px}
+.com-dev-body.open{display:block}
+.com-dev-toolbar{display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-bottom:12px}
+.com-dev-toolbar .field-group{margin-bottom:0}
+.com-dev-table{width:100%;border-collapse:collapse;font-size:11.5px}
+.com-dev-table th,.com-dev-table td{padding:8px 9px;border-bottom:1px solid var(--border);vertical-align:middle}
+.com-dev-table th{font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--text3);white-space:nowrap}
+.com-dev-table th:not(:first-child),.com-dev-table td:not(:first-child){text-align:center}
+.com-dev-table th:first-child,.com-dev-table td:first-child{text-align:left}
+.com-dev-table .ok{color:var(--green);font-weight:800}
+.com-dev-table .pend{color:var(--gold);font-weight:800}
+.com-dev-table .nf{font-family:'DM Mono',monospace;font-weight:700}
+.com-dev-table .valor{font-family:'DM Mono',monospace;font-weight:700}
+.com-dev-detail-row{display:none}
+.com-dev-detail-row.open{display:table-row}
+.com-dev-detail{padding:12px 16px!important;background:var(--navy3);text-align:left!important;line-height:1.5;color:var(--text2)}
+.com-dev-check{width:16px;height:16px;accent-color:var(--cyan)}
+.com-dev-summary{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:10px;margin-bottom:12px}
+.com-dev-summary>div{background:var(--navy3);border:1px solid var(--border2);border-radius:10px;padding:10px 12px}
+.com-dev-summary b{display:block;font-family:'DM Mono',monospace;font-size:13px}
+.com-dev-summary span{display:block;font-size:10px;color:var(--text3);margin-top:3px}
+@media(max-width:900px){.com-dev-summary{grid-template-columns:1fr 1fr}}
+
 </style>
 </head>
 <body>
@@ -113,7 +142,7 @@ html{zoom:.8;}
         <table class="com-table">
           <thead><tr>
             <th>Vendedor</th><th style="text-align:right">Faturado</th>
-            <th style="text-align:right">Base</th><th style="text-align:right">% Comissão</th>
+            <th style="text-align:right">% Comissão</th>
             <th style="text-align:right">Comissão</th><th></th>
           </tr></thead>
           <tbody id="tbodyComissao"></tbody>
@@ -176,6 +205,59 @@ html{zoom:.8;}
         <div class="com-proof-hint">Clique no campo e pressione Ctrl + V para colar um print. A imagem ficará salva no mês selecionado.</div>
         <div id="pasteServicos" class="com-paste-zone" contenteditable="true">Clique aqui e cole a imagem</div>
         <div id="proofListServicos" class="com-proof-list"></div>
+      </div>
+    </div>
+
+
+    <div class="card">
+      <div class="com-dev-head" id="devolucoesHead" onclick="toggleDevolucoes()">
+        <div>
+          <div class="card-title">↩️ Notas de entrada que podem anular comissão</div>
+          <div class="card-sub">Cruza a aba “Notas de Entrada” com a nota fiscal original da aba “Faturamento de Pedidos”. Só abate da comissão quando estiver marcada.</div>
+        </div>
+        <span class="com-dev-badge" id="devolucoesBadge">0 localizadas</span>
+        <span class="chev">▶</span>
+      </div>
+
+      <div class="com-dev-body" id="devolucoesBody">
+        <div class="com-dev-summary">
+          <div><b id="devTotalNotas">0</b><span>Notas localizadas</span></div>
+          <div><b id="devTotalValor">R$ 0,00</b><span>Valor identificado</span></div>
+          <div><b id="devTotalMarcadas">0</b><span>Notas marcadas para abater</span></div>
+          <div><b id="devValorMarcado">R$ 0,00</b><span>Valor que será abatido</span></div>
+        </div>
+
+        <div class="com-dev-toolbar">
+          <div class="field-group">
+            <label class="field-label">Vendedor</label>
+            <select id="filtroDevVendedor" onchange="renderDevolucoes()">
+              <option value="">Todos os vendedores</option>
+            </select>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="marcarDevolucoesVisiveis(true)">Marcar visíveis</button>
+          <button class="btn btn-ghost btn-sm" onclick="marcarDevolucoesVisiveis(false)">Desmarcar visíveis</button>
+          <button class="btn btn-primary btn-sm" onclick="exportarDevolucoesExcel()">📊 Exportar Excel</button>
+        </div>
+
+        <div style="overflow-x:auto">
+          <table class="com-dev-table">
+            <thead>
+              <tr>
+                <th>Abater</th>
+                <th>NF original</th>
+                <th>NF entrada</th>
+                <th>Vendedor</th>
+                <th>Cliente</th>
+                <th>Mês original</th>
+                <th>Mês da entrada</th>
+                <th>Valor</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="tbodyDevolucoes"></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -244,6 +326,7 @@ const SHEET_ID='13pF1S6H59zcn53kW1-MYvIxQVT0-cIDPSB9QNugDfSo';
 const GID_CAPTADA='0';
 const GID_FATURADA='1703975608';
 const GID_SERVICOS='1035503870';
+const GID_NOTAS_ENTRADA='390158071';
 const ANDERSON_EMAIL='anderson@tangrampersonalizados.com.br';
 
 const SITUACOES_FATURADA=['autorizado','faturado','nfs-e autorizada'];
@@ -253,9 +336,10 @@ const NF_EXCLUIDAS_FATURADA=new Set(['14024','18081','18089']);
 
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 let currentUser=null;
-let faturadaRows=[],captadaRows=[],servicosRows=[],metasMap={},regrasMap={},ajustesMap={};
+let faturadaRows=[],captadaRows=[],servicosRows=[],notasEntradaRows=[],metasMap={},regrasMap={},ajustesMap={};
 let pedidosExcluidosMap={}, evidenciasCache=[];
 let pedidoEncontradoAtual=null;
+let devolucoesDetectadas=[], devolucoesSalvasMap={}, devolucoesAprovadasMap={};
 let mesAnoAtual='';
 
 function el(id){return document.getElementById(id)}
@@ -365,6 +449,96 @@ function servicoOk(r){
   return !s.includes('cancelado') && !s.includes('rejeitad');
 }
 
+
+function digitsOnly(v){return String(v??'').replace(/\D/g,'')}
+function extrairNotaReferenciada(texto){
+  const s=String(texto||'');
+  const m=s.match(/nota(?:\s+fiscal)?\s*(?:n[ºo.]?\s*)?([0-9][0-9.\-\/]*)/i);
+  return m ? digitsOnly(m[1]) : '';
+}
+function rowToNotaEntrada(row){
+  const date=parseDate(firstCol(row,[
+    'Data de Emissão (completa)','Data de Emissão','Data Emissão',
+    'Data de Entrada','Data Entrada','Data'
+  ]));
+  if(!date)return null;
+
+  const notaEntrada=digitsOnly(firstCol(row,['Nota Fiscal','NF','NFS-e','NFS']));
+  const detalhes=String(firstCol(row,[
+    'Dados Adicionais para a Nota Fiscal','Dados Adicionais',
+    'Informações Complementares','Informacoes Complementares','Observação','Observacao'
+  ])||'').trim();
+  const notaOriginal=extrairNotaReferenciada(detalhes);
+  if(!notaOriginal)return null;
+
+  return {
+    date, mes:date.slice(0,7), notaEntrada, notaOriginal, detalhes
+  };
+}
+function detectarDevolucoes(mesApuracao){
+  const entradasMes=notasEntradaRows.filter(r=>r.mes===mesApuracao);
+  const fatMap={};
+
+  faturadaRows.forEach(r=>{
+    const nf=digitsOnly(r.nf);
+    if(!nf)return;
+    if(!fatMap[nf]){
+      fatMap[nf]={
+        nf,
+        vendedor:r.vendedor,
+        cliente:r.cliente||'—',
+        mesOriginal:r.mes,
+        valor:0
+      };
+    }
+    fatMap[nf].valor+=Number(r.total||0);
+  });
+
+  const grouped={};
+  entradasMes.forEach(e=>{
+    const fat=fatMap[e.notaOriginal];
+    const key=e.notaOriginal;
+    if(!grouped[key]){
+      grouped[key]={
+        notaFaturamento:e.notaOriginal,
+        notasEntrada:[],
+        vendedor:fat?.vendedor||'Não localizada',
+        cliente:fat?.cliente||'—',
+        mesOriginal:fat?.mesOriginal||'—',
+        mesEntrada:e.mes,
+        valor:Number(fat?.valor||0),
+        detalhes:[],
+        localizada:!!fat,
+        aprovado:false
+      };
+    }
+    if(e.notaEntrada && !grouped[key].notasEntrada.includes(e.notaEntrada)){
+      grouped[key].notasEntrada.push(e.notaEntrada);
+    }
+    if(e.detalhes && !grouped[key].detalhes.includes(e.detalhes)){
+      grouped[key].detalhes.push(e.detalhes);
+    }
+  });
+
+  return Object.values(grouped)
+    .map(d=>{
+      const salvo=devolucoesSalvasMap[d.notaFaturamento];
+      return {
+        ...d,
+        aprovado:!!salvo?.aprovado,
+        id:salvo?.id||null
+      };
+    })
+    .sort((a,b)=>(b.valor||0)-(a.valor||0));
+}
+function recalcularDevolucoesAprovadas(){
+  devolucoesAprovadasMap={};
+  devolucoesDetectadas.filter(d=>d.aprovado&&d.localizada).forEach(d=>{
+    const vendedor=cleanVendorName(d.vendedor);
+    devolucoesAprovadasMap[vendedor]=(devolucoesAprovadasMap[vendedor]||0)+Number(d.valor||0);
+  });
+}
+
 function captadaOk(r){
   const s=normalizeTxt(r.situacao);
   if(s.includes('cancelado')||s.includes('rejeitada'))return false;
@@ -405,14 +579,16 @@ function montarFiltros(){
 }
 async function carregarBases(){
   el('loadingMsg').textContent='Buscando bases de vendas...';
-  const[capTable,fatTable,servTable]=await Promise.all([
+  const[capTable,fatTable,servTable,notasEntradaTable]=await Promise.all([
     fetchGviz(GID_CAPTADA),
     fetchGviz(GID_FATURADA),
-    fetchGviz(GID_SERVICOS)
+    fetchGviz(GID_SERVICOS),
+    fetchGviz(GID_NOTAS_ENTRADA)
   ]);
   captadaRows=parseRows(capTable).map(r=>rowToRecord(r,'captada')).filter(Boolean).filter(captadaOk);
   faturadaRows=parseRows(fatTable).map(r=>rowToRecord(r,'faturada')).filter(Boolean).filter(faturadaOk);
   servicosRows=parseRows(servTable).map(rowToServiceRecord).filter(Boolean).filter(servicoOk);
+  notasEntradaRows=parseRows(notasEntradaTable).map(rowToNotaEntrada).filter(Boolean);
 }
 async function carregarTudo(){
   const mes=String(el('comMes').value).padStart(2,'0'),ano=el('comAno').value;
@@ -424,13 +600,15 @@ async function carregarTudo(){
     {data:regras,error:erroRegras},
     {data:ajustes,error:erroAjustes},
     {data:pedidosExcluidos,error:erroPedidosExcluidos},
-    {data:evidencias,error:erroEvidencias}
+    {data:evidencias,error:erroEvidencias},
+    {data:devolucoesSalvas,error:erroDevolucoes}
   ]=await Promise.all([
     sb.from('metas_tangram').select('*').eq('mes_ano',mesAnoAtual),
     sb.from('tangram_comissao_regras').select('*').eq('mes_ano',mesAnoAtual),
     sb.from('tangram_comissao_ajustes').select('*').eq('mes_ano',mesAnoAtual).order('criado_em',{ascending:true}),
     sb.from('tangram_comissao_pedidos_excluidos').select('*').eq('mes_aplicacao',mesAnoAtual).order('criado_em',{ascending:true}),
-    sb.from('tangram_comissao_evidencias').select('*').eq('mes_ano',mesAnoAtual).order('criado_em',{ascending:true})
+    sb.from('tangram_comissao_evidencias').select('*').eq('mes_ano',mesAnoAtual).order('criado_em',{ascending:true}),
+    sb.from('tangram_comissao_devolucoes').select('*').eq('mes_apuracao',mesAnoAtual)
   ]);
   if(erroMetas){
     console.error('Erro ao carregar metas_tangram:', erroMetas);
@@ -443,6 +621,12 @@ async function carregarTudo(){
   if(erroAjustes) console.error('Erro ao carregar tangram_comissao_ajustes:', erroAjustes);
   if(erroPedidosExcluidos) console.error('Erro ao carregar pedidos excluídos:', erroPedidosExcluidos);
   if(erroEvidencias) console.error('Erro ao carregar evidências:', erroEvidencias);
+  if(erroDevolucoes) console.error('Erro ao carregar devoluções:', erroDevolucoes);
+
+  devolucoesSalvasMap={};
+  (devolucoesSalvas||[]).forEach(d=>{
+    devolucoesSalvasMap[digitsOnly(d.nota_faturamento)]=d;
+  });
 
   pedidosExcluidosMap={};
   (pedidosExcluidos||[]).forEach(p=>{
@@ -468,6 +652,9 @@ async function carregarTudo(){
     (ajustesMap[nome]=ajustesMap[nome]||[]).push({...a, vendedor:nome});
   });
 
+  devolucoesDetectadas=detectarDevolucoes(mesAnoAtual);
+  recalcularDevolucoesAprovadas();
+
   const fat={},cap={},serv={};
   faturadaRows.filter(r=>r.mes===mesAnoAtual).forEach(r=>fat[r.vendedor]=(fat[r.vendedor]||0)+r.total);
   captadaRows.filter(r=>r.mes===mesAnoAtual).forEach(r=>cap[r.vendedor]=(cap[r.vendedor]||0)+r.total);
@@ -479,44 +666,47 @@ async function carregarTudo(){
   renderPremiacao(vendedores,cap);
   renderServicos(vendedores,serv);
   renderEvidencias();
+  renderDevolucoes();
   renderPedidosExcluidos();
 }
 function regra(v){
   return regrasMap[v]||{percentual_faturado:.015,percentual_premiacao:.01,percentual_servicos:.015};
 }
 function renderComissao(vendedores,fat){
-  let totFat=0,totAj=0,totCom=0;
+  let totFat=0,totAbat=0,totCom=0;
   const linhas=vendedores.filter(v=>(fat[v]||0)>0).map(v=>{
     const faturado=fat[v]||0;
     const ajs=ajustesMap[v]||[];
-    const aj=ajs.reduce((s,a)=>s+Number(a.valor||0),0);
+    const ajusteManual=ajs.reduce((s,a)=>s+Number(a.valor||0),0);
     const pedidosExcluidos=pedidosExcluidosMap[v]||[];
     const abatimentoPedidos=pedidosExcluidos.reduce((s,p)=>s+Number(p.valor||0),0);
-    const totalAbatimentos=aj+abatimentoPedidos;
+    const abatimentoDevolucoes=Number(devolucoesAprovadasMap[v]||0);
+    const totalAbatimentos=ajusteManual+abatimentoPedidos+abatimentoDevolucoes;
     const base=Math.max(0,faturado-totalAbatimentos);
     const pct=Number(regra(v).percentual_faturado??.015);
     const comissao=base*pct;
-    totFat+=faturado;totAj+=totalAbatimentos;totCom+=comissao;
+    totFat+=faturado;totAbat+=totalAbatimentos;totCom+=comissao;
+
     return `<tr>
       <td>${v}</td>
       <td class="com-valor">${fmtBRL(faturado)}</td>
-      <td class="com-valor">${fmtBRL(base)}</td>
       <td><input class="com-pct-input" type="number" step="0.1" min="0"
         value="${(pct*100).toFixed(2)}"
         onchange="salvarRegra('${v.replace(/'/g,"\\'")}','faturado',this.value)"> %</td>
       <td class="com-valor"><b>${fmtBRL(comissao)}</b></td>
-      <td><button class="com-ajuste-btn" onclick="abrirAjusteModal('${v.replace(/'/g,"\\'")}')">➕</button></td>
+      <td><button class="com-ajuste-btn" title="Ajuste manual" onclick="abrirAjusteModal('${v.replace(/'/g,"\\'")}')">➕</button></td>
     </tr>`;
   }).join('');
-  el('tbodyComissao').innerHTML=(linhas||'<tr><td colspan="6" style="text-align:center;color:var(--text3)">Nenhum faturamento neste mês.</td></tr>')+
+
+  el('tbodyComissao').innerHTML=(linhas||'<tr><td colspan="5" style="text-align:center;color:var(--text3)">Nenhum faturamento neste mês.</td></tr>')+
     `<tr class="total-row">
       <td>Total Geral</td>
       <td class="com-valor">${fmtBRL(totFat)}</td>
-      <td class="com-valor">${fmtBRL(totFat-totAj)}</td>
       <td></td>
       <td class="com-valor">${fmtBRL(totCom)}</td>
       <td></td>
     </tr>`;
+
   el('kpiFat').textContent=fmtBRL(totFat);
   el('kpiCom').textContent=fmtBRL(totCom);
   window._totalComissao=totCom;
@@ -610,6 +800,159 @@ async function salvarAjuste(){
   fecharAjusteModal();await carregarTudo();
 }
 async function removerAjuste(id){if(!confirm('Remover este ajuste?'))return;await sb.from('tangram_comissao_ajustes').delete().eq('id',id);await carregarTudo()}
+
+
+function toggleDevolucoes(){
+  el('devolucoesHead').classList.toggle('open');
+  el('devolucoesBody').classList.toggle('open');
+}
+function getDevolucoesVisiveis(){
+  const vendedor=el('filtroDevVendedor')?.value||'';
+  return devolucoesDetectadas.filter(d=>!vendedor||d.vendedor===vendedor);
+}
+function renderDevolucoes(){
+  const select=el('filtroDevVendedor');
+  if(select){
+    const atual=select.value;
+    const vendedores=[...new Set(devolucoesDetectadas.filter(d=>d.localizada).map(d=>d.vendedor))].sort();
+    select.innerHTML='<option value="">Todos os vendedores</option>'+
+      vendedores.map(v=>`<option value="${v.replace(/"/g,'&quot;')}">${v}</option>`).join('');
+    if(vendedores.includes(atual))select.value=atual;
+  }
+
+  const visiveis=getDevolucoesVisiveis();
+  const localizadas=devolucoesDetectadas.filter(d=>d.localizada);
+  const marcadas=localizadas.filter(d=>d.aprovado);
+  const totalValor=localizadas.reduce((s,d)=>s+Number(d.valor||0),0);
+  const valorMarcado=marcadas.reduce((s,d)=>s+Number(d.valor||0),0);
+
+  el('devolucoesBadge').textContent=`${localizadas.length} localizadas`;
+  el('devTotalNotas').textContent=localizadas.length.toLocaleString('pt-BR');
+  el('devTotalValor').textContent=fmtBRL(totalValor);
+  el('devTotalMarcadas').textContent=marcadas.length.toLocaleString('pt-BR');
+  el('devValorMarcado').textContent=fmtBRL(valorMarcado);
+
+  const tb=el('tbodyDevolucoes');
+  if(!tb)return;
+  tb.innerHTML=visiveis.length?visiveis.map((d,i)=>{
+    const detalheId=`devdet_${i}_${d.notaFaturamento}`;
+    const status=d.localizada
+      ? (d.aprovado?'<span class="ok">Será abatida</span>':'<span class="pend">Aguardando validação</span>')
+      : '<span style="color:var(--red);font-weight:800">NF não localizada</span>';
+    return `<tr>
+      <td><input class="com-dev-check" type="checkbox" ${d.aprovado?'checked':''} ${d.localizada?'':'disabled'}
+        onchange="alterarDevolucaoFlag('${d.notaFaturamento}',this.checked)"></td>
+      <td class="nf">${d.notaFaturamento}</td>
+      <td class="nf">${d.notasEntrada.join(', ')||'—'}</td>
+      <td>${d.vendedor}</td>
+      <td>${d.cliente||'—'}</td>
+      <td>${d.mesOriginal||'—'}</td>
+      <td>${d.mesEntrada||'—'}</td>
+      <td class="valor">${fmtBRL(d.valor)}</td>
+      <td>${status}</td>
+      <td><button class="btn btn-ghost btn-sm" onclick="toggleDevolucaoDetalhe('${detalheId}')">Detalhes</button></td>
+    </tr>
+    <tr id="${detalheId}" class="com-dev-detail-row">
+      <td colspan="10" class="com-dev-detail">
+        <b>Descrição encontrada na Nota de Entrada:</b><br>
+        ${d.detalhes.map(x=>x.replace(/</g,'&lt;').replace(/>/g,'&gt;')).join('<br><br>')}
+      </td>
+    </tr>`;
+  }).join(''):'<tr><td colspan="10" style="text-align:center;color:var(--text3)">Nenhuma nota de entrada com referência a nota fiscal foi localizada no mês.</td></tr>';
+}
+function toggleDevolucaoDetalhe(id){
+  el(id)?.classList.toggle('open');
+}
+async function alterarDevolucaoFlag(notaFaturamento,aprovado){
+  const d=devolucoesDetectadas.find(x=>x.notaFaturamento===notaFaturamento);
+  if(!d||!d.localizada)return;
+
+  const payload={
+    mes_apuracao:mesAnoAtual,
+    nota_faturamento:d.notaFaturamento,
+    nota_entrada:d.notasEntrada.join(', '),
+    vendedor:d.vendedor,
+    cliente:d.cliente,
+    mes_original:d.mesOriginal,
+    mes_entrada:d.mesEntrada,
+    valor:d.valor,
+    detalhes:d.detalhes.join('\n\n'),
+    aprovado,
+    atualizado_por:currentUser.email,
+    atualizado_em:new Date().toISOString()
+  };
+  if(!d.id){
+    payload.criado_por=currentUser.email;
+  }
+
+  const {data,error}=await sb.from('tangram_comissao_devolucoes')
+    .upsert(payload,{onConflict:'mes_apuracao,nota_faturamento'})
+    .select().single();
+
+  if(error){
+    alert('Erro ao salvar validação da devolução: '+error.message);
+    renderDevolucoes();
+    return;
+  }
+
+  d.aprovado=aprovado;
+  d.id=data?.id||d.id;
+  devolucoesSalvasMap[d.notaFaturamento]=data||payload;
+  recalcularDevolucoesAprovadas();
+
+  const fat={},cap={},serv={};
+  faturadaRows.filter(r=>r.mes===mesAnoAtual).forEach(r=>fat[r.vendedor]=(fat[r.vendedor]||0)+r.total);
+  captadaRows.filter(r=>r.mes===mesAnoAtual).forEach(r=>cap[r.vendedor]=(cap[r.vendedor]||0)+r.total);
+  servicosRows.filter(r=>r.mes===mesAnoAtual).forEach(r=>serv[r.vendedor]=(serv[r.vendedor]||0)+r.total);
+  const vendedores=Array.from(new Set([
+    ...Object.keys(fat),...Object.keys(cap),...Object.keys(serv),...Object.keys(metasMap)
+  ]));
+  renderComissao(vendedores,fat);
+  renderDevolucoes();
+}
+async function marcarDevolucoesVisiveis(aprovado){
+  const visiveis=getDevolucoesVisiveis().filter(d=>d.localizada&&d.aprovado!==aprovado);
+  for(const d of visiveis){
+    await alterarDevolucaoFlag(d.notaFaturamento,aprovado);
+  }
+}
+function exportarDevolucoesExcel(){
+  const rows=getDevolucoesVisiveis();
+  if(!rows.length){alert('Não há dados para exportar.');return}
+
+  const detalhe=rows.map(d=>({
+    'Mês da apuração':mesAnoAtual,
+    'Abater da comissão':d.aprovado?'SIM':'NÃO',
+    'Nota fiscal original':d.notaFaturamento,
+    'Nota(s) de entrada':d.notasEntrada.join(', '),
+    'Vendedor':d.vendedor,
+    'Cliente':d.cliente,
+    'Mês original da NF':d.mesOriginal,
+    'Mês da nota de entrada':d.mesEntrada,
+    'Valor da NF original':Number(d.valor||0),
+    'NF localizada':d.localizada?'SIM':'NÃO',
+    'Descrição da nota de entrada':d.detalhes.join(' | ')
+  }));
+
+  const resumoMap={};
+  rows.filter(d=>d.localizada).forEach(d=>{
+    const key=d.vendedor;
+    if(!resumoMap[key])resumoMap[key]={Vendedor:key,'Notas localizadas':0,'Valor identificado':0,'Notas marcadas':0,'Valor abatido':0};
+    resumoMap[key]['Notas localizadas']++;
+    resumoMap[key]['Valor identificado']+=Number(d.valor||0);
+    if(d.aprovado){
+      resumoMap[key]['Notas marcadas']++;
+      resumoMap[key]['Valor abatido']+=Number(d.valor||0);
+    }
+  });
+
+  const wb=XLSX.utils.book_new();
+  const ws1=XLSX.utils.json_to_sheet(detalhe);
+  const ws2=XLSX.utils.json_to_sheet(Object.values(resumoMap));
+  XLSX.utils.book_append_sheet(wb,ws1,'Devoluções');
+  XLSX.utils.book_append_sheet(wb,ws2,'Resumo por vendedor');
+  XLSX.writeFile(wb,`Tangram_Devolucoes_Comissao_${mesAnoAtual}.xlsx`);
+}
 
 function initPasteZones(){
   [['pasteFaturado','faturado'],['pastePremiacao','premiacao'],['pasteServicos','servicos']].forEach(([id,tipo])=>{
