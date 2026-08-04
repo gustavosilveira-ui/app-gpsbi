@@ -292,10 +292,12 @@ function captadaOk(r){
 }
 function faturadaOk(r){
   const s=normalizeTxt(r.situacao);
+  // Mesma regra da versão anterior que fechava com o Dashboard:
+  // considera os registros faturados/autorizados da operação Orçamento.
+  // Pedidos que não entram na comissão devem ser abatidos somente pela
+  // seção "Pedidos desconsiderados", mantendo documentação e histórico.
   return SITUACOES_FATURADA.includes(s)
-    && normalizeTxt(r.operacao).includes('orcamento')
-    && !PEDIDOS_EXCLUIDOS_FATURADA.has(r.pedido)
-    && !NF_EXCLUIDAS_FATURADA.has(r.nf);
+    && normalizeTxt(r.operacao).includes('orcamento');
 }
 
 async function init(){
