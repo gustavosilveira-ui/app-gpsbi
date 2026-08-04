@@ -41,8 +41,8 @@ function renderAppNav({ activePage, userLabel, userRole, onLogout, sb, currentUs
 
   const emailAtual = currentUser && currentUser.email;
   let pages = [...APP_PAGES];
-  if(_navCanSeeComissao(emailAtual)) pages.push(APP_PAGE_COMISSAO);
   if(_navCanSeeFluxo(emailAtual)) pages.push(APP_PAGE_FLUXO);
+  if(_navCanSeeComissao(emailAtual)) pages.push(APP_PAGE_COMISSAO);
   const navLinks = pages.map(p=>{
     const cls = p.href===activePage ? 'active' : '';
     const idAttr = p.id ? ` id="${p.id}"` : '';
