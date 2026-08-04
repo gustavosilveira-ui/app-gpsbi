@@ -3,83 +3,104 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Comissão · Hub GPSBI</title>
+<title>Comissão e Premiação · Hub GPSBI</title>
 <link rel="stylesheet" href="theme.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 html{zoom:.8;}
-.com-filtros{display:flex;gap:14px;align-items:end;margin-bottom:18px;flex-wrap:wrap;}
-.com-filtros .field-group{margin-bottom:0;}
-.com-filtros select{min-width:140px;}
-.com-table{width:100%;border-collapse:collapse;font-size:12.5px;}
-.com-table th{text-align:left;padding:8px 10px;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--text3);border-bottom:1px solid var(--border2);white-space:nowrap;}
-.com-table td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:middle;}
-.com-table tr.total-row td{font-weight:800;border-top:2px solid var(--border2);border-bottom:none;}
-.com-pct-input{width:70px;text-align:right;padding:6px 8px;font-size:12.5px;}
-.com-valor{font-family:'DM Mono',monospace;text-align:right;}
-.com-ajuste-btn{background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:13px;}
-.com-ajuste-btn:hover{color:var(--cyan);}
-.com-ajustes-list{font-size:11px;color:var(--text3);margin-top:2px;}
-.com-ajustes-list .rm{color:var(--red);cursor:pointer;margin-left:6px;}
-.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.55);display:none;align-items:center;justify-content:center;z-index:300;}
-.modal-overlay.open{display:flex;}
-.modal-box{background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius);padding:24px;width:440px;max-width:92vw;box-shadow:0 30px 70px rgba(0,0,0,.5);}
-.modal-title{font-size:16px;font-weight:700;margin-bottom:4px;}
-.modal-sub{font-size:12px;color:var(--text3);margin-bottom:16px;}
-.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;}
+.com-filtros{display:flex;gap:14px;align-items:end;margin-bottom:18px;flex-wrap:wrap}
+.com-filtros .field-group{margin-bottom:0}.com-filtros select{min-width:150px}
+.com-kpis{display:grid;grid-template-columns:repeat(4,minmax(180px,1fr));gap:12px;margin-bottom:18px}
+.com-kpi{background:var(--navy3);border:1px solid var(--border2);border-radius:12px;padding:16px}
+.com-kpi-val{font-family:'DM Mono',monospace;font-size:20px;font-weight:800}
+.com-kpi-lbl{font-size:11px;color:var(--text3);margin-top:4px}
+.com-table{width:100%;border-collapse:collapse;font-size:12.5px}
+.com-table th{text-align:left;padding:8px 10px;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--text3);border-bottom:1px solid var(--border2);white-space:nowrap}
+.com-table td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+.com-table tr.total-row td{font-weight:800;border-top:2px solid var(--border2);border-bottom:none}
+.com-valor{font-family:'DM Mono',monospace;text-align:right;white-space:nowrap}
+.com-pct-input{width:78px!important;text-align:right;padding:6px 8px!important;font-size:12.5px!important;display:inline-block!important}
+.com-ajuste-btn{background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:13px}
+.com-ajuste-btn:hover{color:var(--cyan)}
+.com-ajustes-list{font-size:11px;color:var(--text3);margin-top:3px;line-height:1.45}
+.com-ajustes-list .rm{color:var(--red);cursor:pointer;margin-left:6px}
+.com-status{display:inline-flex;padding:4px 9px;border-radius:999px;font-size:10.5px;font-weight:800;white-space:nowrap}
+.com-status.ok{background:rgba(47,214,184,.15);color:var(--green)}
+.com-status.no{background:rgba(245,185,66,.15);color:var(--gold)}
+.com-status.sem{background:rgba(239,106,106,.12);color:var(--red)}
+.com-note{font-size:11.5px;color:var(--text3);line-height:1.5;margin:10px 0 0}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:300}
+.modal-overlay.open{display:flex}
+.modal-box{background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius);padding:24px;width:440px;max-width:92vw;box-shadow:0 30px 70px rgba(0,0,0,.5)}
+.modal-title{font-size:16px;font-weight:700;margin-bottom:4px}.modal-sub{font-size:12px;color:var(--text3);margin-bottom:16px}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
+@media(max-width:900px){.com-kpis{grid-template-columns:1fr 1fr}}
 </style>
 </head>
 <body>
 
 <div class="loading-screen" id="loadingScreen">
   <div class="spinner"></div>
-  <p id="loadingMsg">Carregando comissão...</p>
+  <p id="loadingMsg">Carregando comissão e premiação...</p>
 </div>
 
-<div id="deniedScreen" class="content" style="display:none;">
+<div id="deniedScreen" class="content" style="display:none">
   <div class="card">
     <div class="card-title">🔒 Acesso restrito</div>
-    <div class="card-sub">Essa página é exclusiva pra administração da Tangram. Fala com o Gustavo se precisar de acesso.</div>
+    <div class="card-sub">Esta página é exclusiva para a equipe GPSBI e Anderson.</div>
   </div>
 </div>
 
-<div id="mainContent" style="display:none;">
-  <div class="content">
+<div id="mainContent" style="display:none">
+  <div class="content wide">
 
     <div class="card">
-      <div class="card-title">💰 Comissão de Vendas</div>
-      <div class="card-sub">Comissão sobre pedidos faturados (Operação = Orçamento, Situação = Autorizado), por vendedor. O % é o único valor que muda mês a mês — ajuste aqui e ele fica salvo pra todo mundo.</div>
+      <div class="card-title">💰 Comissão e Premiação de Vendas</div>
+      <div class="card-sub">Comissão oficial sobre faturados e premiação por meta sobre receita captada.</div>
 
       <div class="com-filtros">
-        <div class="field-group">
-          <label class="field-label">Mês</label>
-          <select id="comMes"></select>
-        </div>
-        <div class="field-group">
-          <label class="field-label">Ano</label>
-          <select id="comAno"></select>
-        </div>
-        <button class="btn btn-ghost btn-sm" onclick="carregarComissao()">Atualizar</button>
+        <div class="field-group"><label class="field-label">Mês</label><select id="comMes"></select></div>
+        <div class="field-group"><label class="field-label">Ano</label><select id="comAno"></select></div>
+        <button class="btn btn-ghost btn-sm" onclick="carregarTudo()">Atualizar</button>
       </div>
 
-      <div id="comResumo" style="margin-bottom:14px;font-size:12.5px;color:var(--text3);"></div>
+      <div class="com-kpis">
+        <div class="com-kpi"><div class="com-kpi-val" id="kpiFat">—</div><div class="com-kpi-lbl">Receita faturada</div></div>
+        <div class="com-kpi"><div class="com-kpi-val" id="kpiCom">—</div><div class="com-kpi-lbl">Comissão oficial</div></div>
+        <div class="com-kpi"><div class="com-kpi-val" id="kpiPrem">—</div><div class="com-kpi-lbl">Premiação por meta</div></div>
+        <div class="com-kpi"><div class="com-kpi-val" id="kpiTotal">—</div><div class="com-kpi-lbl">Total a pagar</div></div>
+      </div>
+    </div>
 
-      <div style="overflow-x:auto;">
+    <div class="card">
+      <div class="card-title">💼 Comissão oficial sobre faturados</div>
+      <div class="card-sub">Padrão de 1,5%. O percentual pode ser alterado por vendedor e mês. Ajustes reduzem a base de cálculo.</div>
+      <div style="overflow-x:auto">
         <table class="com-table">
-          <thead>
-            <tr>
-              <th>Vendedor</th>
-              <th style="text-align:right;">Total Faturado</th>
-              <th style="text-align:right;">Ajustes</th>
-              <th style="text-align:right;">Base</th>
-              <th style="text-align:right;">%</th>
-              <th style="text-align:right;">Comissão</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="comTbody"></tbody>
+          <thead><tr>
+            <th>Vendedor</th><th style="text-align:right">Faturado</th><th style="text-align:right">Ajustes</th>
+            <th style="text-align:right">Base</th><th style="text-align:right">% Comissão</th>
+            <th style="text-align:right">Comissão</th><th></th>
+          </tr></thead>
+          <tbody id="tbodyComissao"></tbody>
         </table>
       </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🏆 Premiação por meta — receita captada</div>
+      <div class="card-sub">Padrão de 1,0%. A premiação é liberada somente quando a receita captada alcança a meta cadastrada no Dashboard.</div>
+      <div style="overflow-x:auto">
+        <table class="com-table">
+          <thead><tr>
+            <th>Vendedor</th><th style="text-align:right">Receita captada</th><th style="text-align:right">Meta</th>
+            <th style="text-align:right">% Atingido</th><th>Status</th><th style="text-align:right">% Premiação</th>
+            <th style="text-align:right">Premiação</th>
+          </tr></thead>
+          <tbody id="tbodyPremiacao"></tbody>
+        </table>
+      </div>
+      <div class="com-note">Regra aplicada: ao atingir a meta, a premiação corresponde ao percentual informado sobre o valor da meta.</div>
     </div>
 
   </div>
@@ -87,18 +108,18 @@ html{zoom:.8;}
 
 <div class="modal-overlay" id="ajusteModal">
   <div class="modal-box">
-    <div class="modal-title">Adicionar ajuste</div>
+    <div class="modal-title">Adicionar ajuste na comissão</div>
     <div class="modal-sub" id="ajusteModalVendedor"></div>
     <div class="field-group">
-      <label class="field-label">Valor a descontar (R$) — positivo</label>
+      <label class="field-label">Valor a descontar (R$)</label>
       <input type="number" id="ajusteValor" placeholder="Ex.: 1741.50">
     </div>
     <div class="field-group">
       <label class="field-label">Motivo</label>
-      <input type="text" id="ajusteMotivo" placeholder="Ex.: NF 17371 desconsiderada (devolução)">
+      <input type="text" id="ajusteMotivo" placeholder="Ex.: NF desconsiderada por devolução">
     </div>
     <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeAjusteModal()">Cancelar</button>
+      <button class="btn btn-ghost" onclick="fecharAjusteModal()">Cancelar</button>
       <button class="btn btn-primary" onclick="salvarAjuste()">Salvar</button>
     </div>
   </div>
@@ -106,270 +127,195 @@ html{zoom:.8;}
 
 <script src="nav.js"></script>
 <script>
-const SUPABASE_URL = 'https://mczggrocmccvmyglnumv.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jemdncm9jbWNjdm15Z2xudW12Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMjM2NzcsImV4cCI6MjA5ODU5OTY3N30.XXzhDvxfNaUW61HvgE4xuqzSICoLEYjbJhd1X52Zp84';
-const LOGIN_URL = 'index.html';
+const SUPABASE_URL='https://mczggrocmccvmyglnumv.supabase.co';
+const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJIUzI1NiIsInJlZiI6Im1jemdncm9jbWNjdm15Z2xudW12Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMjM2NzcsImV4cCI6MjA5ODU5OTY3N30.XXzhDvxfNaUW61HvgE4xuqzSICoLEYjbJhd1X52Zp84';
+const LOGIN_URL='index.html';
+const SHEET_ID='13pF1S6H59zcn53kW1-MYvIxQVT0-cIDPSB9QNugDfSo';
+const GID_CAPTADA='0';
+const GID_FATURADA='1703975608';
+const ANDERSON_EMAIL='anderson@tangrampersonalizados.com.br';
 
-// Planilha "Basegerencial" — mesma aba "Faturamento de Pedidos" que o painel.html usa.
-const SHEET_ID = '13pF1S6H59zcn53kW1-MYvIxQVT0-cIDPSB9QNugDfSo';
-const GID_FATURADA = '1703975608';
-const SITUACOES_FATURADA = ['autorizado','faturado','nfs-e autorizada'];
+const SITUACOES_FATURADA=['autorizado','faturado','nfs-e autorizada'];
+const PEDIDOS_EXCLUIDOS_CAPTADA=new Set(['12669','14171','14353','14543','14669','14730','15504','15507','15508','15510','15512','15513','15514','15749','15888','15961','16000','16040','16043','16100','16119','16178','16230','16323','16324','16337','16349','16583','16821','16999','17000','17169','17650','17851','17884','18072','18081','18120','18157','18165','18175','18214','18335','18422','18497','18576','20206']);
+const PEDIDOS_EXCLUIDOS_FATURADA=new Set(['12669','14171','14353','14543','14669','14730','15504','15507','15508','15510','15512','15513','15514','15749','15888','15961','16000','16040','16043','16178','16230','16323','16324','16337','16349','16583','16821','16999','17000','17169','17650','17851','17884','18072','18081','18089','18120','18157','18165','18175','18214','18335','18422','18497','18576','20206']);
+const NF_EXCLUIDAS_FATURADA=new Set(['14024','18081','18089']);
 
-// Acesso restrito — equipe GPSBI e Anderson, igual ao Fluxo de Caixa.
-const ANDERSON_EMAIL = 'anderson@tangrampersonalizados.com.br';
-function canAccessComissao(email){
-  email = (email||'').toLowerCase();
-  return email.endsWith('@gpsbi.com.br') || email === ANDERSON_EMAIL;
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
+let currentUser=null;
+let faturadaRows=[],captadaRows=[],metasMap={},regrasMap={},ajustesMap={};
+let mesAnoAtual='';
+
+function el(id){return document.getElementById(id)}
+function fmtBRL(n){return (n<0?'-':'')+'R$ '+Math.abs(Number(n||0)).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}
+function normalizeTxt(s){return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim()}
+function getColNormalized(row,wanted){for(const k in row){if(normalizeTxt(k)===wanted)return row[k]}return undefined}
+function parseMoney(v){if(v===null||v===undefined||v==='')return 0;if(typeof v==='number')return v;return parseFloat(String(v).replace(/\./g,'').replace(',','.'))||0}
+function cleanVendorName(raw){
+  let s=(raw||'').toString().trim().replace(/_\s*\d[\d\-]*/g,' ').replace(/\b\d{4,}-?\d*\b/g,' ').trim().replace(/\s{2,}/g,' ');
+  const c=['de','da','do','das','dos'];
+  return s.split(' ').filter(Boolean).map((w,i)=>i>0&&c.includes(w.toLowerCase())?w.toLowerCase():w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' ');
 }
-
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-let currentUser = null;
-let faturadaRows = [];
-let percentuaisMap = {}; // vendedor -> percentual (0.015 = 1,5%)
-let ajustesMap = {}; // "vendedor|mes" -> [ {id, valor, motivo, criado_em} ]
-
-function el(id){ return document.getElementById(id); }
-function setLoading(msg){ el('loadingMsg').textContent = msg || 'Carregando...'; }
-function fmtBRL(n){ return (n<0?'-':'') + 'R$ ' + Math.abs(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
-function nameFromEmail(email){ return email.split('@')[0].split('.').map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' '); }
-
-async function init(){
-  const { data } = await sb.auth.getSession();
-  if(!data.session){ window.location.replace(LOGIN_URL); return; }
-  currentUser = data.session.user;
-  const email = currentUser.email;
-
-  if(!canAccessComissao(email)){
-    el('loadingScreen').style.display='none';
-    el('deniedScreen').style.display='block';
-    document.documentElement.style.visibility='visible';
-    return;
-  }
-
-  renderAppNav({ activePage:'comissao.html', userLabel: nameFromEmail(email), userRole:'owner', onLogout: doLogout, sb, currentUser });
-
-  montarFiltros();
-  await carregarComissao();
-  el('loadingScreen').style.display='none';
-  el('mainContent').style.display='block';
-  document.documentElement.style.visibility='visible';
+function parseDate(v){
+  if(!v)return null;
+  const s=String(v);
+  let m=s.match(/Date\((\d+),(\d+),(\d+)\)/);
+  if(m)return `${m[1]}-${String(Number(m[2])+1).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
+  m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(m)return `${m[3]}-${String(m[2]).padStart(2,'0')}-${String(m[1]).padStart(2,'0')}`;
+  m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(m)return `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
+  return null;
 }
-
-function montarFiltros(){
-  const hoje = new Date();
-  const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-  const selMes = el('comMes');
-  meses.forEach((m,i)=>{ const o=document.createElement('option'); o.value=String(i+1); o.textContent=m; selMes.appendChild(o); });
-  selMes.value = String(hoje.getMonth()+1);
-
-  const selAno = el('comAno');
-  for(let a=hoje.getFullYear(); a>=hoje.getFullYear()-2; a--){ const o=document.createElement('option'); o.value=String(a); o.textContent=String(a); selAno.appendChild(o); }
-  selAno.value = String(hoje.getFullYear());
-}
+function canAccess(email){email=(email||'').toLowerCase();return email.endsWith('@gpsbi.com.br')||email===ANDERSON_EMAIL}
+function nameFromEmail(email){return email.split('@')[0].split('.').map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' ')}
 
 async function fetchGviz(gid){
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&gid=${gid}&headers=1&_=${Date.now()}`;
-  const res = await fetch(url, { cache: 'no-store' });
-  const text = await res.text();
-  const clean = text.replace(/^[^{]*/, '').replace(/\s*\)\s*;?\s*$/, '');
+  const url=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&gid=${gid}&headers=1&_=${Date.now()}`;
+  const res=await fetch(url,{cache:'no-store'});
+  if(!res.ok)throw new Error('Falha ao carregar a base');
+  const text=await res.text();
+  const clean=text.replace(/^[^{]*/,'').replace(/\s*\)\s*;?\s*$/,'');
   return JSON.parse(clean).table;
 }
-function parseGvizRows(table){
-  if(!table || !table.rows) return [];
-  const cols = table.cols.map(c=>c.label);
+function parseRows(table){
+  if(!table||!table.rows)return[];
+  const cols=table.cols.map(c=>c.label);
   return table.rows.map(row=>{
     const obj={};
-    cols.forEach((col,i)=>{ const cell=row.c[i]; obj[col]= cell ? (cell.v!==null?cell.v:(cell.f||null)) : null; });
+    cols.forEach((col,i)=>{const cell=row.c[i];obj[col]=cell?(cell.v!==null?cell.v:(cell.f||null)):null});
     return obj;
   });
 }
-function parseDate(v){
-  if(!v) return null;
-  if(typeof v==='string'){
-    if(v.includes('/')){ const [d,m,y]=v.split('/'); return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`; }
-    const dm = v.match(/Date\((\d+),(\d+),(\d+)\)/);
-    if(dm){ const y=dm[1], m=String(parseInt(dm[2])+1).padStart(2,'0'), d=dm[3].padStart(2,'0'); return `${y}-${m}-${d}`; }
+function rowToRecord(row,tipo){
+  const date=parseDate(row['Data de Emissão (completa)']);
+  if(!date)return null;
+  const vendedor=cleanVendorName(row['Vendedor']);
+  if(!vendedor)return null;
+  const situacao=(row['Situação']||'').toString().trim();
+  const operacao=(getColNormalized(row,'operacao')||getColNormalized(row,'tipo de operacao')||'').toString().trim();
+  const total=parseMoney(row['Total da Nota Fiscal']);
+  const pedido=String(row['Pedido']||'').trim();
+  const nf=String(row['Nota Fiscal']||'').trim();
+  return{mes:date.slice(0,7),vendedor,situacao,operacao,total,pedido,nf,tipo};
+}
+function captadaOk(r){
+  const s=normalizeTxt(r.situacao);
+  if(s.includes('cancelado')||s.includes('rejeitada'))return false;
+  return !PEDIDOS_EXCLUIDOS_CAPTADA.has(r.pedido);
+}
+function faturadaOk(r){
+  const s=normalizeTxt(r.situacao);
+  return SITUACOES_FATURADA.includes(s)
+    && normalizeTxt(r.operacao).includes('orcamento')
+    && !PEDIDOS_EXCLUIDOS_FATURADA.has(r.pedido)
+    && !NF_EXCLUIDAS_FATURADA.has(r.nf);
+}
+
+async function init(){
+  const{data}=await sb.auth.getSession();
+  if(!data.session){location.replace(LOGIN_URL);return}
+  currentUser=data.session.user;
+  if(!canAccess(currentUser.email)){
+    el('loadingScreen').style.display='none';el('deniedScreen').style.display='block';
+    document.documentElement.style.visibility='visible';return;
   }
-  return null;
+  renderAppNav({activePage:'comissao.html',userLabel:nameFromEmail(currentUser.email),userRole:'owner',onLogout:doLogout,sb,currentUser});
+  montarFiltros();
+  await carregarBases();
+  await carregarTudo();
+  el('loadingScreen').style.display='none';el('mainContent').style.display='block';
+  document.documentElement.style.visibility='visible';
 }
-function parseMoney(v){
-  if(v===null||v===undefined||v==='') return 0;
-  if(typeof v==='number') return v;
-  return parseFloat(String(v).replace(/\./g,'').replace(',','.')) || 0;
+function montarFiltros(){
+  const hoje=new Date(),meses=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  meses.forEach((m,i)=>el('comMes').insertAdjacentHTML('beforeend',`<option value="${i+1}">${m}</option>`));
+  el('comMes').value=hoje.getMonth()+1;
+  for(let a=hoje.getFullYear();a>=hoje.getFullYear()-3;a--)el('comAno').insertAdjacentHTML('beforeend',`<option value="${a}">${a}</option>`);
+  el('comAno').value=hoje.getFullYear();
 }
-function normalizeTxt(s){
-  return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+async function carregarBases(){
+  el('loadingMsg').textContent='Buscando bases de vendas...';
+  const[capTable,fatTable]=await Promise.all([fetchGviz(GID_CAPTADA),fetchGviz(GID_FATURADA)]);
+  captadaRows=parseRows(capTable).map(r=>rowToRecord(r,'captada')).filter(Boolean).filter(captadaOk);
+  faturadaRows=parseRows(fatTable).map(r=>rowToRecord(r,'faturada')).filter(Boolean).filter(faturadaOk);
 }
-function getColNormalized(rowObj, wantedKeyNormalized){
-  for(const k in rowObj){
-    if(normalizeTxt(k)===wantedKeyNormalized) return rowObj[k];
-  }
-  return undefined;
+async function carregarTudo(){
+  const mes=String(el('comMes').value).padStart(2,'0'),ano=el('comAno').value;
+  mesAnoAtual=`${ano}-${mes}`;
+  el('loadingMsg').textContent='Calculando comissão e premiação...';
+
+  const[{data:metas,error:erroMetas},{data:regras,error:erroRegras},{data:ajustes,error:erroAjustes}]=await Promise.all([
+    sb.from('metas_tangram').select('*').eq('mes_ano',mesAnoAtual),
+    sb.from('tangram_comissao_regras').select('*').eq('mes_ano',mesAnoAtual),
+    sb.from('tangram_comissao_ajustes').select('*').eq('mes_ano',mesAnoAtual).order('criado_em',{ascending:true})
+  ]);
+  if(erroRegras){alert('Rode o arquivo comissao_dupla.sql no Supabase antes de usar esta tela.');console.error(erroRegras)}
+  metasMap={};(metas||[]).forEach(r=>metasMap[r.vendedor]=Number(r.meta_captada||0));
+  regrasMap={};(regras||[]).forEach(r=>regrasMap[r.vendedor]=r);
+  ajustesMap={};(ajustes||[]).forEach(a=>(ajustesMap[a.vendedor]=ajustesMap[a.vendedor]||[]).push(a));
+
+  const fat={},cap={};
+  faturadaRows.filter(r=>r.mes===mesAnoAtual).forEach(r=>fat[r.vendedor]=(fat[r.vendedor]||0)+r.total);
+  captadaRows.filter(r=>r.mes===mesAnoAtual).forEach(r=>cap[r.vendedor]=(cap[r.vendedor]||0)+r.total);
+  const vendedores=Array.from(new Set([...Object.keys(fat),...Object.keys(cap),...Object.keys(metasMap)])).sort((a,b)=>(fat[b]||cap[b]||0)-(fat[a]||cap[a]||0));
+  renderComissao(vendedores,fat);
+  renderPremiacao(vendedores,cap);
 }
-function cleanVendorName(raw){
-  let s = (raw||'').toString().trim();
-  s = s.replace(/_\s*\d[\d\-]*/g, ' ');
-  s = s.replace(/\b\d{4,}-?\d*\b/g, ' ');
-  s = s.trim().replace(/\s{2,}/g, ' ');
-  const CONECTORES = ['de','da','do','das','dos'];
-  s = s.split(' ').filter(Boolean).map((w,i)=>{
-    const lw = w.toLowerCase();
-    if(lw==='(inativo)'||lw==='inativo)'||lw==='(inativo') return '(Inativo)';
-    if(i>0 && CONECTORES.includes(lw)) return lw;
-    return w.charAt(0).toUpperCase()+w.slice(1).toLowerCase();
-  }).join(' ').trim();
-  return s;
+function regra(v){
+  return regrasMap[v]||{percentual_faturado:.015,percentual_premiacao:.01};
 }
-function situacaoOk(situacao){ return SITUACOES_FATURADA.includes((situacao||'').trim().toLowerCase()); }
-// Mesma regra do painel.html: no Faturado, só conta Operação = Orçamento.
-function operacaoOk(operacao){ return normalizeTxt(operacao).includes('orcamento'); }
-
-function rowToRecord(row){
-  const dateRaw = row['Data de Emissão (completa)'];
-  const dateStr = parseDate(typeof dateRaw==='object' && dateRaw!==null ? (dateRaw.v||dateRaw) : dateRaw);
-  if(!dateStr) return null;
-  const mes = dateStr.slice(0,7);
-  const vendedor = cleanVendorName(row['Vendedor']);
-  if(!vendedor) return null;
-  const situacao = (row['Situação']||'').trim();
-  const operacao = (getColNormalized(row, 'operacao') || getColNormalized(row, 'tipo de operacao') || '').toString().trim();
-  const totalRaw = row['Total da Nota Fiscal'];
-  const total = parseMoney(typeof totalRaw==='object' && totalRaw!==null ? totalRaw.v : totalRaw);
-  const nf = row['Nota Fiscal'] || '';
-  const pedido = row['Pedido'] || '';
-  return { mes, date:dateStr, vendedor, situacao, operacao, total, nf, pedido };
-}
-
-async function loadFaturamento(){
-  const table = await fetchGviz(GID_FATURADA);
-  const raw = parseGvizRows(table).map(rowToRecord).filter(Boolean);
-  faturadaRows = raw.filter(r=>situacaoOk(r.situacao) && operacaoOk(r.operacao));
-}
-
-async function loadPercentuais(){
-  const { data, error } = await sb.from('tangram_comissao_percentuais').select('*');
-  percentuaisMap = {};
-  if(!error && data) data.forEach(r=>{ percentuaisMap[r.vendedor] = Number(r.percentual); });
-}
-async function loadAjustes(mesAno){
-  const { data, error } = await sb.from('tangram_comissao_ajustes').select('*').eq('mes_ano', mesAno).order('criado_em',{ascending:true});
-  ajustesMap = {};
-  if(!error && data){
-    data.forEach(a=>{
-      if(!ajustesMap[a.vendedor]) ajustesMap[a.vendedor] = [];
-      ajustesMap[a.vendedor].push(a);
-    });
-  }
-}
-
-async function carregarComissao(){
-  setLoading('Buscando faturamento...');
-  if(!faturadaRows.length) await loadFaturamento();
-  const mes = el('comMes').value.padStart(2,'0');
-  const ano = el('comAno').value;
-  const mesAno = `${ano}-${mes}`;
-
-  setLoading('Carregando percentuais e ajustes...');
-  await loadPercentuais();
-  await loadAjustes(mesAno);
-
-  const rowsDoMes = faturadaRows.filter(r=>r.mes===mesAno);
-  const totalPorVendedor = {};
-  rowsDoMes.forEach(r=>{ totalPorVendedor[r.vendedor] = (totalPorVendedor[r.vendedor]||0) + r.total; });
-
-  const vendedores = Object.keys(totalPorVendedor).sort((a,b)=>totalPorVendedor[b]-totalPorVendedor[a]);
-  renderTabela(vendedores, totalPorVendedor, mesAno);
-}
-
-function renderTabela(vendedores, totalPorVendedor, mesAno){
-  let totalFaturadoGeral = 0, totalAjustesGeral = 0, totalComissaoGeral = 0;
-
-  const linhas = vendedores.map(v=>{
-    const totalFaturado = totalPorVendedor[v] || 0;
-    const ajustesDoVendedor = ajustesMap[v] || [];
-    const somaAjustes = ajustesDoVendedor.reduce((s,a)=>s+Number(a.valor),0);
-    const base = totalFaturado - somaAjustes;
-    const pct = percentuaisMap[v] !== undefined ? percentuaisMap[v] : 0.015;
-    const comissao = base * pct;
-
-    totalFaturadoGeral += totalFaturado;
-    totalAjustesGeral += somaAjustes;
-    totalComissaoGeral += comissao;
-
-    const ajustesHtml = ajustesDoVendedor.length ? `<div class="com-ajustes-list">${ajustesDoVendedor.map(a=>
-      `${(a.motivo||'Ajuste')} · ${fmtBRL(a.valor)}<span class="rm" onclick="removerAjuste(${a.id})" title="Remover">✕</span>`
-    ).join('<br>')}</div>` : '';
-
-    return `<tr>
-      <td>${v}</td>
-      <td class="com-valor">${fmtBRL(totalFaturado)}</td>
-      <td class="com-valor">${somaAjustes>0?'-'+fmtBRL(somaAjustes):'—'}${ajustesHtml}</td>
-      <td class="com-valor">${fmtBRL(base)}</td>
-      <td style="text-align:right;">
-        <input type="number" class="com-pct-input" value="${(pct*100).toFixed(2)}" step="0.1"
-          onchange="salvarPercentual('${v.replace(/'/g,"\\'")}', this.value)"> %
-      </td>
-      <td class="com-valor"><b>${fmtBRL(comissao)}</b></td>
-      <td><button class="com-ajuste-btn" onclick="abrirAjusteModal('${v.replace(/'/g,"\\'")}')" title="Adicionar ajuste">➕</button></td>
-    </tr>`;
+function renderComissao(vendedores,fat){
+  let totFat=0,totAj=0,totCom=0;
+  const linhas=vendedores.filter(v=>(fat[v]||0)>0).map(v=>{
+    const faturado=fat[v]||0,ajs=ajustesMap[v]||[],aj=ajs.reduce((s,a)=>s+Number(a.valor||0),0),base=Math.max(0,faturado-aj),pct=Number(regra(v).percentual_faturado??.015),com=base*pct;
+    totFat+=faturado;totAj+=aj;totCom+=com;
+    const lista=ajs.length?`<div class="com-ajustes-list">${ajs.map(a=>`${a.motivo||'Ajuste'} · ${fmtBRL(a.valor)} <span class="rm" onclick="removerAjuste(${a.id})">✕</span>`).join('<br>')}</div>`:'';
+    return `<tr><td>${v}</td><td class="com-valor">${fmtBRL(faturado)}</td><td class="com-valor">${aj?'-'+fmtBRL(aj):'—'}${lista}</td><td class="com-valor">${fmtBRL(base)}</td>
+      <td style="text-align:right"><input class="com-pct-input" type="number" step="0.1" min="0" value="${(pct*100).toFixed(2)}" onchange="salvarRegra('${v.replace(/'/g,"\\'")}','faturado',this.value)"> %</td>
+      <td class="com-valor"><b>${fmtBRL(com)}</b></td><td><button class="com-ajuste-btn" onclick="abrirAjusteModal('${v.replace(/'/g,"\\'")}')">➕</button></td></tr>`;
   }).join('');
-
-  const totalRow = `<tr class="total-row">
-    <td>Total Geral</td>
-    <td class="com-valor">${fmtBRL(totalFaturadoGeral)}</td>
-    <td class="com-valor">${totalAjustesGeral>0?'-'+fmtBRL(totalAjustesGeral):'—'}</td>
-    <td class="com-valor">${fmtBRL(totalFaturadoGeral-totalAjustesGeral)}</td>
-    <td></td>
-    <td class="com-valor">${fmtBRL(totalComissaoGeral)}</td>
-    <td></td>
-  </tr>`;
-
-  el('comTbody').innerHTML = linhas + totalRow || '<tr><td colspan="7" style="text-align:center;color:var(--text3);">Nenhum faturamento nesse mês.</td></tr>';
-  el('comResumo').textContent = `${vendedores.length} vendedor(es) com faturamento em ${mesAno}.`;
-  window._comissaoMesAno = mesAno;
+  el('tbodyComissao').innerHTML=(linhas||'<tr><td colspan="7" style="text-align:center;color:var(--text3)">Nenhum faturamento neste mês.</td></tr>')+
+    `<tr class="total-row"><td>Total Geral</td><td class="com-valor">${fmtBRL(totFat)}</td><td class="com-valor">${totAj?'-'+fmtBRL(totAj):'—'}</td><td class="com-valor">${fmtBRL(totFat-totAj)}</td><td></td><td class="com-valor">${fmtBRL(totCom)}</td><td></td></tr>`;
+  el('kpiFat').textContent=fmtBRL(totFat);el('kpiCom').textContent=fmtBRL(totCom);
+  window._totalComissao=totCom;atualizarTotal();
 }
-
-async function salvarPercentual(vendedor, valorPct){
-  const pct = parseFloat(valorPct)/100;
-  if(isNaN(pct) || pct<0){ alert('Percentual inválido.'); return; }
-  percentuaisMap[vendedor] = pct;
-  const { error } = await sb.from('tangram_comissao_percentuais').upsert(
-    { vendedor, percentual:pct, atualizado_por: currentUser.email, atualizado_em: new Date().toISOString() },
-    { onConflict:'vendedor' }
-  );
-  if(error){ alert('Erro ao salvar percentual: '+error.message); return; }
-  await carregarComissao();
+function renderPremiacao(vendedores,cap){
+  let total=0;
+  const linhas=vendedores.filter(v=>(cap[v]||0)>0||(metasMap[v]||0)>0).map(v=>{
+    const captada=cap[v]||0,meta=metasMap[v]||0,pct=Number(regra(v).percentual_premiacao??.01),atingido=meta>0?captada/meta*100:0,liberada=meta>0&&captada>=meta,premio=liberada?meta*pct:0;
+    total+=premio;
+    const status=meta<=0?'<span class="com-status sem">Sem meta</span>':liberada?'<span class="com-status ok">Meta atingida</span>':'<span class="com-status no">Ainda não atingiu</span>';
+    return `<tr><td>${v}</td><td class="com-valor">${fmtBRL(captada)}</td><td class="com-valor">${meta?fmtBRL(meta):'—'}</td><td class="com-valor">${meta?atingido.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%':'—'}</td>
+      <td>${status}</td><td style="text-align:right"><input class="com-pct-input" type="number" step="0.1" min="0" value="${(pct*100).toFixed(2)}" onchange="salvarRegra('${v.replace(/'/g,"\\'")}','premiacao',this.value)"> %</td>
+      <td class="com-valor"><b>${fmtBRL(premio)}</b></td></tr>`;
+  }).join('');
+  el('tbodyPremiacao').innerHTML=(linhas||'<tr><td colspan="7" style="text-align:center;color:var(--text3)">Nenhum vendedor ou meta neste mês.</td></tr>')+
+    `<tr class="total-row"><td>Total Geral</td><td colspan="5"></td><td class="com-valor">${fmtBRL(total)}</td></tr>`;
+  el('kpiPrem').textContent=fmtBRL(total);window._totalPremiacao=total;atualizarTotal();
 }
-
-let _ajusteVendedorAtual = null;
-function abrirAjusteModal(vendedor){
-  _ajusteVendedorAtual = vendedor;
-  el('ajusteModalVendedor').textContent = vendedor;
-  el('ajusteValor').value = '';
-  el('ajusteMotivo').value = '';
-  el('ajusteModal').classList.add('open');
+function atualizarTotal(){el('kpiTotal').textContent=fmtBRL((window._totalComissao||0)+(window._totalPremiacao||0))}
+async function salvarRegra(v,tipo,valorPct){
+  const pct=parseFloat(String(valorPct).replace(',','.'))/100;
+  if(!isFinite(pct)||pct<0){alert('Percentual inválido.');return}
+  const atual=regra(v);
+  const payload={vendedor:v,mes_ano:mesAnoAtual,percentual_faturado:Number(atual.percentual_faturado??.015),percentual_premiacao:Number(atual.percentual_premiacao??.01),atualizado_por:currentUser.email,atualizado_em:new Date().toISOString()};
+  if(tipo==='faturado')payload.percentual_faturado=pct;else payload.percentual_premiacao=pct;
+  const{error}=await sb.from('tangram_comissao_regras').upsert(payload,{onConflict:'vendedor,mes_ano'});
+  if(error){alert('Erro ao salvar percentual: '+error.message);return}
+  await carregarTudo();
 }
-function closeAjusteModal(){ el('ajusteModal').classList.remove('open'); _ajusteVendedorAtual = null; }
+let ajusteVendedor='';
+function abrirAjusteModal(v){ajusteVendedor=v;el('ajusteModalVendedor').textContent=v;el('ajusteValor').value='';el('ajusteMotivo').value='';el('ajusteModal').classList.add('open')}
+function fecharAjusteModal(){el('ajusteModal').classList.remove('open')}
 async function salvarAjuste(){
-  const valor = parseFloat(el('ajusteValor').value);
-  const motivo = el('ajusteMotivo').value.trim();
-  if(isNaN(valor) || valor<=0){ alert('Informe um valor de ajuste válido.'); return; }
-  const { error } = await sb.from('tangram_comissao_ajustes').insert({
-    vendedor: _ajusteVendedorAtual, mes_ano: window._comissaoMesAno, valor, motivo, criado_por: currentUser.email
-  });
-  if(error){ alert('Erro ao salvar ajuste: '+error.message); return; }
-  closeAjusteModal();
-  await carregarComissao();
+  const valor=parseFloat(el('ajusteValor').value),motivo=el('ajusteMotivo').value.trim();
+  if(!isFinite(valor)||valor<=0){alert('Informe um valor válido.');return}
+  const{error}=await sb.from('tangram_comissao_ajustes').insert({vendedor:ajusteVendedor,mes_ano:mesAnoAtual,valor,motivo,criado_por:currentUser.email});
+  if(error){alert('Erro ao salvar ajuste: '+error.message);return}
+  fecharAjusteModal();await carregarTudo();
 }
-async function removerAjuste(id){
-  if(!confirm('Remover esse ajuste?')) return;
-  await sb.from('tangram_comissao_ajustes').delete().eq('id', id);
-  await carregarComissao();
-}
-
-async function doLogout(){ await sb.auth.signOut(); window.location.href = LOGIN_URL; }
-
+async function removerAjuste(id){if(!confirm('Remover este ajuste?'))return;await sb.from('tangram_comissao_ajustes').delete().eq('id',id);await carregarTudo()}
+async function doLogout(){await sb.auth.signOut();location.href=LOGIN_URL}
 init();
 </script>
 </body>
