@@ -97,6 +97,23 @@ html{zoom:.8;}
 .com-dev-summary span{display:block;font-size:10px;color:var(--text3);margin-top:3px}
 @media(max-width:900px){.com-dev-summary{grid-template-columns:1fr 1fr}}
 
+
+.com-click-value{background:none;border:none;color:inherit;font:inherit;font-family:'DM Mono',monospace;font-weight:700;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px}
+.com-click-value:hover{color:var(--cyan)}
+.com-abatido{color:var(--red);font-family:'DM Mono',monospace;font-weight:800}
+.com-detail-modal{width:1120px!important;max-width:96vw!important;max-height:88vh;overflow:auto}
+.com-detail-summary{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:10px;margin:14px 0}
+.com-detail-summary>div{background:var(--navy3);border:1px solid var(--border2);border-radius:10px;padding:11px 13px}
+.com-detail-summary b{display:block;font-family:'DM Mono',monospace;font-size:14px}
+.com-detail-summary span{display:block;font-size:10px;color:var(--text3);margin-top:3px}
+.com-detail-table{width:100%;border-collapse:collapse;font-size:11.5px}
+.com-detail-table th,.com-detail-table td{padding:8px 9px;border-bottom:1px solid var(--border);vertical-align:top}
+.com-detail-table th{font-size:9.5px;text-transform:uppercase;color:var(--text3);white-space:nowrap}
+.com-detail-table th:not(:first-child),.com-detail-table td:not(:first-child){text-align:center}
+.com-detail-table td.num{font-family:'DM Mono',monospace}
+.com-detail-empty{text-align:center;padding:24px;color:var(--text3)}
+@media(max-width:800px){.com-detail-summary{grid-template-columns:1fr 1fr}}
+
 </style>
 </head>
 <body>
@@ -141,9 +158,12 @@ html{zoom:.8;}
       <div style="overflow-x:auto">
         <table class="com-table">
           <thead><tr>
-            <th>Vendedor</th><th style="text-align:right">Faturado</th>
-            <th style="text-align:right">% Comissão</th>
-            <th style="text-align:right">Comissão</th><th></th>
+            <th>Vendedor</th>
+            <th>Faturado considerado</th>
+            <th>% Comissão</th>
+            <th>Comissão líquida</th>
+            <th>Abatido</th>
+            <th></th>
           </tr></thead>
           <tbody id="tbodyComissao"></tbody>
         </table>
@@ -297,6 +317,20 @@ html{zoom:.8;}
       </div>
     </div>
 
+  </div>
+</div>
+
+
+<div class="modal-overlay" id="detalheComissaoModal">
+  <div class="modal-box com-detail-modal">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+      <div>
+        <div class="modal-title" id="detalheComissaoTitulo">Detalhamento</div>
+        <div class="modal-sub" id="detalheComissaoSub"></div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="fecharDetalheComissao()">✕ Fechar</button>
+    </div>
+    <div id="detalheComissaoConteudo"></div>
   </div>
 </div>
 
@@ -727,45 +761,220 @@ function regra(v){
   return regrasMap[v]||{percentual_faturado:.015,percentual_premiacao:.01,percentual_servicos:.015};
 }
 function renderComissao(vendedores,fat){
-  let totFat=0,totAbat=0,totCom=0;
+  let totalLiquido=0,totalAbatido=0,totalComissao=0;
+
   const linhas=vendedores.filter(v=>(fat[v]||0)>0).map(v=>{
-    const faturado=fat[v]||0;
+    const faturadoBruto=fat[v]||0;
     const ajs=ajustesMap[v]||[];
     const ajusteManual=ajs.reduce((s,a)=>s+Number(a.valor||0),0);
     const pedidosExcluidos=pedidosExcluidosMap[v]||[];
     const abatimentoPedidos=pedidosExcluidos.reduce((s,p)=>s+Number(p.valor||0),0);
     const abatimentoDevolucoes=Number(devolucoesAprovadasMap[v]||0);
     const totalAbatimentos=ajusteManual+abatimentoPedidos+abatimentoDevolucoes;
-    const base=Math.max(0,faturado-totalAbatimentos);
+    const faturadoConsiderado=Math.max(0,faturadoBruto-totalAbatimentos);
     const pct=Number(regra(v).percentual_faturado??.015);
-    const comissao=base*pct;
-    totFat+=faturado;totAbat+=totalAbatimentos;totCom+=comissao;
+    const comissao=faturadoConsiderado*pct;
 
+    totalLiquido+=faturadoConsiderado;
+    totalAbatido+=totalAbatimentos;
+    totalComissao+=comissao;
+
+    const safeV=v.replace(/'/g,"\\'");
     return `<tr>
       <td>${v}</td>
-      <td class="com-valor">${fmtBRL(faturado)}</td>
+      <td class="com-valor">
+        <button class="com-click-value" title="Ver notas consideradas"
+          onclick="abrirDetalheFaturado('${safeV}')">${fmtBRL(faturadoConsiderado)}</button>
+      </td>
       <td><input class="com-pct-input" type="number" step="0.1" min="0"
         value="${(pct*100).toFixed(2)}"
-        onchange="salvarRegra('${v.replace(/'/g,"\\'")}','faturado',this.value)"> %</td>
+        onchange="salvarRegra('${safeV}','faturado',this.value)"> %</td>
       <td class="com-valor"><b>${fmtBRL(comissao)}</b></td>
-      <td><button class="com-ajuste-btn" title="Ajuste manual" onclick="abrirAjusteModal('${v.replace(/'/g,"\\'")}')">➕</button></td>
+      <td class="com-valor">
+        <span class="${totalAbatimentos>0?'com-abatido':''}">${totalAbatimentos>0?'-'+fmtBRL(totalAbatimentos):'—'}</span>
+      </td>
+      <td>
+        <button class="com-ajuste-btn" title="Ver detalhamento dos abatimentos"
+          onclick="abrirDetalheAbatimentos('${safeV}')">➕</button>
+      </td>
     </tr>`;
   }).join('');
 
-  el('tbodyComissao').innerHTML=(linhas||'<tr><td colspan="5" style="text-align:center;color:var(--text3)">Nenhum faturamento neste mês.</td></tr>')+
+  el('tbodyComissao').innerHTML=(linhas||'<tr><td colspan="6" style="text-align:center;color:var(--text3)">Nenhum faturamento neste mês.</td></tr>')+
     `<tr class="total-row">
       <td>Total Geral</td>
-      <td class="com-valor">${fmtBRL(totFat)}</td>
+      <td class="com-valor">${fmtBRL(totalLiquido)}</td>
       <td></td>
-      <td class="com-valor">${fmtBRL(totCom)}</td>
+      <td class="com-valor">${fmtBRL(totalComissao)}</td>
+      <td class="com-valor"><span class="${totalAbatido>0?'com-abatido':''}">${totalAbatido>0?'-'+fmtBRL(totalAbatido):'—'}</span></td>
       <td></td>
     </tr>`;
 
-  el('kpiFat').textContent=fmtBRL(totFat);
-  el('kpiCom').textContent=fmtBRL(totCom);
-  window._totalComissao=totCom;
+  el('kpiFat').textContent=fmtBRL(totalLiquido);
+  el('kpiCom').textContent=fmtBRL(totalComissao);
+  window._totalComissao=totalComissao;
   atualizarTotal();
 }
+
+function escapeHtml(s){
+  return String(s??'').replace(/[&<>"']/g,c=>({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'
+  }[c]));
+}
+function fecharDetalheComissao(){
+  el('detalheComissaoModal').classList.remove('open');
+}
+function abrirModalDetalhe(titulo,sub,conteudo){
+  el('detalheComissaoTitulo').textContent=titulo;
+  el('detalheComissaoSub').textContent=sub||'';
+  el('detalheComissaoConteudo').innerHTML=conteudo;
+  el('detalheComissaoModal').classList.add('open');
+}
+function getDevolucoesAprovadasVendedor(vendedor){
+  return devolucoesDetectadas.filter(d=>
+    d.aprovado &&
+    d.localizada &&
+    cleanVendorName(d.vendedor)===vendedor
+  );
+}
+function getNfsDevolvidasAprovadas(vendedor){
+  return new Set(getDevolucoesAprovadasVendedor(vendedor).map(d=>digitsOnly(d.notaFaturamento)));
+}
+function abrirDetalheFaturado(vendedor){
+  const nfsExcluidas=getNfsDevolvidasAprovadas(vendedor);
+  const pedidosExcluidos=new Set((pedidosExcluidosMap[vendedor]||[]).map(p=>String(p.pedido).trim()));
+
+  const linhas=faturadaRows.filter(r=>
+    r.mes===mesAnoAtual &&
+    r.vendedor===vendedor &&
+    !nfsExcluidas.has(digitsOnly(r.nf)) &&
+    !pedidosExcluidos.has(String(r.pedido).trim())
+  );
+
+  const porNota={};
+  linhas.forEach(r=>{
+    const nf=digitsOnly(r.nf)||'Sem NF';
+    if(!porNota[nf]){
+      porNota[nf]={
+        nf,
+        data:r.date,
+        pedido:r.pedido||'—',
+        cliente:r.cliente||'—',
+        valor:0,
+        itens:0
+      };
+    }
+    porNota[nf].valor+=Number(r.total||0);
+    porNota[nf].itens++;
+  });
+
+  const notas=Object.values(porNota).sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+  const total=notas.reduce((s,n)=>s+n.valor,0);
+  const devolucoes=getDevolucoesAprovadasVendedor(vendedor);
+  const valorDevolvido=devolucoes.reduce((s,d)=>s+Number(d.valor||0),0);
+
+  const tabela=notas.length?`
+    <div style="overflow-x:auto">
+      <table class="com-detail-table">
+        <thead><tr>
+          <th>NF</th><th>Data</th><th>Pedido</th><th>Cliente</th><th>Linhas</th><th>Valor considerado</th>
+        </tr></thead>
+        <tbody>${notas.map(n=>`<tr>
+          <td class="num">${escapeHtml(n.nf)}</td>
+          <td>${n.data?n.data.split('-').reverse().join('/'):'—'}</td>
+          <td>${escapeHtml(n.pedido)}</td>
+          <td>${escapeHtml(n.cliente)}</td>
+          <td class="num">${n.itens}</td>
+          <td class="num">${fmtBRL(n.valor)}</td>
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>`:'<div class="com-detail-empty">Nenhuma nota considerada para este vendedor.</div>';
+
+  abrirModalDetalhe(
+    `Receita faturada considerada — ${vendedor}`,
+    `Competência ${mesAnoAtual}. Notas de entrada aprovadas e pedidos desconsiderados não aparecem neste detalhamento.`,
+    `<div class="com-detail-summary">
+      <div><b>${fmtBRL(total)}</b><span>Faturado considerado</span></div>
+      <div><b>${notas.length}</b><span>Notas fiscais consideradas</span></div>
+      <div><b>${fmtBRL(valorDevolvido)}</b><span>Notas de entrada abatidas</span></div>
+      <div><b>${devolucoes.length}</b><span>Devoluções aprovadas</span></div>
+    </div>${tabela}`
+  );
+}
+function abrirDetalheAbatimentos(vendedor){
+  const pct=Number(regra(vendedor).percentual_faturado??.015);
+  const devolucoes=getDevolucoesAprovadasVendedor(vendedor);
+  const pedidos=pedidosExcluidosMap[vendedor]||[];
+  const ajustes=ajustesMap[vendedor]||[];
+
+  const itens=[
+    ...devolucoes.map(d=>({
+      tipo:'Nota de entrada',
+      referencia:`NF ${d.notaFaturamento}`,
+      pedido:d.pedido||'—',
+      cliente:d.cliente||'—',
+      mes:d.mesOriginal||'—',
+      valor:Number(d.valor||0),
+      impacto:Number(d.valor||0)*pct,
+      motivo:d.detalhes?.[0]||'Devolução aprovada'
+    })),
+    ...pedidos.map(p=>({
+      tipo:'Pedido desconsiderado',
+      referencia:`Pedido ${p.pedido}`,
+      pedido:p.pedido||'—',
+      cliente:p.cliente||'—',
+      mes:p.mes_original||'—',
+      valor:Number(p.valor||0),
+      impacto:Number(p.valor||0)*pct,
+      motivo:p.motivo||'Pedido desconsiderado'
+    })),
+    ...ajustes.map(a=>({
+      tipo:'Ajuste manual',
+      referencia:'Ajuste',
+      pedido:'—',
+      cliente:'—',
+      mes:mesAnoAtual,
+      valor:Number(a.valor||0),
+      impacto:Number(a.valor||0)*pct,
+      motivo:a.motivo||'Ajuste manual'
+    }))
+  ];
+
+  const totalBase=itens.reduce((s,i)=>s+i.valor,0);
+  const totalImpacto=itens.reduce((s,i)=>s+i.impacto,0);
+
+  const tabela=itens.length?`
+    <div style="overflow-x:auto">
+      <table class="com-detail-table">
+        <thead><tr>
+          <th>Tipo</th><th>Referência</th><th>Pedido</th><th>Cliente</th><th>Mês original</th>
+          <th>Valor retirado da base</th><th>Impacto na comissão</th><th>Motivo</th>
+        </tr></thead>
+        <tbody>${itens.map(i=>`<tr>
+          <td>${escapeHtml(i.tipo)}</td>
+          <td>${escapeHtml(i.referencia)}</td>
+          <td>${escapeHtml(i.pedido)}</td>
+          <td>${escapeHtml(i.cliente)}</td>
+          <td>${escapeHtml(i.mes)}</td>
+          <td class="num">${fmtBRL(i.valor)}</td>
+          <td class="num">-${fmtBRL(i.impacto)}</td>
+          <td>${escapeHtml(i.motivo)}</td>
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>`:'<div class="com-detail-empty">Nenhum abatimento aplicado para este vendedor.</div>';
+
+  abrirModalDetalhe(
+    `Abatimentos da comissão — ${vendedor}`,
+    `Percentual atual: ${(pct*100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})}%.`,
+    `<div class="com-detail-summary">
+      <div><b>${itens.length}</b><span>Abatimentos registrados</span></div>
+      <div><b>${fmtBRL(totalBase)}</b><span>Valor retirado da base</span></div>
+      <div><b>-${fmtBRL(totalImpacto)}</b><span>Redução na comissão</span></div>
+      <div><b>${fmtBRL(Math.max(0,totalBase-totalImpacto))}</b><span>Referência documental</span></div>
+    </div>${tabela}`
+  );
+}
+
 function renderPremiacao(vendedores,cap){
   let total=0;
   const linhas=vendedores.filter(v=>(cap[v]||0)>0||(metasMap[v]||0)>0).map(v=>{
