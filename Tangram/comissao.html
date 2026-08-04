@@ -159,9 +159,11 @@ html{zoom:.8;}
         <table class="com-table">
           <thead><tr>
             <th>Vendedor</th>
-            <th>Faturado</th>
+            <th>Faturado Bruto</th>
+            <th>Faturado Líquido</th>
             <th>% Comissão</th>
-            <th>Comissão líquida</th>
+            <th>Comissão Bruta</th>
+            <th>Comissão Líquida</th>
             <th>Abatido</th>
             <th></th>
           </tr></thead>
@@ -761,7 +763,7 @@ function regra(v){
   return regrasMap[v]||{percentual_faturado:.015,percentual_premiacao:.01,percentual_servicos:.015};
 }
 function renderComissao(vendedores,fat){
-  let totalLiquido=0,totalAbatido=0,totalComissao=0;
+  let totalBruto=0,totalLiquido=0,totalAbatido=0,totalComissaoBruta=0,totalComissao=0;
 
   const linhas=vendedores.filter(v=>(fat[v]||0)>0).map(v=>{
     const faturadoBruto=fat[v]||0;
@@ -773,10 +775,13 @@ function renderComissao(vendedores,fat){
     const totalAbatimentos=ajusteManual+abatimentoPedidos+abatimentoDevolucoes;
     const faturadoConsiderado=Math.max(0,faturadoBruto-totalAbatimentos);
     const pct=Number(regra(v).percentual_faturado??.015);
+    const comissaoBruta=faturadoBruto*pct;
     const comissao=faturadoConsiderado*pct;
 
+    totalBruto+=faturadoBruto;
     totalLiquido+=faturadoConsiderado;
     totalAbatido+=totalAbatimentos;
+    totalComissaoBruta+=comissaoBruta;
     totalComissao+=comissao;
 
     const safeV=v.replace(/'/g,"\\'");
@@ -786,9 +791,11 @@ function renderComissao(vendedores,fat){
         <button class="com-click-value" title="Ver notas consideradas"
           onclick="abrirDetalheFaturado('${safeV}')">${fmtBRL(faturadoBruto)}</button>
       </td>
+      <td class="com-valor">${fmtBRL(faturadoConsiderado)}</td>
       <td><input class="com-pct-input" type="number" step="0.1" min="0"
         value="${(pct*100).toFixed(2)}"
         onchange="salvarRegra('${safeV}','faturado',this.value)"> %</td>
+      <td class="com-valor">${fmtBRL(comissaoBruta)}</td>
       <td class="com-valor"><b>${fmtBRL(comissao)}</b></td>
       <td class="com-valor">
         <span class="${totalAbatimentos>0?'com-abatido':''}">${totalAbatimentos>0?'-'+fmtBRL(totalAbatimentos):'—'}</span>
@@ -800,14 +807,17 @@ function renderComissao(vendedores,fat){
     </tr>`;
   }).join('');
 
-  el('tbodyComissao').innerHTML=(linhas||'<tr><td colspan="6" style="text-align:center;color:var(--text3)">Nenhum faturamento neste mês.</td></tr>')+
+  el('tbodyComissao').innerHTML=(linhas||'<tr><td colspan="8" style="text-align:center;color:var(--text3)">Nenhum faturamento neste mês.</td></tr>')+
     `<tr class="total-row">
       <td>Total Geral</td>
-      <td class="com-valor">${fmtBRL(totalLiquido+totalAbatido)}</td>
+      <td class="com-valor">${fmtBRL(totalBruto)}</td>
+      <td class="com-valor">${fmtBRL(totalLiquido)}</td>
       <td></td>
+      <td class="com-valor">${fmtBRL(totalComissaoBruta)}</td>
       <td class="com-valor">${fmtBRL(totalComissao)}</td>
       <td class="com-valor"><span class="${totalAbatido>0?'com-abatido':''}">${totalAbatido>0?'-'+fmtBRL(totalAbatido):'—'}</span></td>
       <td></td>
+
     </tr>`;
 
   el('kpiFat').textContent=fmtBRL(totalLiquido+totalAbatido);
