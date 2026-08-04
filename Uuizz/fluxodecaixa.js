@@ -1195,7 +1195,9 @@ function renderLimiteContaHeaderAlert(info){
 
 /* ================== Saldo Inicial (por empresa) ================== */
 async function loadSaldoInicial(){
-  const { data, error } = await sb.from('fluxo_saldo_inicial').select('*').order('criado_em',{ascending:false});
+  let q = sb.from('fluxo_saldo_inicial').select('*').order('criado_em',{ascending:false});
+  if(restritoMisterWiz) q = q.eq('empresa','Mister Wiz');
+  const { data, error } = await q;
   saldoInicialOverrides = { 'Empoderamento': null, 'Mister Wiz': null };
   if(!error && data){
     for(const empresa of ['Empoderamento','Mister Wiz']){
@@ -1240,7 +1242,9 @@ async function removeSaldoInicial(empresa){
 /* ================== Lançamentos Manuais (por empresa) ================== */
 let ajustesManuais = [];
 async function loadAjustesManuais(){
-  const { data, error } = await sb.from('fluxo_ajustes_manuais').select('*').order('data',{ascending:true});
+  let q = sb.from('fluxo_ajustes_manuais').select('*').order('data',{ascending:true});
+  if(restritoMisterWiz) q = q.eq('empresa','Mister Wiz');
+  const { data, error } = await q;
   ajustesManuais = (!error && data) ? data : [];
   rows = rows.filter(r=>r.fonte!=='Manual');
   ajustesManuais.forEach(a=>{
