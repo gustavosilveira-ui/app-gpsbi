@@ -248,6 +248,8 @@ html{zoom:.8;}
                 <th>NF entrada</th>
                 <th>Vendedor</th>
                 <th>Cliente</th>
+                <th>Pedido</th>
+                <th>Data original</th>
                 <th>Mês original</th>
                 <th>Mês da entrada</th>
                 <th>Valor</th>
@@ -365,14 +367,33 @@ function cleanVendorName(raw){
   return s.split(' ').filter(Boolean).map((w,i)=>i>0&&c.includes(w.toLowerCase())?w.toLowerCase():w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' ');
 }
 function parseDate(v){
-  if(!v)return null;
-  const s=String(v);
-  let m=s.match(/Date\((\d+),(\d+),(\d+)\)/);
-  if(m)return `${m[1]}-${String(Number(m[2])+1).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
-  m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-  if(m)return `${m[3]}-${String(m[2]).padStart(2,'0')}-${String(m[1]).padStart(2,'0')}`;
-  m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
-  if(m)return `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
+  if(v===null||v===undefined||v==='')return null;
+
+  if(typeof v==='object'){
+    if(v instanceof Date && !isNaN(v)){
+      return `${v.getFullYear()}-${String(v.getMonth()+1).padStart(2,'0')}-${String(v.getDate()).padStart(2,'0')}`;
+    }
+    v=v.f??v.v??'';
+  }
+
+  if(typeof v==='number'&&isFinite(v)){
+    const base=new Date(Date.UTC(1899,11,30));
+    base.setUTCDate(base.getUTCDate()+Math.floor(v));
+    return `${base.getUTCFullYear()}-${String(base.getUTCMonth()+1).padStart(2,'0')}-${String(base.getUTCDate()).padStart(2,'0')}`;
+  }
+
+  const s=String(v).trim();
+  if(!s)return null;
+
+  let mt=s.match(/Date\((\d{4}),\s*(\d{1,2}),\s*(\d{1,2})\)/);
+  if(mt)return `${mt[1]}-${String(Number(mt[2])+1).padStart(2,'0')}-${String(mt[3]).padStart(2,'0')}`;
+
+  mt=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(mt)return `${mt[3]}-${String(mt[2]).padStart(2,'0')}-${String(mt[1]).padStart(2,'0')}`;
+
+  mt=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(mt)return `${mt[1]}-${String(mt[2]).padStart(2,'0')}-${String(mt[3]).padStart(2,'0')}`;
+
   return null;
 }
 function canAccess(email){email=(email||'').toLowerCase();return email.endsWith('@gpsbi.com.br')||email===ANDERSON_EMAIL}
@@ -391,7 +412,11 @@ function parseRows(table){
   const cols=table.cols.map(c=>c.label);
   return table.rows.map(row=>{
     const obj={};
-    cols.forEach((col,i)=>{const cell=row.c[i];obj[col]=cell?(cell.v!==null?cell.v:(cell.f||null)):null});
+    cols.forEach((col,i)=>{
+      const cell=row.c[i];
+      if(!cell){obj[col]=null;return;}
+      obj[col]=(cell.f!==undefined&&cell.f!==null&&cell.f!=='')?cell.f:cell.v;
+    });
     return obj;
   });
 }
@@ -453,29 +478,54 @@ function servicoOk(r){
 function digitsOnly(v){return String(v??'').replace(/\D/g,'')}
 function extrairNotaReferenciada(texto){
   const s=String(texto||'');
-  const m=s.match(/nota(?:\s+fiscal)?\s*(?:n[ºo.]?\s*)?([0-9][0-9.\-\/]*)/i);
-  return m ? digitsOnly(m[1]) : '';
+  const padroes=[
+    /devolu[cç][aã]o\s+referente\s+[àa]\s+nota(?:\s+fiscal)?\s*(?:n[ºo.]?\s*)?([0-9][0-9.\-\/]*)/i,
+    /nota(?:\s+fiscal)?\s*(?:n[ºo.]?\s*)?([0-9][0-9.\-\/]*)/i,
+    /\bnf\s*(?:n[ºo.]?\s*)?([0-9][0-9.\-\/]*)/i
+  ];
+  for(const p of padroes){
+    const m=s.match(p);
+    if(m){
+      const nf=digitsOnly(m[1]);
+      if(nf)return nf;
+    }
+  }
+  return '';
 }
 function rowToNotaEntrada(row){
   const date=parseDate(firstCol(row,[
     'Data de Emissão (completa)','Data de Emissão','Data Emissão',
-    'Data de Entrada','Data Entrada','Data'
+    'Data de Entrada','Data Entrada','Dt Entrada','Emissão','Data'
   ]));
   if(!date)return null;
 
-  const notaEntrada=digitsOnly(firstCol(row,['Nota Fiscal','NF','NFS-e','NFS']));
+  const notaEntrada=digitsOnly(firstCol(row,[
+    'Nota Fiscal','Número da Nota Fiscal','Numero da Nota Fiscal','NF','NFS-e','NFS'
+  ]));
+
   const detalhes=String(firstCol(row,[
-    'Dados Adicionais para a Nota Fiscal','Dados Adicionais',
-    'Informações Complementares','Informacoes Complementares','Observação','Observacao'
+    'Dados Adicionais para a Nota Fiscal',
+    'Dados Adicionais da Nota Fiscal',
+    'Dados Adicionais',
+    'Informações Complementares',
+    'Informacoes Complementares',
+    'Observação','Observacao'
   ])||'').trim();
+
   const notaOriginal=extrairNotaReferenciada(detalhes);
   if(!notaOriginal)return null;
 
   return {
-    date, mes:date.slice(0,7), notaEntrada, notaOriginal, detalhes
+    date,
+    mes:date.slice(0,7),
+    notaEntrada,
+    notaOriginal,
+    detalhes
   };
 }
 function detectarDevolucoes(mesApuracao){
+  // O mês de apuração limita somente as Notas de Entrada.
+  // A nota fiscal original é procurada em TODA a base histórica de faturamento.
   const entradasMes=notasEntradaRows.filter(r=>r.mes===mesApuracao);
   const fatMap={};
 
@@ -487,6 +537,8 @@ function detectarDevolucoes(mesApuracao){
         nf,
         vendedor:r.vendedor,
         cliente:r.cliente||'—',
+        pedido:r.pedido||'—',
+        dataOriginal:r.date||'',
         mesOriginal:r.mes,
         valor:0
       };
@@ -504,6 +556,8 @@ function detectarDevolucoes(mesApuracao){
         notasEntrada:[],
         vendedor:fat?.vendedor||'Não localizada',
         cliente:fat?.cliente||'—',
+        pedido:fat?.pedido||'—',
+        dataOriginal:fat?.dataOriginal||'',
         mesOriginal:fat?.mesOriginal||'—',
         mesEntrada:e.mes,
         valor:Number(fat?.valor||0),
@@ -846,6 +900,8 @@ function renderDevolucoes(){
       <td class="nf">${d.notasEntrada.join(', ')||'—'}</td>
       <td>${d.vendedor}</td>
       <td>${d.cliente||'—'}</td>
+      <td>${d.pedido||'—'}</td>
+      <td>${d.dataOriginal?d.dataOriginal.split('-').reverse().join('/'):'—'}</td>
       <td>${d.mesOriginal||'—'}</td>
       <td>${d.mesEntrada||'—'}</td>
       <td class="valor">${fmtBRL(d.valor)}</td>
@@ -853,12 +909,12 @@ function renderDevolucoes(){
       <td><button class="btn btn-ghost btn-sm" onclick="toggleDevolucaoDetalhe('${detalheId}')">Detalhes</button></td>
     </tr>
     <tr id="${detalheId}" class="com-dev-detail-row">
-      <td colspan="10" class="com-dev-detail">
+      <td colspan="12" class="com-dev-detail">
         <b>Descrição encontrada na Nota de Entrada:</b><br>
         ${d.detalhes.map(x=>x.replace(/</g,'&lt;').replace(/>/g,'&gt;')).join('<br><br>')}
       </td>
     </tr>`;
-  }).join(''):'<tr><td colspan="10" style="text-align:center;color:var(--text3)">Nenhuma nota de entrada com referência a nota fiscal foi localizada no mês.</td></tr>';
+  }).join(''):'<tr><td colspan="12" style="text-align:center;color:var(--text3)">Nenhuma nota de entrada com referência a nota fiscal foi localizada no mês.</td></tr>';
 }
 function toggleDevolucaoDetalhe(id){
   el(id)?.classList.toggle('open');
@@ -927,6 +983,8 @@ function exportarDevolucoesExcel(){
     'Nota(s) de entrada':d.notasEntrada.join(', '),
     'Vendedor':d.vendedor,
     'Cliente':d.cliente,
+    'Pedido':d.pedido,
+    'Data original da NF':d.dataOriginal,
     'Mês original da NF':d.mesOriginal,
     'Mês da nota de entrada':d.mesEntrada,
     'Valor da NF original':Number(d.valor||0),
