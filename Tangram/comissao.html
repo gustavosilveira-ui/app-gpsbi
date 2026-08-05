@@ -164,7 +164,7 @@ html{zoom:.8;}
             <th>% Comissão</th>
             <th>Comissão Bruta</th>
             <th>Comissão Líquida</th>
-            <th>Abatido</th>
+            <th>Abatido sobre Notas de Entrada</th>
             <th></th>
           </tr></thead>
           <tbody id="tbodyComissao"></tbody>
@@ -187,7 +187,9 @@ html{zoom:.8;}
         <table class="com-table">
           <thead><tr>
             <th>Vendedor</th><th style="text-align:right">Receita Captada Bruta</th><th style="text-align:right">Receita Captada Líquida</th><th style="text-align:right">Meta</th>
-            <th style="text-align:right">% Atingido</th><th>Status</th><th style="text-align:right">% Premiação</th>
+            <th style="text-align:right">% Atingido</th><th>Status</th>
+            <th style="text-align:center" title="Marca quando o cliente informar que o vendedor bateu a super meta — a premiação passa a ser % sobre a Receita Captada Líquida, sem teto.">Super Meta</th>
+            <th style="text-align:right">% Premiação</th>
             <th style="text-align:right">Premiação</th>
           </tr></thead>
           <tbody id="tbodyPremiacao"></tbody>
@@ -767,7 +769,7 @@ async function carregarTudo(){
   renderPedidosExcluidos();
 }
 function regra(v){
-  return regrasMap[v]||{percentual_faturado:.015,percentual_premiacao:.01,percentual_servicos:.015};
+  return regrasMap[v]||{percentual_faturado:.015,percentual_premiacao:.01,percentual_servicos:.015,super_meta:false};
 }
 function renderComissao(vendedores,fat){
   let totalBruto=0,totalLiquido=0,totalAbatido=0,totalComissaoBruta=0,totalComissao=0;
@@ -1030,15 +1032,22 @@ function renderPremiacao(vendedores,cap,capRowsMes){
     const captadaLiquida=Math.max(0,captadaBruta-totalAbatimentoCaptada);
     const meta=metasMap[v]||0;
     const pct=Number(regra(v).percentual_premiacao??.01);
+    const superMeta=!!regra(v).super_meta;
     // A meta é comparada com a LÍQUIDA — combinado com o Gustavo (04/08/2026):
     // se o abatimento derrubar a receita líquida abaixo da meta, a premiação não libera.
     const atingido=meta>0?captadaLiquida/meta*100:0;
     const liberada=meta>0&&captadaLiquida>=meta;
-    const premio=liberada?meta*pct:0;
+    // Super Meta (05/08/2026): quando o cliente informa que o vendedor bateu a
+    // super meta (valor que a GPS não controla, só o cliente sabe), a premiação
+    // vira % sobre a Receita Captada Líquida inteira, sem teto — não é mais
+    // meta fixa × %. Marcado manualmente por vendedor/mês.
+    const premio=superMeta?(captadaLiquida*pct):(liberada?meta*pct:0);
     total+=premio; totalBrutaGeral+=captadaBruta; totalLiquidaGeral+=captadaLiquida;
 
     let status;
-    if(meta<=0){
+    if(superMeta){
+      status='<span class="com-status ok">🏆 Super Meta</span>';
+    } else if(meta<=0){
       status='<span class="com-status sem">Sem meta</span>';
     } else if(liberada){
       status='<span class="com-status ok">Meta atingida</span>';
@@ -1050,15 +1059,17 @@ function renderPremiacao(vendedores,cap,capRowsMes){
     }
 
     return `<tr><td>${v}</td><td class="com-valor">${fmtBRL(captadaBruta)}</td><td class="com-valor">${fmtBRL(captadaLiquida)}</td><td class="com-valor">${meta?fmtBRL(meta):'—'}</td><td class="com-valor">${meta?atingido.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%':'—'}</td>
-      <td>${status}</td><td style="text-align:right"><input class="com-pct-input" type="number" step="0.1" min="0" value="${(pct*100).toFixed(2)}" onchange="salvarRegra('${v.replace(/'/g,"\\'")}','premiacao',this.value)"> %</td>
+      <td>${status}</td>
+      <td style="text-align:center"><input type="checkbox" ${superMeta?'checked':''} onchange="toggleSuperMeta('${v.replace(/'/g,"\\'")}',this.checked)"></td>
+      <td style="text-align:right"><input class="com-pct-input" type="number" step="0.1" min="0" value="${(pct*100).toFixed(2)}" onchange="salvarRegra('${v.replace(/'/g,"\\'")}','premiacao',this.value)"> %</td>
       <td class="com-valor"><b>${fmtBRL(premio)}</b></td></tr>`;
   }).join('');
-  el('tbodyPremiacao').innerHTML=(linhas||'<tr><td colspan="8" style="text-align:center;color:var(--text3)">Nenhum vendedor ou meta neste mês.</td></tr>')+
+  el('tbodyPremiacao').innerHTML=(linhas||'<tr><td colspan="9" style="text-align:center;color:var(--text3)">Nenhum vendedor ou meta neste mês.</td></tr>')+
     `<tr class="total-row">
       <td>Total Geral</td>
       <td class="com-valor">${fmtBRL(totalBrutaGeral)}</td>
       <td class="com-valor">${fmtBRL(totalLiquidaGeral)}</td>
-      <td colspan="4"></td>
+      <td colspan="5"></td>
       <td class="com-valor">${fmtBRL(total)}</td>
     </tr>`;
   el('kpiPrem').textContent=fmtBRL(total);window._totalPremiacao=total;atualizarTotal();
@@ -1118,6 +1129,21 @@ async function salvarRegra(v,tipo,valorPct){
   else payload.percentual_premiacao=pct;
   const{error}=await sb.from('tangram_comissao_regras').upsert(payload,{onConflict:'vendedor,mes_ano'});
   if(error){alert('Erro ao salvar percentual: '+error.message);return}
+  await carregarTudo();
+}
+async function toggleSuperMeta(v,checked){
+  const atual=regra(v);
+  const payload={
+    vendedor:v,mes_ano:mesAnoAtual,
+    percentual_faturado:Number(atual.percentual_faturado??.015),
+    percentual_premiacao:Number(atual.percentual_premiacao??.01),
+    percentual_servicos:Number(atual.percentual_servicos??.015),
+    super_meta:checked,
+    atualizado_por:currentUser.email,
+    atualizado_em:new Date().toISOString()
+  };
+  const{error}=await sb.from('tangram_comissao_regras').upsert(payload,{onConflict:'vendedor,mes_ano'});
+  if(error){alert('Erro ao salvar Super Meta: '+error.message);return}
   await carregarTudo();
 }
 let ajusteVendedor='';
