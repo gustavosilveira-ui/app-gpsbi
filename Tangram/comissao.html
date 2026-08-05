@@ -1153,44 +1153,83 @@ async function salvarRegra(v,tipo,valorPct){
   if(error){alert('Erro ao salvar percentual: '+error.message);return}
   await carregarTudo();
 }
-// Lê a tabela já renderizada na tela (não recalcula nada) — garante que o
-// resumo mandado pro cliente é EXATAMENTE o que está sendo mostrado agora.
-function scrapeTabela(tbodyId, colVendedor, colValor){
-  const tbody = el(tbodyId);
-  if(!tbody) return {};
-  const out = {};
-  Array.from(tbody.querySelectorAll('tr')).forEach(tr=>{
-    if(tr.classList.contains('total-row')) return;
-    const tds = tr.querySelectorAll('td');
-    if(!tds.length || tds.length<=Math.max(colVendedor,colValor)) return;
-    const vendedor = tds[colVendedor].textContent.trim();
-    if(!vendedor) return;
-    out[vendedor] = tds[colValor].textContent.trim();
-  });
-  return out;
+function detalheAbatimentoVendedor(v,pctFaturado){
+  const devolucoes=getDevolucoesAprovadasVendedor(v);
+  const pedidos=pedidosExcluidosMap[v]||[];
+  const ajustes=ajustesMap[v]||[];
+  return [
+    ...devolucoes.map(d=>({tipo:'Nota de entrada',referencia:`NF ${d.notaFaturamento}`,pedido:d.pedido||'—',cliente:d.cliente||'—',mes:d.mesOriginal||'—',valor:Number(d.valor||0),motivo:d.detalhes?.[0]||'Devolução aprovada'})),
+    ...pedidos.map(p=>({tipo:'Pedido desconsiderado',referencia:`Pedido ${p.pedido}`,pedido:p.pedido||'—',cliente:p.cliente||'—',mes:p.mes_original||'—',valor:Number(p.valor||0),motivo:p.motivo||'Pedido desconsiderado'})),
+    ...ajustes.map(a=>({tipo:'Ajuste manual',referencia:'Ajuste',pedido:'—',cliente:'—',mes:mesAnoAtual,valor:Number(a.valor||0),motivo:a.motivo||'Ajuste manual'})),
+  ];
 }
 
 async function gerarLinkAprovacao(){
-  if(!confirm(`Gerar um link de aprovação com os valores atuais de ${mesAnoAtual}? O cliente vai ver exatamente o que está na tela agora.`)) return;
+  if(!confirm(`Gerar um link de aprovação com os valores atuais de ${mesAnoAtual}? O cliente vai ver exatamente o que está calculado agora, com o mesmo nível de detalhe que você vê aqui.`)) return;
 
-  const comissoes=scrapeTabela('tbodyComissao',0,5);   // vendedor -> Comissão Líquida
-  const premiacoes=scrapeTabela('tbodyPremiacao',0,8); // vendedor -> Premiação
-  const servicos=scrapeTabela('tbodyServicos',0,4);    // vendedor -> Comissão sobre Serviços
+  // Recalcula os mesmos totais de carregarTudo() — não depende de nada
+  // que já tenha sumido da tela, e garante números frescos.
+  const fat={},cap={},serv={};
+  faturadaRows.filter(r=>r.mes===mesAnoAtual).forEach(r=>fat[r.vendedor]=(fat[r.vendedor]||0)+r.total);
+  const capRowsMes=captadaRows.filter(r=>r.mes===mesAnoAtual);
+  capRowsMes.forEach(r=>cap[r.vendedor]=(cap[r.vendedor]||0)+r.total);
+  servicosRows.filter(r=>r.mes===mesAnoAtual).forEach(r=>serv[r.vendedor]=(serv[r.vendedor]||0)+r.total);
+  const vendedores=Array.from(new Set([...Object.keys(fat),...Object.keys(cap),...Object.keys(serv),...Object.keys(metasMap)]));
 
-  const vendedoresTodos=Array.from(new Set([...Object.keys(comissoes),...Object.keys(premiacoes),...Object.keys(servicos)]));
-  const linhas=vendedoresTodos.map(v=>({
-    vendedor:v,
-    comissao:comissoes[v]||'R$ 0,00',
-    premiacao:premiacoes[v]||'R$ 0,00',
-    servicos:servicos[v]||'R$ 0,00',
-  }));
+  const linhas=vendedores.map(v=>{
+    const pctFat=Number(regra(v).percentual_faturado??.015);
+    const pctPrem=Number(regra(v).percentual_premiacao??.01);
+    const pctServ=Number(regra(v).percentual_servicos??.015);
+    const superMeta=!!regra(v).super_meta;
 
-  const totalGeralTexto=(el('kpiTotal')&&el('kpiTotal').textContent)||'—';
+    // --- Faturados ---
+    const faturadoBruto=fat[v]||0;
+    const abatimentoDetalheFat=detalheAbatimentoVendedor(v,pctFat);
+    const totalAbatimentosFat=abatimentoDetalheFat.reduce((s,i)=>s+i.valor,0);
+    const faturadoLiquido=Math.max(0,faturadoBruto-totalAbatimentosFat);
+    const comissaoBruta=faturadoBruto*pctFat;
+    const comissaoLiquida=faturadoLiquido*pctFat;
+
+    // --- Premiação (mesma lógica de renderPremiacao) ---
+    const captadaBruta=cap[v]||0;
+    const pedidosExcluidos=pedidosExcluidosMap[v]||[];
+    const devolucoesAprovadasDoVendedor=devolucoesDetectadas.filter(d=>d.aprovado&&d.localizada&&cleanVendorName(d.vendedor)===v);
+    const setPedidosAbatidos=new Set([
+      ...pedidosExcluidos.map(p=>normalizarPedido(p.pedido)),
+      ...devolucoesAprovadasDoVendedor.map(d=>normalizarPedido(d.pedido))
+    ].filter(p=>p));
+    const abatimentoCaptadaPedidos=capRowsMes.filter(r=>r.vendedor===v&&setPedidosAbatidos.has(normalizarPedido(r.pedido))).reduce((s,r)=>s+Number(r.total||0),0);
+    const ajusteManualCap=(ajustesMap[v]||[]).reduce((s,a)=>s+Number(a.valor||0),0);
+    const captadaLiquida=Math.max(0,captadaBruta-abatimentoCaptadaPedidos-ajusteManualCap);
+    const meta=metasMap[v]||0;
+    const liberada=meta>0&&captadaLiquida>=meta;
+    const premiacao=superMeta?(captadaLiquida*pctPrem):(liberada?meta*pctPrem:0);
+    let statusPremiacao='sem';
+    if(superMeta) statusPremiacao='super';
+    else if(meta<=0) statusPremiacao='sem';
+    else if(liberada) statusPremiacao='ok';
+    else if(captadaBruta>=meta) statusPremiacao='abatimento';
+    else statusPremiacao='nao';
+
+    // --- Serviços ---
+    const servicosValor=serv[v]||0;
+    const servicosComissao=servicosValor*pctServ;
+
+    return {
+      vendedor:v,
+      faturado:{bruto:faturadoBruto,liquido:faturadoLiquido,pct:pctFat,comissaoBruta,comissaoLiquida,abatimento:abatimentoDetalheFat},
+      premiacao:{captadaBruta,captadaLiquida,meta,pct:pctPrem,superMeta,status:statusPremiacao,valor:premiacao},
+      servicos:{valor:servicosValor,pct:pctServ,comissao:servicosComissao},
+      total:comissaoLiquida+premiacao+servicosComissao,
+    };
+  }).filter(l=>l.faturado.bruto>0||l.premiacao.captadaBruta>0||l.servicos.valor>0||l.premiacao.meta>0);
+
+  const totalGeral=linhas.reduce((s,l)=>s+l.total,0);
 
   const token=crypto.randomUUID();
   const payload={
     token, mes_ano:mesAnoAtual,
-    dados:{linhas,totalGeral:totalGeralTexto,geradoEm:new Date().toISOString()},
+    dados:{linhas,totalGeral,geradoEm:new Date().toISOString()},
     status:'pendente',
     criado_por:currentUser.email,
   };
