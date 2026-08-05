@@ -658,6 +658,26 @@ function contaNoTotal_(r){
   return true;
 }
 
+// Identifica transferências independentemente da grafia/categoria usada pelo ERP.
+// Elas não entram nos cards gerenciais. No Saldo Acumulado entram somente quando
+// uma empresa específica está selecionada; na visão Global são anuladas para não
+// duplicar uma movimentação interna entre empresas do próprio grupo.
+function isTransferencia_(r){
+  if(!r) return false;
+  if(r.grupo === 'TRANSFERENCIAS') return true;
+  const categoria = normalizeTxt(r.categoria || '');
+  return categoria.includes('transferencia entre empresa')
+      || categoria.includes('transferencia entre conta')
+      || categoria.includes('transferencias a credito')
+      || categoria.includes('transferencia a credito');
+}
+
+function contaNoSaldoAcumulado_(r, incluirTransferencias){
+  if(r.categoria === CATEGORIA_TITULOS_ABERTO) return false;
+  if(isTransferencia_(r)) return !!incluirTransferencias;
+  return contaNoTotal_(r);
+}
+
 const GRUPOS_PAGAMENTO = [
   { key:'TITULOS_ABERTO', label:'Títulos em Aberto' },
   { key:'CHEQUE_TERCEIROS', label:'Cheque Terceiros (não conta no saldo)' },
@@ -1215,8 +1235,8 @@ let saldoIniciais = {}; // { empresa: {data_referencia, valor} }
 
 // Saldo acumulado de UMA empresa até uma data, respeitando o saldo inicial
 // dela (se houver). Os lançamentos manuais já estão dentro de rowsByEmpresa.
-function runningBalanceEmpresa(empresa, uptoDate){
-  const rowsEmp = (rowsByEmpresa[empresa] || []).filter(contaNoTotal_);
+function runningBalanceEmpresa(empresa, uptoDate, incluirTransferencias){
+  const rowsEmp = (rowsByEmpresa[empresa] || []).filter(r=>contaNoSaldoAcumulado_(r, incluirTransferencias));
   const override = saldoIniciais[empresa];
   if(override && uptoDate >= override.data_referencia){
     // O valor salvo é o saldo de abertura da data de referência.
@@ -1234,7 +1254,8 @@ function runningBalanceEmpresa(empresa, uptoDate){
 // Saldo Acumulado no escopo atual: uma empresa só, ou a soma das 4 (Global).
 function runningBalance(uptoDate){
   const empresasNoEscopo = selectedEmpresa ? [selectedEmpresa] : EMPRESAS;
-  return empresasNoEscopo.reduce((sum,emp)=>sum + runningBalanceEmpresa(emp, uptoDate), 0);
+  const incluirTransferencias = !!selectedEmpresa;
+  return empresasNoEscopo.reduce((sum,emp)=>sum + runningBalanceEmpresa(emp, uptoDate, incluirTransferencias), 0);
 }
 // RECEBIMENTOS/PAGAMENTOS (linha de resumo) mostram só o que já foi
 // realizado de verdade — Títulos em Aberto e Cheque Terceiros ficam de
@@ -1324,14 +1345,20 @@ function renderFcKpiStrip(){
   const empresasNoEscopo = selectedEmpresa ? [selectedEmpresa] : EMPRESAS;
   const pagoRowsCard = empresasNoEscopo.flatMap(emp => pagosRealizadosByEmpresa[emp] || []);
   const pago = pagoRowsCard
-    .filter(r=>r.date && r.date.slice(0,7)===mesAtual && r.date < HOJE_ISO)
+    .filter(r=>r.date && r.date.slice(0,7)===mesAtual && r.date < HOJE_ISO && !isTransferencia_(r))
     .reduce((s,r)=>s+Math.abs(r.valor),0);
 
-  const recebido = rows.filter(r=>r.origem==='cr' && r.categoria!==CATEGORIA_CHEQUE_TERCEIROS && r.date.slice(0,7)===mesAtual).reduce((s,r)=>s+Math.abs(r.valor),0);
-  // Cards "Em Aberto" respeitam o período exibido no fluxo:
-  // janeiro do ano vigente até o mês vigente + 2 meses futuros.
-  const aPagarAberto = rows.filter(r=>r.origem==='cap' && r.date>=periodoStart && r.date<=periodoEnd).reduce((s,r)=>s+Math.abs(r.valor),0);
-  const aReceberAberto = rows.filter(r=>r.origem==='venc' && r.date>=periodoStart && r.date<=periodoEnd).reduce((s,r)=>s+Math.abs(r.valor),0);
+  const recebido = rows
+    .filter(r=>r.origem==='cr' && r.categoria!==CATEGORIA_CHEQUE_TERCEIROS && r.date.slice(0,7)===mesAtual && !isTransferencia_(r))
+    .reduce((s,r)=>s+Math.abs(r.valor),0);
+  // Cards "Em Aberto" respeitam o período exibido no fluxo e não consideram
+  // transferências internas, pois elas não representam receita ou despesa operacional.
+  const aPagarAberto = rows
+    .filter(r=>r.origem==='cap' && r.date>=periodoStart && r.date<=periodoEnd && !isTransferencia_(r))
+    .reduce((s,r)=>s+Math.abs(r.valor),0);
+  const aReceberAberto = rows
+    .filter(r=>r.origem==='venc' && r.date>=periodoStart && r.date<=periodoEnd && !isTransferencia_(r))
+    .reduce((s,r)=>s+Math.abs(r.valor),0);
   const cards = [
     { lbl:'Pago (mês vigente, até ontem)', val:pago, cor:'var(--red)' },
     { lbl:'Recebido (mês vigente)', val:recebido, cor:'#4F8F3A' },
