@@ -796,7 +796,7 @@ function regra(v){
 function renderComissao(vendedores,fat){
   let totalBruto=0,totalLiquido=0,totalAbatido=0,totalComissaoBruta=0,totalComissao=0;
 
-  const linhas=vendedores.filter(v=>(fat[v]||0)>0).map(v=>{
+  const linhas=[...vendedores].filter(v=>(fat[v]||0)>0).sort((a,b)=>(fat[b]||0)-(fat[a]||0)).map(v=>{
     const faturadoBruto=fat[v]||0;
     const ajs=ajustesMap[v]||[];
     const ajusteManual=ajs.reduce((s,a)=>s+Number(a.valor||0),0);
@@ -1028,7 +1028,7 @@ function abrirDetalheAbatimentos(vendedor){
 
 function renderPremiacao(vendedores,cap,capRowsMes){
   let total=0,totalBrutaGeral=0,totalLiquidaGeral=0;
-  const linhas=vendedores.filter(v=>(cap[v]||0)>0||(metasMap[v]||0)>0).map(v=>{
+  const linhas=[...vendedores].filter(v=>(cap[v]||0)>0||(metasMap[v]||0)>0).sort((a,b)=>(metasMap[b]||0)-(metasMap[a]||0)).map(v=>{
     const captadaBruta=cap[v]||0;
 
     // Abatimento da Captada: cruza os pedidos das DEVOLUÇÕES APROVADAS
@@ -1064,6 +1064,10 @@ function renderPremiacao(vendedores,cap,capRowsMes){
     // vira % sobre a Receita Captada Líquida inteira, sem teto — não é mais
     // meta fixa × %. Marcado manualmente por vendedor/mês.
     const premio=superMeta?(captadaLiquida*pct):(liberada?meta*pct:0);
+
+    // Exibe somente quem realmente atingiu a meta ou foi marcado como Super Meta.
+    if(!liberada && !superMeta) return '';
+
     total+=premio; totalBrutaGeral+=captadaBruta; totalLiquidaGeral+=captadaLiquida;
 
     let status;
@@ -1086,7 +1090,7 @@ function renderPremiacao(vendedores,cap,capRowsMes){
       <td style="text-align:right"><input class="com-pct-input" type="number" step="0.1" min="0" value="${(pct*100).toFixed(2)}" onchange="salvarRegra('${v.replace(/'/g,"\\'")}','premiacao',this.value)"> %</td>
       <td class="com-valor"><b>${fmtBRL(premio)}</b></td></tr>`;
   }).join('');
-  el('tbodyPremiacao').innerHTML=(linhas||'<tr><td colspan="9" style="text-align:center;color:var(--text3)">Nenhum vendedor ou meta neste mês.</td></tr>')+
+  el('tbodyPremiacao').innerHTML=(linhas||'<tr><td colspan="9" style="text-align:center;color:var(--text3)">Nenhum vendedor atingiu a meta neste mês.</td></tr>')+
     `<tr class="total-row">
       <td>Total Geral</td>
       <td class="com-valor">${fmtBRL(totalBrutaGeral)}</td>
@@ -1099,7 +1103,7 @@ function renderPremiacao(vendedores,cap,capRowsMes){
 
 function renderServicos(vendedores,serv){
   let totalServicos=0,totalComissaoServicos=0;
-  const linhas=vendedores.filter(v=>(serv[v]||0)>0).map(v=>{
+  const linhas=[...vendedores].filter(v=>(serv[v]||0)>0).sort((a,b)=>(serv[b]||0)-(serv[a]||0)).map(v=>{
     const valor=serv[v]||0;
     const pct=Number(regra(v).percentual_servicos??.015);
     const comissao=valor*pct;

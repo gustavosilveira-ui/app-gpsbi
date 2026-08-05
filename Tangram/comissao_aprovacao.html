@@ -194,7 +194,7 @@ function render(){
 
 function renderFaturados(linhas){
   let totBruto=0,totLiq=0,totCB=0,totCL=0,totAbat=0;
-  const linhasHtml=linhas.filter(l=>l.faturado&&l.faturado.bruto>0).map(l=>{
+  const linhasHtml=[...linhas].filter(l=>l.faturado&&l.faturado.bruto>0).sort((a,b)=>(b.faturado.liquido||0)-(a.faturado.liquido||0)).map(l=>{
     const f=l.faturado;
     totBruto+=f.bruto; totLiq+=f.liquido; totCB+=f.comissaoBruta; totCL+=f.comissaoLiquida;
     const abatido=f.bruto-f.liquido; totAbat+=abatido;
@@ -246,7 +246,7 @@ function toggleDetalhe(v){ detalheAberto[v]=!detalheAberto[v]; render(); }
 
 function renderPremiacao(linhas){
   let totBruta=0,totLiq=0,totPrem=0;
-  const linhasHtml=linhas.filter(l=>l.premiacao&&(l.premiacao.captadaBruta>0||l.premiacao.meta>0)).map(l=>{
+  const linhasHtml=[...linhas].filter(l=>l.premiacao&&(l.premiacao.status==='ok'||l.premiacao.status==='super')).sort((a,b)=>(b.premiacao.meta||0)-(a.premiacao.meta||0)).map(l=>{
     const p=l.premiacao;
     totBruta+=p.captadaBruta; totLiq+=p.captadaLiquida; totPrem+=p.valor;
     return `<tr>
@@ -259,7 +259,7 @@ function renderPremiacao(linhas){
       <td class="com-valor" data-label="Premiação"><b>${fmtBRL(p.valor)}</b></td>
     </tr>`;
   }).join('');
-  el('apTbodyPremiacao').innerHTML=(linhasHtml||'<tr><td colspan="7" style="text-align:center;color:var(--text3);">Nenhum vendedor ou meta neste mês.</td></tr>')+
+  el('apTbodyPremiacao').innerHTML=(linhasHtml||'<tr><td colspan="7" style="text-align:center;color:var(--text3);">Nenhum vendedor atingiu a meta neste mês.</td></tr>')+
     `<tr class="total-row">
       <td data-label="">Total Geral</td>
       <td class="com-valor" data-label="Captada Bruta">${fmtBRL(totBruta)}</td>
@@ -271,7 +271,7 @@ function renderPremiacao(linhas){
 
 function renderServicos(linhas){
   let totVal=0,totCom=0;
-  const linhasHtml=linhas.filter(l=>l.servicos&&l.servicos.valor>0).map(l=>{
+  const linhasHtml=[...linhas].filter(l=>l.servicos&&l.servicos.valor>0).sort((a,b)=>(b.servicos.valor||0)-(a.servicos.valor||0)).map(l=>{
     const s=l.servicos;
     totVal+=s.valor; totCom+=s.comissao;
     return `<tr>
