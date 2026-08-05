@@ -913,7 +913,7 @@ function isTituloAbertoOuPrevisto(rowObj){
 function rowsFromCAP(table, empresa){
   const raw = parseGvizRows(table);
   return raw.filter(r=>!isSubtotalRow(r)).map(r=>{
-    if(!isChequeTerceiros(r) && !bancoValido(r, empresa)) return null;
+    // Filtro de banco removido: todos os títulos em aberto entram no fluxo.
     if(!isTituloAbertoOuPrevisto(r)) return null;
     // Aceita tanto "Data" (nome usado historicamente) quanto "Data Vencto"
     // (nome real do relatório de Contas a Pagar de algumas empresas, ex:
@@ -933,7 +933,7 @@ function rowsFromCAP(table, empresa){
 function rowsFromVENC(table, empresa){
   const raw = parseGvizRows(table);
   return raw.filter(r=>!isSubtotalRow(r)).map(r=>{
-    if(!isChequeTerceiros(r) && !bancoValido(r, empresa)) return null;
+    // Filtro de banco removido: todos os títulos em aberto entram no fluxo.
     if(!isTituloAbertoOuPrevisto(r)) return null;
     const dateRaw = getColNormalized(r, 'dt venc');
     const dateVenc = parseDateCell(typeof dateRaw==='object' && dateRaw!==null ? (dateRaw.v||dateRaw) : dateRaw);
