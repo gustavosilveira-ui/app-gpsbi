@@ -68,6 +68,15 @@ body{padding-bottom:32px;}
 .ap-approved-box .msg{font-size:14px;font-weight:700;color:var(--green);}
 .ap-approved-box .when{font-size:12px;color:var(--text3);margin-top:6px;}
 .ap-error{text-align:center;padding:30px 16px;color:var(--text3);}
+
+.com-vendedor-list{display:grid;gap:10px;margin-top:12px}
+.com-vendedor-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:14px 16px;border:1px solid var(--border2);border-radius:12px;background:var(--navy3)}
+.com-vendedor-pos{font-size:10px;color:var(--text3);font-weight:800;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px}
+.com-vendedor-nome{font-size:13.5px;font-weight:800}
+.com-vendedor-detalhe{font-size:10.5px;color:var(--text3);margin-top:4px;line-height:1.45}
+.com-vendedor-total{font-family:'DM Mono',monospace;font-size:16px;font-weight:900;color:var(--cyan);white-space:nowrap;text-align:right}
+.com-vendedor-total small{display:block;font-family:'Sora',sans-serif;font-size:9.5px;color:var(--text3);margin-top:3px;text-transform:uppercase}
+@media(max-width:700px){.com-vendedor-item{padding:13px 14px}.com-vendedor-total{font-size:14px}}
 </style>
 </head>
 <body>
@@ -87,6 +96,13 @@ body{padding-bottom:32px;}
     </div>
 
     <div class="com-kpis" id="apKpis"></div>
+
+
+    <div class="card">
+      <div class="card-title">👤 Total por Vendedor</div>
+      <div class="card-sub">Valor total a receber, somando comissão sobre faturados, premiação por meta e comissão sobre serviços.</div>
+      <div class="com-vendedor-list" id="apResumoVendedores"></div>
+    </div>
 
     <div class="card">
       <div class="card-title">💰 Comissão sobre Faturados</div>
@@ -186,10 +202,45 @@ function render(){
     <div class="com-kpi"><div class="com-kpi-val">${fmtBRL(totalServicos)}</div><div class="com-kpi-lbl">Comissão sobre Serviços</div></div>
     <div class="com-kpi" style="border-color:var(--cyan);"><div class="com-kpi-val" style="color:var(--cyan);">${fmtBRL(dados.totalGeral)}</div><div class="com-kpi-lbl">Total Geral</div></div>`;
 
+  renderResumoVendedores(linhas);
   renderFaturados(linhas);
   renderPremiacao(linhas);
   renderServicos(linhas);
   renderAcao();
+}
+
+
+function renderResumoVendedores(linhas){
+  const resumo=[...linhas].map(l=>{
+    const comissao=Number(l.faturado?.comissaoLiquida||0);
+    const premiacao=Number(l.premiacao?.valor||0);
+    const servicos=Number(l.servicos?.comissao||0);
+    return {
+      vendedor:l.vendedor||'Sem vendedor',
+      comissao,
+      premiacao,
+      servicos,
+      total:comissao+premiacao+servicos
+    };
+  }).filter(r=>r.total>0).sort((a,b)=>b.total-a.total);
+
+  const box=el('apResumoVendedores');
+  if(!resumo.length){
+    box.innerHTML='<div style="text-align:center;color:var(--text3);padding:16px;">Nenhum valor de comissão neste mês.</div>';
+    return;
+  }
+
+  box.innerHTML=resumo.map((r,i)=>`
+    <div class="com-vendedor-item">
+      <div>
+        <div class="com-vendedor-pos">${i+1}º maior total</div>
+        <div class="com-vendedor-nome">${escapeHtml(r.vendedor)}</div>
+        <div class="com-vendedor-detalhe">
+          Faturados: ${fmtBRL(r.comissao)} · Premiação: ${fmtBRL(r.premiacao)} · Serviços: ${fmtBRL(r.servicos)}
+        </div>
+      </div>
+      <div class="com-vendedor-total">${fmtBRL(r.total)}<small>Total a receber</small></div>
+    </div>`).join('');
 }
 
 function renderFaturados(linhas){
