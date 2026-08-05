@@ -29,6 +29,9 @@ html{zoom:.8;}
 .com-status.ok{background:rgba(47,214,184,.15);color:var(--green)}
 .com-status.no{background:rgba(245,185,66,.15);color:var(--gold)}
 .com-status.sem{background:rgba(239,106,106,.12);color:var(--red)}
+#aprovacaoStatusBox{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;background:var(--navy3);margin-bottom:16px;font-size:12.5px;}
+#aprovacaoStatusBox.pendente{border-left:3px solid var(--gold);}
+#aprovacaoStatusBox.aprovado{border-left:3px solid var(--green);}
 .com-note{font-size:11.5px;color:var(--text3);line-height:1.5;margin:10px 0 0}
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:300}
 .modal-overlay.open{display:flex}
@@ -141,7 +144,10 @@ html{zoom:.8;}
         <div class="field-group"><label class="field-label">Mês</label><select id="comMes"></select></div>
         <div class="field-group"><label class="field-label">Ano</label><select id="comAno"></select></div>
         <button class="btn btn-ghost btn-sm" onclick="carregarTudo()">Atualizar</button>
+        <button class="btn btn-primary btn-sm" onclick="gerarLinkAprovacao()">🔗 Gerar link de aprovação</button>
       </div>
+
+      <div id="aprovacaoStatusBox" style="display:none;"></div>
 
       <div class="com-kpis">
         <div class="com-kpi"><div class="com-kpi-val" id="kpiFat">—</div><div class="com-kpi-lbl">Receita faturada</div></div>
@@ -356,6 +362,21 @@ html{zoom:.8;}
     </div>
   </div>
 </div>
+
+<div class="modal-overlay" id="linkAprovacaoModal">
+  <div class="modal-box">
+    <div class="modal-title">🔗 Link de aprovação gerado</div>
+    <div class="modal-sub">Manda esse link pro cliente (WhatsApp, e-mail...). Não precisa login — ele abre, confere o resumo e aprova direto pelo celular.</div>
+    <div class="field-group">
+      <input type="text" id="linkAprovacaoUrl" readonly onclick="this.select()">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="fecharLinkAprovacaoModal()">Fechar</button>
+      <button class="btn btn-primary" onclick="copiarLinkAprovacao()">Copiar link</button>
+    </div>
+  </div>
+</div>
+
 
 <script src="nav.js"></script>
 <script>
@@ -767,6 +788,7 @@ async function carregarTudo(){
   renderEvidencias();
   renderDevolucoes();
   renderPedidosExcluidos();
+  verificarStatusAprovacao();
 }
 function regra(v){
   return regrasMap[v]||{percentual_faturado:.015,percentual_premiacao:.01,percentual_servicos:.015,super_meta:false};
@@ -1131,6 +1153,76 @@ async function salvarRegra(v,tipo,valorPct){
   if(error){alert('Erro ao salvar percentual: '+error.message);return}
   await carregarTudo();
 }
+// Lê a tabela já renderizada na tela (não recalcula nada) — garante que o
+// resumo mandado pro cliente é EXATAMENTE o que está sendo mostrado agora.
+function scrapeTabela(tbodyId, colVendedor, colValor){
+  const tbody = el(tbodyId);
+  if(!tbody) return {};
+  const out = {};
+  Array.from(tbody.querySelectorAll('tr')).forEach(tr=>{
+    if(tr.classList.contains('total-row')) return;
+    const tds = tr.querySelectorAll('td');
+    if(!tds.length || tds.length<=Math.max(colVendedor,colValor)) return;
+    const vendedor = tds[colVendedor].textContent.trim();
+    if(!vendedor) return;
+    out[vendedor] = tds[colValor].textContent.trim();
+  });
+  return out;
+}
+
+async function gerarLinkAprovacao(){
+  if(!confirm(`Gerar um link de aprovação com os valores atuais de ${mesAnoAtual}? O cliente vai ver exatamente o que está na tela agora.`)) return;
+
+  const comissoes=scrapeTabela('tbodyComissao',0,5);   // vendedor -> Comissão Líquida
+  const premiacoes=scrapeTabela('tbodyPremiacao',0,8); // vendedor -> Premiação
+  const servicos=scrapeTabela('tbodyServicos',0,4);    // vendedor -> Comissão sobre Serviços
+
+  const vendedoresTodos=Array.from(new Set([...Object.keys(comissoes),...Object.keys(premiacoes),...Object.keys(servicos)]));
+  const linhas=vendedoresTodos.map(v=>({
+    vendedor:v,
+    comissao:comissoes[v]||'R$ 0,00',
+    premiacao:premiacoes[v]||'R$ 0,00',
+    servicos:servicos[v]||'R$ 0,00',
+  }));
+
+  const totalGeralTexto=(el('kpiTotal')&&el('kpiTotal').textContent)||'—';
+
+  const token=crypto.randomUUID();
+  const payload={
+    token, mes_ano:mesAnoAtual,
+    dados:{linhas,totalGeral:totalGeralTexto,geradoEm:new Date().toISOString()},
+    status:'pendente',
+    criado_por:currentUser.email,
+  };
+  const{error}=await sb.from('tangram_comissao_aprovacoes').insert(payload);
+  if(error){alert('Erro ao gerar link: '+error.message);return}
+
+  const url=`${location.origin}${location.pathname.replace('comissao.html','comissao_aprovacao.html')}?token=${token}`;
+  el('linkAprovacaoUrl').value=url;
+  el('linkAprovacaoModal').classList.add('open');
+  await verificarStatusAprovacao();
+}
+function fecharLinkAprovacaoModal(){el('linkAprovacaoModal').classList.remove('open')}
+function copiarLinkAprovacao(){
+  const input=el('linkAprovacaoUrl');
+  input.select();
+  navigator.clipboard.writeText(input.value).then(()=>alert('Link copiado!')).catch(()=>{});
+}
+
+async function verificarStatusAprovacao(){
+  const box=el('aprovacaoStatusBox');
+  if(!box) return;
+  const{data,error}=await sb.from('tangram_comissao_aprovacoes')
+    .select('*').eq('mes_ano',mesAnoAtual).order('criado_em',{ascending:false}).limit(1);
+  if(error||!data||!data.length){box.style.display='none';return}
+  const a=data[0];
+  box.style.display='flex';
+  box.className=a.status==='aprovado'?'aprovado':'pendente';
+  box.innerHTML=a.status==='aprovado'
+    ?`✅ <b>Aprovado pelo cliente</b> em ${new Date(a.aprovado_em).toLocaleString('pt-BR')}${a.aprovado_por_nome?' · '+escapeHtml(a.aprovado_por_nome):''}`
+    :`⏳ Link de aprovação enviado, aguardando o cliente confirmar (gerado em ${new Date(a.criado_em).toLocaleString('pt-BR')})`;
+}
+
 async function toggleSuperMeta(v,checked){
   const atual=regra(v);
   const payload={
