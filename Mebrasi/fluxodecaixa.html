@@ -678,6 +678,18 @@ function contaNoSaldoAcumulado_(r, incluirTransferencias){
   return contaNoTotal_(r);
 }
 
+// Regra exclusiva dos cards: elimina qualquer lançamento que contenha
+// "transferência" em categoria, grupo, forma de pagamento, título, nome ou situação.
+// É propositalmente mais ampla que a regra do Saldo Acumulado.
+function isTransferenciaCard_(r){
+  if(!r) return false;
+  const campos = [
+    r.categoria, r.grupo, r.forma, r.formaPagto, r.titulo,
+    r.nome, r.situacao, r.descricao, r.obs, r.observacao
+  ];
+  return campos.some(v=>normalizeTxt(v || '').includes('transfer'));
+}
+
 const GRUPOS_PAGAMENTO = [
   { key:'TITULOS_ABERTO', label:'Títulos em Aberto' },
   { key:'CHEQUE_TERCEIROS', label:'Cheque Terceiros (não conta no saldo)' },
@@ -1345,19 +1357,19 @@ function renderFcKpiStrip(){
   const empresasNoEscopo = selectedEmpresa ? [selectedEmpresa] : EMPRESAS;
   const pagoRowsCard = empresasNoEscopo.flatMap(emp => pagosRealizadosByEmpresa[emp] || []);
   const pago = pagoRowsCard
-    .filter(r=>r.date && r.date.slice(0,7)===mesAtual && r.date < HOJE_ISO && !isTransferencia_(r))
+    .filter(r=>r.date && r.date.slice(0,7)===mesAtual && r.date < HOJE_ISO && !isTransferenciaCard_(r))
     .reduce((s,r)=>s+Math.abs(r.valor),0);
 
   const recebido = rows
-    .filter(r=>r.origem==='cr' && r.categoria!==CATEGORIA_CHEQUE_TERCEIROS && r.date.slice(0,7)===mesAtual && !isTransferencia_(r))
+    .filter(r=>r.origem==='cr' && r.categoria!==CATEGORIA_CHEQUE_TERCEIROS && r.date.slice(0,7)===mesAtual && !isTransferenciaCard_(r))
     .reduce((s,r)=>s+Math.abs(r.valor),0);
   // Cards "Em Aberto" respeitam o período exibido no fluxo e não consideram
   // transferências internas, pois elas não representam receita ou despesa operacional.
   const aPagarAberto = rows
-    .filter(r=>r.origem==='cap' && r.date>=periodoStart && r.date<=periodoEnd && !isTransferencia_(r))
+    .filter(r=>r.origem==='cap' && r.date>=periodoStart && r.date<=periodoEnd && !isTransferenciaCard_(r))
     .reduce((s,r)=>s+Math.abs(r.valor),0);
   const aReceberAberto = rows
-    .filter(r=>r.origem==='venc' && r.date>=periodoStart && r.date<=periodoEnd && !isTransferencia_(r))
+    .filter(r=>r.origem==='venc' && r.date>=periodoStart && r.date<=periodoEnd && !isTransferenciaCard_(r))
     .reduce((s,r)=>s+Math.abs(r.valor),0);
   const cards = [
     { lbl:'Pago (mês vigente, até ontem)', val:pago, cor:'var(--red)' },
