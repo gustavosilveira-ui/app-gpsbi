@@ -988,7 +988,10 @@ function rowsFromPG(table, empresa){
 function rowsFromCR(table, empresa){
   const raw = parseGvizRows(table);
   return raw.filter(r=>!isSubtotalRow(r)).map(r=>{
-    if(!isChequeTerceiros(r) && !bancoValido(r, empresa)) return null;
+    // Recebimentos já realizados precisam fechar com o relatório de Contas a Receber.
+    // Por isso, cr_<empresa> considera todas as baixas recebidas, inclusive Carteira
+    // e outros registros com Banco 0/vazio. O filtro de bancos fica apenas no venc_
+    // (projetado), assim como já ocorre entre pg_ (realizado) e cap_ (projetado).
     const situacao = normalizeTxt(getColNormalized(r,'situacao'));
     if(situacao.includes('cancel')) return null;
     const dateRaw = getColNormalized(r, 'dt pagto');
