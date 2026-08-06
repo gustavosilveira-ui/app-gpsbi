@@ -964,7 +964,14 @@ function rowsFromCAP(table, empresa){
     const date = parseDateCell(typeof dateRaw==='object' && dateRaw!==null ? (dateRaw.v||dateRaw) : dateRaw);
     if(!date) return null;
     const categoriaOriginal = (getColNormalized(r,'desc conta')||'Sem categoria').toString().trim();
-    const valorRaw = getColNormalized(r,'valor(r$)');
+    // "Saldo" é o que realmente falta pagar (cobre pagamento parcial — ex:
+    // título 17945/2 da Multicopos, pago parcialmente em 24/07: "Valor"
+    // ainda mostra os R$3.272,85 originais, mas "Saldo" mostra os
+    // R$1.188,57 reais que ainda estão em aberto). Sem isso, o fluxo
+    // contava o título inteiro como se nada tivesse sido pago. Quando não
+    // tem coluna "Saldo" (outro relatório), cai pro "Valor" cheio como antes.
+    const saldoRaw = getColNormalized(r,'saldo');
+    const valorRaw = (saldoRaw!==undefined && saldoRaw!=='' && saldoRaw!==null) ? saldoRaw : getColNormalized(r,'valor(r$)');
     const valor = -Math.abs(parseMoneyBR(valorRaw!==undefined && valorRaw!=='' && valorRaw!==null ? valorRaw : getColNormalized(r,'valor')));
     const formaPagto = getColNormalized(r,'forma pagto');
     const { categoria, grupo, contaNoSaldo } = finalizarLinha(categoriaOriginal, valor, formaPagto, 'cap', date);
