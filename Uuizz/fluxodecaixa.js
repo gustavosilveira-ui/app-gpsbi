@@ -630,10 +630,10 @@ function buildColumnTree(){
   const curYear = today.getFullYear();
   const curMonth = today.getMonth()+1;
 
-  // Mesmo padrão da Tangram: histórico do ano vigente e projeção somente
-  // até o mês atual + 2 meses seguintes.
+  // Janeiro a janeiro: todo o ano corrente + janeiro do ano seguinte
+  // (confirmado com o Gustavo em 22/07/2026 — antes ia só até mês atual + 2).
   const startDate = new Date(curYear, 0, 1);
-  const endDate = new Date(curYear, today.getMonth()+2, 1);
+  const endDate = new Date(curYear+1, 0, 1);
   const mesesPeriodo = [];
   const cursor = new Date(startDate);
 
