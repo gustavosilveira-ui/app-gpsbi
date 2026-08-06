@@ -754,11 +754,11 @@ let limiteContaPorEmpresa = {}; // { empresa: valor }
 function fmtBRL(n){
   if(n===null||n===undefined||isNaN(n)) return 'R$ 0';
   const sign = n<0 ? '-' : '';
-  return sign+'R$ '+Math.round(Math.abs(n)).toLocaleString('pt-BR');
+  return sign+'R$ '+Math.abs(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 }
 function fmtNumeroFicha(n){
   if(n===null||n===undefined||isNaN(n)) return '0';
-  return Math.round(Math.abs(n)).toLocaleString('pt-BR');
+  return Math.abs(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 }
 function parseMoneyBR(v){
   if(v===null||v===undefined||v==='') return 0;
@@ -1348,7 +1348,8 @@ function renderFcKpiStrip(){
       contaNoTotal_(r) &&
       entraNosCards(r) &&
       r.date &&
-      r.date.slice(0,7) === mesAtual
+      r.date.slice(0,7) === mesAtual &&
+      r.date < HOJE_ISO
     )
     .reduce((s,r) => s + Math.abs(r.valor), 0);
 
@@ -1374,7 +1375,7 @@ function renderFcKpiStrip(){
 
   const cards = [
     { lbl:'Pago (mês vigente, até ontem)', val:pago, cor:'var(--red)' },
-    { lbl:'Recebido (mês vigente)', val:recebido, cor:'#4F8F3A' },
+    { lbl:'Recebido (mês vigente, até ontem)', val:recebido, cor:'#4F8F3A' },
     { lbl:'A Pagar em Aberto (jan até mês vigente + 2 meses)', val:aPagarAberto, cor:'var(--red)' },
     { lbl:'A Receber em Aberto (jan até mês vigente + 2 meses)', val:aReceberAberto, cor:'#4F8F3A' },
   ];
