@@ -1256,15 +1256,31 @@ let saldoIniciais = {}; // { empresa: {data_referencia, valor} }
 function runningBalanceEmpresa(empresa, uptoDate){
   const rowsEmp = (rowsByEmpresa[empresa] || []).filter(contaNoTotal_);
   const override = saldoIniciais[empresa];
-  if(override && uptoDate >= override.data_referencia){
-    // O valor salvo é o saldo de abertura da data de referência.
-    // Por isso, também soma os recebimentos e pagamentos ocorridos nessa própria data.
+  if(override){
     let s = Number(override.valor) || 0;
-    for(const r of rowsEmp){
-      if(r.date >= override.data_referencia && r.date <= uptoDate) s += r.valor;
+    if(uptoDate >= override.data_referencia){
+      // Pra frente: soma o que aconteceu da data de referência até a data
+      // pedida (inclusive) — o valor salvo é o saldo de abertura da data de
+      // referência, por isso soma os recebimentos/pagamentos dessa própria data também.
+      for(const r of rowsEmp){
+        if(r.date >= override.data_referencia && r.date <= uptoDate) s += r.valor;
+      }
+    } else {
+      // Pra trás: desfaz (subtrai) os movimentos que aconteceram entre a
+      // data pedida (exclusive) e a data de referência (exclusive) — foram
+      // esses movimentos que "transformaram" o saldo de uma data mais
+      // antiga no saldo de abertura da referência, então andar pra trás é
+      // andar essa conta ao contrário, sempre ancorado no saldo inicial
+      // real em vez de somar tudo desde o início bruto da base (que dava
+      // números irreais pra datas sem saldo inicial confiável por trás).
+      for(const r of rowsEmp){
+        if(r.date > uptoDate && r.date < override.data_referencia) s -= r.valor;
+      }
     }
     return s;
   }
+  // Sem saldo inicial cadastrado pra essa empresa: mantém o comportamento
+  // antigo (soma tudo que tem na base) só como último recurso.
   let s = 0;
   for(const r of rowsEmp){ if(r.date<=uptoDate) s += r.valor; else break; }
   return s;
