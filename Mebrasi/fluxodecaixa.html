@@ -658,33 +658,6 @@ function contaNoTotal_(r){
   return true;
 }
 
-// Identifica transferências independentemente da grafia/categoria usada pelo ERP.
-// Elas não entram nos cards gerenciais. No Saldo Acumulado entram somente quando
-// uma empresa específica está selecionada; na visão Global são anuladas para não
-// duplicar uma movimentação interna entre empresas do próprio grupo.
-function isTransferencia_(r){
-  if(!r) return false;
-  if(r.grupo === 'TRANSFERENCIAS') return true;
-  const categoria = normalizeTxt(r.categoria || '');
-  return categoria.includes('transferencia entre empresa')
-      || categoria.includes('transferencia entre conta')
-      || categoria.includes('transferencias a credito')
-      || categoria.includes('transferencia a credito');
-}
-
-function contaNoSaldoAcumulado_(r, incluirTransferencias){
-  if(r.categoria === CATEGORIA_TITULOS_ABERTO) return false;
-  if(isTransferencia_(r)) return !!incluirTransferencias;
-  return contaNoTotal_(r);
-}
-
-// Regra exclusiva dos cards: exclui somente a categoria
-// "Transferências à Débito". Outras transferências continuam sendo consideradas.
-function isTransferenciaCard_(r){
-  if(!r) return false;
-  return normalizeTxt(r.categoria || '') === 'transferencias a debito';
-}
-
 const GRUPOS_PAGAMENTO = [
   { key:'TITULOS_ABERTO', label:'Títulos em Aberto' },
   { key:'CHEQUE_TERCEIROS', label:'Cheque Terceiros (não conta no saldo)' },
@@ -1242,8 +1215,8 @@ let saldoIniciais = {}; // { empresa: {data_referencia, valor} }
 
 // Saldo acumulado de UMA empresa até uma data, respeitando o saldo inicial
 // dela (se houver). Os lançamentos manuais já estão dentro de rowsByEmpresa.
-function runningBalanceEmpresa(empresa, uptoDate, incluirTransferencias){
-  const rowsEmp = (rowsByEmpresa[empresa] || []).filter(r=>contaNoSaldoAcumulado_(r, incluirTransferencias));
+function runningBalanceEmpresa(empresa, uptoDate){
+  const rowsEmp = (rowsByEmpresa[empresa] || []).filter(contaNoTotal_);
   const override = saldoIniciais[empresa];
   if(override && uptoDate >= override.data_referencia){
     // O valor salvo é o saldo de abertura da data de referência.
@@ -1261,8 +1234,7 @@ function runningBalanceEmpresa(empresa, uptoDate, incluirTransferencias){
 // Saldo Acumulado no escopo atual: uma empresa só, ou a soma das 4 (Global).
 function runningBalance(uptoDate){
   const empresasNoEscopo = selectedEmpresa ? [selectedEmpresa] : EMPRESAS;
-  const incluirTransferencias = !!selectedEmpresa;
-  return empresasNoEscopo.reduce((sum,emp)=>sum + runningBalanceEmpresa(emp, uptoDate, incluirTransferencias), 0);
+  return empresasNoEscopo.reduce((sum,emp)=>sum + runningBalanceEmpresa(emp, uptoDate), 0);
 }
 // RECEBIMENTOS/PAGAMENTOS (linha de resumo) mostram só o que já foi
 // realizado de verdade — Títulos em Aberto e Cheque Terceiros ficam de
@@ -1339,39 +1311,70 @@ function flattenRows(nodes){
 function renderFcKpiStrip(){
   const wrap = el('fcKpiStrip');
   if(!wrap) return;
+
   const mesAtual = HOJE_ISO.slice(0,7);
   const { start: periodoStart, end: periodoEnd } = getPeriodoFluxo();
-  // O card Pago usa diretamente as linhas realizadas de pg_<empresa>,
-  // antes de qualquer filtro visual/projetado. Assim ele fecha com o relatório
-  // do ERP e com a aba pg_gymis, incluindo todos os bancos e Cheque Terceiros.
-  // "Até ontem" (não hoje) SÓ NO PAGO: os relatórios do ERP que a Shirley usa como
-  // referência confirmam esse padrão nas 4 empresas em 31/07/2026 — "Pagos (mês
-  // vigente)" sempre para no dia anterior (contas a pagar fecha em lote no dia
-  // seguinte), mas "Recebidos (mês vigente)" já vai até hoje (recebimento bancário
-  // atualiza na hora). Por isso o corte de dia é assimétrico entre os dois cards.
-  const empresasNoEscopo = selectedEmpresa ? [selectedEmpresa] : EMPRESAS;
-  const pagoRowsCard = empresasNoEscopo.flatMap(emp => pagosRealizadosByEmpresa[emp] || []);
-  const pago = pagoRowsCard
-    .filter(r=>r.date && r.date.slice(0,7)===mesAtual && r.date < HOJE_ISO && !isTransferenciaCard_(r))
-    .reduce((s,r)=>s+Math.abs(r.valor),0);
+
+  // Regra exclusiva dos cards: ignora somente a categoria exata
+  // "Transferências à Débito". As demais transferências e qualquer categoria
+  // nova continuam sendo classificadas dinamicamente pelo próprio fluxo.
+  const entraNosCards = r =>
+    normalizeTxt(r.categoria) !== normalizeTxt('Transferências à Débito');
+
+  // O card Pago passa a usar as mesmas linhas já classificadas pelo fluxo:
+  // origem PG + lado PAGAMENTOS + regras de total. Assim ele acompanha
+  // automaticamente categorias novas e não depende de uma lista fixa de contas.
+  const pago = rows
+    .filter(r =>
+      r.origem === 'pg' &&
+      isPagamento(r) &&
+      contaNoTotal_(r) &&
+      entraNosCards(r) &&
+      r.date &&
+      r.date.slice(0,7) === mesAtual &&
+      r.date < HOJE_ISO
+    )
+    .reduce((s,r) => s + Math.abs(r.valor), 0);
 
   const recebido = rows
-    .filter(r=>r.origem==='cr' && r.categoria!==CATEGORIA_CHEQUE_TERCEIROS && r.date.slice(0,7)===mesAtual && !isTransferenciaCard_(r))
-    .reduce((s,r)=>s+Math.abs(r.valor),0);
-  // Cards "Em Aberto" respeitam o período exibido no fluxo e não consideram somente
-  // a categoria "Transferências à Débito"; as demais transferências permanecem nos cards.
+    .filter(r =>
+      r.origem === 'cr' &&
+      r.grupo === 'RECEBIMENTOS' &&
+      r.categoria !== CATEGORIA_CHEQUE_TERCEIROS &&
+      contaNoTotal_(r) &&
+      entraNosCards(r) &&
+      r.date &&
+      r.date.slice(0,7) === mesAtual
+    )
+    .reduce((s,r) => s + Math.abs(r.valor), 0);
+
   const aPagarAberto = rows
-    .filter(r=>r.origem==='cap' && r.date>=periodoStart && r.date<=periodoEnd && !isTransferenciaCard_(r))
-    .reduce((s,r)=>s+Math.abs(r.valor),0);
+    .filter(r =>
+      r.origem === 'cap' &&
+      isPagamento(r) &&
+      entraNosCards(r) &&
+      r.date >= periodoStart &&
+      r.date <= periodoEnd
+    )
+    .reduce((s,r) => s + Math.abs(r.valor), 0);
+
   const aReceberAberto = rows
-    .filter(r=>r.origem==='venc' && r.date>=periodoStart && r.date<=periodoEnd && !isTransferenciaCard_(r))
-    .reduce((s,r)=>s+Math.abs(r.valor),0);
+    .filter(r =>
+      r.origem === 'venc' &&
+      r.grupo === 'RECEBIMENTOS' &&
+      entraNosCards(r) &&
+      r.date >= periodoStart &&
+      r.date <= periodoEnd
+    )
+    .reduce((s,r) => s + Math.abs(r.valor), 0);
+
   const cards = [
     { lbl:'Pago (mês vigente, até ontem)', val:pago, cor:'var(--red)' },
     { lbl:'Recebido (mês vigente)', val:recebido, cor:'#4F8F3A' },
     { lbl:'A Pagar em Aberto (jan até mês vigente + 2 meses)', val:aPagarAberto, cor:'var(--red)' },
     { lbl:'A Receber em Aberto (jan até mês vigente + 2 meses)', val:aReceberAberto, cor:'#4F8F3A' },
   ];
+
   wrap.innerHTML = cards.map(c=>`
     <div class="fc-kpi-mini">
       <div class="fc-kpi-mini-lbl">${c.lbl}</div>
