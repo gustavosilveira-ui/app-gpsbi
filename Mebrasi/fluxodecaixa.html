@@ -678,16 +678,11 @@ function contaNoSaldoAcumulado_(r, incluirTransferencias){
   return contaNoTotal_(r);
 }
 
-// Regra exclusiva dos cards: elimina qualquer lançamento que contenha
-// "transferência" em categoria, grupo, forma de pagamento, título, nome ou situação.
-// É propositalmente mais ampla que a regra do Saldo Acumulado.
+// Regra exclusiva dos cards: exclui somente a categoria
+// "Transferências à Débito". Outras transferências continuam sendo consideradas.
 function isTransferenciaCard_(r){
   if(!r) return false;
-  const campos = [
-    r.categoria, r.grupo, r.forma, r.formaPagto, r.titulo,
-    r.nome, r.situacao, r.descricao, r.obs, r.observacao
-  ];
-  return campos.some(v=>normalizeTxt(v || '').includes('transfer'));
+  return normalizeTxt(r.categoria || '') === 'transferencias a debito';
 }
 
 const GRUPOS_PAGAMENTO = [
@@ -1363,8 +1358,8 @@ function renderFcKpiStrip(){
   const recebido = rows
     .filter(r=>r.origem==='cr' && r.categoria!==CATEGORIA_CHEQUE_TERCEIROS && r.date.slice(0,7)===mesAtual && !isTransferenciaCard_(r))
     .reduce((s,r)=>s+Math.abs(r.valor),0);
-  // Cards "Em Aberto" respeitam o período exibido no fluxo e não consideram
-  // transferências internas, pois elas não representam receita ou despesa operacional.
+  // Cards "Em Aberto" respeitam o período exibido no fluxo e não consideram somente
+  // a categoria "Transferências à Débito"; as demais transferências permanecem nos cards.
   const aPagarAberto = rows
     .filter(r=>r.origem==='cap' && r.date>=periodoStart && r.date<=periodoEnd && !isTransferenciaCard_(r))
     .reduce((s,r)=>s+Math.abs(r.valor),0);
