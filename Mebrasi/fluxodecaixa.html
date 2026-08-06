@@ -198,8 +198,10 @@ html.light .fc-day-num{color:#1f2a3d;}
 .fc-detail-list .fc-detail-table th:nth-child(2),.fc-detail-list .fc-detail-table td:nth-child(2){width:86px;}
 .fc-detail-list .fc-detail-table th:nth-child(3),.fc-detail-list .fc-detail-table td:nth-child(3){width:auto;}
 .fc-detail-list .fc-detail-table th:nth-child(4),.fc-detail-list .fc-detail-table td:nth-child(4){width:110px;}
-.fc-detail-list .fc-detail-table th:nth-child(5),.fc-detail-list .fc-detail-table td:nth-child(5){width:70px;}
-.fc-detail-list .fc-detail-table th:nth-child(6),.fc-detail-list .fc-detail-table td:nth-child(6){width:90px;}
+.fc-detail-list .fc-detail-table th:nth-child(5),.fc-detail-list .fc-detail-table td:nth-child(5){width:90px;}
+.fc-detail-list .fc-detail-table th:nth-child(6),.fc-detail-list .fc-detail-table td:nth-child(6){width:70px;}
+.fc-detail-list .fc-detail-table th:nth-child(7),.fc-detail-list .fc-detail-table td:nth-child(7){width:145px;}
+.fc-detail-list .fc-detail-table th:nth-child(8),.fc-detail-list .fc-detail-table td:nth-child(8){width:90px;}
 
 .fc-titulo-note-wrap{margin-top:5px;display:flex;flex-direction:column;gap:4px;min-width:0;}
 .fc-titulo-note-btn{align-self:flex-start;border:1px solid var(--border2);background:var(--navy3);color:var(--text2);border-radius:7px;padding:3px 7px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;}
@@ -703,6 +705,7 @@ function dataLocalISO_(data){
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 const HOJE_ISO = dataLocalISO_(new Date());
+const INICIO_MES_ATUAL_ISO = HOJE_ISO.slice(0,7) + '-01';
 // Soma dias a uma data ISO (AAAA-MM-DD) e devolve outra data ISO.
 function addDaysISO(dateStr, days){
   const d = new Date(dateStr+'T00:00:00');
@@ -1270,7 +1273,15 @@ const isCategoria = (c, g) => r => r.categoria===c && (g===undefined || r.grupo=
 // A data original permanece preservada no lançamento e nos cards; muda apenas a
 // posição visual na linha/ficha de Títulos em Aberto para facilitar a cobrança.
 function dataVisualTituloAberto_(r){
-  if(r && r.categoria===CATEGORIA_TITULOS_ABERTO && r.date < HOJE_ISO) return HOJE_ISO;
+  // Traz para o dia atual somente os títulos vencidos dentro do mês vigente
+  // (do dia 01 até D-1). Títulos de meses anteriores permanecem na data original,
+  // evitando acumular todo o histórico vencido na coluna de hoje.
+  if(
+    r &&
+    r.categoria===CATEGORIA_TITULOS_ABERTO &&
+    r.date >= INICIO_MES_ATUAL_ISO &&
+    r.date < HOJE_ISO
+  ) return HOJE_ISO;
   return r ? r.date : null;
 }
 
@@ -1677,10 +1688,11 @@ async function openFluxoFicha(rowId, colId){
       <tr>
         <td${dataTitle}>${formatDateBR(dataExibida)}</td>
         <td>${escapeHtml(EMPRESA_LABEL[r.empresa] || r.empresa || 'Geral')}</td>
-        <td class="wrap" title="${escapeHtml(r.nome || 'Sem nome')}">${escapeHtml(r.nome || 'Sem nome')}${renderTituloObsHtml_(r,idx)}</td>
+        <td class="wrap" title="${escapeHtml(r.nome || 'Sem nome')}">${escapeHtml(r.nome || 'Sem nome')}</td>
         <td class="small" title="${escapeHtml(doc)}">${escapeHtml(doc)}</td>
         <td>${tagCategoria}</td>
         <td class="num">${pct.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%</td>
+        <td>${renderTituloObsHtml_(r,idx)}</td>
         <td class="valor-modal" style="color:${r.valor>=0?'#4F8F3A':'var(--red)'}">${fmtNumeroFicha(r.valor)}</td>
       </tr>`;
     }).join('');
@@ -1699,8 +1711,8 @@ async function openFluxoFicha(rowId, colId){
     <div style="font-size:12.5px;font-weight:800;margin:16px 0 6px;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;">Lançamentos</div>
     <div class="fc-detail-list">
       <table class="fc-detail-table" style="margin-top:0;">
-        <thead><tr><th>Data</th><th>Empresa</th><th>Nome</th><th>Documento</th><th>Status</th><th class="num">%</th><th class="num">Valor</th></tr></thead>
-        <tbody>${detalheHtml || `<tr><td colspan="7" style="color:var(--text3);">Sem lançamentos.</td></tr>`}</tbody>
+        <thead><tr><th>Data</th><th>Empresa</th><th>Nome</th><th>Documento</th><th>Status</th><th class="num">%</th><th>Observação</th><th class="num">Valor</th></tr></thead>
+        <tbody>${detalheHtml || `<tr><td colspan="8" style="color:var(--text3);">Sem lançamentos.</td></tr>`}</tbody>
       </table>
     </div>
     ${detailRows.length>120 ? `<div class="fc-detail-muted">Mostrando os primeiros 120 lançamentos.</div>` : ``}
