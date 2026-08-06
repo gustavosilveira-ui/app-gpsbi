@@ -139,6 +139,8 @@ html.light .fc-empresa-btn{background:#eef1f6;}
 @media (max-width:900px){ .fc-cards-2col{grid-template-columns:1fr;} }
 .fc-sim-form-auto{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end;}
 .fc-sim-form-auto select,.fc-sim-form-auto input{font-size:12px;padding:8px 10px;}
+.fc-valor-clicavel{cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;}
+.fc-valor-clicavel:hover{opacity:.75;}
 
 </style>
 </head>
@@ -377,6 +379,25 @@ html.light .fc-empresa-btn{background:#eef1f6;}
           <span id="fichaBuscaContagem" style="font-size:11px;color:var(--text3);margin-left:auto;"></span>
         </div>
         <div id="fluxoFichaBody"></div>
+      </div>
+    </div>
+
+    <!-- Popup discreto: tirar/alterar data de um lançamento direto da Ficha -->
+    <div class="modal-overlay" id="fcTirarPopup" style="z-index:310;">
+      <div class="modal-box" style="width:380px;">
+        <div class="modal-title">🚫 Tirar / Alterar Lançamento</div>
+        <div class="modal-sub" id="fcTirarPopupInfo"></div>
+        <div class="field-group">
+          <label class="field-label">Nova data (deixe em branco pra só remover)</label>
+          <input type="date" id="fcTirarPopupNovaData">
+        </div>
+        <div class="modal-actions" style="justify-content:space-between;">
+          <button class="btn btn-danger btn-sm" onclick="confirmarTirarDaFicha(true)">Remover do fluxo</button>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-ghost btn-sm" onclick="fecharTirarPopup()">Cancelar</button>
+            <button class="btn btn-primary btn-sm" onclick="confirmarTirarDaFicha(false)">Aplicar</button>
+          </div>
+        </div>
       </div>
     </div>
 
