@@ -81,6 +81,14 @@ function fmtBRL(n){
   const sign = n<0 ? '-' : '';
   return sign+'R$ '+Math.abs(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 }
+// Versão compacta (sem centavos) — só pra tabela principal, que é estreita
+// demais pra caber os centavos sem cortar o número. Todo o resto (Ficha,
+// resumos, Apoio de Caixa, exclusões etc.) usa fmtBRL com centavos.
+function fmtBRLCompacto(n){
+  if(n===null||n===undefined||isNaN(n)) return 'R$ 0';
+  const sign = n<0 ? '-' : '';
+  return sign+'R$ '+Math.round(Math.abs(n)).toLocaleString('pt-BR');
+}
 function parseMoneyBR(v){
   if(v===null||v===undefined||v==='') return 0;
   if(typeof v==='number') return v;
@@ -1020,7 +1028,7 @@ function renderTable(){
       if(rNode.special==='saldo'){
         val = runningBalance(c.end);
         const cellCls = (val>=0?'fc-saldo-pos':'fc-saldo-neg') + (c.isToday?' fc-today':'');
-        tbody += `<td class="${cellCls}">${fmtBRL(val)}</td>`;
+        tbody += `<td class="${cellCls}">${fmtBRLCompacto(val)}</td>`;
       } else {
         val = sumInRange(rNode.filter, c.start, c.end);
         const clickable = Math.round(val)!==0;
@@ -1029,7 +1037,7 @@ function renderTable(){
         const cellCls = `${c.isToday?'fc-today':''}${clickable?(' fc-clickable-cell'+hoverCls):''}`.trim();
         const onClick = clickable ? ` onclick="openFluxoFicha('${rowId}','${colId}')"` : '';
         const valExibido = rNode.signHint === 'neg' ? -Math.abs(val) : val;
-        tbody += `<td class="${cellCls}"${onClick}>${fmtBRL(valExibido)}</td>`;
+        tbody += `<td class="${cellCls}"${onClick}>${fmtBRLCompacto(valExibido)}</td>`;
       }
     });
     tbody += '</tr>';
