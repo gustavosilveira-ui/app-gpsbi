@@ -58,7 +58,9 @@ html.light .fc-day-num{color:#1f2a3d;}
 .fc-cards-2col>.card>.card-sub{min-height:32px;}
 @media (max-width:900px){ .fc-cards-2col{grid-template-columns:1fr;} }
 #fcFornecedorProgramacaoCard .fc-sim-form{grid-template-columns:repeat(3,1fr);row-gap:16px;}
-.fc-sim-form-exclusao{grid-template-columns:1.2fr 120px 100px auto;}
+.fc-sim-form-exclusao{grid-template-columns:1.2fr 120px 100px 120px auto;}
+.fc-valor-clicavel{cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;}
+.fc-valor-clicavel:hover{opacity:.75;}
 #fcNecessidadeCaixaCard .fc-sim-form{grid-template-columns:1fr auto;}
 .fc-ajustes-row{display:grid;grid-template-columns:1fr 1px 1fr;gap:20px;align-items:start;}
 .fc-ajustes-col{min-width:0;}
@@ -216,6 +218,25 @@ html.light .fc-day-num{color:#1f2a3d;}
       </div>
     </div>
 
+    <!-- Popup discreto: tirar/alterar data de um lançamento direto da Ficha -->
+    <div class="modal-overlay" id="fcTirarPopup" style="z-index:310;">
+      <div class="modal-box" style="width:380px;">
+        <div class="modal-title">🚫 Tirar / Alterar Lançamento</div>
+        <div class="modal-sub" id="fcTirarPopupInfo"></div>
+        <div class="field-group">
+          <label class="field-label">Nova data (deixe em branco pra só remover)</label>
+          <input type="date" id="fcTirarPopupNovaData">
+        </div>
+        <div class="modal-actions" style="justify-content:space-between;">
+          <button class="btn btn-danger btn-sm" onclick="confirmarTirarDaFicha(true)">Remover do fluxo</button>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-ghost btn-sm" onclick="fecharTirarPopup()">Cancelar</button>
+            <button class="btn btn-primary btn-sm" onclick="confirmarTirarDaFicha(false)">Aplicar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
 
     <div class="card" id="fcVisaoSemanalCard">
       <div class="card-title">📅 Visão Semanal · Necessidade de Caixa</div>
@@ -287,7 +308,7 @@ html.light .fc-day-num{color:#1f2a3d;}
 
       <div class="card">
         <div class="card-title">🚫 Tirar um Lançamento do Fluxo</div>
-        <div class="card-sub">Simulação — "e se eu não pagar isso". Não muda a base real.</div>
+        <div class="card-sub">Simulação — "e se eu não pagar isso" ou "e se eu pagar em outro dia". Preencha "Nova data" pra mudar a data do lançamento; deixe em branco pra só removê-lo. Não muda a base real.</div>
         <div class="fc-sim-form fc-sim-form-exclusao">
           <div class="field-group" style="margin-bottom:0;">
             <label class="field-label">Nome / Fornecedor (como aparece no fluxo)</label>
@@ -299,9 +320,13 @@ html.light .fc-day-num{color:#1f2a3d;}
           </div>
           <div class="field-group" style="margin-bottom:0;">
             <label class="field-label">Valor (R$)</label>
-            <input type="number" id="fcExcluirValor" placeholder="Ex.: 45100">
+            <input type="text" inputmode="decimal" id="fcExcluirValor" placeholder="Cole igual está no fluxo, ex.: -R$ 9.312,34">
           </div>
-          <button class="btn btn-ghost" onclick="excluirLancamentoManual()">Remover do fluxo</button>
+          <div class="field-group" style="margin-bottom:0;">
+            <label class="field-label">Nova data (opcional)</label>
+            <input type="date" id="fcExcluirNovaData">
+          </div>
+          <button class="btn btn-ghost" onclick="excluirLancamentoManual()">Aplicar</button>
         </div>
         <div id="fcExclusoesLista" style="margin-top:10px;"></div>
       </div>
@@ -563,11 +588,25 @@ const GRUPOS_PAGAMENTO = [
 ];
 
 let rows = []; // { date, categoria, grupo, valor }
+// Cópia intocada de `rows` logo após o carregamento da planilha — nunca é
+// filtrada/mutada. As simulações (Programação de Fornecedor, Tirar/Alterar
+// do Fluxo) sempre recomeçam a partir dela, pra não perder lançamentos
+// originais a cada nova renderização.
+let rowsBase = [];
+let fcFichaLinhasAtual = null; // linhas exibidas na Ficha aberta no momento (pro popup de tirar/alterar)
 let currentUser = null;
 let gpsStaff = false;
 let limiteConta = 233300; // limite padrão do cliente; pode ser alterado no fluxo pelo time GPS
 
 function fmtBRL(n){
+  if(n===null||n===undefined||isNaN(n)) return 'R$ 0,00';
+  const sign = n<0 ? '-' : '';
+  return sign+'R$ '+Math.abs(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+// Versão compacta (sem centavos) — só pra tabela principal, que é estreita
+// demais pra caber os centavos sem cortar o número. Todo o resto (Ficha,
+// resumos etc.) usa fmtBRL com centavos.
+function fmtBRLCompacto(n){
   if(n===null||n===undefined||isNaN(n)) return 'R$ 0';
   const sign = n<0 ? '-' : '';
   return sign+'R$ '+Math.round(Math.abs(n)).toLocaleString('pt-BR');
@@ -575,7 +614,18 @@ function fmtBRL(n){
 function parseMoneyBR(v){
   if(v===null||v===undefined||v==='') return 0;
   if(typeof v==='number') return v;
-  return parseFloat(String(v).replace(/\./g,'').replace(',','.')) || 0;
+  let s = String(v).trim();
+  // Aceita colar direto o texto como aparece no fluxo — "R$ 1.234,56",
+  // "-R$ 1.234,56", "1.234,56" etc. — mantendo só dígitos, ponto, vírgula
+  // e sinal de menos antes de interpretar.
+  s = s.replace(/[^\d.,-]/g,'');
+  const neg = s.indexOf('-') !== -1;
+  s = s.replace(/-/g,'');
+  // Formato BR: "." é milhar e "," é decimal — só troca se tiver vírgula,
+  // pra não quebrar um número já em formato "1234.56".
+  if(s.indexOf(',') !== -1) s = s.replace(/\./g,'').replace(',', '.');
+  const n = parseFloat(s) || 0;
+  return neg ? -n : n;
 }
 
 async function fetchGviz(gid){
@@ -1140,7 +1190,7 @@ function renderTable(){
       if(rNode.special==='saldo'){
         val = runningBalance(c.end);
         const cellCls = (val>=0?'fc-saldo-pos':'fc-saldo-neg') + (c.isToday?' fc-today':'');
-        tbody += `<td class="${cellCls}">${fmtBRL(val)}</td>`;
+        tbody += `<td class="${cellCls}">${fmtBRLCompacto(val)}</td>`;
       } else {
         const histVal = histSumForNode(rNode, c.start, c.end);
         val = (histVal===null ? 0 : histVal) + sumInRange(rNode.filter, c.start, c.end);
@@ -1148,7 +1198,7 @@ function renderTable(){
         const hoverCls = val>=0 ? ' fc-hover-receita' : ' fc-hover-despesa';
         const cellCls = `${c.isToday?'fc-today':''}${clickable?(' fc-clickable-cell'+hoverCls):''}`.trim();
         const onClick = clickable ? ` onclick="openFluxoFicha('${rowId}','${colId}')"` : '';
-        tbody += `<td class="${cellCls}"${onClick}>${fmtBRL(val)}</td>`;
+        tbody += `<td class="${cellCls}"${onClick}>${fmtBRLCompacto(val)}</td>`;
       }
     });
     tbody += '</tr>';
@@ -1166,8 +1216,8 @@ function rangeLabel(start,end){
   return start===end ? formatDateBR(start) : `${formatDateBR(start)} até ${formatDateBR(end)}`;
 }
 function fmtNumeroFicha(n){
-  if(n===null||n===undefined||isNaN(n)) return '0';
-  return Math.round(Math.abs(n)).toLocaleString('pt-BR');
+  if(n===null||n===undefined||isNaN(n)) return '0,00';
+  return Math.abs(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 }
 function escapeFichaHtml(s){
   return String(s||'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]));
@@ -1212,18 +1262,24 @@ function openFluxoFicha(rowId,colId){
   if(histVal!==null && Math.abs(histVal)>0){
     linhas.push({date:col.start,conta:'Histórico consolidado',nome:'Dados históricos consolidados',documento:'',historico:'Sem detalhamento individual nesta versão',valor:histVal,_historico:true});
   }
+  fcFichaLinhasAtual = linhas; // guarda pra o popup de tirar/alterar direto da Ficha
 
-  const detalheHtml = linhas.slice(0,120).map(r=>{
+  const detalheHtml = linhas.slice(0,120).map((r,i)=>{
     const pct = total ? Math.abs(r.valor)/Math.abs(total)*100 : 0;
     const nome = r.nome || r.historico || r.categoria || 'Sem nome';
     const doc = r.documento || r.fonte || '';
+    // Programação Fornecedor / Pronampe já são simulações — não faz sentido
+    // abrir o popup de tirar/alterar em cima delas.
+    const editavel = r.fonte!=='Programação Fornecedor' && r.fonte!=='Pronampe' && !r._historico;
+    const valorCls = 'valor-modal' + (editavel ? ' fc-valor-clicavel' : '');
+    const valorAttrs = editavel ? ` onclick="abrirTirarPopup(${i})" title="Clique pra tirar ou mudar a data desse lançamento"` : '';
     return `<tr>
       <td>${formatDateBR(r.date)}</td>
       <td>${escapeFichaHtml(r.conta||r.fonte||'Não informada')}</td>
       <td class="wrap" title="${escapeFichaHtml(nome)}">${escapeFichaHtml(nome)}</td>
       <td class="small" title="${escapeFichaHtml(doc)}">${escapeFichaHtml(doc)}</td>
       <td class="num">${pct.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%</td>
-      <td class="valor-modal" style="color:${r.valor>=0?'#4F8F3A':'var(--red)'}">${fmtNumeroFicha(r.valor)}</td>
+      <td class="${valorCls}" style="color:${r.valor>=0?'#4F8F3A':'var(--red)'}"${valorAttrs}>${fmtNumeroFicha(r.valor)}</td>
     </tr>`;
   }).join('');
 
@@ -1243,6 +1299,7 @@ function openFluxoFicha(rowId,colId){
 }
 function closeFluxoFicha(){ el('fluxoFichaModal').classList.remove('show'); }
 el('fluxoFichaModal').addEventListener('click', e=>{ if(e.target.id==='fluxoFichaModal') closeFluxoFicha(); });
+el('fcTirarPopup').addEventListener('click', e=>{ if(e.target.id==='fcTirarPopup') fecharTirarPopup(); });
 
 function scrollToToday(){
   const todayTh = document.querySelector('.fc-table th.fc-today');
@@ -1398,6 +1455,12 @@ async function loadAjustesManuais(){
     }
   });
   rows.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+  // loadAjustesManuais roda sempre por último antes de renderizar (tanto no
+  // carregamento inicial quanto sempre que um lançamento manual muda), então
+  // esse é o ponto certo pra tirar a "foto" da base pristina que as
+  // simulações (Programação Fornecedor, Pronampe, Tirar/Alterar do Fluxo)
+  // usam — nunca mutada por elas.
+  rowsBase = rows.slice();
   renderAjustesManuaisList();
 }
 function renderAjustesManuaisList(){
@@ -1645,14 +1708,45 @@ function inicioSemana(d){
 }
 function fimSemana(d){ const x=inicioSemana(d); x.setDate(x.getDate()+6); return x; }
 
+// Compara um lançamento de `rows` contra UMA exclusão ativa (mesma data +
+// nome parecido + valor igual, tolerância de 1 centavo).
+function fcExclusaoMatchesRow(ex, row){
+  if(row.fonte==='Programação Fornecedor' || row.fonte==='Pronampe') return false;
+  if(ex.data !== row.date) return false;
+  const nomeNorm = normalizeTxt(row.nome || row.conta || '');
+  const exNorm = normalizeTxt(ex.nome || '');
+  const mesmoNome = nomeNorm===exNorm || nomeNorm.includes(exNorm) || exNorm.includes(nomeNorm);
+  const mesmoValor = Math.abs(Math.abs(Number(row.valor)||0) - Math.abs(ex.valor)) < 0.01;
+  return mesmoNome && mesmoValor;
+}
+function lancamentoExcluido(row){
+  return fcExclusoes.some(ex=>fcExclusaoMatchesRow(ex, row));
+}
 function injetarProgramacoesFornecedor(){
-  // Remove apenas projeções criadas pelo próprio painel antes de recalcular.
-  rows = rows.filter(r=>r.fonte!=='Programação Fornecedor' && r.fonte!=='Pronampe');
+  // Sempre recomeça da base pristina (nunca acumula em cima do resultado da
+  // chamada anterior) — senão, uma vez que um lançamento fosse movido, ele
+  // saía de `rows` e não tinha mais como ser reencontrado nas próximas
+  // renderizações, então "sumia" em vez de aparecer na nova data.
+  rows = rowsBase.slice();
 
-  // Remove da visão/cálculo qualquer lançamento real que o usuário marcou como
-  // "excluído" (simulação de "e se eu não pagar isso", ou pra esconder o valor
-  // cheio original quando ele foi substituído por um rateio).
+  // Antes de tirar os lançamentos excluídos, clona (com a nova data) os que
+  // o usuário pediu pra alterar em vez de só remover.
+  const clonesMovidos = [];
+  fcExclusoes.forEach(ex=>{
+    if(!ex.novaData) return;
+    const original = rows.find(r=>fcExclusaoMatchesRow(ex, r));
+    if(original){
+      clonesMovidos.push({
+        ...original,
+        date: ex.novaData,
+        documento: (original.documento ? original.documento+' · ' : '') + `Data alterada (era ${formatDateBR(ex.data)})`,
+        fcMovidoJambuzada: true
+      });
+    }
+  });
+
   rows = rows.filter(r=>!lancamentoExcluido(r));
+  rows = rows.concat(clonesMovidos);
 
   // Evita duplicar uma programação quando o pagamento real já existe na base.
   // Compara data + fornecedor/nome + valor absoluto.
@@ -1806,7 +1900,7 @@ function confirmarParcelasFornecedor(){
   fcProgramacoesFornecedor.push({id:Date.now(),fornecedor,valor,dias,tipoDias,inicio,parcelas});
   localStorage.setItem('jambuzada_fc_programacoes_fornecedor',JSON.stringify(fcProgramacoesFornecedor));
   fcParcelasEmEdicao = null;
-  injetarProgramacoesFornecedor(); buildAndRenderTable(); renderProgramacoesFornecedor(); renderVisaoSemanal(); renderExclusoes(); renderParcelasPreview();
+  buildAndRenderTable();
   if(exclusaoCriada) alert('Rateio criado e o valor cheio original foi ocultado do fluxo.');
 }
 // Procura, entre os lançamentos reais (não-simulados), um que combine com o
@@ -1824,49 +1918,94 @@ function encontrarLancamentoValorCheio(fornecedor, valorTotal){
     return mesmoFornecedor && mesmoValor;
   }) || null;
 }
-// Compara uma linha de `rows` contra a lista de exclusões ativas (mesma data + nome
-// parecido + valor igual, com tolerância de 1 centavo).
-function lancamentoExcluido(row){
-  if(row.fonte==='Programação Fornecedor' || row.fonte==='Pronampe') return false;
-  return fcExclusoes.some(ex=>{
-    if(ex.data !== row.date) return false;
-    const nomeNorm = normalizeTxt(row.nome || row.conta || '');
-    const exNorm = normalizeTxt(ex.nome || '');
-    const mesmoNome = nomeNorm===exNorm || nomeNorm.includes(exNorm) || exNorm.includes(nomeNorm);
-    const mesmoValor = Math.abs(Math.abs(Number(row.valor)||0) - Math.abs(ex.valor)) < 0.01;
-    return mesmoNome && mesmoValor;
-  });
-}
-// Exclusão manual (independente de criar rateio) — "e se eu não pagar isso".
+// Exclusão manual (independente de criar rateio) — "e se eu não pagar isso"
+// ou "e se eu pagar em outro dia".
 function excluirLancamentoManual(){
   const nome=el('fcExcluirNome').value.trim();
   const data=el('fcExcluirData').value;
-  const valor=parseFloat(el('fcExcluirValor').value);
-  if(!nome || !data || isNaN(valor)){ alert('Preencha nome/fornecedor, data e valor do lançamento que você quer tirar do fluxo.'); return; }
-  fcExclusoes.push({nome, data, valor:-Math.abs(valor), criadoEm:Date.now(), motivo:'Removido manualmente'});
+  const valor=parseMoneyBR(el('fcExcluirValor').value);
+  const novaData=el('fcExcluirNovaData').value;
+  if(!nome || !data || !valor){ alert('Preencha nome/fornecedor, data e valor do lançamento que você quer tirar ou alterar.'); return; }
+  if(novaData && novaData===data){ alert('A nova data precisa ser diferente da data original.'); return; }
+
+  // Confere se o lançamento existe mesmo antes de salvar — evita cadastrar
+  // uma regra que nunca vai bater com nada.
+  const testEx = {nome, data, valor:-Math.abs(valor)};
+  if(!rows.some(r=>fcExclusaoMatchesRow(testEx, r))){
+    if(!confirm('Não encontrei um lançamento com esse nome, data e valor exatos no fluxo atual. Quer salvar mesmo assim? (a regra passa a valer automaticamente se ele aparecer depois com esses mesmos dados)')) return;
+  }
+
+  fcExclusoes.push({
+    nome, data, valor:-Math.abs(valor), criadoEm:Date.now(),
+    novaData: novaData || null,
+    motivo: novaData ? 'Data alterada' : 'Removido manualmente'
+  });
   localStorage.setItem('jambuzada_fc_exclusoes', JSON.stringify(fcExclusoes));
-  el('fcExcluirNome').value=''; el('fcExcluirData').value=''; el('fcExcluirValor').value='';
-  injetarProgramacoesFornecedor(); buildAndRenderTable(); renderExclusoes(); renderVisaoSemanal();
+  el('fcExcluirNome').value=''; el('fcExcluirData').value=''; el('fcExcluirValor').value=''; el('fcExcluirNovaData').value='';
+  buildAndRenderTable();
 }
 function removerExclusao(criadoEm){
   fcExclusoes = fcExclusoes.filter(ex=>ex.criadoEm!==criadoEm);
   localStorage.setItem('jambuzada_fc_exclusoes', JSON.stringify(fcExclusoes));
-  injetarProgramacoesFornecedor(); buildAndRenderTable(); renderExclusoes(); renderVisaoSemanal();
+  buildAndRenderTable();
 }
 function renderExclusoes(){
   const wrap=el('fcExclusoesLista'); if(!wrap) return;
-  wrap.innerHTML=fcExclusoes.length?fcExclusoes.map(ex=>`
+  wrap.innerHTML=fcExclusoes.length?fcExclusoes.map(ex=>{
+    const dataLabel = ex.novaData ? `${formatDateBR(ex.data)} → ${formatDateBR(ex.novaData)}` : formatDateBR(ex.data);
+    const valorStyle = ex.novaData ? 'color:var(--text2);' : 'color:var(--text3);text-decoration:line-through;';
+    return `
     <div class="fc-sim-entry">
       <span class="desc">${escapeHtml(ex.nome)} · ${escapeHtml(ex.motivo||'')}</span>
-      <span class="data">${formatDateBR(ex.data)}</span>
-      <span class="valor" style="color:var(--text3);text-decoration:line-through;">${fmtBRL(-Math.abs(ex.valor))}</span>
+      <span class="data">${dataLabel}</span>
+      <span class="valor" style="${valorStyle}">${fmtBRL(-Math.abs(ex.valor))}</span>
       <button class="del" onclick="removerExclusao(${ex.criadoEm})">✕</button>
-    </div>`).join(''):'<div style="color:var(--text3);font-size:12.5px;">Nenhum lançamento removido do fluxo.</div>';
+    </div>`;
+  }).join(''):'<div style="color:var(--text3);font-size:12.5px;">Nenhum lançamento removido ou alterado no fluxo.</div>';
+}
+
+/* ---------- Popup discreto: tirar/alterar direto da Ficha ---------- */
+let fcTirarPopupContext = null; // { nome, data, valor }
+function abrirTirarPopup(i){
+  if(!fcFichaLinhasAtual) return;
+  const r = fcFichaLinhasAtual[i];
+  if(!r) return;
+  fcTirarPopupContext = {
+    nome: r.nome || r.categoria || r.conta || 'Sem nome',
+    data: r.date,
+    valor: Math.abs(Number(r.valor)||0)
+  };
+  el('fcTirarPopupInfo').innerHTML = `${escapeFichaHtml(fcTirarPopupContext.nome)} · ${formatDateBR(fcTirarPopupContext.data)} · ${fmtBRL(-fcTirarPopupContext.valor)}`;
+  el('fcTirarPopupNovaData').value = '';
+  el('fcTirarPopup').classList.add('show');
+}
+function fecharTirarPopup(){
+  el('fcTirarPopup').classList.remove('show');
+  fcTirarPopupContext = null;
+}
+// remover=true tira do fluxo; remover=false usa a "Nova data" pra só mudar
+// o dia. Cai automaticamente na mesma lista/histórico do card
+// "🚫 Tirar um Lançamento do Fluxo".
+function confirmarTirarDaFicha(remover){
+  if(!fcTirarPopupContext) return;
+  const novaData = remover ? '' : el('fcTirarPopupNovaData').value;
+  if(!remover && !novaData){ alert('Informe a nova data, ou clique em "Remover do fluxo" pra só tirar.'); return; }
+  if(!remover && novaData===fcTirarPopupContext.data){ alert('A nova data precisa ser diferente da data original.'); return; }
+  const { nome, data, valor } = fcTirarPopupContext;
+  fcExclusoes.push({
+    nome, data, valor:-Math.abs(valor), criadoEm:Date.now(),
+    novaData: remover ? null : novaData,
+    motivo: remover ? 'Removido pela Ficha' : 'Data alterada pela Ficha'
+  });
+  localStorage.setItem('jambuzada_fc_exclusoes', JSON.stringify(fcExclusoes));
+  fecharTirarPopup();
+  closeFluxoFicha();
+  buildAndRenderTable();
 }
 function removerProgramacaoFornecedor(id){
   fcProgramacoesFornecedor=fcProgramacoesFornecedor.filter(p=>p.id!==id);
   localStorage.setItem('jambuzada_fc_programacoes_fornecedor',JSON.stringify(fcProgramacoesFornecedor));
-  injetarProgramacoesFornecedor(); buildAndRenderTable(); renderProgramacoesFornecedor(); renderVisaoSemanal();
+  buildAndRenderTable();
 }
 function renderProgramacoesFornecedor(){
   const wrap=el('fcFornecedorProgramacoes'); if(!wrap) return;
@@ -1885,7 +2024,7 @@ function aplicarPronampe(){
   if(valor<0 || valor>disponivel){ alert('O valor utilizado precisa estar entre zero e o saldo disponível.'); return; }
   fcPronampe={disponivel,valor,devolucao};
   localStorage.setItem('jambuzada_fc_pronampe',JSON.stringify(fcPronampe));
-  injetarProgramacoesFornecedor(); buildAndRenderTable(); renderPronampe(); renderVisaoSemanal();
+  buildAndRenderTable();
 }
 function renderPronampe(){
   if(el('fcPronampeDisponivel')) el('fcPronampeDisponivel').value=fcPronampe.disponivel||'';
