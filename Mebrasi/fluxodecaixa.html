@@ -203,16 +203,14 @@ html.light .fc-day-num{color:#1f2a3d;}
 .fc-detail-list .fc-detail-table th:nth-child(7),.fc-detail-list .fc-detail-table td:nth-child(7){width:145px;}
 .fc-detail-list .fc-detail-table th:nth-child(8),.fc-detail-list .fc-detail-table td:nth-child(8){width:90px;}
 
-.fc-titulo-note-wrap{margin-top:5px;display:flex;flex-direction:column;gap:4px;min-width:0;}
-.fc-titulo-note-btn{align-self:flex-start;border:1px solid var(--border2);background:var(--navy3);color:var(--text2);border-radius:7px;padding:3px 7px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;}
-.fc-titulo-note-btn:hover{color:var(--cyan);}
-.fc-titulo-note-text{font-size:10.5px;line-height:1.3;color:var(--text3);white-space:normal;overflow-wrap:anywhere;}
-.fc-titulo-note-text b{color:var(--text2);}
-.fc-titulo-note-editor{margin-top:4px;display:none;}
-.fc-titulo-note-editor.show{display:block;}
-.fc-titulo-note-editor textarea{min-height:54px;font-size:11px;padding:6px 8px;resize:vertical;}
-.fc-titulo-note-actions{display:flex;gap:5px;margin-top:5px;flex-wrap:wrap;}
-.fc-titulo-note-actions button{padding:4px 7px;font-size:10px;}
+.fc-titulo-note-wrap{display:flex;align-items:center;justify-content:flex-start;min-width:0;}
+.fc-titulo-note-btn{border:1px solid var(--border2);background:var(--navy3);color:var(--text2);border-radius:7px;padding:4px 8px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;}
+.fc-titulo-note-btn:hover{color:var(--cyan);border-color:rgba(54,226,201,.4);}
+.fc-titulo-note-btn.has-note{background:rgba(45,112,184,.10);color:var(--blue);}
+.fc-titulo-obs-box{width:540px;max-width:92vw;}
+.fc-titulo-obs-info{background:var(--navy3);border:1px solid var(--border2);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:11.5px;color:var(--text2);line-height:1.5;}
+.fc-titulo-obs-meta{font-size:11px;color:var(--text3);margin:0 0 8px;min-height:16px;}
+#fcTituloObsPopupTexto{min-height:120px;resize:vertical;}
 
 .fc-clickable-cell{cursor:pointer;}
 .fc-clickable-cell:hover{
@@ -364,6 +362,27 @@ html.light .fc-day-num{color:#1f2a3d;}
           <button class="btn btn-ghost btn-sm" onclick="closeFluxoFicha()">Fechar</button>
         </div>
         <div id="fluxoFichaBody"></div>
+      </div>
+    </div>
+
+    <!-- Modal compacto: observação do título -->
+    <div class="modal-overlay" id="tituloObsModal">
+      <div class="modal-box fc-titulo-obs-box">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px;">
+          <div>
+            <div class="modal-title" id="fcTituloObsPopupTitulo">📝 Observação do título</div>
+            <div class="modal-sub" id="fcTituloObsPopupSub">Inclua uma anotação para acompanhamento.</div>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="closeTituloObsPopup_()">Fechar</button>
+        </div>
+        <div class="fc-titulo-obs-info" id="fcTituloObsPopupInfo"></div>
+        <div class="fc-titulo-obs-meta" id="fcTituloObsPopupMeta"></div>
+        <textarea id="fcTituloObsPopupTexto" placeholder="Ex.: título em atraso aguardando nota..."></textarea>
+        <div class="modal-actions">
+          <button class="btn btn-danger btn-sm" id="fcTituloObsPopupExcluir" onclick="excluirTituloObsPopup_()" style="display:none;margin-right:auto;">Excluir</button>
+          <button class="btn btn-ghost btn-sm" onclick="closeTituloObsPopup_()">Cancelar</button>
+          <button class="btn btn-primary btn-sm" id="fcTituloObsPopupSalvar" onclick="salvarTituloObsPopup_()">Salvar</button>
+        </div>
       </div>
     </div>
 
@@ -1570,29 +1589,45 @@ async function loadTituloObservacoes_(detailRows){
 }
 function renderTituloObsHtml_(r, idx){
   if(r.categoria!==CATEGORIA_TITULOS_ABERTO) return '';
-  const chave=tituloObsKey_(r);
-  const obs=fcTituloObsCache[chave];
-  const podeEditar=obs && (obs.autor_email===currentUser.email || gpsStaff);
-  const texto=obs?.payload?.texto || '';
-  const autor=obs?.autor_nome || obs?.autor_email || '';
+  const obs=fcTituloObsCache[tituloObsKey_(r)];
+  const temObs=!!(obs?.payload?.texto || '').trim();
   return `<div class="fc-titulo-note-wrap">
-    ${texto ? `<div class="fc-titulo-note-text"><b>📝 ${escapeHtml(autor)}:</b> ${escapeHtml(texto)}</div>` : ''}
-    <button class="fc-titulo-note-btn" onclick="toggleTituloObsEditor_(${idx})">${texto?'✏️ Observação':'＋ Observação'}</button>
-    <div class="fc-titulo-note-editor" id="fcTituloObsEditor_${idx}">
-      <textarea id="fcTituloObsTexto_${idx}" placeholder="Ex.: título em atraso aguardando nota...">${escapeHtml(texto)}</textarea>
-      <div class="fc-titulo-note-actions">
-        <button class="btn btn-primary btn-sm" onclick="salvarTituloObs_(${idx})">Salvar</button>
-        <button class="btn btn-ghost btn-sm" onclick="toggleTituloObsEditor_(${idx})">Cancelar</button>
-        ${podeEditar ? `<button class="btn btn-danger btn-sm" onclick="excluirTituloObs_(${idx})">Excluir</button>` : ''}
-      </div>
-    </div>
+    <button class="fc-titulo-note-btn ${temObs?'has-note':''}" onclick="openTituloObsPopup_(${idx})" title="${temObs?'Ver ou editar observação':'Adicionar observação'}">${temObs?'📝 Ver':'＋ Adicionar'}</button>
   </div>`;
 }
 let fcTituloObsRowsAtual=[];
-function toggleTituloObsEditor_(idx){ const x=el('fcTituloObsEditor_'+idx); if(x) x.classList.toggle('show'); }
-async function salvarTituloObs_(idx){
+let fcTituloObsPopupIdx=null;
+
+function openTituloObsPopup_(idx){
   const r=fcTituloObsRowsAtual[idx]; if(!r) return;
-  const campo=el('fcTituloObsTexto_'+idx); const texto=(campo?.value||'').trim(); if(!texto) return;
+  fcTituloObsPopupIdx=idx;
+  const obs=fcTituloObsCache[tituloObsKey_(r)];
+  const texto=obs?.payload?.texto || '';
+  const podeEditar=!obs || obs.autor_email===currentUser.email || gpsStaff;
+  const autor=obs ? (obs.autor_nome || obs.autor_email || 'Usuário') : '';
+  const dataObs=obs?.criado_em ? new Date(obs.criado_em).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}) : '';
+  const doc=r.titulo || r.documento || 'Sem documento';
+  el('fcTituloObsPopupTitulo').textContent = texto ? '📝 Observação do título' : '＋ Nova observação';
+  el('fcTituloObsPopupSub').textContent = `${EMPRESA_LABEL[r.empresa] || r.empresa || 'Geral'} · ${doc}`;
+  el('fcTituloObsPopupInfo').innerHTML = `<b>${escapeHtml(r.nome || 'Sem nome')}</b><br>Vencimento: ${formatDateBR(r.date)} · Valor: ${fmtBRL(r.valor)}`;
+  el('fcTituloObsPopupMeta').textContent = texto ? `Registrado por ${autor}${dataObs?' em '+dataObs:''}` : 'Ainda não há observação para este título.';
+  const campo=el('fcTituloObsPopupTexto');
+  campo.value=texto;
+  campo.disabled=!podeEditar;
+  el('fcTituloObsPopupSalvar').style.display=podeEditar?'inline-flex':'none';
+  el('fcTituloObsPopupExcluir').style.display=(obs && podeEditar)?'inline-flex':'none';
+  el('tituloObsModal').classList.add('show');
+  if(podeEditar) setTimeout(()=>campo.focus(),50);
+}
+function closeTituloObsPopup_(){
+  el('tituloObsModal').classList.remove('show');
+  fcTituloObsPopupIdx=null;
+}
+async function salvarTituloObsPopup_(){
+  const idx=fcTituloObsPopupIdx;
+  const r=fcTituloObsRowsAtual[idx]; if(!r) return;
+  const texto=(el('fcTituloObsPopupTexto')?.value||'').trim();
+  if(!texto){ alert('Digite a observação antes de salvar.'); return; }
   const chave=tituloObsKey_(r); const existente=fcTituloObsCache[chave];
   const mensagem=FC_TITULO_OBS_PREFIX+JSON.stringify({chave,texto});
   let error;
@@ -1603,15 +1638,18 @@ async function salvarTituloObs_(idx){
     ({error}=await sb.from('fluxo_mensagens').insert({autor_email:currentUser.email,autor_nome:nameFromEmail(currentUser.email),tipo:'titulo_observacao',mensagem,status:'aberto'}));
   }
   if(error){ alert('Erro ao salvar observação: '+error.message); return; }
+  closeTituloObsPopup_();
   await reabrirFichaAtual_();
 }
-async function excluirTituloObs_(idx){
+async function excluirTituloObsPopup_(){
+  const idx=fcTituloObsPopupIdx;
   const r=fcTituloObsRowsAtual[idx]; if(!r) return;
   const existente=fcTituloObsCache[tituloObsKey_(r)]; if(!existente) return;
   if(existente.autor_email!==currentUser.email && !gpsStaff){ alert('Somente quem criou a observação ou o time GPS pode excluí-la.'); return; }
   if(!confirm('Excluir esta observação?')) return;
   const {error}=await sb.from('fluxo_mensagens').delete().eq('id',existente.id);
   if(error){ alert('Erro ao excluir observação: '+error.message); return; }
+  closeTituloObsPopup_();
   await reabrirFichaAtual_();
 }
 let fcFichaAtual=null;
@@ -1722,6 +1760,9 @@ async function openFluxoFicha(rowId, colId){
 function closeFluxoFicha(){
   el('fluxoFichaModal').classList.remove('show');
 }
+
+el('tituloObsModal')?.addEventListener('click',function(e){ if(e.target===this) closeTituloObsPopup_(); });
+document.addEventListener('keydown',function(e){ if(e.key==='Escape' && el('tituloObsModal')?.classList.contains('show')) closeTituloObsPopup_(); });
 
 function scrollToToday(){
   const todayTh = document.querySelector('.fc-table th.fc-today');
