@@ -1861,7 +1861,10 @@ function removerExclusao(criadoEm){
 }
 function renderExclusoes(){
   const wrap = el('fcExclusoesLista'); if(!wrap) return;
-  wrap.innerHTML = fcExclusoes.length ? fcExclusoes.map(ex=>{
+  const selEmpresa = el('fcExcluirEmpresa');
+  const empresaAtiva = selEmpresa ? selEmpresa.value : null;
+  const lista = empresaAtiva ? fcExclusoes.filter(ex=>ex.empresa===empresaAtiva) : fcExclusoes;
+  wrap.innerHTML = lista.length ? lista.map(ex=>{
     const dataLabel = ex.novaData ? `${formatDateBR(ex.data)} → ${formatDateBR(ex.novaData)}` : formatDateBR(ex.data);
     const valorStyle = ex.novaData ? 'color:var(--text2);' : 'color:var(--text3);text-decoration:line-through;';
     return `
@@ -1871,7 +1874,7 @@ function renderExclusoes(){
       <span class="valor" style="${valorStyle}">${fmtBRL(-Math.abs(ex.valor))}</span>
       <button class="del" onclick="removerExclusao(${ex.criadoEm})">✕</button>
     </div>`;
-  }).join('') : '<div style="color:var(--text3);font-size:12.5px;">Nenhum lançamento removido ou alterado no fluxo.</div>';
+  }).join('') : `<div style="color:var(--text3);font-size:12.5px;">Nenhum lançamento removido ou alterado no fluxo${empresaAtiva?' em '+escapeHtml(empresaAtiva):''}.</div>`;
 }
 
 /* ---------- Popup discreto: tirar/alterar direto da Ficha ---------- */
@@ -1909,6 +1912,10 @@ function confirmarTirarDaFicha(remover){
     motivo: remover ? 'Removido pela Ficha' : 'Data alterada pela Ficha'
   });
   localStorage.setItem('uuizz_fc_exclusoes', JSON.stringify(fcExclusoes));
+  // Sincroniza o select do card de baixo com a empresa desse lançamento, pra
+  // ele já aparecer na lista (que agora é filtrada por empresa).
+  const selExcluir = el('fcExcluirEmpresa');
+  if(selExcluir){ selExcluir.value = empresa; fcMarcarEmpresaSimEscolhida(selExcluir); }
   fecharTirarPopup();
   closeFluxoFicha();
   buildAndRenderTable();
