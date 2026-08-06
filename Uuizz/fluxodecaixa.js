@@ -483,7 +483,7 @@ function rowsFromVindi(table){
 }
 
 /* ================== Ingestão: Recebíveis Hotmart (Empoderamento) ==================
-   Data: coluna "Data do lançamento" + 1 dia; se cair em sábado/domingo,
+   Data: coluna "Data da efetivação" + 1 dia; se cair em sábado/domingo,
    empurra pra segunda-feira seguinte (confirmado com o Gustavo em 22/07/2026).
    Valor: só entram valores positivos da coluna "Valor" — negativo (estorno/
    taxa) fica de fora. */
@@ -498,9 +498,9 @@ function proximoDiaUtil(dataIso){
 function rowsFromHotmart(table){
   const raw = parseGvizRows(table);
   return raw.map(r=>{
-    const dataLancamento = readDateCol(r, 'data do lancamento');
-    if(!dataLancamento) return null;
-    const date = proximoDiaUtil(dataLancamento);
+    const dataEfetivacao = readDateCol(r, 'data da efetivacao');
+    if(!dataEfetivacao) return null;
+    const date = proximoDiaUtil(dataEfetivacao);
 
     const valorRaw = getColNormalized(r, 'valor');
     const rawValor = parseMoneyBR(typeof valorRaw==='object' && valorRaw!==null ? (valorRaw.v ?? valorRaw.f) : valorRaw);
