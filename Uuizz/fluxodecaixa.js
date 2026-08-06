@@ -134,8 +134,8 @@ function readDateCol(r, colName){
    11 grupos. Categorias novas que não estiverem aqui caem em heurística
    por palavra-chave e, na falta de match, em "Outros". */
 const CATEGORIA_GRUPO_PAGAMENTOS = {
-  'Investimento CDB': '1. Investimentos',
-  'Consultoria/Mentoria': '1. Investimentos',
+  'Investimento CDB': 'Investimentos',
+  'Consultoria/Mentoria': 'Investimentos',
   'ISS sobre Faturamento': 'Deduções Da Receita',
   'Alvará de Funcionamento': 'Deduções Da Receita',
   'Comissões de Vendedores': 'Deduções Da Receita',
@@ -148,74 +148,74 @@ const CATEGORIA_GRUPO_PAGAMENTOS = {
   'Teen Power Impostos': 'Deduções Da Receita',
   'Simples Nacional - DAS': 'Deduções Da Receita',
   'Bonificações': 'Deduções Da Receita',
-  'Embalagens/Caixa de envio': '2. Fornecedores',
-  'Equipe - Prestadores de serviços': '2. Fornecedores',
-  'Mentoria': '2. Fornecedores',
-  'Embalagens/Caixas de envio': '2. Fornecedores',
-  'Transferência- Mister Wiz': '2. Fornecedores',
-  'Freelancer': '2. Fornecedores',
-  'Gráfica': '2. Fornecedores',
-  'Despesas com cartão de crédito': '3. Despesas Financeiras',
-  'Tarifas de Boletos': '3. Despesas Financeiras',
-  'Tarifas Bancárias': '3. Despesas Financeiras',
-  'Juros pagos': '3. Despesas Financeiras',
-  'Juros sobre empréstimo': '3. Despesas Financeiras',
-  'IOF': '3. Despesas Financeiras',
-  'Empréstimos de Bancos': '3. Despesas Financeiras',
-  'Empréstimos de Sócios': '3. Despesas Financeiras',
-  'Adiantamento a Sócios': '3. Despesas Financeiras',
-  'Empréstimos de Outras Instituições': '3. Despesas Financeiras',
-  'Entre Contas Empoderamento-Despesa': '3. Despesas Financeiras',
-  'Despesas Médicas': '4. Despesas Com Pessoal',
-  'Capacitação e Cursos': '4. Despesas Com Pessoal',
-  'Exames Médicos': '4. Despesas Com Pessoal',
-  'FGTS e Multa de FGTS': '4. Despesas Com Pessoal',
-  'Transporte Ônibus': '4. Despesas Com Pessoal',
-  '13º Salário - 2ª Parcela': '4. Despesas Com Pessoal',
-  'Roupas/Acessórios': '4. Despesas Com Pessoal',
-  'IRRF': '4. Despesas Com Pessoal',
-  'INSS sobre Pró-labore - GPS': '4. Despesas Com Pessoal',
-  'INSS sobre Salários - GPS': '4. Despesas Com Pessoal',
-  'Darf': '4. Despesas Com Pessoal',
-  'GRU Judicial': '4. Despesas Com Pessoal',
-  'Lanches e Refeições': '4. Despesas Com Pessoal',
-  'Plano de Saúde Sócios': '4. Despesas Com Pessoal',
-  'Plano de saúde': '4. Despesas Com Pessoal',
-  'Pró-labore': '4. Despesas Com Pessoal',
-  'Apoio': '4. Despesas Com Pessoal',
-  'Salários': '4. Despesas Com Pessoal',
-  'Recrutamento': '4. Despesas Com Pessoal',
-  'Segurança do Trabalho': '4. Despesas Com Pessoal',
-  'Teen Power Salarios': '4. Despesas Com Pessoal',
-  'Transporte (táxi, uber, gasolina e estac.)': '4. Despesas Com Pessoal',
-  'Vale-Transporte': '4. Despesas Com Pessoal',
-  'Despesas Pessoais dos Sócios': '5. Despesas Administrativas',
-  'Confraternizações': '5. Despesas Administrativas',
-  '13º Salário - 1ª Parcela': '5. Despesas Administrativas',
-  'Teen Power-Honorários contábeis': '5. Despesas Administrativas',
-  'Coworking': '5. Despesas Administrativas',
-  'Reembolso': '5. Despesas Administrativas',
-  'Assessoria Jurídica': '5. Despesas Administrativas',
-  'Honorários Contábeis': '5. Despesas Administrativas',
-  'Certificado Digital': '5. Despesas Administrativas',
-  'Materiais de Escritório': '5. Despesas Administrativas',
-  'Limpeza': '5. Despesas Administrativas',
-  'Telefonia': '5. Despesas Administrativas',
-  'Hospedagem': '4.8 Despesas com Viagem',
-  'Passagem aérea': '4.8 Despesas com Viagem',
-  'Aluguel': '6. Despesas Com Infra-Estrutura',
-  'Condomínio': '6. Despesas Com Infra-Estrutura',
-  'Consertos/Reposição de peças': '6. Despesas Com Infra-Estrutura',
-  'Benfeitorias em Bens de Terceiros': '6. Despesas Com Infra-Estrutura',
-  'manutenção e reforma': '6. Despesas Com Infra-Estrutura',
-  'Manutenção de Equipamentos': '6. Despesas Com Infra-Estrutura',
-  'Energia Elétrica': '6. Despesas Com Infra-Estrutura',
-  'Combustíveis': '7. Despesas Logísticas',
-  'Transporte Urbano (táxi, Uber)': '7. Despesas Logísticas',
-  'Frete/Correios/Motoboy': '7. Despesas Logísticas',
-  'Correios/Frete/Motoboy': '7. Despesas Logísticas',
-  'Estacionamento': '7. Despesas Logísticas',
-  'Pedágios': '7. Despesas Logísticas',
+  'Embalagens/Caixa de envio': 'Fornecedores',
+  'Equipe - Prestadores de serviços': 'Fornecedores',
+  'Mentoria': 'Fornecedores',
+  'Embalagens/Caixas de envio': 'Fornecedores',
+  'Transferência- Mister Wiz': 'Fornecedores',
+  'Freelancer': 'Fornecedores',
+  'Gráfica': 'Fornecedores',
+  'Despesas com cartão de crédito': 'Despesas Financeiras',
+  'Tarifas de Boletos': 'Despesas Financeiras',
+  'Tarifas Bancárias': 'Despesas Financeiras',
+  'Juros pagos': 'Despesas Financeiras',
+  'Juros sobre empréstimo': 'Despesas Financeiras',
+  'IOF': 'Despesas Financeiras',
+  'Empréstimos de Bancos': 'Despesas Financeiras',
+  'Empréstimos de Sócios': 'Despesas Financeiras',
+  'Adiantamento a Sócios': 'Despesas Financeiras',
+  'Empréstimos de Outras Instituições': 'Despesas Financeiras',
+  'Entre Contas Empoderamento-Despesa': 'Despesas Financeiras',
+  'Despesas Médicas': 'Despesas Com Pessoal',
+  'Capacitação e Cursos': 'Despesas Com Pessoal',
+  'Exames Médicos': 'Despesas Com Pessoal',
+  'FGTS e Multa de FGTS': 'Despesas Com Pessoal',
+  'Transporte Ônibus': 'Despesas Com Pessoal',
+  '13º Salário - 2ª Parcela': 'Despesas Com Pessoal',
+  'Roupas/Acessórios': 'Despesas Com Pessoal',
+  'IRRF': 'Despesas Com Pessoal',
+  'INSS sobre Pró-labore - GPS': 'Despesas Com Pessoal',
+  'INSS sobre Salários - GPS': 'Despesas Com Pessoal',
+  'Darf': 'Despesas Com Pessoal',
+  'GRU Judicial': 'Despesas Com Pessoal',
+  'Lanches e Refeições': 'Despesas Com Pessoal',
+  'Plano de Saúde Sócios': 'Despesas Com Pessoal',
+  'Plano de saúde': 'Despesas Com Pessoal',
+  'Pró-labore': 'Despesas Com Pessoal',
+  'Apoio': 'Despesas Com Pessoal',
+  'Salários': 'Despesas Com Pessoal',
+  'Recrutamento': 'Despesas Com Pessoal',
+  'Segurança do Trabalho': 'Despesas Com Pessoal',
+  'Teen Power Salarios': 'Despesas Com Pessoal',
+  'Transporte (táxi, uber, gasolina e estac.)': 'Despesas Com Pessoal',
+  'Vale-Transporte': 'Despesas Com Pessoal',
+  'Despesas Pessoais dos Sócios': 'Despesas Administrativas',
+  'Confraternizações': 'Despesas Administrativas',
+  '13º Salário - 1ª Parcela': 'Despesas Administrativas',
+  'Teen Power-Honorários contábeis': 'Despesas Administrativas',
+  'Coworking': 'Despesas Administrativas',
+  'Reembolso': 'Despesas Administrativas',
+  'Assessoria Jurídica': 'Despesas Administrativas',
+  'Honorários Contábeis': 'Despesas Administrativas',
+  'Certificado Digital': 'Despesas Administrativas',
+  'Materiais de Escritório': 'Despesas Administrativas',
+  'Limpeza': 'Despesas Administrativas',
+  'Telefonia': 'Despesas Administrativas',
+  'Hospedagem': 'Despesas com Viagem',
+  'Passagem aérea': 'Despesas com Viagem',
+  'Aluguel': 'Despesas Com Infra-Estrutura',
+  'Condomínio': 'Despesas Com Infra-Estrutura',
+  'Consertos/Reposição de peças': 'Despesas Com Infra-Estrutura',
+  'Benfeitorias em Bens de Terceiros': 'Despesas Com Infra-Estrutura',
+  'manutenção e reforma': 'Despesas Com Infra-Estrutura',
+  'Manutenção de Equipamentos': 'Despesas Com Infra-Estrutura',
+  'Energia Elétrica': 'Despesas Com Infra-Estrutura',
+  'Combustíveis': 'Despesas Logísticas',
+  'Transporte Urbano (táxi, Uber)': 'Despesas Logísticas',
+  'Frete/Correios/Motoboy': 'Despesas Logísticas',
+  'Correios/Frete/Motoboy': 'Despesas Logísticas',
+  'Estacionamento': 'Despesas Logísticas',
+  'Pedágios': 'Despesas Logísticas',
   'ware': 'Despesa com TI',
   'Memberkit - Plataforma CGP - SM': 'Despesa com TI',
   'Streamyard - SM': 'Despesa com TI',
@@ -261,38 +261,52 @@ const CATEGORIA_GRUPO_PAGAMENTOS = {
   'Teen Power-Acate': 'Despesas Com Marketing',
   'Tráfego Pago': 'Despesas Com Marketing',
   '07. Distribuição de Lucros': 'Despesas Com Marketing',
-  'Distrato De Franquia': '5. Despesas Administrativas',
-  'Pro Labore': '4. Despesas Com Pessoal',
-  'Compras de Mercadorias para Revenda': '2. Fornecedores',
-  'Advogados': '5. Despesas Administrativas',
+  'Distrato De Franquia': 'Despesas Administrativas',
+  'Pro Labore': 'Despesas Com Pessoal',
+  'Compras de Mercadorias para Revenda': 'Fornecedores',
+  'Advogados': 'Despesas Administrativas',
   'ERP': 'Despesa com TI',
-  'Vale Refeição': '4. Despesas Com Pessoal',
-  'Compra de Serviços': '2. Fornecedores',
-  'Pagamento de fatura do cartão Asaas': '3. Despesas Financeiras',
-  'Material de Escritório': '5. Despesas Administrativas',
+  'Vale Refeição': 'Despesas Com Pessoal',
+  'Compra de Serviços': 'Fornecedores',
+  'Pagamento de fatura do cartão Asaas': 'Despesas Financeiras',
+  'Material de Escritório': 'Despesas Administrativas',
   'ICMS': 'Deduções Da Receita',
-  'Segurança': '4. Despesas Com Pessoal',
-  'Rescisões': '4. Despesas Com Pessoal',
+  'Segurança': 'Despesas Com Pessoal',
+  'Rescisões': 'Despesas Com Pessoal',
   'Premiação': 'Deduções Da Receita',
-  'Seguro de Vida': '4. Despesas Com Pessoal',
-  'Contabilidade': '5. Despesas Administrativas',
-  'Transferência EA': '3. Despesas Financeiras',
+  'Seguro de Vida': 'Despesas Com Pessoal',
+  'Contabilidade': 'Despesas Administrativas',
+  'Transferência EA': 'Despesas Financeiras',
   'Distribuição de Lucros': 'Despesas Com Marketing',
+  // Itens que estavam caindo em "Outros" sem necessidade — na real são
+  // despesa financeira (taxa/tarifa/baixa) ou de pessoal (Wellhub),
+  // ajustado a pedido do Gustavo em 22/07/2026.
+  'Baixa de Parcela': 'Despesas Financeiras',
+  'Antecipação': 'Despesas Financeiras',
+  'Antecipação de Recebíveis': 'Despesas Financeiras',
+  'Taxa de Boleto': 'Despesas Financeiras',
+  'Taxa de Cartão': 'Despesas Financeiras',
+  'Taxa de Pix': 'Despesas Financeiras',
+  'Estorno de Fatura': 'Despesas Financeiras',
+  'Wellhub': 'Despesas Com Pessoal',
+  // "Pagamento de Empréstimos" é a mesma coisa que "Empréstimos de Bancos"
+  // (nome duplicado vindo da planilha) — unificado num nome só.
+  'Pagamento de Empréstimos': 'Despesas Financeiras',
 };
 const CATEGORIA_GRUPO_NORM = {};
 Object.entries(CATEGORIA_GRUPO_PAGAMENTOS).forEach(([k,v])=>{ CATEGORIA_GRUPO_NORM[normalizeTxt(k)] = v; });
 
 // Heurística de reserva pra categorias novas que ainda não estão no mapa acima.
 const REGRAS_FALLBACK_GRUPO = [
-  { grupo:'4. Despesas Com Pessoal', palavras:['salario','pro labore','prolabore','inss','fgts','vale transporte','vale refeicao','plano de saude','ferias','13','rescisao','seguro de vida','seguranca','funcionario','colaborador','equipe interna'] },
-  { grupo:'3. Despesas Financeiras', palavras:['juros','tarifa','iof','emprestimo','cartao de credito','financiamento','transferencia'] },
+  { grupo:'Despesas Com Pessoal', palavras:['salario','pro labore','prolabore','inss','fgts','vale transporte','vale refeicao','plano de saude','ferias','13','rescisao','seguro de vida','seguranca','funcionario','colaborador','equipe interna','wellhub','gympass'] },
+  { grupo:'Despesas Financeiras', palavras:['juros','tarifa','taxa','iof','emprestimo','cartao de credito','financiamento','transferencia','baixa de parcela','antecipacao','estorno de fatura','estorno fatura'] },
   { grupo:'Deduções Da Receita', palavras:['imposto','iss','pis','cofins','csll','irpj','das','darf','icms','premiacao','comissao'] },
   { grupo:'Despesa com TI', palavras:['software','sistema','plataforma','hospedagem','servidor','app','tecnologia','erp','crm'] },
   { grupo:'Despesas Com Marketing', palavras:['marketing','trafego','influencer','midia','anuncio','video'] },
-  { grupo:'6. Despesas Com Infra-Estrutura', palavras:['aluguel','condominio','energia','manutencao'] },
-  { grupo:'7. Despesas Logísticas', palavras:['frete','correio','combustivel','estacionamento','pedagio'] },
-  { grupo:'5. Despesas Administrativas', palavras:['advogado','juridic','contabil','contador','material de escritorio','escritorio','franquia','distrato'] },
-  { grupo:'2. Fornecedores', palavras:['fornecedor','revenda','mercadoria','servico prestado','prestador'] },
+  { grupo:'Despesas Com Infra-Estrutura', palavras:['aluguel','condominio','energia','manutencao'] },
+  { grupo:'Despesas Logísticas', palavras:['frete','correio','combustivel','estacionamento','pedagio'] },
+  { grupo:'Despesas Administrativas', palavras:['advogado','juridic','contabil','contador','material de escritorio','escritorio','franquia','distrato'] },
+  { grupo:'Fornecedores', palavras:['fornecedor','revenda','mercadoria','servico prestado','prestador'] },
 ];
 // Empoderamento (Uuizz) não trata "entre contas" como transferência interna
 // excluída do total — isso só fazia sentido na Tangram. Removido a pedido do
@@ -310,6 +324,21 @@ function resolveGrupoPagamento(categoria){
     if(regra.palavras.some(p=>key.includes(p))) return regra.grupo;
   }
   return 'Outros';
+}
+
+// Normaliza o NOME exibido da categoria (não só o grupo) — a planilha às
+// vezes tem a mesma categoria escrita com capitalização diferente entre
+// linhas (ex: "Equipe - Prestadores de serviços" vs "...Serviços"), o que
+// fazia aparecer como duas linhas separadas na tela mesmo sendo a mesma
+// coisa. Ajustado a pedido do Gustavo em 22/07/2026.
+const CATEGORIA_CANONICA = {};
+[
+  ['Equipe - Prestadores de Serviços', 'Equipe - Prestadores de Serviços'],
+  ['Pagamento de Empréstimos', 'Empréstimos de Bancos'],
+].forEach(([variante, canonico]) => { CATEGORIA_CANONICA[normalizeTxt(variante)] = canonico; });
+function canonicalizarCategoria(categoria){
+  const key = normalizeTxt(categoria);
+  return CATEGORIA_CANONICA[key] || categoria;
 }
 
 /* ================== Ingestão: CAP / CAR (Empoderamento — Conta Azul) ==================
@@ -343,7 +372,8 @@ function rowsFromHistoricoEmpoderamento(){
     const entry = HISTORICO_VALORES_EMPODERAMENTO[dia];
     for(const key in entry){
       if(key.indexOf('TOTAL||')===0) continue; // só os totais de saldo/soma, não viram linha
-      const [grupo, categoria] = key.split('||');
+      const [grupo, categoriaRaw] = key.split('||');
+      const categoria = canonicalizarCategoria(categoriaRaw);
       const excluida = categoriaExcluida(categoria); // transferência entre contas próprias: aparece, mas não conta
       const valor = entry[key];
       if(!valor) continue;
@@ -392,7 +422,7 @@ function rowsFromCapCar(table, tipoLancamento){
 
     if(date <= HISTORICO_CUTOFF_EMPODERAMENTO) return null; // período já congelado pelo histórico da planilha antiga
 
-    const categoria = (getColNormalized(r, 'categoria 1') || 'Sem categoria').toString().trim();
+    const categoria = canonicalizarCategoria((getColNormalized(r, 'categoria 1') || 'Sem categoria').toString().trim());
     const excluida = categoriaExcluida(categoria); // transferência entre contas próprias: aparece, mas não conta
     const grupo = tipoLancamento==='pagar' ? 'PAGAMENTOS' : 'RECEBIMENTOS';
     const grupoDisplay = grupo==='PAGAMENTOS' ? resolveGrupoPagamento(categoria) : null;
@@ -425,7 +455,7 @@ function rowsFromMovimentacao(table){
     const date = readDateCol(r, 'data');
     if(!date) return null;
 
-    const categoria = (getColNormalized(r, 'categoria') || 'Sem categoria').toString().trim();
+    const categoria = canonicalizarCategoria((getColNormalized(r, 'categoria') || 'Sem categoria').toString().trim());
     const valorRaw = getColNormalized(r, 'valor (r$)');
     const rawValor = parseMoneyBR(typeof valorRaw==='object' && valorRaw!==null ? (valorRaw.v ?? valorRaw.f) : valorRaw);
     if(!rawValor) return null;
