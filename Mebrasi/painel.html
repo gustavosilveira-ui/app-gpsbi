@@ -334,33 +334,6 @@ table.tabela-simples tr.linha-total td{font-weight:800;border-top:2px solid var(
 .followup-item.done{opacity:.5;text-decoration:line-through}
 .crm-unavailable{font-size:11.5px;color:#f5b942;background:rgba(245,185,66,.12);padding:8px 10px;border-radius:8px;margin-top:6px}
 
-/* ===== CRM Comercial de Clientes ===== */
-.crm-card{margin-bottom:18px;}
-.crm-toolbar{display:grid;grid-template-columns:minmax(240px,1.4fr) 180px auto;gap:10px;align-items:end;margin:14px 0;}
-.crm-toolbar label{display:block;font-size:10px;color:var(--text3);text-transform:uppercase;font-weight:700;margin-bottom:5px;}
-.crm-toolbar input,.crm-toolbar select{width:100%;background:var(--field-bg,var(--navy3));border:1px solid var(--border2);border-radius:9px;padding:9px 11px;color:var(--text);font-family:'Sora',sans-serif;font-size:12.5px;outline:none;}
-.crm-layout{display:grid;grid-template-columns:minmax(320px,.9fr) minmax(0,1.6fr);gap:14px;align-items:start;}
-.crm-client-list{max-height:430px;overflow:auto;border:1px solid var(--border);border-radius:11px;padding:6px;background:var(--navy3);}
-.crm-client-row{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px;border-radius:9px;cursor:pointer;border:1px solid transparent;}
-.crm-client-row:hover,.crm-client-row.active{background:var(--navy4);border-color:var(--border2);}
-.crm-client-dot{width:11px;height:11px;border-radius:50%;justify-self:center;}
-.crm-client-name{font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.crm-client-meta{font-size:10.5px;color:var(--text3);margin-top:2px;}
-.crm-client-value{text-align:right;font-family:'DM Mono',monospace;font-size:11.5px;font-weight:700;white-space:nowrap;}
-.crm-detail{border:1px solid var(--border);border-radius:11px;padding:14px;min-height:240px;background:var(--navy3);}
-.crm-detail-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:12px;}
-.crm-detail-name{font-size:16px;font-weight:800;}
-.crm-detail-sub{font-size:11px;color:var(--text3);margin-top:3px;}
-.crm-mini-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px;}
-.crm-mini-kpi{background:var(--navy4);border-radius:9px;padding:9px 10px;}
-.crm-mini-kpi b{display:block;font-family:'DM Mono',monospace;font-size:12px;}
-.crm-mini-kpi span{font-size:9.5px;color:var(--text3);}
-.crm-products{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
-.crm-product{display:flex;justify-content:space-between;gap:10px;background:var(--navy4);padding:8px 9px;border-radius:8px;font-size:11px;}
-.crm-product span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.crm-empty{color:var(--text3);font-size:12px;padding:18px;text-align:center;}
-@media(max-width:900px){.crm-toolbar{grid-template-columns:1fr}.crm-layout{grid-template-columns:1fr}.crm-mini-kpis{grid-template-columns:repeat(2,1fr)}.crm-products{grid-template-columns:1fr}}
-
 </style>
 </head>
 <body>
@@ -422,28 +395,21 @@ table.tabela-simples tr.linha-total td{font-weight:800;border-top:2px solid var(
           <select id="anoSelect"></select>
           <span class="filtro-label">Mês</span>
           <select id="mesSelect"><option value="">Todos</option></select>
-          <span class="filtro-label">Cliente</span>
-          <input id="clienteBuscaGlobal" type="text" placeholder="Digite parte do nome..." style="min-width:210px;" oninput="selectedClienteBusca=this.value;renderTudo()">
           <button class="btn btn-ghost btn-sm" onclick="limparFiltros()">Limpar filtros</button>
         </div>
       </div>
       <div id="kpiGrid" class="kpi-grid"></div>
     </div>
 
-    <div class="card crm-card" id="suggestionsCard">
-      <div class="card-title">🎯 CRM Comercial · Clientes e oportunidades</div>
-      <div class="card-sub">Filtre por UF ou nome, identifique clientes fora do ciclo de recompra e consulte histórico, ticket e produtos mais comprados.</div>
-      <div class="crm-toolbar">
-        <div><label>Buscar cliente</label><input id="crmClienteBusca" type="text" placeholder="Digite o nome ou parte do nome..." oninput="crmClienteBusca=this.value;renderCrmComercial()"></div>
-        <div><label>Estado</label><select id="crmUfSelect" onchange="crmUfSelecionada=this.value;renderCrmComercial()"><option value="">Todos os estados</option></select></div>
-        <button class="btn btn-ghost btn-sm" onclick="limparFiltrosCrm()">Limpar CRM</button>
+    <div class="card" id="suggestionsCard" style="display:none;margin-bottom:18px;">
+      <div class="card-title suggestions-header" onclick="toggleSuggestions()" style="cursor:pointer;user-select:none;">
+        🎯 Sugestões de contato pra bater a meta
+        <span id="suggestionsCount" class="suggestions-badge"></span>
+        <span id="suggestionsChevron" class="suggestions-chevron">▸</span>
       </div>
-      <div class="crm-layout">
-        <div>
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;"><b style="font-size:12px;">Clientes</b><span id="crmClientCount" style="font-size:10.5px;color:var(--text3);"></span></div>
-          <div id="crmClientList" class="crm-client-list"></div>
-        </div>
-        <div id="crmClientDetail" class="crm-detail"><div class="crm-empty">Selecione um cliente para ver histórico e produtos.</div></div>
+      <div class="card-sub">Clientes com histórico de recompra que já passaram do ciclo médio deles — ordenado pelo maior ticket médio</div>
+      <div id="suggestionsBody" style="display:none;">
+        <div id="suggestionsList"></div>
       </div>
     </div>
 
@@ -791,8 +757,7 @@ let currentUser=null, gpsStaff=false;
 const HOJE_ISO = new Date().toISOString().slice(0,10);
 let rows = []; // linhas normalizadas da FatoVendas
 let pendingRows = []; // Pedido / Pedido Aprovado (ainda não faturado) — só pro texto executivo
-let selectedEmpresa = '', selectedAno = '', selectedMes = '', selectedEstado = '', selectedFamilia = '', selectedVendedor = '', selectedClienteBusca = '';
-let crmClienteBusca = '', crmUfSelecionada = '', crmClienteAtual = '';
+let selectedEmpresa = '', selectedAno = '', selectedMes = '', selectedEstado = '', selectedFamilia = '', selectedVendedor = '';
 let selectedPeriodoInicio = '', selectedPeriodoFim = '';
 let evolutionMonths = [], evDragging = false, evDragStartIdx = null, evDragBound = false, evSuppressNextClick = false;
 let chartDiario=null, chartSemanal=null, chartFarol=null, chartEmpresa=null, chartEstado=null, chartFamilia=null, chartEvolucao=null;
@@ -933,7 +898,6 @@ function rowsInScope(){
     if(selectedEstado && r.estado !== selectedEstado) return false;
     if(selectedFamilia && (r.familiaComercial || '(sem família)') !== selectedFamilia) return false;
     if(selectedVendedor && nomeVendedor(r.codVendedor) !== selectedVendedor) return false;
-    if(selectedClienteBusca && !normalizeTxt(r.cliente).includes(normalizeTxt(selectedClienteBusca))) return false;
     return true;
   });
 }
@@ -968,8 +932,7 @@ function popularFiltrosAnoMes(){
 }
 
 function limparFiltros(){
-  selectedEmpresa=''; selectedAno=''; selectedMes=''; selectedEstado=''; selectedFamilia=''; selectedVendedor=''; selectedClienteBusca=''; selectedPeriodoInicio=''; selectedPeriodoFim='';
-  if(el('clienteBuscaGlobal')) el('clienteBuscaGlobal').value='';
+  selectedEmpresa=''; selectedAno=''; selectedMes=''; selectedEstado=''; selectedFamilia=''; selectedVendedor=''; selectedPeriodoInicio=''; selectedPeriodoFim='';
   el('empresaSelect').value=''; el('anoSelect').value=''; el('mesSelect').value='';
   renderTudo();
 }
@@ -2022,69 +1985,61 @@ function mesLabelCurto(m){ // "2026-07" -> "Jul/26"
   const [ano,mes] = m.split('-');
   return `${MES_ABREV_CLIENTE[Number(mes)-1]}/${ano.slice(2)}`;
 }
-/* ---- CRM Comercial: clientes, recompra e produtos ---- */
-function crmRowsBase(){
-  return rows.filter(r=>{
-    if(selectedEmpresa && r.empresa!==selectedEmpresa) return false;
-    if(selectedEstado && r.estado!==selectedEstado) return false;
-    if(selectedFamilia && (r.familiaComercial||'(sem família)')!==selectedFamilia) return false;
-    if(selectedVendedor && nomeVendedor(r.codVendedor)!==selectedVendedor) return false;
-    return !!r.cliente;
+/* ---- Sugestão de recompra: clientes "atrasados" no ciclo de compra deles ---- */
+function computeReorderSuggestions(){
+  const scoped = rowsInScope();
+  const byClient = {};
+  scoped.forEach(r=>{
+    if(!r.cliente) return;
+    if(!byClient[r.cliente]) byClient[r.cliente] = [];
+    byClient[r.cliente].push(r);
   });
-}
-function crmResumoClientes(){
-  const by={};
-  crmRowsBase().forEach(r=>{
-    if(!by[r.cliente]) by[r.cliente]={cliente:r.cliente,estado:r.estado||'',rows:[]};
-    by[r.cliente].rows.push(r);
-    if(!by[r.cliente].estado && r.estado) by[r.cliente].estado=r.estado;
+  const today = new Date();
+  const suggestions = [];
+  Object.entries(byClient).forEach(([cliente, itens])=>{
+    const dates = Array.from(new Set(itens.map(r=>r.data))).sort();
+    if(dates.length < 3) return; // precisa de histórico mínimo pra ter um ciclo
+    const gaps = [];
+    for(let i=1;i<dates.length;i++){
+      gaps.push((new Date(dates[i]) - new Date(dates[i-1])) / 86400000);
+    }
+    const avgCycle = gaps.reduce((s,g)=>s+g,0)/gaps.length;
+    const lastDate = new Date(dates[dates.length-1]);
+    const daysSince = Math.round((today - lastDate) / 86400000);
+    if(daysSince > avgCycle * 1.25 && avgCycle >= 5){
+      const total = itens.reduce((s,r)=>s+r.faturamento,0);
+      const avgTicket = total / dates.length;
+      const vendedor = nomeVendedor(itens[itens.length-1].codVendedor);
+      suggestions.push({ cliente, vendedor, avgCycle: Math.round(avgCycle), daysSince, lastDate: dates[dates.length-1], avgTicket, total });
+    }
   });
-  const hoje=new Date(HOJE_ISO+'T00:00:00');
-  return Object.values(by).map(c=>{
-    const datas=Array.from(new Set(c.rows.map(r=>r.data))).sort();
-    const pedidos=new Set(c.rows.map(r=>r.codPedido).filter(Boolean));
-    const total=c.rows.reduce((s,r)=>s+r.faturamento,0);
-    const ultima=datas[datas.length-1]||'';
-    const diasSem=ultima?Math.max(0,Math.round((hoje-new Date(ultima+'T00:00:00'))/86400000)):0;
-    let ciclo=null;
-    if(datas.length>=3){ const gaps=[]; for(let i=1;i<datas.length;i++) gaps.push((new Date(datas[i]+'T00:00:00')-new Date(datas[i-1]+'T00:00:00'))/86400000); ciclo=gaps.reduce((s,g)=>s+g,0)/gaps.length; }
-    const ticket=pedidos.size?total/pedidos.size:0;
-    const status=ciclo===null?'neutro':(diasSem>ciclo*1.25?'atrasado':diasSem>=ciclo*.85?'atencao':'ok');
-    return {...c,total,pedidos:pedidos.size,ticket,ultima,diasSem,ciclo,status};
-  });
+  return suggestions.sort((a,b)=>b.avgTicket-a.avgTicket).slice(0,8);
 }
-function crmDotColor(status){ return status==='atrasado'?'#ef6a6a':status==='atencao'?'#f5b942':status==='ok'?'#2fd6b8':'#9FD8E6'; }
-function popularCrmUfs(){
-  const sel=el('crmUfSelect'); if(!sel) return;
-  const ufs=Array.from(new Set(crmRowsBase().map(r=>r.estado).filter(Boolean))).sort();
-  const atual=crmUfSelecionada;
-  sel.innerHTML='<option value="">Todos os estados</option>'+ufs.map(uf=>`<option value="${escapeHtml(uf)}">${escapeHtml(uf)}</option>`).join('');
-  sel.value=atual;
+function renderSuggestions(){
+  const card = el('suggestionsCard');
+  const list2 = el('suggestionsList');
+  if(!card || !list2) return;
+  const list = computeReorderSuggestions();
+  card.style.display = 'block';
+  el('suggestionsCount').textContent = list.length ? list.length : '';
+  if(!list.length){ list2.innerHTML = '<div style="color:var(--text3);font-size:12.5px;padding:12px;">Nenhum cliente atrasado identificado no ciclo de compra dele. 🎉</div>'; return; }
+  list2.innerHTML = list.map(s=>`
+    <div class="suggestion-item">
+      <div class="suggestion-body">
+        <div class="suggestion-name">${escapeHtml(s.cliente)}</div>
+        <div class="suggestion-meta">Última compra há <b>${s.daysSince}d</b> · ciclo médio de <b>${s.avgCycle}d</b> · vendedor: ${escapeHtml(s.vendedor)}</div>
+      </div>
+      <div class="suggestion-val">${fmtBRL(s.avgTicket)}<span>ticket médio</span></div>
+      <button class="btn btn-ghost btn-sm suggestion-btn" onclick="openClientModal('${s.cliente.replace(/'/g,"\\'")}')">Ver ficha</button>
+    </div>`).join('');
 }
-function limparFiltrosCrm(){ crmClienteBusca=''; crmUfSelecionada=''; crmClienteAtual=''; if(el('crmClienteBusca'))el('crmClienteBusca').value=''; if(el('crmUfSelect'))el('crmUfSelect').value=''; renderCrmComercial(); }
-function selecionarClienteCrm(nome){ crmClienteAtual=nome; renderCrmComercial(); }
-function filtrarBiPorCliente(nome){ selectedClienteBusca=nome; if(el('clienteBuscaGlobal'))el('clienteBuscaGlobal').value=nome; renderTudo(); window.scrollTo({top:0,behavior:'smooth'}); }
-function renderCrmComercial(){
-  const listEl=el('crmClientList'), detail=el('crmClientDetail'); if(!listEl||!detail)return;
-  popularCrmUfs();
-  let clientes=crmResumoClientes().filter(c=>{
-    if(crmUfSelecionada && c.estado!==crmUfSelecionada) return false;
-    if(crmClienteBusca && !normalizeTxt(c.cliente).includes(normalizeTxt(crmClienteBusca))) return false;
-    return true;
-  });
-  clientes.sort((a,b)=>{ const rank={atrasado:0,atencao:1,ok:2,neutro:3}; return rank[a.status]-rank[b.status] || b.ticket-a.ticket; });
-  el('crmClientCount').textContent=`${clientes.length} cliente${clientes.length===1?'':'s'}`;
-  if(!clientes.length){ listEl.innerHTML='<div class="crm-empty">Nenhum cliente encontrado.</div>'; detail.innerHTML='<div class="crm-empty">Ajuste os filtros para localizar clientes.</div>'; return; }
-  if(!crmClienteAtual || !clientes.some(c=>c.cliente===crmClienteAtual)) crmClienteAtual=clientes[0].cliente;
-  listEl.innerHTML=clientes.slice(0,250).map(c=>`<div class="crm-client-row ${c.cliente===crmClienteAtual?'active':''}" onclick="selecionarClienteCrm(${JSON.stringify(c.cliente).replace(/"/g,'&quot;')})"><span class="crm-client-dot" style="background:${crmDotColor(c.status)}"></span><div><div class="crm-client-name">${escapeHtml(c.cliente)}</div><div class="crm-client-meta">${escapeHtml(c.estado||'Sem UF')} · última ${c.ultima?fmtDataBR(c.ultima):'—'} · ${c.diasSem}d sem comprar</div></div><div class="crm-client-value">${fmtBRL(c.ticket)}<br><small style="color:var(--text3);font-family:Sora;font-weight:400;">ticket</small></div></div>`).join('');
-  const c=clientes.find(x=>x.cliente===crmClienteAtual);
-  const prod={}; c.rows.forEach(r=>{const p=r.descComercial||'Sem descrição'; if(!prod[p])prod[p]={fat:0,qtd:0,ultima:''}; prod[p].fat+=r.faturamento; prod[p].qtd+=r.qtdFaturada||0; if(r.data>prod[p].ultima)prod[p].ultima=r.data;});
-  const tops=Object.entries(prod).sort((a,b)=>b[1].fat-a[1].fat).slice(0,8);
-  const sugestao=c.ciclo===null?'Histórico ainda curto para calcular o ciclo de recompra.':c.status==='atrasado'?`Cliente passou do ciclo médio de ${Math.round(c.ciclo)} dias. Priorizar contato comercial.`:c.status==='atencao'?`Cliente está próximo do ciclo médio de ${Math.round(c.ciclo)} dias.`:`Cliente dentro do ciclo normal de recompra (${Math.round(c.ciclo)} dias).`;
-  detail.innerHTML=`<div class="crm-detail-head"><div><div class="crm-detail-name">${escapeHtml(c.cliente)}</div><div class="crm-detail-sub">${escapeHtml(c.estado||'Sem UF')} · ${escapeHtml(sugestao)}</div></div><div style="display:flex;gap:7px;"><button class="btn btn-ghost btn-sm" onclick="filtrarBiPorCliente(${JSON.stringify(c.cliente).replace(/"/g,'&quot;')})">Filtrar BI</button><button class="btn btn-primary btn-sm" onclick="openClientModal(${JSON.stringify(c.cliente).replace(/"/g,'&quot;')})">Ficha completa</button></div></div><div class="crm-mini-kpis"><div class="crm-mini-kpi"><b>${fmtBRL(c.total)}</b><span>Faturamento histórico</span></div><div class="crm-mini-kpi"><b>${c.pedidos}</b><span>Pedidos</span></div><div class="crm-mini-kpi"><b>${fmtBRL(c.ticket)}</b><span>Ticket médio</span></div><div class="crm-mini-kpi"><b>${c.ciclo?Math.round(c.ciclo)+' dias':'—'}</b><span>Ciclo médio</span></div></div><div style="font-size:11px;font-weight:800;margin-bottom:7px;">📦 Produtos mais comprados</div><div class="crm-products">${tops.length?tops.map(([p,v])=>`<div class="crm-product"><span title="${escapeHtml(p)}">${escapeHtml(p)}</span><span>${fmtBRL(v.fat)}</span></div>`).join(''):'<div class="crm-empty">Sem produtos encontrados.</div>'}</div>`;
+function toggleSuggestions(){
+  const body = el('suggestionsBody');
+  const chevron = el('suggestionsChevron');
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  chevron.classList.toggle('open', !isOpen);
 }
-function renderSuggestions(){ renderCrmComercial(); }
-function toggleSuggestions(){}
 
 /* ---- CRM leve: notas e agenda de contato por cliente ---- */
 let crmAvailable = true;
