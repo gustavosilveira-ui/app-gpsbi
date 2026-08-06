@@ -1302,7 +1302,12 @@ const isPagamento = r => r.grupo!=='RECEBIMENTOS' && r.grupo!=='AJUSTES_MANUAIS'
 // Corrigido aqui com variantes próprias — só usadas nas linhas-resumo da
 // tabela — sem mexer no isRecebimento/isPagamento originais, que outros
 // cards (ex: "A Pagar em Aberto") ainda precisam incluindo Títulos em Aberto.
-const isRecebimentoResumo = r => isRecebimento(r) && contaNoTotal_(r);
+// Cheque Terceiros do lado RECEBIMENTO também sai daqui — decisão já
+// confirmada com a Shirley em 27/07: recebimento via cheque de terceiros
+// fica fora do saldo/resumo, com linha própria (isso é diferente do lado
+// Pagamento, onde cheque de terceiros é despesa real e continua contando,
+// controlado por VALIDACAO_BATER_COM_BASE via contaNoTotal_).
+const isRecebimentoResumo = r => isRecebimento(r) && contaNoTotal_(r) && r.categoria!==CATEGORIA_CHEQUE_TERCEIROS;
 const isPagamentoResumo = r => isPagamento(r) && contaNoTotal_(r);
 const isGrupo = g => r => r.grupo===g;
 // Categoria sozinha não basta pra identificar a linha — "Títulos em
