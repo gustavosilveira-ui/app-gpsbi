@@ -335,6 +335,7 @@ const CATEGORIA_CANONICA = {};
 [
   ['Equipe - Prestadores de Serviços', 'Equipe - Prestadores de Serviços'],
   ['Pagamento de Empréstimos', 'Empréstimos de Bancos'],
+  ['HOTMART', 'Hotmart'],
 ].forEach(([variante, canonico]) => { CATEGORIA_CANONICA[normalizeTxt(variante)] = canonico; });
 function canonicalizarCategoria(categoria){
   const key = normalizeTxt(categoria);
