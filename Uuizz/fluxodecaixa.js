@@ -1204,7 +1204,7 @@ function exportarFichaPDF(){
       <td>${escapeFichaHtml(r.Nome)}</td>
       <td>${escapeFichaHtml(r.Categoria)}</td>
       <td>${escapeFichaHtml(r['Observação'])}</td>
-      <td style="text-align:right;">${fmtBRLCentavos(r['Valor (R$)'])}</td>
+      <td style="text-align:right;color:${r['Valor (R$)']<0?'#dc2626':'#16a34a'};font-weight:600;">${fmtBRLCentavos(r['Valor (R$)'])}</td>
     </tr>`).join('');
   const janela = window.open('', '_blank');
   janela.document.write(`
@@ -1214,9 +1214,16 @@ function exportarFichaPDF(){
       h1{font-size:18px;margin-bottom:2px;}
       p{font-size:12px;color:#555;margin-top:0;margin-bottom:16px;}
       .resumo-cards{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;}
-      .resumo-card{border:1px solid #ddd;border-radius:8px;padding:10px 14px;min-width:130px;}
-      .resumo-card .lbl{font-size:10px;color:#777;text-transform:uppercase;margin-bottom:4px;}
-      .resumo-card .val{font-size:15px;font-weight:bold;}
+      .resumo-card{border:1px solid #ddd;border-radius:10px;padding:12px 16px;min-width:140px;background:#fafafa;}
+      .resumo-card .icon{font-size:18px;margin-bottom:4px;}
+      .resumo-card .lbl{font-size:10px;color:#777;text-transform:uppercase;margin-bottom:4px;letter-spacing:.03em;}
+      .resumo-card .val{font-size:16px;font-weight:bold;}
+      .resumo-card.pos{border-left:4px solid #16a34a;}
+      .resumo-card.pos .val{color:#16a34a;}
+      .resumo-card.neg{border-left:4px solid #dc2626;}
+      .resumo-card.neg .val{color:#dc2626;}
+      .resumo-card.pend{border-left:4px solid #d97706;}
+      .resumo-card.pend .val{color:#d97706;}
       table{width:100%;border-collapse:collapse;font-size:11px;}
       th,td{border:1px solid #ddd;padding:6px 8px;text-align:left;}
       th{background:#f4f4f4;}
@@ -1227,11 +1234,11 @@ function exportarFichaPDF(){
       <h1>Ficha · ${escapeFichaHtml(fichaExportContext.titulo)}</h1>
       <p>Período: ${escapeFichaHtml(fichaExportContext.periodo)} — ${dados.length} lançamento(s)</p>
       <div class="resumo-cards">
-        <div class="resumo-card"><div class="lbl">Total no período</div><div class="val">${fmtBRLCentavos(resumo.total)}</div></div>
-        <div class="resumo-card"><div class="lbl">${escapeFichaHtml(resumo.labelRealizado)}</div><div class="val">${fmtBRLCentavos(resumo.jaRealizado)}</div></div>
-        <div class="resumo-card"><div class="lbl">${escapeFichaHtml(resumo.labelAberto)}</div><div class="val">${fmtBRLCentavos(resumo.aindaEmAberto)}</div></div>
-        <div class="resumo-card"><div class="lbl">Contas com movimento</div><div class="val">${resumo.qtdContas}</div></div>
-        <div class="resumo-card"><div class="lbl">Lançamentos</div><div class="val">${resumo.qtdLancamentos}</div></div>
+        <div class="resumo-card ${resumo.total<0?'neg':'pos'}"><div class="icon">${resumo.total<0?'💸':'💰'}</div><div class="lbl">Total no período</div><div class="val">${fmtBRLCentavos(resumo.total)}</div></div>
+        <div class="resumo-card ${resumo.jaRealizado<0?'neg':'pos'}"><div class="icon">✅</div><div class="lbl">${escapeFichaHtml(resumo.labelRealizado)}</div><div class="val">${fmtBRLCentavos(resumo.jaRealizado)}</div></div>
+        <div class="resumo-card pend"><div class="icon">⏳</div><div class="lbl">${escapeFichaHtml(resumo.labelAberto)}</div><div class="val">${fmtBRLCentavos(resumo.aindaEmAberto)}</div></div>
+        <div class="resumo-card"><div class="icon">🏦</div><div class="lbl">Contas com movimento</div><div class="val">${resumo.qtdContas}</div></div>
+        <div class="resumo-card"><div class="icon">📄</div><div class="lbl">Lançamentos</div><div class="val">${resumo.qtdLancamentos}</div></div>
       </div>
       <table>
         <thead><tr><th>Data</th><th>Conta</th><th>Nome</th><th>Categoria</th><th>Observação</th><th style="text-align:right;">Valor (R$)</th></tr></thead>
