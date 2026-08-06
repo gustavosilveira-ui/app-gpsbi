@@ -907,7 +907,10 @@ function cleanCell(v){
   return v.toString().trim();
 }
 function rowMeta(r){
-  const titulo = cleanCell(getColNormalized(r,'titulo')) || cleanCell(getColNormalized(r,'título')) || cleanCell(getColNormalized(r,'cod titulo'));
+  // "Nr Titulo"/"Nr Título" tem prioridade — é o número de documento de
+  // verdade que o cliente espera ver na Ficha. Os outros nomes de coluna
+  // ficam como fallback pra relatórios que não tenham essa coluna específica.
+  const titulo = cleanCell(getColNormalized(r,'nr titulo')) || cleanCell(getColNormalized(r,'nr título')) || cleanCell(getColNormalized(r,'titulo')) || cleanCell(getColNormalized(r,'título')) || cleanCell(getColNormalized(r,'cod titulo'));
   const nome = cleanCell(getColNormalized(r,'nome')) || cleanCell(getColNormalized(r,'cliente')) || cleanCell(getColNormalized(r,'fornecedor')) || cleanCell(getColNormalized(r,'emitente'));
   const cnpj = cleanCell(getColNormalized(r,'cnpj'));
   const banco = cleanCell(getColNormalized(r,'banco'));
@@ -1292,6 +1295,15 @@ function runningBalance(uptoDate){
 // contam no Saldo Acumulado — só não entram nesse resumo visual.
 const isRecebimento = r => r.grupo==='RECEBIMENTOS';
 const isPagamento = r => r.grupo!=='RECEBIMENTOS' && r.grupo!=='AJUSTES_MANUAIS';
+// isRecebimento/isPagamento sozinhos (acima) NÃO excluíam Títulos em
+// Aberto de fato — o comentário prometia isso mas o código não aplicava,
+// fazendo a linha-resumo RECEBIMENTOS/PAGAMENTOS somar títulos ainda em
+// aberto e não bater com os cards do topo (que já respeitam contaNoTotal_).
+// Corrigido aqui com variantes próprias — só usadas nas linhas-resumo da
+// tabela — sem mexer no isRecebimento/isPagamento originais, que outros
+// cards (ex: "A Pagar em Aberto") ainda precisam incluindo Títulos em Aberto.
+const isRecebimentoResumo = r => isRecebimento(r) && contaNoTotal_(r);
+const isPagamentoResumo = r => isPagamento(r) && contaNoTotal_(r);
 const isGrupo = g => r => r.grupo===g;
 // Categoria sozinha não basta pra identificar a linha — "Títulos em
 // Aberto" existe tanto do lado Recebimentos quanto do lado Pagamentos
@@ -1303,13 +1315,14 @@ const isCategoria = (c, g) => r => r.categoria===c && (g===undefined || r.grupo=
 // A data original permanece preservada no lançamento e nos cards; muda apenas a
 // posição visual na linha/ficha de Títulos em Aberto para facilitar a cobrança.
 function dataVisualTituloAberto_(r){
-  // Traz para o dia atual somente os títulos vencidos dentro do mês vigente
-  // (do dia 01 até D-1). Títulos de meses anteriores permanecem na data original,
-  // evitando acumular todo o histórico vencido na coluna de hoje.
+  // Traz para o dia atual qualquer título vencido, não importa de quando —
+  // inclusive desde janeiro. Antes só trazia os vencidos dentro do mês
+  // vigente, então um título vencido em março continuava "escondido" lá
+  // atrás, em vez de aparecer junto com o resto do que está pendente de
+  // cobrança hoje.
   if(
     r &&
     r.categoria===CATEGORIA_TITULOS_ABERTO &&
-    r.date >= INICIO_MES_ATUAL_ISO &&
     r.date < HOJE_ISO
   ) return HOJE_ISO;
   return r ? r.date : null;
@@ -1329,7 +1342,7 @@ function buildRowTree(){
     return a.localeCompare(b,'pt-BR');
   });
   const recebimentosNode = {
-    type:'recebimentos', level:0, label:'RECEBIMENTOS', filter:isRecebimento, expanded:false,
+    type:'recebimentos', level:0, label:'RECEBIMENTOS', filter:isRecebimentoResumo, expanded:false,
     children: recebimentoCats.map(c=>({ type:'cat', level:2, label:c, filter:isCategoria(c,'RECEBIMENTOS'), expanded:false, children:[] }))
   };
 
@@ -1341,7 +1354,7 @@ function buildRowTree(){
     };
   }).filter(sg=>sg.children.length); // esconde grupo sem nenhuma categoria
 
-  const pagamentosNode = { type:'pagamentos', level:0, label:'PAGAMENTOS', filter:isPagamento, expanded:true, children: pagamentoSubgrupos };
+  const pagamentosNode = { type:'pagamentos', level:0, label:'PAGAMENTOS', filter:isPagamentoResumo, expanded:true, children: pagamentoSubgrupos };
 
   const nodes = [
     { type:'saldo', level:0, label:'SALDO ACUMULADO', special:'saldo', expanded:false, children:[] },
