@@ -334,32 +334,6 @@ table.tabela-simples tr.linha-total td{font-weight:800;border-top:2px solid var(
 .followup-item.done{opacity:.5;text-decoration:line-through}
 .crm-unavailable{font-size:11.5px;color:#f5b942;background:rgba(245,185,66,.12);padding:8px 10px;border-radius:8px;margin-top:6px}
 
-
-
-/* ===== Matriz Cliente x Produto (seção inferior) ===== */
-.client-matrix-toolbar{display:flex;align-items:end;gap:10px;flex-wrap:wrap;margin-bottom:14px}
-.client-matrix-field{min-width:170px}
-.client-matrix-field.search{flex:1;min-width:260px}
-.client-matrix-field label{display:block;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;font-weight:700;margin-bottom:5px}
-.client-matrix-field input,.client-matrix-field select{width:100%;background:var(--field-bg);border:1px solid var(--border2);border-radius:9px;padding:9px 11px;color:var(--text);font-family:'Sora',sans-serif;font-size:12px;outline:none}
-.client-matrix-wrap{overflow:auto;max-height:560px;border:1px solid var(--border2);border-radius:12px}
-.client-matrix{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:11.5px}
-.client-matrix th,.client-matrix td{padding:8px 10px;border-bottom:1px solid var(--border);white-space:nowrap;text-align:right}
-.client-matrix th{position:sticky;top:0;background:var(--navy2);z-index:3;color:var(--text3);font-size:9.5px;text-transform:uppercase}
-.client-matrix th:first-child,.client-matrix td:first-child{position:sticky;left:0;background:var(--navy2);z-index:4;text-align:left;min-width:360px;max-width:520px}
-html.light .client-matrix th,html.light .client-matrix td:first-child{background:#fff}
-.client-matrix tr.client-row td{font-weight:800;background:var(--navy3)}
-html.light .client-matrix tr.client-row td{background:#eef1f6}
-.client-matrix tr.product-row td:first-child{padding-left:38px;font-weight:500;color:var(--text2);overflow:hidden;text-overflow:ellipsis}
-.client-matrix-toggle{display:inline-block;width:20px;cursor:pointer;color:var(--cyan);font-weight:900}
-.client-matrix-name{cursor:pointer}
-.client-matrix-meta{font-size:9.5px;color:var(--text3);font-weight:500;margin-left:7px}
-.client-farol{display:inline-flex;align-items:center;gap:5px;margin-right:7px;font-size:10px}
-.client-farol-dot{width:9px;height:9px;border-radius:50%;display:inline-block}
-.client-farol-green{background:#2fd6b8}.client-farol-yellow{background:#f5b942}.client-farol-red{background:#ef6a6a}.client-farol-gray{background:#98a2b3}
-.client-matrix-empty{padding:32px;text-align:center;color:var(--text3);font-size:12px}
-.client-matrix-summary{font-size:11px;color:var(--text3);margin-top:8px}
-
 </style>
 </head>
 <body>
@@ -511,31 +485,6 @@ html.light .client-matrix tr.client-row td{background:#eef1f6}
     </div>
 
     <div id="fcDebugStats" style="font-size:11px;color:var(--text3);margin-top:8px;"></div>
-
-    <div class="card" id="clientProductMatrixCard" style="margin-top:18px;">
-      <div class="card-title">👥 Clientes e Produtos</div>
-      <div class="card-sub">Consulte o histórico mensal por cliente, abra os produtos comprados e identifique oportunidades de recompra pelo farol.</div>
-      <div class="client-matrix-toolbar">
-        <div class="client-matrix-field search">
-          <label>Buscar cliente</label>
-          <input id="clientMatrixSearch" type="text" placeholder="Digite o nome ou parte do nome do cliente...">
-        </div>
-        <div class="client-matrix-field">
-          <label>UF</label>
-          <select id="clientMatrixUf"><option value="">Todas as UFs</option></select>
-        </div>
-        <div class="client-matrix-field">
-          <label>Ano da tabela</label>
-          <select id="clientMatrixYear"></select>
-        </div>
-        <button class="btn btn-ghost btn-sm" id="clientMatrixClear">Limpar</button>
-      </div>
-      <div class="client-matrix-wrap">
-        <table class="client-matrix" id="clientMatrixTable"></table>
-      </div>
-      <div class="client-matrix-summary" id="clientMatrixSummary"></div>
-    </div>
-
 
     <!-- ============ Observações, avisos e solicitações (BI Comercial) ============ -->
     <div class="card">
@@ -2217,86 +2166,6 @@ function openClientModal(cliente){
 }
 function closeClientModal(){ el('clientModal').classList.remove('show'); }
 
-
-
-/* ===== Matriz inferior: Clientes x Produtos ===== */
-let clientMatrixExpanded = new Set();
-let clientMatrixBound = false;
-
-function clientMatrixCycle_(items){
-  const dates = Array.from(new Set(items.map(r=>r.data).filter(Boolean))).sort();
-  if(!dates.length) return {avg:null,days:null,status:'gray',label:'Sem histórico'};
-  const last = dates[dates.length-1];
-  const days = Math.max(0,Math.round((new Date(HOJE_ISO+'T00:00:00')-new Date(last+'T00:00:00'))/86400000));
-  if(dates.length<3) return {avg:null,days,status:'gray',label:`Última há ${days}d`};
-  const gaps=[];
-  for(let i=1;i<dates.length;i++) gaps.push((new Date(dates[i]+'T00:00:00')-new Date(dates[i-1]+'T00:00:00'))/86400000);
-  const avg=Math.max(1,Math.round(gaps.reduce((a,b)=>a+b,0)/gaps.length));
-  const ratio=days/avg;
-  if(ratio>1.25) return {avg,days,status:'red',label:`Atrasado: ${days}d / ciclo ${avg}d`};
-  if(ratio>=0.85) return {avg,days,status:'yellow',label:`Próximo: ${days}d / ciclo ${avg}d`};
-  return {avg,days,status:'green',label:`Em dia: ${days}d / ciclo ${avg}d`};
-}
-function clientMatrixFarolHtml_(cycle){
-  return `<span class="client-farol" title="${escapeHtml(cycle.label)}"><span class="client-farol-dot client-farol-${cycle.status}"></span>${escapeHtml(cycle.label)}</span>`;
-}
-function populateClientMatrixFilters_(){
-  const ufSel=el('clientMatrixUf'), yearSel=el('clientMatrixYear');
-  if(!ufSel||!yearSel) return;
-  const ufs=Array.from(new Set(rows.map(r=>(r.estado||'').toUpperCase()).filter(Boolean))).sort();
-  const currentUf=ufSel.value;
-  ufSel.innerHTML='<option value="">Todas as UFs</option>'+ufs.map(u=>`<option value="${escapeHtml(u)}">${escapeHtml(u)}</option>`).join('');
-  if(ufs.includes(currentUf)) ufSel.value=currentUf;
-  const years=Array.from(new Set(rows.map(r=>r.data?.slice(0,4)).filter(Boolean))).sort().reverse();
-  const desired=yearSel.value || selectedAno || HOJE_ISO.slice(0,4);
-  yearSel.innerHTML=years.map(y=>`<option value="${y}">${y}</option>`).join('');
-  yearSel.value=years.includes(desired)?desired:(years[0]||'');
-}
-function renderClientProductMatrix(){
-  const table=el('clientMatrixTable'); if(!table) return;
-  populateClientMatrixFilters_();
-  const q=normalizeTxt(el('clientMatrixSearch')?.value||'');
-  const uf=(el('clientMatrixUf')?.value||'').toUpperCase();
-  const year=el('clientMatrixYear')?.value || selectedAno || HOJE_ISO.slice(0,4);
-  const source=rows.filter(r=>r.cliente && (!uf || (r.estado||'').toUpperCase()===uf));
-  const byClient={};
-  source.forEach(r=>{ if(q && !normalizeTxt(r.cliente).includes(q)) return; (byClient[r.cliente] ||= []).push(r); });
-  const clients=Object.entries(byClient).map(([cliente,items])=>({cliente,items,total:items.filter(r=>r.data?.slice(0,4)===year).reduce((s,r)=>s+r.faturamento,0),cycle:clientMatrixCycle_(items),uf:(items.find(r=>r.estado)?.estado||'')}))
-    .sort((a,b)=>b.total-a.total || a.cliente.localeCompare(b.cliente,'pt-BR'));
-  const months=Array.from({length:12},(_,i)=>String(i+1).padStart(2,'0'));
-  let html='<thead><tr><th>Cliente / Produto</th>'+months.map((m,i)=>`<th>${MES_ABREV_CLIENTE[i]}</th>`).join('')+'<th>Total</th></tr></thead><tbody>';
-  if(!clients.length){ table.innerHTML=html+`<tr><td colspan="14"><div class="client-matrix-empty">Nenhum cliente encontrado.</div></td></tr></tbody>`; el('clientMatrixSummary').textContent=''; return; }
-  clients.forEach(c=>{
-    const monthVals=months.map(m=>c.items.filter(r=>r.data?.slice(0,7)===`${year}-${m}`).reduce((s,r)=>s+r.faturamento,0));
-    const expanded=clientMatrixExpanded.has(c.cliente);
-    html+=`<tr class="client-row"><td><span class="client-matrix-toggle" onclick="toggleClientMatrix('${c.cliente.replace(/'/g,"\\'")}')">${expanded?'−':'+'}</span>${clientMatrixFarolHtml_(c.cycle)}<span class="client-matrix-name" onclick="openClientModal('${c.cliente.replace(/'/g,"\\'")}')">${escapeHtml(c.cliente)}</span><span class="client-matrix-meta">${escapeHtml(c.uf||'')}</span></td>${monthVals.map(v=>`<td>${v?fmtBRLFull(v):'—'}</td>`).join('')}<td>${fmtBRLFull(monthVals.reduce((a,b)=>a+b,0))}</td></tr>`;
-    if(expanded){
-      const prodMap={};
-      c.items.filter(r=>r.data?.slice(0,4)===year).forEach(r=>{ const key=(r.codProduto?`[${r.codProduto}] `:'')+(r.descComercial||'(Produto não informado)'); (prodMap[key] ||= []).push(r); });
-      Object.entries(prodMap).map(([p,items])=>({p,items,total:items.reduce((s,r)=>s+r.faturamento,0)})).sort((a,b)=>b.total-a.total).forEach(p=>{
-        const pv=months.map(m=>p.items.filter(r=>r.data?.slice(5,7)===m).reduce((s,r)=>s+r.faturamento,0));
-        html+=`<tr class="product-row"><td title="${escapeHtml(p.p)}">↳ ${escapeHtml(p.p)}</td>${pv.map(v=>`<td>${v?fmtBRLFull(v):'—'}</td>`).join('')}<td>${fmtBRLFull(p.total)}</td></tr>`;
-      });
-    }
-  });
-  html+='</tbody>';
-  table.innerHTML=html;
-  const total=clients.reduce((s,c)=>s+c.total,0);
-  const atrasados=clients.filter(c=>c.cycle.status==='red').length;
-  el('clientMatrixSummary').textContent=`${clients.length} clientes encontrados · ${atrasados} com recompra atrasada · Total em ${year}: ${fmtBRLFull(total)}`;
-  if(!clientMatrixBound){
-    clientMatrixBound=true;
-    el('clientMatrixSearch').addEventListener('input',renderClientProductMatrix);
-    el('clientMatrixUf').addEventListener('change',renderClientProductMatrix);
-    el('clientMatrixYear').addEventListener('change',renderClientProductMatrix);
-    el('clientMatrixClear').addEventListener('click',()=>{el('clientMatrixSearch').value='';el('clientMatrixUf').value='';renderClientProductMatrix();});
-  }
-}
-function toggleClientMatrix(cliente){
-  if(clientMatrixExpanded.has(cliente)) clientMatrixExpanded.delete(cliente); else clientMatrixExpanded.add(cliente);
-  renderClientProductMatrix();
-}
-
 function renderTudo(){
   renderKpis();
   renderSuggestions();
@@ -2312,7 +2181,6 @@ function renderTudo(){
   renderTabelaEmpresas();
   renderAnaliseWhats();
   renderDebug();
-  renderClientProductMatrix();
 }
 
 function appApplyTheme(t, skipSync){
