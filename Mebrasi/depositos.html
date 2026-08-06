@@ -581,10 +581,11 @@ function tetoFarol(empresa){
   if((empresa==='Ryngavi' || empresa==='Multicopos') && hojeIso>='2026-07-31') return 400000;
   return 450000;
 }
+// Mesma escala usada no texto executivo do WhatsApp.
 function faroEmoji(pct){
-  if(pct < 0.90) return '🟢';
-  if(pct <= 0.95) return '🟡';
-  if(pct <= 1.05) return '🔴';
+  if(pct <= 0.90) return '🟡';
+  if(pct <= 0.95) return '🔴';
+  if(pct <= 1.05) return '🔴🔴';
   return '🚨🚨🚨';
 }
 
@@ -633,19 +634,17 @@ function indicadoresEmpresa(empresa){
 
   const totalFarol = nf + fidelidade + pendente;
 
-  // Base do farol da linha "Pend": Gymis usa só a Fidelidade; Ryngavi/
-  // Multicopos usam NF+F+Pend; Especial/Online não têm farol nessa linha
-  // (confirmado com o Gustavo em 20/07/2026, igual à medida do Power BI).
+  // Mesmo farol do texto executivo do WhatsApp:
+  // somente Ryngavi e Multicopos, calculado sobre NF + F + Pendente.
+  // Gymis, Especial e Online não exibem farol.
   let pctPend = null;
-  if(empresa === 'Gymis') pctPend = tetoFarol(empresa)>0 ? fidelidade/tetoFarol(empresa) : 0;
-  else if(empresa === 'Ryngavi' || empresa === 'Multicopos') pctPend = tetoFarol(empresa)>0 ? totalFarol/tetoFarol(empresa) : 0;
-
-  // Base do farol da linha "Pend M+1": Ryngavi/Multicopos/Especial têm
-  // farol (base = só o Pend M+1); Gymis/Online não têm.
-  let pctPendM1 = null;
-  if(empresa === 'Ryngavi' || empresa === 'Multicopos' || empresa === 'Especial'){
-    pctPendM1 = tetoFarol(empresa)>0 ? pendenteM1/tetoFarol(empresa) : 0;
+  if(empresa === 'Ryngavi' || empresa === 'Multicopos'){
+    pctPend = tetoFarol(empresa)>0 ? totalFarol/tetoFarol(empresa) : 0;
   }
+
+  // O texto executivo não aplica farol ao Pend M+1; portanto a linha
+  // permanece apenas informativa no menu Depósitos.
+  const pctPendM1 = null;
 
   return { nf, fidelidade, total, pendente, pendenteM1, chqTerc, pctPend, pctPendM1 };
 }
