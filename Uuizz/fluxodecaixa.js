@@ -1129,7 +1129,7 @@ function renderFichaBody(){
     </tr>`;
   }).join('');
 
-  fichaExportContext = { titulo, periodo, linhas, sinal };
+  fichaExportContext = { titulo, periodo, linhas, sinal, resumo: { total, jaRealizado, aindaEmAberto, labelRealizado, labelAberto, qtdContas: contas.length, qtdLancamentos: qtd } };
 
   el('fluxoFichaBody').innerHTML = `
     <div class="fc-detail-summary fc-detail-summary-5">
@@ -1169,10 +1169,26 @@ function linhasParaExportacao(){
 function exportarFichaExcel(){
   if(!fichaExportContext || !fichaExportContext.linhas.length){ alert('Sem lançamentos pra exportar.'); return; }
   const dados = linhasParaExportacao();
+  const { resumo } = fichaExportContext;
+  const wb = XLSX.utils.book_new();
+
+  const wsResumo = XLSX.utils.aoa_to_sheet([
+    ['Ficha', fichaExportContext.titulo],
+    ['Período', fichaExportContext.periodo],
+    [],
+    ['Total no período', fmtBRLCentavos(resumo.total)],
+    [resumo.labelRealizado, fmtBRLCentavos(resumo.jaRealizado)],
+    [resumo.labelAberto, fmtBRLCentavos(resumo.aindaEmAberto)],
+    ['Contas com movimento', resumo.qtdContas],
+    ['Lançamentos', resumo.qtdLancamentos],
+  ]);
+  wsResumo['!cols'] = [{wch:24},{wch:20}];
+  XLSX.utils.book_append_sheet(wb, wsResumo, 'Resumo');
+
   const ws = XLSX.utils.json_to_sheet(dados);
   ws['!cols'] = [{wch:11},{wch:26},{wch:32},{wch:22},{wch:40},{wch:14}];
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Ficha');
+  XLSX.utils.book_append_sheet(wb, ws, 'Lançamentos');
+
   const nomeArquivo = `Ficha - ${fichaExportContext.titulo} - ${fichaExportContext.periodo}.xlsx`.replace(/[\\/:*?"<>|]/g,'-');
   XLSX.writeFile(wb, nomeArquivo);
 }
@@ -1180,7 +1196,7 @@ function exportarFichaExcel(){
 function exportarFichaPDF(){
   if(!fichaExportContext || !fichaExportContext.linhas.length){ alert('Sem lançamentos pra exportar.'); return; }
   const dados = linhasParaExportacao();
-  const total = dados.reduce((s,r)=>s+r['Valor (R$)'],0);
+  const { resumo } = fichaExportContext;
   const linhasHtml = dados.map(r=>`
     <tr>
       <td>${r.Data}</td>
@@ -1197,6 +1213,10 @@ function exportarFichaPDF(){
       body{font-family:Arial,sans-serif;padding:24px;color:#111;}
       h1{font-size:18px;margin-bottom:2px;}
       p{font-size:12px;color:#555;margin-top:0;margin-bottom:16px;}
+      .resumo-cards{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;}
+      .resumo-card{border:1px solid #ddd;border-radius:8px;padding:10px 14px;min-width:130px;}
+      .resumo-card .lbl{font-size:10px;color:#777;text-transform:uppercase;margin-bottom:4px;}
+      .resumo-card .val{font-size:15px;font-weight:bold;}
       table{width:100%;border-collapse:collapse;font-size:11px;}
       th,td{border:1px solid #ddd;padding:6px 8px;text-align:left;}
       th{background:#f4f4f4;}
@@ -1206,10 +1226,17 @@ function exportarFichaPDF(){
     <body>
       <h1>Ficha · ${escapeFichaHtml(fichaExportContext.titulo)}</h1>
       <p>Período: ${escapeFichaHtml(fichaExportContext.periodo)} — ${dados.length} lançamento(s)</p>
+      <div class="resumo-cards">
+        <div class="resumo-card"><div class="lbl">Total no período</div><div class="val">${fmtBRLCentavos(resumo.total)}</div></div>
+        <div class="resumo-card"><div class="lbl">${escapeFichaHtml(resumo.labelRealizado)}</div><div class="val">${fmtBRLCentavos(resumo.jaRealizado)}</div></div>
+        <div class="resumo-card"><div class="lbl">${escapeFichaHtml(resumo.labelAberto)}</div><div class="val">${fmtBRLCentavos(resumo.aindaEmAberto)}</div></div>
+        <div class="resumo-card"><div class="lbl">Contas com movimento</div><div class="val">${resumo.qtdContas}</div></div>
+        <div class="resumo-card"><div class="lbl">Lançamentos</div><div class="val">${resumo.qtdLancamentos}</div></div>
+      </div>
       <table>
         <thead><tr><th>Data</th><th>Conta</th><th>Nome</th><th>Categoria</th><th>Observação</th><th style="text-align:right;">Valor (R$)</th></tr></thead>
         <tbody>${linhasHtml}</tbody>
-        <tfoot><tr><td colspan="5">Total</td><td style="text-align:right;">${fmtBRLCentavos(total)}</td></tr></tfoot>
+        <tfoot><tr><td colspan="5">Total</td><td style="text-align:right;">${fmtBRLCentavos(resumo.total)}</td></tr></tfoot>
       </table>
     </body></html>`);
   janela.document.close();
