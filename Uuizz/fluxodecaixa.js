@@ -1132,12 +1132,12 @@ function renderFichaBody(){
   fichaExportContext = { titulo, periodo, linhas, sinal, resumo: { total, jaRealizado, aindaEmAberto, labelRealizado, labelAberto, qtdContas: contas.length, qtdLancamentos: qtd } };
 
   el('fluxoFichaBody').innerHTML = `
-    <div class="fc-detail-summary fc-detail-summary-5">
-      <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${fmtBRL(total)}</div><div class="fc-detail-kpi-lbl">Total no período</div></div>
-      <div class="fc-detail-kpi"><div class="fc-detail-kpi-val" style="color:${corValor}">${fmtBRL(jaRealizado)}</div><div class="fc-detail-kpi-lbl">${labelRealizado}</div></div>
-      <div class="fc-detail-kpi"><div class="fc-detail-kpi-val" style="color:var(--gold,#f5b942)">${fmtBRL(aindaEmAberto)}</div><div class="fc-detail-kpi-lbl">${labelAberto}</div></div>
-      <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${contas.length}</div><div class="fc-detail-kpi-lbl">Contas com movimento</div></div>
-      <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${qtd}</div><div class="fc-detail-kpi-lbl">Lançamentos</div></div>
+      <div class="fc-detail-summary fc-detail-summary-5">
+      <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${fmtBRL(total)}</div><div class="fc-detail-kpi-lbl">💰 Total no período</div></div>
+      <div class="fc-detail-kpi"><div class="fc-detail-kpi-val" style="color:${corValor}">${fmtBRL(jaRealizado)}</div><div class="fc-detail-kpi-lbl">✅ ${labelRealizado}</div></div>
+      <div class="fc-detail-kpi"><div class="fc-detail-kpi-val" style="color:var(--gold,#f5b942)">${fmtBRL(aindaEmAberto)}</div><div class="fc-detail-kpi-lbl">⏳ ${labelAberto}</div></div>
+      <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${contas.length}</div><div class="fc-detail-kpi-lbl">🏦 Contas com movimento</div></div>
+      <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${qtd}</div><div class="fc-detail-kpi-lbl">📄 Lançamentos</div></div>
     </div>
     <table class="fc-detail-table"><thead><tr><th>Conta</th><th class="num">Valor</th><th class="num">%</th><th class="num">Itens</th></tr></thead><tbody>${contasHtml}</tbody></table>
     <div class="fc-detail-list"><table class="fc-detail-table" style="margin-top:0;"><thead><tr><th>Data</th><th>Conta</th><th>Nome</th><th>Categoria</th><th class="num">%</th><th class="num">Valor</th></tr></thead><tbody>${detalheHtml||`<tr><td colspan="6" style="color:var(--text3);">Sem lançamentos.</td></tr>`}</tbody></table></div>
@@ -1204,7 +1204,7 @@ function exportarFichaPDF(){
       <td>${escapeFichaHtml(r.Nome)}</td>
       <td>${escapeFichaHtml(r.Categoria)}</td>
       <td>${escapeFichaHtml(r['Observação'])}</td>
-      <td style="text-align:right;color:${r['Valor (R$)']<0?'#dc2626':'#16a34a'};font-weight:600;">${fmtBRLCentavos(r['Valor (R$)'])}</td>
+      <td style="text-align:right;color:${r['Valor (R$)']<0?'#dc2626':'#16a34a'};">${fmtBRLCentavos(r['Valor (R$)'])}</td>
     </tr>`).join('');
   const janela = window.open('', '_blank');
   janela.document.write(`
@@ -1213,16 +1213,16 @@ function exportarFichaPDF(){
       body{font-family:Arial,sans-serif;padding:24px;color:#111;}
       h1{font-size:18px;margin-bottom:2px;}
       p{font-size:12px;color:#555;margin-top:0;margin-bottom:16px;}
-      .resumo-cards{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;}
-      .resumo-card{border:1px solid #ddd;border-radius:10px;padding:12px 16px;min-width:140px;background:#fafafa;}
-      .resumo-card .icon{font-size:18px;margin-bottom:4px;}
-      .resumo-card .lbl{font-size:10px;color:#777;text-transform:uppercase;margin-bottom:4px;letter-spacing:.03em;}
-      .resumo-card .val{font-size:16px;font-weight:bold;}
-      .resumo-card.pos{border-left:4px solid #16a34a;}
+      .resumo-cards{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
+      .resumo-card{border:1px solid #e5e5e5;border-radius:6px;padding:7px 10px;min-width:110px;}
+      .resumo-card .icon{font-size:11px;margin-right:4px;}
+      .resumo-card .lbl{font-size:8.5px;color:#888;text-transform:uppercase;letter-spacing:.02em;display:inline;}
+      .resumo-card .val{font-size:12.5px;font-weight:600;margin-top:2px;}
+      .resumo-card.pos{border-left:3px solid #16a34a;}
       .resumo-card.pos .val{color:#16a34a;}
-      .resumo-card.neg{border-left:4px solid #dc2626;}
+      .resumo-card.neg{border-left:3px solid #dc2626;}
       .resumo-card.neg .val{color:#dc2626;}
-      .resumo-card.pend{border-left:4px solid #d97706;}
+      .resumo-card.pend{border-left:3px solid #d97706;}
       .resumo-card.pend .val{color:#d97706;}
       table{width:100%;border-collapse:collapse;font-size:11px;}
       th,td{border:1px solid #ddd;padding:6px 8px;text-align:left;}
@@ -1234,11 +1234,11 @@ function exportarFichaPDF(){
       <h1>Ficha · ${escapeFichaHtml(fichaExportContext.titulo)}</h1>
       <p>Período: ${escapeFichaHtml(fichaExportContext.periodo)} — ${dados.length} lançamento(s)</p>
       <div class="resumo-cards">
-        <div class="resumo-card ${resumo.total<0?'neg':'pos'}"><div class="icon">${resumo.total<0?'💸':'💰'}</div><div class="lbl">Total no período</div><div class="val">${fmtBRLCentavos(resumo.total)}</div></div>
-        <div class="resumo-card ${resumo.jaRealizado<0?'neg':'pos'}"><div class="icon">✅</div><div class="lbl">${escapeFichaHtml(resumo.labelRealizado)}</div><div class="val">${fmtBRLCentavos(resumo.jaRealizado)}</div></div>
-        <div class="resumo-card pend"><div class="icon">⏳</div><div class="lbl">${escapeFichaHtml(resumo.labelAberto)}</div><div class="val">${fmtBRLCentavos(resumo.aindaEmAberto)}</div></div>
-        <div class="resumo-card"><div class="icon">🏦</div><div class="lbl">Contas com movimento</div><div class="val">${resumo.qtdContas}</div></div>
-        <div class="resumo-card"><div class="icon">📄</div><div class="lbl">Lançamentos</div><div class="val">${resumo.qtdLancamentos}</div></div>
+        <div class="resumo-card ${resumo.total<0?'neg':'pos'}"><span class="lbl"><span class="icon">${resumo.total<0?'💸':'💰'}</span>Total no período</span><div class="val">${fmtBRLCentavos(resumo.total)}</div></div>
+        <div class="resumo-card ${resumo.jaRealizado<0?'neg':'pos'}"><span class="lbl"><span class="icon">✅</span>${escapeFichaHtml(resumo.labelRealizado)}</span><div class="val">${fmtBRLCentavos(resumo.jaRealizado)}</div></div>
+        <div class="resumo-card pend"><span class="lbl"><span class="icon">⏳</span>${escapeFichaHtml(resumo.labelAberto)}</span><div class="val">${fmtBRLCentavos(resumo.aindaEmAberto)}</div></div>
+        <div class="resumo-card"><span class="lbl"><span class="icon">🏦</span>Contas com movimento</span><div class="val">${resumo.qtdContas}</div></div>
+        <div class="resumo-card"><span class="lbl"><span class="icon">📄</span>Lançamentos</span><div class="val">${resumo.qtdLancamentos}</div></div>
       </div>
       <table>
         <thead><tr><th>Data</th><th>Conta</th><th>Nome</th><th>Categoria</th><th>Observação</th><th style="text-align:right;">Valor (R$)</th></tr></thead>
