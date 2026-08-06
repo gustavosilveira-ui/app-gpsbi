@@ -1047,6 +1047,7 @@ function rowsForFicha(rNode,start,end){
   return rowsInScope().filter(r=>r.date>=start && r.date<=end && rNode.filter(r) && Math.abs(r.valor||0)>0);
 }
 let fichaExportContext = null;
+let fichaBaseState = null; // { rNode, col, negativo, corValor, sinal, detailRows, titulo, periodo }
 function openFluxoFicha(rowId,colId){
   const rNode = fcRowDetailRefs[rowId];
   const col = fcColDetailRefs[colId];
@@ -1057,6 +1058,30 @@ function openFluxoFicha(rowId,colId){
   const sinal = rNode.signHint === 'neg' ? -1 : 1;
 
   const detailRows = rowsForFicha(rNode,col.start,col.end);
+
+  el('fluxoFichaTitulo').textContent = 'Ficha · '+rNode.label;
+  el('fluxoFichaSub').textContent = 'Período: '+rangeLabel(col.start,col.end);
+
+  fichaBaseState = { negativo, corValor, sinal, detailRows, titulo: rNode.label, periodo: rangeLabel(col.start,col.end) };
+  el('fichaBuscaNome').value = '';
+  renderFichaBody();
+  el('fluxoFichaModal').classList.add('show');
+}
+
+function onFichaBuscaChange(){ renderFichaBody(); }
+
+// Nome do lançamento pra fins de busca (mesmo texto usado na coluna Nome/tooltip).
+function nomeParaBusca(r){ return normalizeTxt(r.nome || r.historico || r.categoria || ''); }
+
+function renderFichaBody(){
+  if(!fichaBaseState) return;
+  const { negativo, corValor, sinal, detailRows: todasAsLinhas, titulo, periodo } = fichaBaseState;
+
+  const termoBusca = normalizeTxt(el('fichaBuscaNome').value.trim());
+  const detailRows = termoBusca ? todasAsLinhas.filter(r=>nomeParaBusca(r).includes(termoBusca)) : todasAsLinhas;
+
+  el('fichaBuscaContagem').textContent = termoBusca ? `${detailRows.length} de ${todasAsLinhas.length} lançamento(s)` : '';
+
   const total = detailRows.reduce((s,r)=>s+r.valor,0) * sinal;
 
   const porConta = {};
@@ -1068,8 +1093,15 @@ function openFluxoFicha(rowId,colId){
   const contas = Object.entries(porConta).sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]));
   const qtd = detailRows.length;
 
-  el('fluxoFichaTitulo').textContent = 'Ficha · '+rNode.label;
-  el('fluxoFichaSub').textContent = 'Período: '+rangeLabel(col.start,col.end);
+  // Pago/Recebido até o momento vs A Pagar/A Receber: usa a própria data
+  // do lançamento (já é a data de pagamento se realizado, ou a de
+  // vencimento/previsão se ainda não) comparada com hoje — mesmo critério
+  // já usado no resto do fluxo. Ajustado a pedido do Gustavo em 22/07/2026.
+  const hojeIso = new Date().toISOString().slice(0,10);
+  const jaRealizado = detailRows.filter(r=>r.date<=hojeIso).reduce((s,r)=>s+r.valor,0) * sinal;
+  const aindaEmAberto = detailRows.filter(r=>r.date>hojeIso).reduce((s,r)=>s+r.valor,0) * sinal;
+  const labelRealizado = negativo ? 'Pago até o momento' : 'Recebido até o momento';
+  const labelAberto = negativo ? 'A Pagar' : 'A Receber';
 
   const contasHtml = contas.length ? contas.map(([conta,val])=>{
     const pct = total ? Math.abs(val)/Math.abs(total)*100 : 0;
@@ -1097,11 +1129,13 @@ function openFluxoFicha(rowId,colId){
     </tr>`;
   }).join('');
 
-  fichaExportContext = { titulo: rNode.label, periodo: rangeLabel(col.start,col.end), linhas, sinal };
+  fichaExportContext = { titulo, periodo, linhas, sinal };
 
   el('fluxoFichaBody').innerHTML = `
-    <div class="fc-detail-summary">
+    <div class="fc-detail-summary fc-detail-summary-5">
       <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${fmtBRL(total)}</div><div class="fc-detail-kpi-lbl">Total no período</div></div>
+      <div class="fc-detail-kpi"><div class="fc-detail-kpi-val" style="color:${corValor}">${fmtBRL(jaRealizado)}</div><div class="fc-detail-kpi-lbl">${labelRealizado}</div></div>
+      <div class="fc-detail-kpi"><div class="fc-detail-kpi-val" style="color:var(--gold,#f5b942)">${fmtBRL(aindaEmAberto)}</div><div class="fc-detail-kpi-lbl">${labelAberto}</div></div>
       <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${contas.length}</div><div class="fc-detail-kpi-lbl">Contas com movimento</div></div>
       <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${qtd}</div><div class="fc-detail-kpi-lbl">Lançamentos</div></div>
     </div>
@@ -1109,7 +1143,6 @@ function openFluxoFicha(rowId,colId){
     <div class="fc-detail-list"><table class="fc-detail-table" style="margin-top:0;"><thead><tr><th>Data</th><th>Conta</th><th>Nome</th><th>Categoria</th><th class="num">%</th><th class="num">Valor</th></tr></thead><tbody>${detalheHtml||`<tr><td colspan="6" style="color:var(--text3);">Sem lançamentos.</td></tr>`}</tbody></table></div>
     ${linhas.length>120?`<div class="fc-detail-muted">Mostrando os primeiros 120 lançamentos.</div>`:''}
   `;
-  el('fluxoFichaModal').classList.add('show');
 }
 function closeFluxoFicha(){ el('fluxoFichaModal').classList.remove('show'); }
 
