@@ -318,7 +318,7 @@ table.tabela-simples tr.linha-total td{font-weight:800;border-top:2px solid var(
 
     <div class="card">
       <div class="card-title">📋 Indicadores por Empresa</div>
-      <div class="card-sub">NF (faturado ajustado), F (Fidelidade), Total (NF+F), Pendente (Pedido/Pedido Aprovado/Separado Total pela Dt Entrega Solicitada), Cheque de Terceiros recebido, e Pendente do mês seguinte (M+1).</div>
+      <div class="card-sub">NF (faturado ajustado), F (Fidelidade), Total (NF+F), Pendente, Total Farol (NF+F+Pend), Cheque de Terceiros recebido e Pendente do mês seguinte (M+1).</div>
       <div style="overflow-x:auto;">
         <table class="tabela-simples" id="tabelaIndicadores"></table>
       </div>
@@ -646,7 +646,7 @@ function indicadoresEmpresa(empresa){
   // permanece apenas informativa no menu Depósitos.
   const pctPendM1 = null;
 
-  return { nf, fidelidade, total, pendente, pendenteM1, chqTerc, pctPend, pctPendM1 };
+  return { nf, fidelidade, total, pendente, totalFarol, pendenteM1, chqTerc, pctPend, pctPendM1 };
 }
 
 function renderTabelaIndicadores(){
@@ -684,7 +684,23 @@ function renderTabelaIndicadores(){
   html += linha('NF', 'nf', fmtBRL);
   html += linha('F', 'fidelidade', fmtBRL);
   html += linha('Total', 'total', fmtBRL);
-  html += linha('Pend', 'pendente', fmtBRL, 'pctPend');
+  html += linha('Pend', 'pendente', fmtBRL);
+
+  // Exibe exatamente o mesmo Total Farol do texto analítico: NF + F + Pend.
+  // Somente Ryngavi e Multicopos possuem farol; Gymis, Especial e Online ficam sem indicador.
+  {
+    let totalFarolGeral = 0;
+    const celulasFarol = empresas.map(e=>{
+      if(e==='Online' || (e!=='Ryngavi' && e!=='Multicopos')) return '<td>—</td>';
+      const v = dados[e].totalFarol || 0;
+      totalFarolGeral += v;
+      const pct = dados[e].pctPend;
+      const emoji = (pct !== null && pct !== undefined && v > 0) ? faroEmoji(pct) + ' ' : '';
+      return `<td>${emoji}${fmtBRL(v)}</td>`;
+    });
+    html += `<tr><td style="text-align:left">Total Farol</td>${celulasFarol.join('')}<td><b>${fmtBRL(totalFarolGeral)}</b></td></tr>`;
+  }
+
   html += linha('Cheque Terc.', 'chqTerc', fmtBRL);
   html += linha('Pend M+1', 'pendenteM1', fmtBRL, 'pctPendM1');
   html += '</tbody>';
