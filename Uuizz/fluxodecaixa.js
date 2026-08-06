@@ -1495,4 +1495,307 @@ function preencherDatasPadraoAjustes(){
 }
 window.addEventListener('DOMContentLoaded', preencherDatasPadraoAjustes);
 
+/* ================== APOIO DE CAIXA / NECESSIDADE DE CAIXA / FORNECEDORES / EXCLUSÃO ==================
+   Simulações locais (localStorage, por navegador) — nunca gravam no Supabase
+   nem mexem na base real. Sempre por empresa (Empoderamento / Mister Wiz),
+   já que o Global soma as duas. */
+const FC_EMPRESAS_SIM = ['Empoderamento', 'Mister Wiz'];
+let fcApoioCaixa = JSON.parse(localStorage.getItem('uuizz_fc_apoio_caixa')||'{}');
+let fcProgramacoesFornecedor = JSON.parse(localStorage.getItem('uuizz_fc_programacoes_fornecedor')||'[]');
+let fcExclusoes = JSON.parse(localStorage.getItem('uuizz_fc_exclusoes')||'[]');
+
+function fcEmpresaPadraoSim(){
+  if(restritoMisterWiz) return 'Mister Wiz';
+  return empresaFiltro==='global' ? 'Empoderamento' : empresaFiltro;
+}
+// Preenche os selects de empresa dessas simulações com um padrão (se vazios)
+// e trava em "Mister Wiz" pros e-mails restritos (Miria/Custodio).
+function fcPreencherSelectsEmpresaSim(){
+  document.querySelectorAll('.fc-empresa-sim-select').forEach(sel=>{
+    if(restritoMisterWiz){
+      Array.from(sel.options).forEach(opt=>{ if(opt.value!=='Mister Wiz') opt.style.display='none'; });
+      sel.value = 'Mister Wiz';
+      sel.disabled = true;
+    } else if(!sel.value){
+      sel.value = fcEmpresaPadraoSim();
+    }
+  });
+}
+
+function proximosDiasUteisUuizz(inicio,qtd){
+  const out=[]; const d=new Date(inicio+'T00:00:00');
+  while(out.length<qtd){ if(d.getDay()!==0 && d.getDay()!==6) out.push(fcIsoLocal(d)); d.setDate(d.getDate()+1); }
+  return out;
+}
+// "Dias do mês" = dias corridos, contando fim de semana também.
+function proximosDiasCorridosUuizz(inicio,qtd){
+  const out=[]; const d=new Date(inicio+'T00:00:00');
+  for(let i=0;i<qtd;i++){ out.push(fcIsoLocal(d)); d.setDate(d.getDate()+1); }
+  return out;
+}
+
+// Compara uma linha de `rows` contra a lista de exclusões ativas (mesma
+// empresa + data + nome parecido + valor igual, tolerância de 1 centavo).
+function lancamentoExcluidoUuizz(row){
+  if(row.fonte==='Programação Fornecedor' || row.fonte==='Apoio de Caixa') return false;
+  return fcExclusoes.some(ex=>{
+    if(ex.empresa !== row.empresa) return false;
+    if(ex.data !== row.date) return false;
+    const nomeNorm = normalizeTxt(row.nome || row.conta || '');
+    const exNorm = normalizeTxt(ex.nome || '');
+    const mesmoNome = nomeNorm===exNorm || nomeNorm.includes(exNorm) || exNorm.includes(nomeNorm);
+    const mesmoValor = Math.abs(Math.abs(Number(row.valor)||0) - Math.abs(ex.valor)) < 0.01;
+    return mesmoNome && mesmoValor;
+  });
+}
+
+// Injeta as projeções de Apoio de Caixa e Programação de Fornecedor em `rows`,
+// e remove os lançamentos reais marcados como excluídos — sempre respeitando
+// a empresa de cada item, pra não misturar Empoderamento com Mister Wiz.
+function injetarSimulacoesUuizz(){
+  rows = rows.filter(r=>r.fonte!=='Programação Fornecedor' && r.fonte!=='Apoio de Caixa');
+  rows = rows.filter(r=>!lancamentoExcluidoUuizz(r));
+
+  // Evita duplicar uma programação quando o pagamento real já existe na base
+  // (mesma empresa + data + fornecedor/nome + valor absoluto).
+  const existeLancamentoRealEquivalente = (empresa, fornecedor, parcela)=>{
+    const fornecedorNorm = normalizeTxt(fornecedor);
+    const valorEsperado = Math.abs(Number(parcela.valor)||0);
+    return rows.some(r=>{
+      if(r.fonte==='Programação Fornecedor' || r.fonte==='Apoio de Caixa') return false;
+      if(r.empresa !== empresa) return false;
+      if(r.date !== parcela.data) return false;
+      const nomeNorm = normalizeTxt(r.nome || '');
+      const contaNorm = normalizeTxt(r.conta || '');
+      const mesmoFornecedor = nomeNorm===fornecedorNorm || contaNorm===fornecedorNorm ||
+        nomeNorm.includes(fornecedorNorm) || fornecedorNorm.includes(nomeNorm);
+      const mesmoValor = Math.abs(Math.abs(Number(r.valor)||0) - valorEsperado) < 0.01;
+      const ehPagamentoReal = Number(r.signedValor ?? r.valor) < 0;
+      return mesmoFornecedor && mesmoValor && ehPagamentoReal;
+    });
+  };
+
+  fcProgramacoesFornecedor.forEach(p=>p.parcelas.forEach(parcela=>{
+    if(existeLancamentoRealEquivalente(p.empresa, p.fornecedor, parcela)) return;
+    rows.push({
+      date:parcela.data, categoria:p.fornecedor, grupoDisplay:'Programação Fornecedor (Simulação)', grupo:'PAGAMENTOS',
+      valor:Math.abs(parcela.valor), signedValor:-Math.abs(parcela.valor),
+      conta:p.fornecedor, empresa:p.empresa, fonte:'Programação Fornecedor', nome:p.fornecedor, documento:'Rateio GPS'
+    });
+  }));
+
+  FC_EMPRESAS_SIM.forEach(empresa=>{
+    const ap = fcApoioCaixa[empresa];
+    if(ap && ap.valor>0){
+      rows.push({ date:todayISO(), categoria:'Apoio de Caixa - Utilização', grupoDisplay:null, grupo:'RECEBIMENTOS',
+        valor:Math.abs(ap.valor), signedValor:Math.abs(ap.valor), conta:'Apoio de Caixa', empresa, fonte:'Apoio de Caixa', nome:'Apoio de Caixa' });
+      if(ap.devolucao){
+        rows.push({ date:ap.devolucao, categoria:'Apoio de Caixa - Devolução', grupoDisplay:'Apoio de Caixa (Simulação)', grupo:'PAGAMENTOS',
+          valor:Math.abs(ap.valor), signedValor:-Math.abs(ap.valor), conta:'Apoio de Caixa', empresa, fonte:'Apoio de Caixa', nome:'Apoio de Caixa' });
+      }
+    }
+  });
+
+  rows.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+}
+
+/* ---------- Apoio de Caixa ---------- */
+function aplicarApoioCaixa(){
+  const empresa = el('fcApoioCaixaEmpresa').value;
+  const disponivel = parseFloat(el('fcApoioCaixaDisponivel').value)||0;
+  const valor = parseFloat(el('fcApoioCaixaValor').value)||0;
+  const devolucao = el('fcApoioCaixaDevolucao').value;
+  if(!empresa){ alert('Selecione a empresa.'); return; }
+  if(valor<0 || valor>disponivel){ alert('O valor utilizado precisa estar entre zero e o saldo disponível.'); return; }
+  fcApoioCaixa[empresa] = {disponivel, valor, devolucao};
+  localStorage.setItem('uuizz_fc_apoio_caixa', JSON.stringify(fcApoioCaixa));
+  buildAndRenderTable();
+}
+function renderApoioCaixa(){
+  const sel = el('fcApoioCaixaEmpresa'); if(!sel) return;
+  const empresa = sel.value || fcEmpresaPadraoSim();
+  const ap = fcApoioCaixa[empresa] || {disponivel:0,valor:0,devolucao:''};
+  if(el('fcApoioCaixaDisponivel')) el('fcApoioCaixaDisponivel').value = ap.disponivel || '';
+  if(el('fcApoioCaixaValor')) el('fcApoioCaixaValor').value = ap.valor || '';
+  if(el('fcApoioCaixaDevolucao')) el('fcApoioCaixaDevolucao').value = ap.devolucao || '';
+  const wrap = el('fcApoioCaixaResumo'); if(!wrap) return;
+  const restante = Math.max(0, (ap.disponivel||0) - (ap.valor||0));
+  wrap.innerHTML = `Empresa: <b>${escapeHtml(empresa)}</b> · Disponível: <b>${fmtBRL(ap.disponivel||0)}</b> · Utilizado: <b>${fmtBRL(ap.valor||0)}</b> · Restante: <b>${fmtBRL(restante)}</b>${ap.devolucao?` · Devolução prevista: <b>${formatDateBR(ap.devolucao)}</b>`:''}`;
+}
+
+/* ---------- Necessidade de Caixa Hoje (respeita a empresa filtrada no topo) ---------- */
+function fcSaldoAtualKey(){ return 'uuizz_fc_saldo_atual_hoje_' + normalizeTxt(empresaFiltro).replace(/\s+/g,'_'); }
+function calcularNecessidadeCaixa(){
+  const saldoAtual = parseFloat(el('fcSaldoAtualInput').value);
+  if(isNaN(saldoAtual)){ alert('Informe o saldo atual da conta.'); return; }
+  localStorage.setItem(fcSaldoAtualKey(), JSON.stringify({valor:saldoAtual, data:todayISO()}));
+  renderNecessidadeCaixa();
+}
+function renderNecessidadeCaixa(){
+  const wrap = el('fcNecessidadeCaixaResumo'); if(!wrap) return;
+  const hoje = todayISO();
+  const pagamentosHoje = Math.abs(sumInRange(isPagamentoTotal, hoje, hoje));
+  const salvo = JSON.parse(localStorage.getItem(fcSaldoAtualKey())||'null');
+  const empresaLabel = empresaFiltro==='global' ? 'Global (Uuizz)' : empresaFiltro;
+
+  if(!salvo || salvo.data !== hoje){
+    wrap.innerHTML = `Empresa: <b>${escapeHtml(empresaLabel)}</b> · Pagamentos previstos pra hoje: <b>${fmtBRL(pagamentosHoje)}</b> · informe o saldo atual da conta pra calcular a necessidade de caixa.`;
+    if(el('fcSaldoAtualInput')) el('fcSaldoAtualInput').value = '';
+    return;
+  }
+  if(el('fcSaldoAtualInput')) el('fcSaldoAtualInput').value = salvo.valor;
+  const necessidade = pagamentosHoje - salvo.valor;
+  wrap.innerHTML = necessidade > 0
+    ? `Empresa: <b>${escapeHtml(empresaLabel)}</b> · Saldo informado: <b>${fmtBRL(salvo.valor)}</b> · Pagamentos de hoje: <b>${fmtBRL(pagamentosHoje)}</b> · <span style="color:var(--red)">Falta ${fmtBRL(necessidade)}</span> (sem contar recebimentos previstos de hoje)`
+    : `Empresa: <b>${escapeHtml(empresaLabel)}</b> · Saldo informado: <b>${fmtBRL(salvo.valor)}</b> · Pagamentos de hoje: <b>${fmtBRL(pagamentosHoje)}</b> · <span style="color:#98C47C">Sobra ${fmtBRL(-necessidade)}</span>`;
+}
+
+/* ---------- Programação de Pagamentos por Fornecedor ---------- */
+function carregarFornecedoresDatalist(){
+  const dl = el('fcFornecedoresList'); if(!dl) return;
+  const empresaSel = el('fcFornecedorEmpresa');
+  const empresa = empresaSel ? empresaSel.value : null;
+  const base = empresa ? rows.filter(r=>r.empresa===empresa) : rows;
+  const nomes = [...new Set(base.filter(r=>Number(r.signedValor ?? r.valor)<0 && r.nome).map(r=>r.nome))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  dl.innerHTML = nomes.map(n=>`<option value="${escapeHtml(n)}"></option>`).join('');
+}
+// Guarda os dados do fornecedor/valor enquanto o usuário ajusta as datas/valores
+// de cada parcela na prévia, antes de confirmar de vez.
+let fcParcelasEmEdicao = null;
+function gerarParcelasFornecedor(){
+  const empresa = el('fcFornecedorEmpresa').value;
+  const fornecedor = el('fcFornecedorNome').value.trim();
+  const valor = parseFloat(el('fcFornecedorValor').value);
+  const inicio = el('fcFornecedorInicio').value;
+  const dias = parseInt(el('fcFornecedorDias').value,10);
+  const tipoDias = el('fcFornecedorTipoDias').value; // 'uteis' | 'corridos'
+  if(!empresa || !fornecedor || !inicio || isNaN(valor) || valor<=0 || isNaN(dias) || dias<1){ alert('Selecione a empresa e preencha fornecedor, valor, início e quantidade de dias.'); return; }
+  const datas = tipoDias==='corridos' ? proximosDiasCorridosUuizz(inicio,dias) : proximosDiasUteisUuizz(inicio,dias);
+  const base = Math.floor((valor/dias)*100)/100; let acumulado=0;
+  const parcelas = datas.map((data,i)=>{ const v=i===datas.length-1?Math.round((valor-acumulado)*100)/100:base; acumulado+=v; return {data,valor:v}; });
+
+  fcParcelasEmEdicao = {empresa, fornecedor, valor, dias, tipoDias, inicio, parcelas};
+  renderParcelasPreview();
+}
+function renderParcelasPreview(){
+  const wrap = el('fcFornecedorParcelasPreview'); if(!wrap) return;
+  if(!fcParcelasEmEdicao){ wrap.innerHTML=''; return; }
+  const linhas = fcParcelasEmEdicao.parcelas.map((p,i)=>`
+    <div class="fc-sim-entry" style="gap:8px;">
+      <input type="date" value="${p.data}" onchange="ajustarParcelaData(${i},this.value)" style="flex:none;width:150px;">
+      <input type="number" value="${p.valor}" step="0.01" onchange="ajustarParcelaValor(${i},this.value)" style="flex:1;min-width:0;">
+      <button class="del" onclick="removerParcelaPreview(${i})" title="Remover essa parcela">✕</button>
+    </div>`).join('');
+  const total = fcParcelasEmEdicao.parcelas.reduce((s,p)=>s+Number(p.valor||0),0);
+  wrap.innerHTML = `
+    <div class="card-sub" style="margin-bottom:8px;">${escapeHtml(fcParcelasEmEdicao.empresa)} · Ajuste a data e o valor de cada parcela como quiser (não precisa ser sequencial nem em dias úteis) e confirme.</div>
+    ${linhas}
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+      <span style="font-size:12.5px;color:var(--text3);">Total das parcelas: <b>${fmtBRL(total)}</b> ${Math.abs(total-fcParcelasEmEdicao.valor)>0.01?`(valor original: ${fmtBRL(fcParcelasEmEdicao.valor)})`:''}</span>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-ghost btn-sm" onclick="cancelarParcelasPreview()">Cancelar</button>
+        <button class="btn btn-primary btn-sm" onclick="confirmarParcelasFornecedor()">Confirmar rateio</button>
+      </div>
+    </div>`;
+}
+function ajustarParcelaData(i,valor){ fcParcelasEmEdicao.parcelas[i].data=valor; }
+function ajustarParcelaValor(i,valor){ fcParcelasEmEdicao.parcelas[i].valor=parseFloat(valor)||0; renderParcelasPreview(); }
+function removerParcelaPreview(i){ fcParcelasEmEdicao.parcelas.splice(i,1); renderParcelasPreview(); }
+function cancelarParcelasPreview(){ fcParcelasEmEdicao=null; renderParcelasPreview(); }
+
+// Procura, entre os lançamentos reais (não-simulados) da mesma empresa, um que
+// combine com o fornecedor (nome parecido) e o valor total do rateio.
+function encontrarLancamentoValorCheioUuizz(empresa, fornecedor, valorTotal){
+  const fornecedorNorm = normalizeTxt(fornecedor);
+  return rows.find(r=>{
+    if(r.fonte==='Programação Fornecedor' || r.fonte==='Apoio de Caixa') return false;
+    if(r.empresa !== empresa) return false;
+    if(Number(r.signedValor ?? r.valor) >= 0) return false; // só pagamento
+    const nomeNorm = normalizeTxt(r.nome || '');
+    const contaNorm = normalizeTxt(r.conta || '');
+    const mesmoFornecedor = nomeNorm===fornecedorNorm || contaNorm===fornecedorNorm ||
+      nomeNorm.includes(fornecedorNorm) || fornecedorNorm.includes(nomeNorm);
+    const mesmoValor = Math.abs(Math.abs(Number(r.valor)||0) - Math.abs(valorTotal)) < 0.01;
+    return mesmoFornecedor && mesmoValor;
+  }) || null;
+}
+function confirmarParcelasFornecedor(){
+  if(!fcParcelasEmEdicao || !fcParcelasEmEdicao.parcelas.length){ alert('Não há parcelas pra confirmar.'); return; }
+  const {empresa, fornecedor, valor, dias, tipoDias, inicio, parcelas} = fcParcelasEmEdicao;
+
+  // Se já existe um lançamento real com o valor cheio pra esse fornecedor (na
+  // mesma empresa), oferece esconder ele — senão o fluxo contaria o valor
+  // cheio E o rateio ao mesmo tempo.
+  const original = encontrarLancamentoValorCheioUuizz(empresa, fornecedor, valor);
+  let exclusaoCriada = false;
+  if(original && confirm(`Encontrei um lançamento de ${fmtBRL(-Math.abs(original.valor))} em ${formatDateBR(original.date)} pra "${original.nome||fornecedor}" (${empresa}) — parece ser o valor cheio que você está rateando agora.\n\nQuer ocultar esse lançamento do fluxo (fica só o rateio)?`)){
+    fcExclusoes.push({empresa, nome:original.nome||fornecedor, data:original.date, valor:original.valor, criadoEm:Date.now(), motivo:'Substituído por rateio'});
+    localStorage.setItem('uuizz_fc_exclusoes', JSON.stringify(fcExclusoes));
+    exclusaoCriada = true;
+  }
+
+  fcProgramacoesFornecedor.push({id:Date.now(), empresa, fornecedor, valor, dias, tipoDias, inicio, parcelas});
+  localStorage.setItem('uuizz_fc_programacoes_fornecedor', JSON.stringify(fcProgramacoesFornecedor));
+  fcParcelasEmEdicao = null;
+  buildAndRenderTable();
+  if(exclusaoCriada) alert('Rateio criado e o valor cheio original foi ocultado do fluxo.');
+}
+function removerProgramacaoFornecedor(id){
+  fcProgramacoesFornecedor = fcProgramacoesFornecedor.filter(p=>p.id!==id);
+  localStorage.setItem('uuizz_fc_programacoes_fornecedor', JSON.stringify(fcProgramacoesFornecedor));
+  buildAndRenderTable();
+}
+function renderProgramacoesFornecedor(){
+  const wrap = el('fcFornecedorProgramacoes'); if(!wrap) return;
+  wrap.innerHTML = fcProgramacoesFornecedor.length ? fcProgramacoesFornecedor.map(p=>`
+    <div class="fc-sim-entry">
+      <span class="desc">${escapeHtml(p.empresa)} · ${escapeHtml(p.fornecedor)} · ${p.dias} ${p.tipoDias==='corridos'?'dias do mês':'dias úteis'}</span>
+      <span class="data">${formatDateBR(p.inicio)}</span>
+      <span class="valor" style="color:var(--red)">${fmtBRL(-p.valor)}</span>
+      <button class="del" onclick="removerProgramacaoFornecedor(${p.id})">✕</button>
+    </div>`).join('') : '<div style="color:var(--text3);font-size:12.5px;">Nenhuma programação cadastrada.</div>';
+}
+
+/* ---------- Tirar um Lançamento do Fluxo (exclusão manual) ---------- */
+function excluirLancamentoManual(){
+  const empresa = el('fcExcluirEmpresa').value;
+  const nome = el('fcExcluirNome').value.trim();
+  const data = el('fcExcluirData').value;
+  const valor = parseFloat(el('fcExcluirValor').value);
+  if(!empresa || !nome || !data || isNaN(valor)){ alert('Selecione a empresa e preencha nome/fornecedor, data e valor do lançamento que você quer tirar do fluxo.'); return; }
+  fcExclusoes.push({empresa, nome, data, valor:-Math.abs(valor), criadoEm:Date.now(), motivo:'Removido manualmente'});
+  localStorage.setItem('uuizz_fc_exclusoes', JSON.stringify(fcExclusoes));
+  el('fcExcluirNome').value=''; el('fcExcluirData').value=''; el('fcExcluirValor').value='';
+  buildAndRenderTable();
+}
+function removerExclusao(criadoEm){
+  fcExclusoes = fcExclusoes.filter(ex=>ex.criadoEm!==criadoEm);
+  localStorage.setItem('uuizz_fc_exclusoes', JSON.stringify(fcExclusoes));
+  buildAndRenderTable();
+}
+function renderExclusoes(){
+  const wrap = el('fcExclusoesLista'); if(!wrap) return;
+  wrap.innerHTML = fcExclusoes.length ? fcExclusoes.map(ex=>`
+    <div class="fc-sim-entry">
+      <span class="desc">${escapeHtml(ex.empresa)} · ${escapeHtml(ex.nome)} · ${escapeHtml(ex.motivo||'')}</span>
+      <span class="data">${formatDateBR(ex.data)}</span>
+      <span class="valor" style="color:var(--text3);text-decoration:line-through;">${fmtBRL(-Math.abs(ex.valor))}</span>
+      <button class="del" onclick="removerExclusao(${ex.criadoEm})">✕</button>
+    </div>`).join('') : '<div style="color:var(--text3);font-size:12.5px;">Nenhum lançamento removido do fluxo.</div>';
+}
+
+/* ---------- Encaixa tudo no ciclo normal de render ---------- */
+const buildAndRenderTableOriginalUuizzSim = buildAndRenderTable;
+buildAndRenderTable = function(){
+  injetarSimulacoesUuizz();
+  buildAndRenderTableOriginalUuizzSim();
+  fcPreencherSelectsEmpresaSim();
+  renderApoioCaixa();
+  renderProgramacoesFornecedor();
+  renderExclusoes();
+  renderNecessidadeCaixa();
+  renderParcelasPreview();
+  carregarFornecedoresDatalist();
+};
+
 init();
