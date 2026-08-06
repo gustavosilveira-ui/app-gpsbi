@@ -25,6 +25,7 @@ const GID_CAP = '193110136';                         // aba "CAP" — Empoderame
 const GID_CAR = '14079185';                         // aba "CAR" — Empoderamento (Conta Azul)
 const GID_MOVIMENTACAO_UUIZZ = '1752090986'; // aba "Movimentação da Conta Uuizz" — Mister Wiz (Omie)
 const GID_VINDI = '{{GID_VINDI}}';           // aba "Vindi" — Mister Wiz (recebimentos via gateway de pagamento)
+const GID_HOTMART = '1163291443';            // aba "Recebiveis Hotmart" — Empoderamento
 const LOGIN_URL = 'index.html';
 
 /* ===== Histórico congelado — Empoderamento até 30/06/2026 =====
@@ -481,6 +482,34 @@ function rowsFromVindi(table){
   }).filter(Boolean);
 }
 
+/* ================== Ingestão: Recebíveis Hotmart (Empoderamento) ==================
+   Data: coluna "Data do lançamento" + 1 dia; se cair em sábado/domingo,
+   empurra pra segunda-feira seguinte (confirmado com o Gustavo em 22/07/2026).
+   Valor: só entram valores positivos da coluna "Valor" — negativo (estorno/
+   taxa) fica de fora. */
+function proximoDiaUtil(dataIso){
+  const d = new Date(dataIso+'T00:00:00');
+  d.setDate(d.getDate()+1); // sempre soma 1 dia primeiro
+  const dow = d.getDay(); // 0=domingo, 6=sábado
+  if(dow===6) d.setDate(d.getDate()+2); // sábado -> segunda
+  else if(dow===0) d.setDate(d.getDate()+1); // domingo -> segunda
+  return d.toISOString().slice(0,10);
+}
+function rowsFromHotmart(table){
+  const raw = parseGvizRows(table);
+  return raw.map(r=>{
+    const dataLancamento = readDateCol(r, 'data do lancamento');
+    if(!dataLancamento) return null;
+    const date = proximoDiaUtil(dataLancamento);
+
+    const valorRaw = getColNormalized(r, 'valor');
+    const rawValor = parseMoneyBR(typeof valorRaw==='object' && valorRaw!==null ? (valorRaw.v ?? valorRaw.f) : valorRaw);
+    if(!rawValor || rawValor <= 0) return null; // só valor positivo entra
+
+    return { date, categoria:'Hotmart', grupoDisplay:null, grupo:'RECEBIMENTOS', valor: rawValor, signedValor: rawValor, conta:'Hotmart', empresa:'Empoderamento', fonte:'Hotmart', nome:'Hotmart', documento:'', historico:'' };
+  }).filter(Boolean);
+}
+
 /* ================== Estado global ================== */
 let rows = []; // { date, categoria, grupoDisplay, grupo, valor, signedValor, conta, empresa, fonte, nome, documento, historico }
 let currentUser = null;
@@ -550,17 +579,19 @@ async function loadData(){
       return;
     }
 
-    const [tableCap, tableCar, tableMov, tableVindi] = await Promise.all([
+    const [tableCap, tableCar, tableMov, tableVindi, tableHotmart] = await Promise.all([
       fetchGviz(GID_CAP),
       fetchGviz(GID_CAR),
       fetchGviz(GID_MOVIMENTACAO_UUIZZ),
       fetchGviz(GID_VINDI),
+      fetchGviz(GID_HOTMART),
     ]);
     rows = [
       ...rowsFromCapCar(tableCap, 'pagar'),
       ...rowsFromCapCar(tableCar, 'receber'),
       ...rowsFromMovimentacao(tableMov),
       ...rowsFromVindi(tableVindi),
+      ...rowsFromHotmart(tableHotmart),
       ...rowsFromHistoricoEmpoderamento(),
     ];
     rows.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
