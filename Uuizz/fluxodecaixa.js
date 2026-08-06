@@ -77,14 +77,25 @@ function el(id){ return document.getElementById(id); }
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 function fmtBRL(n){
-  if(n===null||n===undefined||isNaN(n)) return 'R$ 0';
+  if(n===null||n===undefined||isNaN(n)) return 'R$ 0,00';
   const sign = n<0 ? '-' : '';
-  return sign+'R$ '+Math.round(Math.abs(n)).toLocaleString('pt-BR');
+  return sign+'R$ '+Math.abs(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 }
 function parseMoneyBR(v){
   if(v===null||v===undefined||v==='') return 0;
   if(typeof v==='number') return v;
-  return parseFloat(String(v).replace(/\./g,'').replace(',','.')) || 0;
+  let s = String(v).trim();
+  // Aceita colar direto o texto como aparece no fluxo — "R$ 1.234,56",
+  // "-R$ 1.234,56", "1.234,56" etc. — mantendo só dígitos, ponto, vírgula
+  // e sinal de menos antes de interpretar.
+  s = s.replace(/[^\d.,-]/g,'');
+  const neg = s.indexOf('-') !== -1;
+  s = s.replace(/-/g,'');
+  // Formato BR: "." é milhar e "," é decimal — só troca se tiver vírgula,
+  // pra não quebrar um número já em formato "1234.56".
+  if(s.indexOf(',') !== -1) s = s.replace(/\./g,'').replace(',', '.');
+  const n = parseFloat(s) || 0;
+  return neg ? -n : n;
 }
 
 async function fetchGviz(gid){
@@ -1036,8 +1047,8 @@ function rangeLabel(start,end){
   return start===end ? formatDateBR(start) : `${formatDateBR(start)} até ${formatDateBR(end)}`;
 }
 function fmtNumeroFicha(n){
-  if(n===null||n===undefined||isNaN(n)) return '0';
-  return Math.round(Math.abs(n)).toLocaleString('pt-BR');
+  if(n===null||n===undefined||isNaN(n)) return '0,00';
+  return Math.abs(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 }
 function escapeFichaHtml(s){
   return String(s||'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]));
@@ -1542,7 +1553,8 @@ function proximosDiasCorridosUuizz(inicio,qtd){
 }
 
 // Compara uma linha de `rows` contra UMA exclusão ativa (mesma empresa +
-// data + nome parecido + valor igual, tolerância de 1 centavo).
+// data + nome parecido + valor igual, tolerância de 1 centavo — agora que o
+// fluxo mostra os centavos, dá pra copiar e colar o valor exato).
 function fcExclusaoMatchesRow(ex, row){
   if(row.fonte==='Programação Fornecedor' || row.fonte==='Apoio de Caixa') return false;
   if(ex.empresa !== row.empresa) return false;
@@ -1692,7 +1704,7 @@ let fcParcelasEmEdicao = null;
 function gerarParcelasFornecedor(){
   const empresa = el('fcFornecedorEmpresa').value;
   const fornecedor = el('fcFornecedorNome').value.trim();
-  const valor = parseFloat(el('fcFornecedorValor').value);
+  const valor = parseMoneyBR(el('fcFornecedorValor').value);
   const inicio = el('fcFornecedorInicio').value;
   const dias = parseInt(el('fcFornecedorDias').value,10);
   const tipoDias = el('fcFornecedorTipoDias').value; // 'uteis' | 'corridos'
@@ -1788,9 +1800,9 @@ function excluirLancamentoManual(){
   const empresa = el('fcExcluirEmpresa').value;
   const nome = el('fcExcluirNome').value.trim();
   const data = el('fcExcluirData').value;
-  const valor = parseFloat(el('fcExcluirValor').value);
+  const valor = parseMoneyBR(el('fcExcluirValor').value);
   const novaData = el('fcExcluirNovaData').value;
-  if(!empresa || !nome || !data || isNaN(valor)){ alert('Selecione a empresa e preencha nome/fornecedor, data e valor do lançamento que você quer tirar ou alterar.'); return; }
+  if(!empresa || !nome || !data || !valor){ alert('Selecione a empresa e preencha nome/fornecedor, data e valor do lançamento que você quer tirar ou alterar.'); return; }
   if(novaData && novaData===data){ alert('A nova data precisa ser diferente da data original.'); return; }
 
   // Confere se o lançamento existe mesmo na empresa selecionada antes de
