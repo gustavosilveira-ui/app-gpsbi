@@ -686,7 +686,11 @@ const CATEGORIA_CHEQUE_TERCEIROS = 'Cheque Terceiros (não conta no saldo)';
 // Data de hoje (AAAA-MM-DD) — usada pra decidir se um título em aberto
 // (cap_/venc_) já venceu (entra na linha "Títulos em Aberto") ou ainda
 // não (entra na categoria real, hoje em diante) — decisão de 20/07/2026.
-const HOJE_ISO = new Date().toISOString().slice(0,10);
+function dataLocalISO_(data){
+  const d = data || new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+const HOJE_ISO = dataLocalISO_(new Date());
 // Soma dias a uma data ISO (AAAA-MM-DD) e devolve outra data ISO.
 function addDaysISO(dateStr, days){
   const d = new Date(dateStr+'T00:00:00');
@@ -1144,7 +1148,7 @@ async function loadData(){
     renderFcAnaliseWhats();
     el('loadingScreen').style.display='none';
     el('mainContent').style.display='block';
-    el('fcSimData').value = new Date().toISOString().slice(0,10);
+    el('fcSimData').value = dataLocalISO_(new Date());
     await loadFcMsgs();
   }catch(e){
     console.error(e);
@@ -1160,7 +1164,7 @@ const DOW_ABBR = ['DOM','SEG','TER','QUA','QUI','SEX','SÁB'];
 function buildColumnTree(){
   if(!rows.length) return [];
   const today = new Date();
-  const todayStr = today.toISOString().slice(0,10);
+  const todayStr = dataLocalISO_(today);
   const curYear = today.getFullYear(), curMonth = today.getMonth()+1;
 
   // Exibe de janeiro do ano vigente até o mês vigente + 2 meses futuros.
