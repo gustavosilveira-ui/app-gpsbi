@@ -562,6 +562,11 @@ function rowsFromHotmart(table){
 
 /* ================== Estado global ================== */
 let rows = []; // { date, categoria, grupoDisplay, grupo, valor, signedValor, conta, empresa, fonte, nome, documento, historico }
+// Cópia intocada de `rows` logo após o carregamento da planilha — nunca é
+// filtrada/mutada. As simulações (Apoio de Caixa, Programação de
+// Fornecedor, Tirar/Alterar do Fluxo) sempre recomeçam a partir dela, pra
+// não perder lançamentos originais a cada nova renderização.
+let rowsBase = [];
 let currentUser = null;
 let gpsStaff = false;
 let restritoMisterWiz = false; // true = e-mail que só pode ver a empresa Mister Wiz
@@ -1133,18 +1138,23 @@ function renderFichaBody(){
     return d!==0?d:(a.date<b.date?-1:a.date>b.date?1:0);
   });
 
-  const detalheHtml = linhas.slice(0,120).map(r=>{
+  const detalheHtml = linhas.slice(0,120).map((r,i)=>{
     const pct = total ? Math.abs(r.valor)/Math.abs(total)*100 : 0;
     const nome = r.nome || r.historico || r.categoria || 'Sem nome';
     const obs = r.historico || '';
     const categoria = r.categoria || r.fonte || '';
+    // Programação Fornecedor / Apoio de Caixa já são simulações — não faz
+    // sentido abrir o popup de tirar/alterar em cima delas.
+    const editavel = r.fonte!=='Programação Fornecedor' && r.fonte!=='Apoio de Caixa';
+    const valorCls = 'valor-modal' + (editavel ? ' fc-valor-clicavel' : '');
+    const valorAttrs = editavel ? ` onclick="abrirTirarPopup(${i})" title="Clique pra tirar ou mudar a data desse lançamento"` : '';
     return `<tr>
       <td>${formatDateBR(r.date)}</td>
       <td>${escapeFichaHtml((r.empresa?r.empresa+' · ':'')+(r.conta||r.fonte||'Não informada'))}</td>
       <td class="wrap" title="${obs ? escapeFichaHtml(obs) : escapeFichaHtml(nome)}">${escapeFichaHtml(nome)}</td>
       <td class="small" title="${escapeFichaHtml(categoria)}">${escapeFichaHtml(categoria)}</td>
       <td class="num">${pct.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%</td>
-      <td class="valor-modal" style="color:${corValor}">${fmtNumeroFicha(r.valor*sinal)}</td>
+      <td class="${valorCls}" style="color:${corValor}"${valorAttrs}>${fmtNumeroFicha(r.valor*sinal)}</td>
     </tr>`;
   }).join('');
 
@@ -1403,6 +1413,11 @@ async function loadAjustesManuais(){
     rows.push({ date:a.data, categoria: a.descricao || 'Ajuste', grupoDisplay, grupo, valor:Math.abs(a.valor), signedValor:a.valor, conta:'Lançamentos manuais', nome:a.descricao, empresa:a.empresa, fonte:'Manual' });
   });
   rows.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+  // loadAjustesManuais roda sempre por último antes de renderizar (tanto no
+  // carregamento inicial quanto sempre que um lançamento manual muda), então
+  // esse é o ponto certo pra tirar a "foto" da base pristina que as
+  // simulações (Apoio de Caixa, Fornecedor, Tirar/Alterar do Fluxo) usam.
+  rowsBase = rows.slice();
   renderAjustesManuaisList();
 }
 function renderAjustesManuaisList(){
@@ -1582,7 +1597,11 @@ function lancamentoExcluidoUuizz(row){
 // data, os que o usuário pediu pra só mudar de dia (em vez de remover) —
 // sempre respeitando a empresa de cada item.
 function injetarSimulacoesUuizz(){
-  rows = rows.filter(r=>r.fonte!=='Programação Fornecedor' && r.fonte!=='Apoio de Caixa' && !r.fcMovidoUuizz);
+  // Sempre recomeça da base pristina (nunca acumula em cima do resultado da
+  // chamada anterior) — antes disso, uma vez que um lançamento era movido
+  // ele saía de `rows` e não tinha mais como ser reencontrado nas próximas
+  // renderizações, então "sumia" em vez de aparecer na nova data.
+  rows = rowsBase.slice();
 
   // Antes de tirar os lançamentos excluídos, clona (com a nova data) os que
   // o usuário pediu pra alterar em vez de só remover.
@@ -1853,6 +1872,46 @@ function renderExclusoes(){
       <button class="del" onclick="removerExclusao(${ex.criadoEm})">✕</button>
     </div>`;
   }).join('') : '<div style="color:var(--text3);font-size:12.5px;">Nenhum lançamento removido ou alterado no fluxo.</div>';
+}
+
+/* ---------- Popup discreto: tirar/alterar direto da Ficha ---------- */
+let fcTirarPopupContext = null; // { empresa, nome, data, valor }
+function abrirTirarPopup(i){
+  if(!fichaExportContext) return;
+  const r = fichaExportContext.linhas[i];
+  if(!r) return;
+  fcTirarPopupContext = {
+    empresa: r.empresa,
+    nome: r.nome || r.categoria || r.conta || 'Sem nome',
+    data: r.date,
+    valor: Math.abs(Number(r.valor)||0)
+  };
+  el('fcTirarPopupInfo').innerHTML = `<b>${escapeFichaHtml(fcTirarPopupContext.empresa||'')}</b> · ${escapeFichaHtml(fcTirarPopupContext.nome)} · ${formatDateBR(fcTirarPopupContext.data)} · ${fmtBRL(-fcTirarPopupContext.valor)}`;
+  el('fcTirarPopupNovaData').value = '';
+  el('fcTirarPopup').classList.add('show');
+}
+function fecharTirarPopup(){
+  el('fcTirarPopup').classList.remove('show');
+  fcTirarPopupContext = null;
+}
+// remover=true tira do fluxo; remover=false usa a "Nova data" pra só mudar
+// o dia. Cai automaticamente na mesma lista/histórico do card
+// "🚫 Tirar um Lançamento do Fluxo".
+function confirmarTirarDaFicha(remover){
+  if(!fcTirarPopupContext) return;
+  const novaData = remover ? '' : el('fcTirarPopupNovaData').value;
+  if(!remover && !novaData){ alert('Informe a nova data, ou clique em "Remover do fluxo" pra só tirar.'); return; }
+  if(!remover && novaData===fcTirarPopupContext.data){ alert('A nova data precisa ser diferente da data original.'); return; }
+  const { empresa, nome, data, valor } = fcTirarPopupContext;
+  fcExclusoes.push({
+    empresa, nome, data, valor:-Math.abs(valor), criadoEm:Date.now(),
+    novaData: remover ? null : novaData,
+    motivo: remover ? 'Removido pela Ficha' : 'Data alterada pela Ficha'
+  });
+  localStorage.setItem('uuizz_fc_exclusoes', JSON.stringify(fcExclusoes));
+  fecharTirarPopup();
+  closeFluxoFicha();
+  buildAndRenderTable();
 }
 
 /* ---------- Encaixa tudo no ciclo normal de render ---------- */
