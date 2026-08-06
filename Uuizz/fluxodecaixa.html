@@ -132,6 +132,14 @@ html.light .fc-empresa-btn{background:#eef1f6;}
 .fc-week-lines{font-size:12px;line-height:1.65;}
 @media(max-width:900px){.fc-week-grid{grid-template-columns:1fr;}}
 
+/* Apoio de Caixa / Necessidade de Caixa / Programação por Fornecedor / Exclusão */
+.fc-cards-2col{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:stretch;margin-bottom:18px;}
+.fc-cards-2col>.card{margin-bottom:0;display:flex;flex-direction:column;}
+.fc-cards-2col>.card>.card-sub{min-height:32px;}
+@media (max-width:900px){ .fc-cards-2col{grid-template-columns:1fr;} }
+.fc-sim-form-auto{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end;}
+.fc-sim-form-auto select,.fc-sim-form-auto input{font-size:12px;padding:8px 10px;}
+
 </style>
 </head>
 <body>
@@ -185,6 +193,108 @@ html.light .fc-empresa-btn{background:#eef1f6;}
       <div class="card-sub">Texto pronto com o saldo e a previsão do fluxo — copie e cole direto no grupo do cliente. A análise acompanha a empresa selecionada acima e fica visível só para o time GPS.</div>
       <pre id="analiseFluxoWhatsTexto" style="white-space:pre-wrap;font-family:'Sora',sans-serif;font-size:13px;line-height:1.7;background:var(--navy3);border-radius:10px;padding:14px 16px;margin-bottom:12px;max-height:220px;overflow-y:auto;"></pre>
       <button id="analiseFluxoWhatsBtn" style="padding:9px 18px;border-radius:9px;border:none;font-weight:700;cursor:pointer;color:#fff;background:linear-gradient(90deg,var(--blue),var(--cyan));font-family:'Sora',sans-serif;font-size:12.5px;">📋 Copiar texto</button>
+    </div>
+
+    <div class="fc-cards-2col">
+      <div class="card" id="fcApoioCaixaCard">
+        <div class="card-title">🏦 Apoio de Caixa</div>
+        <div class="card-sub">Simule a utilização de uma linha de apoio de caixa e a devolução futura, por empresa.</div>
+        <div class="fc-sim-form-auto">
+          <select id="fcApoioCaixaEmpresa" class="fc-empresa-sim-select" onchange="renderApoioCaixa()">
+            <option value="Empoderamento">Empoderamento</option>
+            <option value="Mister Wiz">Mister Wiz</option>
+          </select>
+          <input type="number" id="fcApoioCaixaDisponivel" placeholder="Saldo disponível (R$)">
+          <input type="number" id="fcApoioCaixaValor" placeholder="Valor a utilizar">
+          <input type="date" id="fcApoioCaixaDevolucao">
+          <button class="btn btn-primary btn-sm" onclick="aplicarApoioCaixa()">Aplicar</button>
+        </div>
+        <div id="fcApoioCaixaResumo" class="fc-saldo-status" style="margin-top:12px;"></div>
+      </div>
+
+      <div class="card" id="fcNecessidadeCaixaCard">
+        <div class="card-title">💰 Necessidade de Caixa Hoje</div>
+        <div class="card-sub">Informe o saldo real da conta agora — considera a empresa selecionada no topo do fluxo. Não conta os recebimentos de hoje nem muda o Saldo Acumulado.</div>
+        <div class="fc-sim-form" style="grid-template-columns:1fr auto;">
+          <div class="field-group" style="margin-bottom:0;">
+            <label class="field-label">Saldo atual da conta agora (R$)</label>
+            <input type="number" id="fcSaldoAtualInput" placeholder="Ex.: 15000">
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="calcularNecessidadeCaixa()">Calcular</button>
+        </div>
+        <div id="fcNecessidadeCaixaResumo" class="fc-saldo-status" style="margin-top:12px;"></div>
+      </div>
+    </div>
+
+    <div class="fc-cards-2col">
+      <div class="card" id="fcFornecedorProgramacaoCard">
+        <div class="card-title">🏭 Programação de Pagamentos por Fornecedor</div>
+        <div class="card-sub">Escolha a empresa e o fornecedor, informe o valor e rateie automaticamente em dias úteis ou corridos.</div>
+        <div class="fc-sim-form-auto">
+          <div class="field-group" style="margin-bottom:0;">
+            <label class="field-label">Empresa</label>
+            <select id="fcFornecedorEmpresa" class="fc-empresa-sim-select" onchange="carregarFornecedoresDatalist()">
+              <option value="Empoderamento">Empoderamento</option>
+              <option value="Mister Wiz">Mister Wiz</option>
+            </select>
+          </div>
+          <div class="field-group" style="margin-bottom:0;">
+            <label class="field-label">Fornecedor</label>
+            <input type="text" id="fcFornecedorNome" list="fcFornecedoresList" placeholder="Ex.: Nome do fornecedor">
+            <datalist id="fcFornecedoresList"></datalist>
+          </div>
+          <div class="field-group" style="margin-bottom:0;">
+            <label class="field-label">Valor total (R$)</label>
+            <input type="number" id="fcFornecedorValor" placeholder="Ex.: 45100">
+          </div>
+          <div class="field-group" style="margin-bottom:0;">
+            <label class="field-label">Início</label>
+            <input type="date" id="fcFornecedorInicio">
+          </div>
+          <div class="field-group" style="margin-bottom:0;">
+            <label class="field-label">Tipo</label>
+            <select id="fcFornecedorTipoDias">
+              <option value="uteis">Dias úteis</option>
+              <option value="corridos">Dias do mês</option>
+            </select>
+          </div>
+          <div class="field-group" style="margin-bottom:0;">
+            <label class="field-label">Quantidade</label>
+            <input type="number" id="fcFornecedorDias" value="10" min="1">
+          </div>
+          <button class="btn btn-primary" onclick="gerarParcelasFornecedor()">Gerar parcelas</button>
+        </div>
+        <div id="fcFornecedorParcelasPreview" style="margin-top:12px;"></div>
+        <div id="fcFornecedorProgramacoes" style="margin-top:14px;"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🚫 Tirar um Lançamento do Fluxo</div>
+        <div class="card-sub">Simulação — "e se eu não pagar isso". Não muda a base real.</div>
+        <div class="fc-sim-form-auto">
+          <div class="field-group" style="margin-bottom:0;">
+            <label class="field-label">Empresa</label>
+            <select id="fcExcluirEmpresa" class="fc-empresa-sim-select">
+              <option value="Empoderamento">Empoderamento</option>
+              <option value="Mister Wiz">Mister Wiz</option>
+            </select>
+          </div>
+          <div class="field-group" style="margin-bottom:0;">
+            <label class="field-label">Nome / Fornecedor (como aparece no fluxo)</label>
+            <input type="text" id="fcExcluirNome" placeholder="Ex.: Nome do fornecedor">
+          </div>
+          <div class="field-group" style="margin-bottom:0;">
+            <label class="field-label">Data do lançamento</label>
+            <input type="date" id="fcExcluirData">
+          </div>
+          <div class="field-group" style="margin-bottom:0;">
+            <label class="field-label">Valor (R$)</label>
+            <input type="number" id="fcExcluirValor" placeholder="Ex.: 45100">
+          </div>
+          <button class="btn btn-ghost" onclick="excluirLancamentoManual()">Remover do fluxo</button>
+        </div>
+        <div id="fcExclusoesLista" style="margin-top:10px;"></div>
+      </div>
     </div>
 
     <!-- Saldo Inicial + Lançamentos Manuais (só time GPS; por empresa) -->
