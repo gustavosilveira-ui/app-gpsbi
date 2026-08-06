@@ -1508,15 +1508,22 @@ function fcEmpresaPadraoSim(){
   if(restritoMisterWiz) return 'Mister Wiz';
   return empresaFiltro==='global' ? 'Empoderamento' : empresaFiltro;
 }
-// Preenche os selects de empresa dessas simulações com um padrão (se vazios)
-// e trava em "Mister Wiz" pros e-mails restritos (Miria/Custodio).
+// Marca que o usuário escolheu a empresa manualmente nesse select, pra não
+// ser mais sobrescrito automaticamente quando trocar o filtro do topo.
+function fcMarcarEmpresaSimEscolhida(sel){ sel.dataset.fcUserSet = '1'; }
+// Sincroniza os selects de empresa dessas simulações com a empresa ativa no
+// topo do fluxo (Global/Empoderamento/Mister Wiz), sempre que o usuário ainda
+// não tiver escolhido manualmente uma empresa diferente nesse select — e
+// trava em "Mister Wiz" pros e-mails restritos (Miria/Custodio). Isso evita
+// o formulário ficar em "Empoderamento" (padrão do <select>) enquanto o
+// fluxo está filtrado em "Mister Wiz", o que faz a exclusão nunca bater.
 function fcPreencherSelectsEmpresaSim(){
   document.querySelectorAll('.fc-empresa-sim-select').forEach(sel=>{
     if(restritoMisterWiz){
       Array.from(sel.options).forEach(opt=>{ if(opt.value!=='Mister Wiz') opt.style.display='none'; });
       sel.value = 'Mister Wiz';
       sel.disabled = true;
-    } else if(!sel.value){
+    } else if(!sel.dataset.fcUserSet){
       sel.value = fcEmpresaPadraoSim();
     }
   });
@@ -1534,27 +1541,47 @@ function proximosDiasCorridosUuizz(inicio,qtd){
   return out;
 }
 
-// Compara uma linha de `rows` contra a lista de exclusões ativas (mesma
-// empresa + data + nome parecido + valor igual, tolerância de 1 centavo).
-function lancamentoExcluidoUuizz(row){
+// Compara uma linha de `rows` contra UMA exclusão ativa (mesma empresa +
+// data + nome parecido + valor igual, tolerância de 1 centavo).
+function fcExclusaoMatchesRow(ex, row){
   if(row.fonte==='Programação Fornecedor' || row.fonte==='Apoio de Caixa') return false;
-  return fcExclusoes.some(ex=>{
-    if(ex.empresa !== row.empresa) return false;
-    if(ex.data !== row.date) return false;
-    const nomeNorm = normalizeTxt(row.nome || row.conta || '');
-    const exNorm = normalizeTxt(ex.nome || '');
-    const mesmoNome = nomeNorm===exNorm || nomeNorm.includes(exNorm) || exNorm.includes(nomeNorm);
-    const mesmoValor = Math.abs(Math.abs(Number(row.valor)||0) - Math.abs(ex.valor)) < 0.01;
-    return mesmoNome && mesmoValor;
-  });
+  if(ex.empresa !== row.empresa) return false;
+  if(ex.data !== row.date) return false;
+  const nomeNorm = normalizeTxt(row.nome || row.conta || '');
+  const exNorm = normalizeTxt(ex.nome || '');
+  const mesmoNome = nomeNorm===exNorm || nomeNorm.includes(exNorm) || exNorm.includes(nomeNorm);
+  const mesmoValor = Math.abs(Math.abs(Number(row.valor)||0) - Math.abs(ex.valor)) < 0.01;
+  return mesmoNome && mesmoValor;
+}
+function lancamentoExcluidoUuizz(row){
+  return fcExclusoes.some(ex=>fcExclusaoMatchesRow(ex, row));
 }
 
 // Injeta as projeções de Apoio de Caixa e Programação de Fornecedor em `rows`,
-// e remove os lançamentos reais marcados como excluídos — sempre respeitando
-// a empresa de cada item, pra não misturar Empoderamento com Mister Wiz.
+// remove os lançamentos reais marcados como excluídos e recria, com a nova
+// data, os que o usuário pediu pra só mudar de dia (em vez de remover) —
+// sempre respeitando a empresa de cada item.
 function injetarSimulacoesUuizz(){
-  rows = rows.filter(r=>r.fonte!=='Programação Fornecedor' && r.fonte!=='Apoio de Caixa');
+  rows = rows.filter(r=>r.fonte!=='Programação Fornecedor' && r.fonte!=='Apoio de Caixa' && !r.fcMovidoUuizz);
+
+  // Antes de tirar os lançamentos excluídos, clona (com a nova data) os que
+  // o usuário pediu pra alterar em vez de só remover.
+  const clonesMovidos = [];
+  fcExclusoes.forEach(ex=>{
+    if(!ex.novaData) return;
+    const original = rows.find(r=>fcExclusaoMatchesRow(ex, r));
+    if(original){
+      clonesMovidos.push({
+        ...original,
+        date: ex.novaData,
+        documento: (original.documento ? original.documento+' · ' : '') + `Data alterada (era ${formatDateBR(ex.data)})`,
+        fcMovidoUuizz: true
+      });
+    }
+  });
+
   rows = rows.filter(r=>!lancamentoExcluidoUuizz(r));
+  rows = rows.concat(clonesMovidos);
 
   // Evita duplicar uma programação quando o pagamento real já existe na base
   // (mesma empresa + data + fornecedor/nome + valor absoluto).
@@ -1756,16 +1783,36 @@ function renderProgramacoesFornecedor(){
     </div>`).join('') : '<div style="color:var(--text3);font-size:12.5px;">Nenhuma programação cadastrada.</div>';
 }
 
-/* ---------- Tirar um Lançamento do Fluxo (exclusão manual) ---------- */
+/* ---------- Tirar / Alterar a data de um Lançamento do Fluxo ---------- */
 function excluirLancamentoManual(){
   const empresa = el('fcExcluirEmpresa').value;
   const nome = el('fcExcluirNome').value.trim();
   const data = el('fcExcluirData').value;
   const valor = parseFloat(el('fcExcluirValor').value);
-  if(!empresa || !nome || !data || isNaN(valor)){ alert('Selecione a empresa e preencha nome/fornecedor, data e valor do lançamento que você quer tirar do fluxo.'); return; }
-  fcExclusoes.push({empresa, nome, data, valor:-Math.abs(valor), criadoEm:Date.now(), motivo:'Removido manualmente'});
+  const novaData = el('fcExcluirNovaData').value;
+  if(!empresa || !nome || !data || isNaN(valor)){ alert('Selecione a empresa e preencha nome/fornecedor, data e valor do lançamento que você quer tirar ou alterar.'); return; }
+  if(novaData && novaData===data){ alert('A nova data precisa ser diferente da data original.'); return; }
+
+  // Confere se o lançamento existe mesmo na empresa selecionada antes de
+  // salvar — evita o caso de selecionar a empresa errada e a exclusão nunca
+  // bater com nada (fica parada na lista sem efeito nenhum no fluxo).
+  const testEx = {empresa, nome, data, valor:-Math.abs(valor)};
+  if(!rows.some(r=>fcExclusaoMatchesRow(testEx, r))){
+    const empresaCerta = FC_EMPRESAS_SIM.find(emp=>emp!==empresa && rows.some(r=>fcExclusaoMatchesRow({...testEx, empresa:emp}, r)));
+    if(empresaCerta){
+      alert(`Não encontrei esse lançamento em ${empresa} — ele está em ${empresaCerta}. Troque a empresa selecionada acima pra ${empresaCerta} e tente de novo.`);
+      return;
+    }
+    if(!confirm('Não encontrei um lançamento com esse nome, data e valor exatos no fluxo atual. Quer salvar mesmo assim? (a regra passa a valer automaticamente se ele aparecer depois com esses mesmos dados)')) return;
+  }
+
+  fcExclusoes.push({
+    empresa, nome, data, valor:-Math.abs(valor), criadoEm:Date.now(),
+    novaData: novaData || null,
+    motivo: novaData ? 'Data alterada' : 'Removido manualmente'
+  });
   localStorage.setItem('uuizz_fc_exclusoes', JSON.stringify(fcExclusoes));
-  el('fcExcluirNome').value=''; el('fcExcluirData').value=''; el('fcExcluirValor').value='';
+  el('fcExcluirNome').value=''; el('fcExcluirData').value=''; el('fcExcluirValor').value=''; el('fcExcluirNovaData').value='';
   buildAndRenderTable();
 }
 function removerExclusao(criadoEm){
@@ -1775,13 +1822,17 @@ function removerExclusao(criadoEm){
 }
 function renderExclusoes(){
   const wrap = el('fcExclusoesLista'); if(!wrap) return;
-  wrap.innerHTML = fcExclusoes.length ? fcExclusoes.map(ex=>`
+  wrap.innerHTML = fcExclusoes.length ? fcExclusoes.map(ex=>{
+    const dataLabel = ex.novaData ? `${formatDateBR(ex.data)} → ${formatDateBR(ex.novaData)}` : formatDateBR(ex.data);
+    const valorStyle = ex.novaData ? 'color:var(--text2);' : 'color:var(--text3);text-decoration:line-through;';
+    return `
     <div class="fc-sim-entry">
       <span class="desc">${escapeHtml(ex.empresa)} · ${escapeHtml(ex.nome)} · ${escapeHtml(ex.motivo||'')}</span>
-      <span class="data">${formatDateBR(ex.data)}</span>
-      <span class="valor" style="color:var(--text3);text-decoration:line-through;">${fmtBRL(-Math.abs(ex.valor))}</span>
+      <span class="data">${dataLabel}</span>
+      <span class="valor" style="${valorStyle}">${fmtBRL(-Math.abs(ex.valor))}</span>
       <button class="del" onclick="removerExclusao(${ex.criadoEm})">✕</button>
-    </div>`).join('') : '<div style="color:var(--text3);font-size:12.5px;">Nenhum lançamento removido do fluxo.</div>';
+    </div>`;
+  }).join('') : '<div style="color:var(--text3);font-size:12.5px;">Nenhum lançamento removido ou alterado no fluxo.</div>';
 }
 
 /* ---------- Encaixa tudo no ciclo normal de render ---------- */
