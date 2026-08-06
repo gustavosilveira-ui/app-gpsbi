@@ -136,6 +136,7 @@ html.light .fc-lvl-0 td{background:#eef1f6;}
 .fc-lvl-2{padding-left:28px;color:var(--text2);}
 .fc-saldo-pos{color:#4F8F3A;font-weight:800;}
 .fc-saldo-neg{color:var(--red);font-weight:800;background:rgba(239,106,106,.08);}
+.fc-saldo-indisponivel{color:var(--text3);font-weight:400;text-align:center;}
 .fc-limite-alert{position:relative;overflow:visible;}
 .fc-limit-head{position:relative;display:inline-flex;align-items:center;justify-content:center;}
 .fc-day-head{position:relative;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;line-height:1.05;}
@@ -1060,8 +1061,8 @@ function gerarAnaliseWhatsTextoFluxo(){
   const recebimentosPrevistos = rowsPeriodo.filter(r=>r.valor>=0).reduce((s,r)=>s+r.valor,0);
   const ontem = new Date(hoje); ontem.setDate(hoje.getDate()-1);
   const ontemIso = ontem.toISOString().slice(0,10);
-  const saldoAtual = runningBalance(ontemIso);
-  const saldoPrevisto = runningBalance(fimDoMesIso);
+  const saldoAtual = runningBalance(ontemIso) ?? 0;
+  const saldoPrevisto = runningBalance(fimDoMesIso) ?? 0;
 
   const empresaTxt = selectedEmpresa ? ` · ${EMPRESA_LABEL[selectedEmpresa]}` : '';
   const formatDiaMes = dstr => formatDateBR(dstr).slice(0,5); // "21/07/2026" -> "21/07"
@@ -1253,45 +1254,36 @@ let saldoIniciais = {}; // { empresa: {data_referencia, valor} }
 
 // Saldo acumulado de UMA empresa até uma data, respeitando o saldo inicial
 // dela (se houver). Os lançamentos manuais já estão dentro de rowsByEmpresa.
+// Retorna o Saldo Acumulado da empresa numa data, ou `null` quando não há
+// saldo inicial confiável pra ancorar aquela data (sem saldo inicial
+// cadastrado, ou data anterior à data de referência) — nesses casos o
+// chamador deve mostrar "—" em vez de um número calculado sem garantia
+// nenhuma de estar certo (o "saldo acumulado" é só pro período com saldo
+// inicial de verdade por trás, não uma extrapolação indefinida pro passado).
 function runningBalanceEmpresa(empresa, uptoDate){
   const rowsEmp = (rowsByEmpresa[empresa] || []).filter(contaNoTotal_);
   const override = saldoIniciais[empresa];
-  if(override){
-    let s = Number(override.valor) || 0;
-    // O valor salvo é o saldo NA PRÓPRIA data de referência (já incluindo
-    // os lançamentos daquele dia) — é exatamente o número que aparece na
-    // coluna daquele dia, batendo com o que o formulário promete ("Define
-    // o saldo numa data"). Por isso: pra frente, só soma a partir do dia
-    // SEGUINTE à referência; pra trás, desfaz a partir do dia seguinte à
-    // data pedida até a própria referência (inclusive).
-    if(uptoDate >= override.data_referencia){
-      for(const r of rowsEmp){
-        if(r.date > override.data_referencia && r.date <= uptoDate) s += r.valor;
-      }
-    } else {
-      // Pra trás: desfaz (subtrai) os movimentos que aconteceram entre a
-      // data pedida (exclusive) e a data de referência (inclusive) — foram
-      // esses movimentos que "transformaram" o saldo de uma data mais
-      // antiga no saldo da referência, então andar pra trás é andar essa
-      // conta ao contrário, sempre ancorado no saldo inicial real em vez de
-      // somar tudo desde o início bruto da base (que dava números irreais
-      // pra datas sem saldo inicial confiável por trás).
-      for(const r of rowsEmp){
-        if(r.date > uptoDate && r.date <= override.data_referencia) s -= r.valor;
-      }
-    }
-    return s;
+  if(!override || uptoDate < override.data_referencia) return null;
+
+  // O valor salvo é o saldo NA PRÓPRIA data de referência (já incluindo
+  // os lançamentos daquele dia) — é exatamente o número que aparece na
+  // coluna daquele dia, batendo com o que o formulário promete ("Define
+  // o saldo numa data"). Por isso só soma a partir do dia SEGUINTE à
+  // referência.
+  let s = Number(override.valor) || 0;
+  for(const r of rowsEmp){
+    if(r.date > override.data_referencia && r.date <= uptoDate) s += r.valor;
   }
-  // Sem saldo inicial cadastrado pra essa empresa: mantém o comportamento
-  // antigo (soma tudo que tem na base) só como último recurso.
-  let s = 0;
-  for(const r of rowsEmp){ if(r.date<=uptoDate) s += r.valor; else break; }
   return s;
 }
-// Saldo Acumulado no escopo atual: uma empresa só, ou a soma das 4 (Global).
+// Saldo Acumulado no escopo atual: uma empresa só, ou a soma das que
+// tiverem saldo inicial confiável pra aquela data (Global). Se nenhuma
+// empresa no escopo tiver saldo confiável pra essa data, retorna `null`.
 function runningBalance(uptoDate){
   const empresasNoEscopo = selectedEmpresa ? [selectedEmpresa] : EMPRESAS;
-  return empresasNoEscopo.reduce((sum,emp)=>sum + runningBalanceEmpresa(emp, uptoDate), 0);
+  const valores = empresasNoEscopo.map(emp=>runningBalanceEmpresa(emp, uptoDate)).filter(v=>v!==null);
+  if(!valores.length) return null;
+  return valores.reduce((a,b)=>a+b, 0);
 }
 // RECEBIMENTOS/PAGAMENTOS (linha de resumo) mostram só o que já foi
 // realizado de verdade — Títulos em Aberto e Cheque Terceiros ficam de
@@ -1535,8 +1527,13 @@ function renderTable(){
       let val;
       if(rNode.special==='saldo'){
         val = runningBalance(c.end);
-        const cellCls = (val>=0?'fc-saldo-pos':'fc-saldo-neg') + (c.isToday?' fc-today':'');
-        tbody += `<td class="${cellCls}">${fmtBRL(val)}</td>`;
+        if(val===null){
+          const cellCls = 'fc-saldo-indisponivel' + (c.isToday?' fc-today':'');
+          tbody += `<td class="${cellCls}" title="Sem saldo inicial cadastrado pra essa data — não é possível calcular com segurança.">—</td>`;
+        } else {
+          const cellCls = (val>=0?'fc-saldo-pos':'fc-saldo-neg') + (c.isToday?' fc-today':'');
+          tbody += `<td class="${cellCls}">${fmtBRL(val)}</td>`;
+        }
       } else {
         if(rNode.label === CATEGORIA_TITULOS_ABERTO){
           val = rows.reduce((s,r)=>{
@@ -1875,13 +1872,14 @@ function getLimiteContaHeaderInfo(c){
   const limiteConta = limiteContaNoEscopo();
   if(!c || c.type!=='day' || !limiteConta || limiteConta<=0) return null;
   const saldo = runningBalance(c.end);
+  if(saldo===null) return null; // sem saldo inicial confiável pra essa data — não dá pra avaliar o limite
   const limiteNegativo = -Math.abs(limiteConta);
   if(saldo < limiteNegativo){
     return { tipo:'alerta', severidade: getLimiteSeverity(Math.abs(saldo) - Math.abs(limiteConta), limiteConta), titulo:'⚠ Limite da Conta', data:c.end, saldo, excesso: Math.abs(saldo) - Math.abs(limiteConta), mensagem:'Limite ultrapassado neste dia.' };
   }
   const amanha = nextDateStr(c.end);
   const saldoAmanha = runningBalance(amanha);
-  if(saldo >= limiteNegativo && saldoAmanha < limiteNegativo){
+  if(saldoAmanha!==null && saldo >= limiteNegativo && saldoAmanha < limiteNegativo){
     return { tipo:'previo', severidade:'previo', titulo:'⚠ Alerta para amanhã', data:amanha, saldo:saldoAmanha, excesso: Math.abs(saldoAmanha) - Math.abs(limiteConta), mensagem:'Amanhã o saldo ultrapassará o limite.' };
   }
   return null;
@@ -2018,7 +2016,7 @@ function renderFcSim(){
     dias.push(d.toISOString().slice(0,10));
   }
   el('fcSimTableBody').innerHTML = dias.map(dstr=>{
-    const saldoReal = runningBalance(dstr);
+    const saldoReal = runningBalance(dstr) ?? 0;
     const impacto = fcSimEntries.filter(e=>e.data<=dstr).reduce((s,e)=>s+e.valor,0);
     const saldoSim = saldoReal + impacto;
     const diffCls = impacto>=0 ? 'style="color:#98C47C"' : 'style="color:var(--red)"';
