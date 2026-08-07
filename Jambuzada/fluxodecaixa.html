@@ -28,6 +28,9 @@ html.light .fc-lvl-0 td{background:#eef1f6;}
 .fc-lvl-1{font-weight:700;padding-left:14px;}
 .fc-lvl-2{padding-left:28px;color:var(--text2);}
 .fc-saldo-pos{color:#4F8F3A;font-weight:800;}
+.fc-aplicacao-cell{color:var(--text2);}
+.fc-aplicacao-editavel{cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;}
+.fc-aplicacao-editavel:hover{background:rgba(90,140,255,.10);}
 .fc-saldo-neg{color:var(--red);font-weight:800;background:rgba(239,106,106,.08);}
 .fc-limite-alert{position:relative;overflow:visible;}
 .fc-limit-head{position:relative;display:inline-flex;align-items:center;justify-content:center;}
@@ -220,7 +223,7 @@ html.light .fc-day-num{color:#1f2a3d;}
 
     <!-- Popup discreto: tirar/alterar data de um lançamento direto da Ficha -->
     <div class="modal-overlay" id="fcTirarPopup" style="z-index:310;">
-      <div class="modal-box" style="width:380px;">
+      <div class="modal-box" style="width:400px;">
         <div class="modal-title">🚫 Tirar / Alterar Lançamento</div>
         <div class="modal-sub" id="fcTirarPopupInfo"></div>
         <div class="field-group">
@@ -233,6 +236,36 @@ html.light .fc-day-num{color:#1f2a3d;}
             <button class="btn btn-ghost btn-sm" onclick="fecharTirarPopup()">Cancelar</button>
             <button class="btn btn-primary btn-sm" onclick="confirmarTirarDaFicha(false)">Aplicar</button>
           </div>
+        </div>
+        <div style="border-top:1px solid var(--border);margin:16px 0 0;padding-top:12px;" id="fcTirarPopupRateioWrap"></div>
+      </div>
+    </div>
+
+    <!-- Popup discreto: digitar/alterar o valor de Aplicações do dia, e sacar -->
+    <div class="modal-overlay" id="fcAplicacaoPopup" style="z-index:310;">
+      <div class="modal-box" style="width:380px;">
+        <div class="modal-title">💰 Aplicações</div>
+        <div class="modal-sub" id="fcAplicacaoPopupInfo"></div>
+        <div class="field-group">
+          <label class="field-label">Valor aplicado nesse dia (R$)</label>
+          <input type="text" inputmode="decimal" id="fcAplicacaoPopupValor" placeholder="Ex.: 15.000,00">
+        </div>
+        <div class="modal-actions" style="justify-content:space-between;">
+          <button class="btn btn-danger btn-sm" onclick="removerAplicacaoPopup()">Remover</button>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-ghost btn-sm" onclick="fecharAplicacaoPopup()">Cancelar</button>
+            <button class="btn btn-primary btn-sm" onclick="confirmarAplicacaoPopup()">Salvar</button>
+          </div>
+        </div>
+        <div style="border-top:1px solid var(--border);margin:16px 0 12px;padding-top:12px;">
+          <div style="font-weight:700;font-size:12.5px;">🏧 Sacar dessa aplicação</div>
+          <div style="font-size:11.5px;color:var(--text3);margin-bottom:8px;">Esse valor passa a contar no Saldo Acumulado a partir dessa data — pode ser o total ou um valor diferente.</div>
+          <div class="field-group">
+            <label class="field-label">Valor a sacar (R$)</label>
+            <input type="text" inputmode="decimal" id="fcAplicacaoPopupSaque" placeholder="Ex.: 15.000,00">
+          </div>
+          <button class="btn btn-primary btn-sm" style="width:100%;" onclick="confirmarSaquePopup()">Confirmar saque</button>
+          <div id="fcAplicacaoPopupSaquesLista" style="margin-top:10px;"></div>
         </div>
       </div>
     </div>
@@ -933,7 +966,18 @@ function runningBalance(uptoDate){
   if(saldoInicialOverride && uptoDate >= saldoInicialOverride.data_referencia){
     let s = saldoInicialOverride.valor;
     for(const r of rows){
-      if(r.date > saldoInicialOverride.data_referencia && r.date<=uptoDate && valorImpactaSaldo(r)) s += r.valor;
+      if(!valorImpactaSaldo(r)) continue;
+      // Lançamentos Manuais e Saques de Aplicação são adicionados pelo
+      // usuário DEPOIS que o saldo inicial já foi digitado, então nunca
+      // podem estar "já embutidos" nele — contam a partir da própria data
+      // (inclusive), mesmo que essa data seja a mesma do saldo inicial.
+      // Dados reais da planilha só contam a partir do dia seguinte (já
+      // que o saldo inicial já inclui os lançamentos reais daquele dia).
+      const ehLancamentoDoUsuario = r.grupo==='AJUSTES_MANUAIS' || r.fonte==='Aplicacao';
+      const incluir = ehLancamentoDoUsuario
+        ? (r.date >= saldoInicialOverride.data_referencia && r.date <= uptoDate)
+        : (r.date > saldoInicialOverride.data_referencia && r.date <= uptoDate);
+      if(incluir) s += r.valor;
     }
     return s;
   }
@@ -1091,6 +1135,7 @@ function buildRowTree(){
 
   const nodes = [
     { type:'saldo', level:0, label:'SALDO ACUMULADO', special:'saldo', expanded:false, children:[] },
+    { type:'aplicacoes', level:0, label:'APLICAÇÕES', special:'aplicacoes', expanded:false, children:[] },
     recebimentosNode,
     pagamentosNode,
   ];
@@ -1191,6 +1236,15 @@ function renderTable(){
         val = runningBalance(c.end);
         const cellCls = (val>=0?'fc-saldo-pos':'fc-saldo-neg') + (c.isToday?' fc-today':'');
         tbody += `<td class="${cellCls}">${fmtBRLCompacto(val)}</td>`;
+      } else if(rNode.special==='aplicacoes'){
+        // Editável célula a célula só em colunas de dia (não faz sentido
+        // editar um mês/ano inteiro de uma vez).
+        val = sumAplicacoesRange(c.start, c.end);
+        const editavelCel = c.type==='day';
+        const cellCls = 'fc-aplicacao-cell' + (c.isToday?' fc-today':'') + (editavelCel?' fc-aplicacao-editavel':'');
+        const onClick = editavelCel ? ` onclick="abrirAplicacaoPopup('${c.start}')"` : '';
+        const title = editavelCel ? ' title="Clique pra digitar o valor da aplicação desse dia"' : '';
+        tbody += `<td class="${cellCls}"${onClick}${title}>${fmtBRLCompacto(val)}</td>`;
       } else {
         const histVal = histSumForNode(rNode, c.start, c.end);
         val = (histVal===null ? 0 : histVal) + sumInRange(rNode.filter, c.start, c.end);
@@ -1270,7 +1324,7 @@ function openFluxoFicha(rowId,colId){
     const doc = r.documento || r.fonte || '';
     // Programação Fornecedor / Pronampe já são simulações — não faz sentido
     // abrir o popup de tirar/alterar em cima delas.
-    const editavel = r.fonte!=='Programação Fornecedor' && r.fonte!=='Pronampe' && !r._historico;
+    const editavel = r.fonte!=='Programação Fornecedor' && r.fonte!=='Pronampe' && r.fonte!=='Aplicacao' && !r._historico;
     const valorCls = 'valor-modal' + (editavel ? ' fc-valor-clicavel' : '');
     const valorAttrs = editavel ? ` onclick="abrirTirarPopup(${i})" title="Clique pra tirar ou mudar a data desse lançamento"` : '';
     return `<tr>
@@ -1300,6 +1354,7 @@ function openFluxoFicha(rowId,colId){
 function closeFluxoFicha(){ el('fluxoFichaModal').classList.remove('show'); }
 el('fluxoFichaModal').addEventListener('click', e=>{ if(e.target.id==='fluxoFichaModal') closeFluxoFicha(); });
 el('fcTirarPopup').addEventListener('click', e=>{ if(e.target.id==='fcTirarPopup') fecharTirarPopup(); });
+el('fcAplicacaoPopup')?.addEventListener('click', e=>{ if(e.target.id==='fcAplicacaoPopup') fecharAplicacaoPopup(); });
 
 function scrollToToday(){
   const todayTh = document.querySelector('.fc-table th.fc-today');
@@ -1694,6 +1749,20 @@ async function salvarEdicaoFcMsg(id, campo){
 /* ================== VISÃO SEMANAL / PRONAMPE / FORNECEDORES ================== */
 let fcProgramacoesFornecedor = JSON.parse(localStorage.getItem('jambuzada_fc_programacoes_fornecedor')||'[]');
 let fcPronampe = JSON.parse(localStorage.getItem('jambuzada_fc_pronampe')||'{"disponivel":0,"valor":0,"devolucao":""}');
+/* ================== NOVO: Aplicações (registro diário + saque) ==================
+   Linha isolada entre SALDO ACUMULADO e RECEBIMENTOS. Registrar o valor
+   aplicado no dia é só informativo — nunca soma no Saldo Acumulado. Sacar
+   (total ou parcial) cria um recebimento real na data escolhida, que passa
+   a contar no Saldo Acumulado a partir dali (igual um Lançamento Manual). */
+let fcAplicacoes = JSON.parse(localStorage.getItem('jambuzada_fc_aplicacoes')||'{}'); // fcAplicacoes[data] = valor
+let fcAplicacaoSaques = JSON.parse(localStorage.getItem('jambuzada_fc_aplicacao_saques')||'[]'); // [{id,data,valor}]
+function aplicacaoValor(data){ return fcAplicacoes[data] || 0; }
+function sumAplicacoesRange(start,end){
+  let total=0;
+  Object.keys(fcAplicacoes).forEach(d=>{ if(d>=start && d<=end) total+=fcAplicacoes[d]; });
+  return total;
+}
+function totalSacadoAplicacao(){ return fcAplicacaoSaques.reduce((s,x)=>s+Math.abs(x.valor),0); }
 // Lançamentos reais que o usuário decidiu tirar da visão/cálculo do fluxo (só simulação,
 // nunca mexe na base) — usado tanto pra "e se eu não pagar isso" quanto pra esconder o
 // valor cheio original quando ele é substituído por um rateio.
@@ -1711,7 +1780,7 @@ function fimSemana(d){ const x=inicioSemana(d); x.setDate(x.getDate()+6); return
 // Compara um lançamento de `rows` contra UMA exclusão ativa (mesma data +
 // nome parecido + valor igual, tolerância de 1 centavo).
 function fcExclusaoMatchesRow(ex, row){
-  if(row.fonte==='Programação Fornecedor' || row.fonte==='Pronampe') return false;
+  if(row.fonte==='Programação Fornecedor' || row.fonte==='Pronampe' || row.fonte==='Aplicacao') return false;
   if(ex.data !== row.date) return false;
   const nomeNorm = normalizeTxt(row.nome || row.conta || '');
   const exNorm = normalizeTxt(ex.nome || '');
@@ -1755,7 +1824,7 @@ function injetarProgramacoesFornecedor(){
     const valorEsperado = Math.abs(Number(parcela.valor)||0);
 
     return rows.some(r=>{
-      if(r.fonte==='Programação Fornecedor' || r.fonte==='Pronampe') return false;
+      if(r.fonte==='Programação Fornecedor' || r.fonte==='Pronampe' || r.fonte==='Aplicacao') return false;
       if(r.date !== parcela.data) return false;
 
       const nomeNorm = normalizeTxt(r.nome || '');
@@ -1793,6 +1862,14 @@ function injetarProgramacoesFornecedor(){
     rows.push({date:todayISO(),categoria:'Pronampe - Utilização',grupo:'RECEBIMENTOS',valor:Math.abs(fcPronampe.valor),conta:'Pronampe',fonte:'Pronampe',nome:'Pronampe'});
     if(fcPronampe.devolucao) rows.push({date:fcPronampe.devolucao,categoria:'Pronampe - Devolução',grupo:'FINANCEIRAS',valor:-Math.abs(fcPronampe.valor),conta:'Pronampe',fonte:'Pronampe',nome:'Pronampe'});
   }
+
+  // Saques de Aplicação: cada um vira um recebimento real na data escolhida
+  // — o registro do valor aplicado em si (fcAplicacoes) nunca entra aqui,
+  // só os saques de fato.
+  fcAplicacaoSaques.forEach(s=>{
+    rows.push({date:s.data,categoria:'Saque de Aplicação',grupo:'RECEBIMENTOS',valor:Math.abs(s.valor),conta:'Aplicações',fonte:'Aplicacao',nome:'Saque de Aplicação'});
+  });
+
   rows.sort((a,b)=>a.date.localeCompare(b.date));
 }
 
@@ -1908,7 +1985,7 @@ function confirmarParcelasFornecedor(){
 function encontrarLancamentoValorCheio(fornecedor, valorTotal){
   const fornecedorNorm = normalizeTxt(fornecedor);
   return rows.find(r=>{
-    if(r.fonte==='Programação Fornecedor' || r.fonte==='Pronampe') return false;
+    if(r.fonte==='Programação Fornecedor' || r.fonte==='Pronampe' || r.fonte==='Aplicacao') return false;
     if(Number(r.valor) >= 0) return false; // só pagamento (negativo)
     const nomeNorm = normalizeTxt(r.nome || '');
     const contaNorm = normalizeTxt(r.conta || '');
@@ -1964,7 +2041,7 @@ function renderExclusoes(){
   }).join(''):'<div style="color:var(--text3);font-size:12.5px;">Nenhum lançamento removido ou alterado no fluxo.</div>';
 }
 
-/* ---------- Popup discreto: tirar/alterar direto da Ficha ---------- */
+/* ---------- Popup discreto: tirar/alterar/ratear direto da Ficha ---------- */
 let fcTirarPopupContext = null; // { nome, data, valor }
 function abrirTirarPopup(i){
   if(!fcFichaLinhasAtual) return;
@@ -1977,11 +2054,14 @@ function abrirTirarPopup(i){
   };
   el('fcTirarPopupInfo').innerHTML = `${escapeFichaHtml(fcTirarPopupContext.nome)} · ${formatDateBR(fcTirarPopupContext.data)} · ${fmtBRL(-fcTirarPopupContext.valor)}`;
   el('fcTirarPopupNovaData').value = '';
+  fcRateioPopupParcelas = null;
+  renderRateioPopup();
   el('fcTirarPopup').classList.add('show');
 }
 function fecharTirarPopup(){
   el('fcTirarPopup').classList.remove('show');
   fcTirarPopupContext = null;
+  fcRateioPopupParcelas = null;
 }
 // remover=true tira do fluxo; remover=false usa a "Nova data" pra só mudar
 // o dia. Cai automaticamente na mesma lista/histórico do card
@@ -2002,6 +2082,163 @@ function confirmarTirarDaFicha(remover){
   closeFluxoFicha();
   buildAndRenderTable();
 }
+
+/* ---------- Ratear em várias datas, direto do mesmo popup ---------- */
+// Diferente da Programação de Pagamentos por Fornecedor (que parte de um
+// fornecedor/valor digitados à mão), aqui já sabemos exatamente qual
+// lançamento é — então não precisa "adivinhar" o valor cheio original por
+// nome/valor: já exclui o lançamento certo e cria o rateio nas datas que o
+// usuário escolher, tudo dentro do mesmo popup.
+let fcRateioPopupParcelas = null; // [{data, valor}] enquanto edita o rateio
+function renderRateioPopup(){
+  const wrap = el('fcTirarPopupRateioWrap');
+  if(!wrap || !fcTirarPopupContext) return;
+  if(!fcRateioPopupParcelas){
+    wrap.innerHTML = `<button class="btn btn-ghost btn-sm" style="width:100%;" onclick="iniciarRateioNaFicha()">✂️ Ratear em várias datas</button>`;
+    return;
+  }
+  const linhas = fcRateioPopupParcelas.map((p,i)=>`
+    <div class="fc-sim-entry" style="gap:8px;">
+      <input type="date" value="${p.data}" onchange="ajustarParcelaRateioPopup(${i},'data',this.value)" style="flex:none;width:150px;">
+      <input type="text" inputmode="decimal" value="${(Number(p.valor)||0).toFixed(2).replace('.',',')}" onchange="ajustarParcelaRateioPopup(${i},'valor',this.value)" style="flex:1;min-width:0;">
+      <button class="del" onclick="removerParcelaRateioPopup(${i})" title="Remover essa parcela">✕</button>
+    </div>`).join('');
+  const total = fcRateioPopupParcelas.reduce((s,p)=>s+Number(p.valor||0),0);
+  const original = fcTirarPopupContext.valor;
+  wrap.innerHTML = `
+    <div style="font-weight:700;font-size:12.5px;margin-bottom:4px;">✂️ Ratear em várias datas</div>
+    <div style="font-size:11.5px;color:var(--text3);margin-bottom:8px;">Distribua o valor nas datas que quiser — some quanto quiser em cada uma.</div>
+    ${linhas}
+    <button class="btn btn-ghost btn-sm" style="width:100%;margin:6px 0;" onclick="adicionarParcelaRateioPopup()">+ Adicionar parcela</button>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:8px;">Total rateado: <b>${fmtBRL(total)}</b>${Math.abs(total-original)>0.01?` (valor original: ${fmtBRL(original)})`:''}</div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-ghost btn-sm" style="flex:1;" onclick="cancelarRateioNaFicha()">Cancelar rateio</button>
+      <button class="btn btn-primary btn-sm" style="flex:1;" onclick="confirmarRateioNaFicha()">Confirmar rateio</button>
+    </div>`;
+}
+function iniciarRateioNaFicha(){
+  if(!fcTirarPopupContext) return;
+  fcRateioPopupParcelas = [{ data: fcTirarPopupContext.data, valor: fcTirarPopupContext.valor }];
+  renderRateioPopup();
+}
+function cancelarRateioNaFicha(){
+  fcRateioPopupParcelas = null;
+  renderRateioPopup();
+}
+function ajustarParcelaRateioPopup(i, campo, valor){
+  if(!fcRateioPopupParcelas || !fcRateioPopupParcelas[i]) return;
+  if(campo==='data') fcRateioPopupParcelas[i].data = valor;
+  else fcRateioPopupParcelas[i].valor = parseMoneyBR(valor);
+  renderRateioPopup();
+}
+function adicionarParcelaRateioPopup(){
+  if(!fcRateioPopupParcelas || !fcTirarPopupContext) return;
+  fcRateioPopupParcelas.push({ data: fcTirarPopupContext.data, valor: 0 });
+  renderRateioPopup();
+}
+function removerParcelaRateioPopup(i){
+  if(!fcRateioPopupParcelas) return;
+  fcRateioPopupParcelas.splice(i,1);
+  renderRateioPopup();
+}
+function confirmarRateioNaFicha(){
+  if(!fcTirarPopupContext || !fcRateioPopupParcelas || !fcRateioPopupParcelas.length){ alert('Adicione ao menos uma parcela.'); return; }
+  if(fcRateioPopupParcelas.some(p=>!p.data || !p.valor)){ alert('Preencha data e valor de todas as parcelas.'); return; }
+  const { nome, data, valor } = fcTirarPopupContext;
+
+  fcExclusoes.push({ nome, data, valor:-Math.abs(valor), criadoEm:Date.now(), novaData:null, motivo:'Substituído por rateio' });
+  localStorage.setItem('jambuzada_fc_exclusoes', JSON.stringify(fcExclusoes));
+
+  fcProgramacoesFornecedor.push({
+    id:Date.now(), fornecedor:nome, valor, dias:fcRateioPopupParcelas.length, tipoDias:'manual', inicio:data,
+    parcelas: fcRateioPopupParcelas.map(p=>({ data:p.data, valor:Number(p.valor)||0 }))
+  });
+  localStorage.setItem('jambuzada_fc_programacoes_fornecedor', JSON.stringify(fcProgramacoesFornecedor));
+
+  fcRateioPopupParcelas = null;
+  fecharTirarPopup();
+  closeFluxoFicha();
+  buildAndRenderTable();
+}
+
+/* ---------- Popup discreto: registrar/sacar Aplicações do dia ---------- */
+let fcAplicacaoPopupContext = null; // { data }
+function abrirAplicacaoPopup(data){
+  fcAplicacaoPopupContext = { data };
+  const valorAtual = aplicacaoValor(data);
+  el('fcAplicacaoPopupInfo').innerHTML = `${formatDateBR(data)} · já sacado ao todo: <b>${fmtBRL(totalSacadoAplicacao())}</b>`;
+  el('fcAplicacaoPopupValor').value = valorAtual ? valorAtual.toFixed(2).replace('.',',') : '';
+  el('fcAplicacaoPopupSaque').value = valorAtual ? valorAtual.toFixed(2).replace('.',',') : '';
+  renderSaquesDoAplicacaoPopup();
+  el('fcAplicacaoPopup').classList.add('show');
+}
+function fecharAplicacaoPopup(){
+  el('fcAplicacaoPopup').classList.remove('show');
+  fcAplicacaoPopupContext = null;
+}
+function confirmarAplicacaoPopup(){
+  if(!fcAplicacaoPopupContext) return;
+  const { data } = fcAplicacaoPopupContext;
+  const valor = parseMoneyBR(el('fcAplicacaoPopupValor').value);
+  fcAplicacoes[data] = valor;
+  localStorage.setItem('jambuzada_fc_aplicacoes', JSON.stringify(fcAplicacoes));
+  fecharAplicacaoPopup();
+  buildAndRenderTable();
+}
+function removerAplicacaoPopup(){
+  if(!fcAplicacaoPopupContext) return;
+  const { data } = fcAplicacaoPopupContext;
+  if(!confirm('Remover o valor de aplicação de '+formatDateBR(data)+'?')) return;
+  delete fcAplicacoes[data];
+  localStorage.setItem('jambuzada_fc_aplicacoes', JSON.stringify(fcAplicacoes));
+  fecharAplicacaoPopup();
+  buildAndRenderTable();
+}
+// Lista os saques já registrados nesse dia, com botão de remover — sem
+// isso não tinha como desfazer um saque de teste/errado.
+function renderSaquesDoAplicacaoPopup(){
+  const wrap = el('fcAplicacaoPopupSaquesLista');
+  if(!wrap || !fcAplicacaoPopupContext) return;
+  const { data } = fcAplicacaoPopupContext;
+  const saques = fcAplicacaoSaques.filter(s=>s.data===data);
+  wrap.innerHTML = saques.length ? saques.map(s=>`
+    <div class="fc-sim-entry">
+      <span class="desc">Saque registrado</span>
+      <span class="valor" style="color:var(--red)">${fmtBRL(s.valor)}</span>
+      <button class="del" onclick="removerSaqueAplicacao(${s.id})">✕</button>
+    </div>`).join('') : '<div style="color:var(--text3);font-size:12px;">Nenhum saque registrado nesse dia.</div>';
+}
+function removerSaqueAplicacao(id){
+  if(!confirm('Remover esse saque? Ele deixa de contar no Saldo Acumulado.')) return;
+  fcAplicacaoSaques = fcAplicacaoSaques.filter(s=>s.id!==id);
+  localStorage.setItem('jambuzada_fc_aplicacao_saques', JSON.stringify(fcAplicacaoSaques));
+  renderSaquesDoAplicacaoPopup();
+  if(fcAplicacaoPopupContext){
+    el('fcAplicacaoPopupInfo').innerHTML = `${formatDateBR(fcAplicacaoPopupContext.data)} · já sacado ao todo: <b>${fmtBRL(totalSacadoAplicacao())}</b>`;
+  }
+  buildAndRenderTable();
+}
+// Sacar (total ou parcial) — o valor digitado vira um recebimento real na
+// data escolhida e passa a contar no Saldo Acumulado dali pra frente. O
+// valor da linha "Aplicações" naquele dia é descontado automaticamente.
+function confirmarSaquePopup(){
+  if(!fcAplicacaoPopupContext) return;
+  const { data } = fcAplicacaoPopupContext;
+  const valor = parseMoneyBR(el('fcAplicacaoPopupSaque').value);
+  if(!valor || valor<=0){ alert('Informe um valor válido pra sacar.'); return; }
+  if(!confirm(`Confirma o saque de ${fmtBRL(valor)} em ${formatDateBR(data)}? Esse valor passa a contar no Saldo Acumulado a partir dessa data.`)) return;
+
+  fcAplicacaoSaques.push({ id:Date.now(), data, valor });
+  localStorage.setItem('jambuzada_fc_aplicacao_saques', JSON.stringify(fcAplicacaoSaques));
+
+  const valorAplicadoAtual = aplicacaoValor(data);
+  fcAplicacoes[data] = Math.max(0, valorAplicadoAtual - valor);
+  localStorage.setItem('jambuzada_fc_aplicacoes', JSON.stringify(fcAplicacoes));
+
+  fecharAplicacaoPopup();
+  buildAndRenderTable();
+}
+
 function removerProgramacaoFornecedor(id){
   fcProgramacoesFornecedor=fcProgramacoesFornecedor.filter(p=>p.id!==id);
   localStorage.setItem('jambuzada_fc_programacoes_fornecedor',JSON.stringify(fcProgramacoesFornecedor));
@@ -2011,7 +2248,7 @@ function renderProgramacoesFornecedor(){
   const wrap=el('fcFornecedorProgramacoes'); if(!wrap) return;
   wrap.innerHTML=fcProgramacoesFornecedor.length?fcProgramacoesFornecedor.map(p=>`
     <div class="fc-sim-entry">
-      <span class="desc">${escapeHtml(p.fornecedor)} · ${p.dias} ${p.tipoDias==='corridos'?'dias do mês':'dias úteis'}</span>
+      <span class="desc">${escapeHtml(p.fornecedor)} · ${p.dias} ${p.tipoDias==='corridos'?'dias do mês':(p.tipoDias==='manual'?'parcela(s)':'dias úteis')}</span>
       <span class="data">${formatDateBR(p.inicio)}</span>
       <span class="valor" style="color:var(--red)">${fmtBRL(-p.valor)}</span>
       <button class="del" onclick="removerProgramacaoFornecedor(${p.id})">✕</button>
