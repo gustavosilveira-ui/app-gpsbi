@@ -1628,6 +1628,12 @@ function renderTable(){
             const dataVisual = dataVisualTituloAberto_(r);
             return (dataVisual>=c.start && dataVisual<=c.end) ? s+r.valor : s;
           },0);
+        } else if(rNode.label === CATEGORIA_CHEQUE_TERCEIROS){
+          // Mesmo tratamento do Títulos em Aberto: a linha é só pra
+          // visibilidade (nunca conta no saldo/totais via contaNoTotal_),
+          // mas precisa continuar mostrando os próprios valores dela —
+          // sem esse desvio, a célula ficava sempre zerada.
+          val = sumInRange(rNode.filter, c.start, c.end);
         } else {
           val = sumInRange(r => rNode.filter(r) && contaNoTotal_(r), c.start, c.end);
         }
@@ -1773,7 +1779,7 @@ async function openFluxoFicha(rowId, colId){
   // linhas que contam pra Saldo/totais (exclui Cheque Terceiros e Títulos em Aberto);
   // detailRows continua com tudo, porque a lista de lançamentos abaixo deve mostrar
   // esses lançamentos também — só não devem inflar o total nem o "por empresa".
-  const rowsParaTotal = rNode.label === CATEGORIA_TITULOS_ABERTO ? detailRows : detailRows.filter(contaNoTotal_);
+  const rowsParaTotal = (rNode.label === CATEGORIA_TITULOS_ABERTO || rNode.label === CATEGORIA_CHEQUE_TERCEIROS) ? detailRows : detailRows.filter(contaNoTotal_);
   const total = rowsParaTotal.reduce((s,r)=>s+r.valor,0);
   const porEmpresa = {};
   rowsParaTotal.forEach(r=>{
