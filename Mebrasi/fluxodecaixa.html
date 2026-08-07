@@ -1596,7 +1596,7 @@ function renderTable(){
         const cellCls = 'fc-aplicacao-cell' + (c.isToday?' fc-today':'') + (editavel?' fc-aplicacao-editavel':'');
         const onClick = editavel ? ` onclick="abrirAplicacaoPopup('${selectedEmpresa}','${c.start}')"` : '';
         const title = editavel ? ' title="Clique pra digitar o valor da aplicação desse dia"' : (selectedEmpresa ? '' : ' title="Selecione uma empresa pra poder digitar o valor"');
-        tbody += `<td class="${cellCls}"${onClick}${title}>${fmtBRLCompacto(val)}</td>`;
+        tbody += `<td class="${cellCls}"${onClick}${title}>${fmtBRL(val)}</td>`;
       } else {
         if(rNode.label === CATEGORIA_TITULOS_ABERTO){
           val = rows.reduce((s,r)=>{
