@@ -1201,7 +1201,7 @@ function buildRowTree(){
   const ajustesCats = Array.from(catsByGrupo['AJUSTES_MANUAIS']||[]).sort((a,b)=>a.localeCompare(b,'pt-BR'));
   if(ajustesCats.length){
     nodes.push({
-      type:'ajustes', level:0, label:'LANÇAMENTOS MANUAIS (GPS)', filter:r=>r.grupo==='AJUSTES_MANUAIS', expanded:false,
+      type:'ajustes', level:0, label:'Lançamentos Manuais (Gpsbi)', filter:r=>r.grupo==='AJUSTES_MANUAIS', expanded:false,
       children: ajustesCats.map(c=>({ type:'cat', level:2, label:c, filter:isCategoria(c), expanded:false, children:[] }))
     });
   }
@@ -1577,7 +1577,7 @@ async function loadAjustesManuais(){
   rows = rows.filter(r=>r.grupo!=='AJUSTES_MANUAIS'); // evita duplicar se recarregar
   ajustesManuais.forEach(a=>{
     if(a.data > HISTORICO_CUTOFF){
-      rows.push({ date:a.data, categoria: a.descricao || 'Lançamento manual', grupo:'AJUSTES_MANUAIS', valor:a.valor, conta:'Lançamentos manuais', fonte:'Manual' });
+      rows.push({ date:a.data, categoria: a.descricao || 'Lançamento manual', grupo:'AJUSTES_MANUAIS', valor:a.valor, conta:'Lançamentos manuais', fonte:'Manual', ajusteManualId:a.id });
     }
   });
   rows.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
@@ -1868,7 +1868,11 @@ function fimSemana(d){ const x=inicioSemana(d); x.setDate(x.getDate()+6); return
 function fcExclusaoMatchesRow(ex, row){
   if(row.fonte==='Programação Fornecedor' || row.fonte==='Pronampe' || row.fonte==='Aplicacao') return false;
   if(ex.data !== row.date) return false;
-  const nomeNorm = normalizeTxt(row.nome || row.conta || '');
+  // Lançamentos Manuais não têm campo "nome" — o nome efetivo deles é a
+  // categoria (é isso que abrirTirarPopup usa como nome também). Sem esse
+  // fallback aqui, a exclusão nunca batia com o lançamento manual original,
+  // e ele ficava duplicado (original + rateio, ou original + data nova).
+  const nomeNorm = normalizeTxt(row.nome || row.categoria || row.conta || '');
   const exNorm = normalizeTxt(ex.nome || '');
   const mesmoNome = nomeNorm===exNorm || nomeNorm.includes(exNorm) || exNorm.includes(nomeNorm);
   const mesmoValor = Math.abs(Math.abs(Number(row.valor)||0) - Math.abs(ex.valor)) < 0.01;
@@ -2160,7 +2164,9 @@ function abrirTirarPopup(i){
   fcTirarPopupContext = {
     nome: r.nome || r.categoria || r.conta || 'Sem nome',
     data: r.date,
-    valor: Math.abs(Number(r.valor)||0)
+    valor: Math.abs(Number(r.valor)||0),
+    ajusteManualId: r.ajusteManualId || null,
+    sinalOriginal: (Number(r.valor)||0) < 0 ? -1 : 1
   };
   el('fcTirarPopupInfo').innerHTML = `${escapeFichaHtml(fcTirarPopupContext.nome)} · ${formatDateBR(fcTirarPopupContext.data)} · ${fmtBRL(-fcTirarPopupContext.valor)}`;
   el('fcTirarPopupNovaData').value = '';
@@ -2259,6 +2265,15 @@ function removerParcelaRateioPopup(i){
 function confirmarRateioNaFicha(){
   if(!fcTirarPopupContext || !fcRateioPopupParcelas || !fcRateioPopupParcelas.length){ alert('Adicione ao menos uma parcela.'); return; }
   if(fcRateioPopupParcelas.some(p=>!p.data || !p.valor)){ alert('Preencha data e valor de todas as parcelas.'); return; }
+
+  // Lançamento Manual: continua sendo Lançamento Manual — rateado em várias
+  // linhas, uma por parcela — em vez de virar uma "Programação Fornecedor"
+  // separada (que é só pra fornecedor/pagamento real).
+  if(fcTirarPopupContext.ajusteManualId){
+    confirmarRateioManualNaFicha();
+    return;
+  }
+
   const { nome, data, valor } = fcTirarPopupContext;
 
   fcExclusoes.push({ nome, data, valor:-Math.abs(valor), criadoEm:Date.now(), novaData:null, motivo:'Substituído por rateio' });
@@ -2273,6 +2288,31 @@ function confirmarRateioNaFicha(){
   fcRateioPopupParcelas = null;
   fecharTirarPopup();
   closeFluxoFicha();
+  buildAndRenderTable();
+}
+// Deleta o Lançamento Manual original e cria uma linha nova pra cada
+// parcela, todas como Lançamento Manual de verdade (mesma descrição,
+// mesmo sinal do valor original) — mexe direto na base do Supabase.
+async function confirmarRateioManualNaFicha(){
+  const { nome, ajusteManualId, sinalOriginal } = fcTirarPopupContext;
+  const sinal = sinalOriginal || 1;
+  const parcelas = fcRateioPopupParcelas;
+
+  const { error: errorDel } = await sb.from('jambuzada_fluxo_ajustes_manuais').delete().eq('id', ajusteManualId);
+  if(errorDel){ alert('Erro ao ratear: '+errorDel.message); return; }
+
+  for(const p of parcelas){
+    const valorParcela = Math.abs(Number(p.valor)||0) * sinal;
+    const { error } = await sb.from('jambuzada_fluxo_ajustes_manuais').insert({
+      data:p.data, descricao: withClientMarker(nome), valor:valorParcela, criado_por: nameFromEmail(currentUser.email)
+    });
+    if(error) alert('Erro ao criar uma das parcelas: '+error.message);
+  }
+
+  fcRateioPopupParcelas = null;
+  fecharTirarPopup();
+  closeFluxoFicha();
+  await loadAjustesManuais();
   buildAndRenderTable();
 }
 
