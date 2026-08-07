@@ -720,6 +720,12 @@ const VALIDACAO_BATER_COM_BASE = true;
 //   validação (VALIDACAO_BATER_COM_BASE=true → conta, pra bater com a base crua).
 function contaNoTotal_(r){
   if(r.categoria === CATEGORIA_TITULOS_ABERTO) return false;
+  // Recebimento por Cheque de Terceiros é apenas informativo: não representa
+  // entrada nas contas bancárias conciliadas. Ele já fica fora do total de
+  // RECEBIMENTOS e também precisa ficar fora do SALDO ACUMULADO; caso
+  // contrário o saldo cresce por um valor que não aparece na movimentação
+  // do dia (ex.: R$ 61.609,50 em 07/08/2026).
+  if(r.categoria === CATEGORIA_CHEQUE_TERCEIROS) return false;
   if(r.contaNoSaldo === false) return VALIDACAO_BATER_COM_BASE;
   return true;
 }
