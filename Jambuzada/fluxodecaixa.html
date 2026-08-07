@@ -31,6 +31,7 @@ html.light .fc-lvl-0 td{background:#eef1f6;}
 .fc-aplicacao-cell{color:var(--text2);}
 .fc-aplicacao-editavel{cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;}
 .fc-aplicacao-editavel:hover{background:rgba(90,140,255,.10);}
+.fc-titulos-aberto-cell{color:var(--text2);}
 .fc-saldo-neg{color:var(--red);font-weight:800;background:rgba(239,106,106,.08);}
 .fc-limite-alert{position:relative;overflow:visible;}
 .fc-limit-head{position:relative;display:inline-flex;align-items:center;justify-content:center;}
@@ -266,6 +267,36 @@ html.light .fc-day-num{color:#1f2a3d;}
           </div>
           <button class="btn btn-primary btn-sm" style="width:100%;" onclick="confirmarSaquePopup()">Confirmar saque</button>
           <div id="fcAplicacaoPopupSaquesLista" style="margin-top:10px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: lista de Títulos em Aberto -->
+    <div class="modal-overlay" id="fcTitulosAbertoModal">
+      <div class="modal-box" style="width:640px;max-width:96vw;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+          <div>
+            <div class="modal-title">📋 Títulos em Aberto</div>
+            <div class="modal-sub">Recebimentos e pagamentos com Situação "Atrasado" — não contam em nenhum total até você colocar de volta no fluxo.</div>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="fecharTitulosAbertoModal()">Fechar</button>
+        </div>
+        <div id="fcTitulosAbertoLista" style="max-height:60vh;overflow-y:auto;"></div>
+      </div>
+    </div>
+
+    <!-- Popup discreto: escolher a data pra colocar um título de volta no fluxo -->
+    <div class="modal-overlay" id="fcColocarNoFluxoPopup" style="z-index:320;">
+      <div class="modal-box" style="width:380px;">
+        <div class="modal-title">↩️ Colocar no fluxo</div>
+        <div class="modal-sub" id="fcColocarNoFluxoInfo"></div>
+        <div class="field-group">
+          <label class="field-label">Data em que isso deve entrar no fluxo</label>
+          <input type="date" id="fcColocarNoFluxoData">
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost btn-sm" onclick="fecharColocarNoFluxoPopup()">Cancelar</button>
+          <button class="btn btn-primary btn-sm" onclick="confirmarColocarNoFluxo()">Confirmar</button>
         </div>
       </div>
     </div>
@@ -621,6 +652,7 @@ const GRUPOS_PAGAMENTO = [
 ];
 
 let rows = []; // { date, categoria, grupo, valor }
+let rowsAtrasados = []; // Situação "Atrasado" — não contam em nenhum total; ficam disponíveis na linha "Títulos em Aberto" até o usuário colocar de volta no fluxo.
 // Cópia intocada de `rows` logo após o carregamento da planilha — nunca é
 // filtrada/mutada. As simulações (Programação de Fornecedor, Tirar/Alterar
 // do Fluxo) sempre recomeçam a partir dela, pra não perder lançamentos
@@ -791,7 +823,20 @@ function rowsFromGvizTable(table, contaLabel){
     if(duplicataDescontada) grupo = 'DUPLICATAS_DESCONTADAS';
 
     const situacao = (getColNormalized(r, 'situacao')||'').toString().trim();
-    if(normalizeTxt(situacao)==='atrasado'){ debugAtrasadoExcluidos++; return null; } // recebimento ou pagamento em atraso, não é caixa realizado
+    if(normalizeTxt(situacao)==='atrasado'){
+      // Não vira caixa realizado, mas fica disponível pra linha "Títulos em
+      // Aberto" — o usuário pode colocar de volta no fluxo manualmente,
+      // com a categoria original e a data que ele escolher.
+      debugAtrasadoExcluidos++;
+      const nomeAtr = (getColNormalized(r,'cliente ou fornecedor')||'').toString().trim();
+      const documentoAtr = (getColNormalized(r,'documento')||getColNormalized(r,'nosso numero')||'').toString().trim();
+      rowsAtrasados.push({
+        chave: [documentoAtr, nomeAtr, valor.toFixed(2), date].join('||'),
+        date, categoria: categoriaFinal||'Sem categoria', grupo, valor,
+        nome: nomeAtr, documento: documentoAtr
+      });
+      return null;
+    }
 
     const contaCorrente = (getColNormalized(r, 'conta corrente')||contaLabel||'Conta não informada').toString().trim();
     const documento = (
@@ -843,6 +888,7 @@ async function init(){
 async function loadData(){
   try{
     await loadBoletosDescontados();
+    rowsAtrasados = []; // reseta antes de reprocessar as abas, senão duplica a cada reload
 
     const tablePrincipal = await fetchGviz(GID_MOVIMENTACAO);
     rows = rowsFromGvizTable(tablePrincipal, 'Principal');
@@ -1136,6 +1182,7 @@ function buildRowTree(){
   const nodes = [
     { type:'saldo', level:0, label:'SALDO ACUMULADO', special:'saldo', expanded:false, children:[] },
     { type:'aplicacoes', level:0, label:'APLICAÇÕES', special:'aplicacoes', expanded:false, children:[] },
+    { type:'titulosaberto', level:0, label:'TÍTULOS EM ABERTO', special:'titulosaberto', expanded:false, children:[] },
     recebimentosNode,
     pagamentosNode,
   ];
@@ -1244,6 +1291,13 @@ function renderTable(){
         const cellCls = 'fc-aplicacao-cell' + (c.isToday?' fc-today':'') + (editavelCel?' fc-aplicacao-editavel':'');
         const onClick = editavelCel ? ` onclick="abrirAplicacaoPopup('${c.start}')"` : '';
         const title = editavelCel ? ' title="Clique pra digitar o valor da aplicação desse dia"' : '';
+        tbody += `<td class="${cellCls}"${onClick}${title}>${fmtBRLCompacto(val)}</td>`;
+      } else if(rNode.special==='titulosaberto'){
+        val = sumTitulosAbertoRange(c.start, c.end);
+        const clickableTA = Math.round(val)!==0;
+        const cellCls = 'fc-titulos-aberto-cell' + (c.isToday?' fc-today':'') + (clickableTA?' fc-aplicacao-editavel':'');
+        const onClick = clickableTA ? ` onclick="abrirTitulosAbertoPopup()"` : '';
+        const title = clickableTA ? ' title="Clique pra ver os títulos em aberto e colocar de volta no fluxo"' : '';
         tbody += `<td class="${cellCls}"${onClick}${title}>${fmtBRLCompacto(val)}</td>`;
       } else {
         const histVal = histSumForNode(rNode, c.start, c.end);
@@ -1355,6 +1409,8 @@ function closeFluxoFicha(){ el('fluxoFichaModal').classList.remove('show'); }
 el('fluxoFichaModal').addEventListener('click', e=>{ if(e.target.id==='fluxoFichaModal') closeFluxoFicha(); });
 el('fcTirarPopup').addEventListener('click', e=>{ if(e.target.id==='fcTirarPopup') fecharTirarPopup(); });
 el('fcAplicacaoPopup')?.addEventListener('click', e=>{ if(e.target.id==='fcAplicacaoPopup') fecharAplicacaoPopup(); });
+el('fcTitulosAbertoModal')?.addEventListener('click', e=>{ if(e.target.id==='fcTitulosAbertoModal') fecharTitulosAbertoModal(); });
+el('fcColocarNoFluxoPopup')?.addEventListener('click', e=>{ if(e.target.id==='fcColocarNoFluxoPopup') fecharColocarNoFluxoPopup(); });
 
 function scrollToToday(){
   const todayTh = document.querySelector('.fc-table th.fc-today');
@@ -1756,6 +1812,21 @@ let fcPronampe = JSON.parse(localStorage.getItem('jambuzada_fc_pronampe')||'{"di
    a contar no Saldo Acumulado a partir dali (igual um Lançamento Manual). */
 let fcAplicacoes = JSON.parse(localStorage.getItem('jambuzada_fc_aplicacoes')||'{}'); // fcAplicacoes[data] = valor
 let fcAplicacaoSaques = JSON.parse(localStorage.getItem('jambuzada_fc_aplicacao_saques')||'[]'); // [{id,data,valor}]
+/* ================== NOVO: Títulos em Aberto (Situação "Atrasado") ==================
+   Nunca contam em nenhum total (Saldo Acumulado, Recebimentos/Pagamentos).
+   Ficam numa linha própria, sempre exibidos em "hoje". O usuário pode
+   colocar um título de volta no fluxo: vira um lançamento real, com a
+   categoria original e a data que ele escolher. */
+let fcTitulosResolvidos = JSON.parse(localStorage.getItem('jambuzada_fc_titulos_resolvidos')||'{}'); // { chave: dataEscolhida }
+function titulosAbertoPendentes(){
+  return rowsAtrasados.filter(r=>!(r.chave in fcTitulosResolvidos));
+}
+function sumTitulosAbertoRange(start,end){
+  // Sempre exibidos em "hoje" — só soma se a coluna cobrir hoje.
+  const hoje = todayISO();
+  if(hoje<start || hoje>end) return 0;
+  return titulosAbertoPendentes().reduce((s,r)=>s+r.valor,0);
+}
 function aplicacaoValor(data){ return fcAplicacoes[data] || 0; }
 function sumAplicacoesRange(start,end){
   let total=0;
@@ -1868,6 +1939,15 @@ function injetarProgramacoesFornecedor(){
   // só os saques de fato.
   fcAplicacaoSaques.forEach(s=>{
     rows.push({date:s.data,categoria:'Saque de Aplicação',grupo:'RECEBIMENTOS',valor:Math.abs(s.valor),conta:'Aplicações',fonte:'Aplicacao',nome:'Saque de Aplicação'});
+  });
+
+  // Títulos em Aberto que o usuário já colocou de volta no fluxo — cada um
+  // vira um lançamento real na data escolhida, com a categoria original.
+  Object.keys(fcTitulosResolvidos).forEach(chave=>{
+    const original = rowsAtrasados.find(r=>r.chave===chave);
+    if(!original) return;
+    const dataEscolhida = fcTitulosResolvidos[chave] || original.date;
+    rows.push({date:dataEscolhida, categoria:original.categoria, grupo:original.grupo, valor:original.valor, conta:'Título em Aberto', fonte:'Título Resolvido', nome:original.nome, documento:original.documento});
   });
 
   rows.sort((a,b)=>a.date.localeCompare(b.date));
@@ -2293,6 +2373,48 @@ function renderNecessidadeCaixa(){
   wrap.innerHTML = necessidade > 0
     ? `Saldo informado: <b>${fmtBRL(salvo.valor)}</b> · Pagamentos de hoje: <b>${fmtBRL(pagamentosHoje)}</b> · <span style="color:var(--red)">Falta ${fmtBRL(necessidade)}</span> (sem contar recebimentos previstos de hoje)`
     : `Saldo informado: <b>${fmtBRL(salvo.valor)}</b> · Pagamentos de hoje: <b>${fmtBRL(pagamentosHoje)}</b> · <span style="color:var(--green)">Sobra ${fmtBRL(-necessidade)}</span>`;
+}
+
+/* ---------- Títulos em Aberto: modal de lista + colocar de volta no fluxo ---------- */
+function abrirTitulosAbertoPopup(){
+  renderTitulosAbertoLista();
+  el('fcTitulosAbertoModal').classList.add('show');
+}
+function fecharTitulosAbertoModal(){
+  el('fcTitulosAbertoModal').classList.remove('show');
+}
+function renderTitulosAbertoLista(){
+  const wrap = el('fcTitulosAbertoLista'); if(!wrap) return;
+  const pendentes = titulosAbertoPendentes().slice().sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+  wrap.innerHTML = pendentes.length ? pendentes.map(r=>`
+    <div class="fc-sim-entry" style="gap:10px;">
+      <span class="desc">${escapeHtml(r.nome||'Sem nome')} · ${escapeHtml(r.categoria)} · vencido em ${formatDateBR(r.date)}</span>
+      <span class="valor" style="color:${r.valor>=0?'var(--green)':'var(--red)'}">${fmtBRL(r.valor)}</span>
+      <button class="btn btn-primary btn-sm" onclick="abrirColocarNoFluxoPopup('${r.chave.replace(/'/g,"\\'")}')">Colocar no fluxo</button>
+    </div>`).join('') : '<div style="color:var(--text3);font-size:12.5px;">Nenhum título em aberto pendente.</div>';
+}
+let fcColocarNoFluxoChave = null;
+function abrirColocarNoFluxoPopup(chave){
+  const r = rowsAtrasados.find(x=>x.chave===chave);
+  if(!r) return;
+  fcColocarNoFluxoChave = chave;
+  el('fcColocarNoFluxoInfo').innerHTML = `${escapeHtml(r.nome||'Sem nome')} · ${escapeHtml(r.categoria)} · ${fmtBRL(r.valor)} <br>Vencimento original: ${formatDateBR(r.date)}`;
+  el('fcColocarNoFluxoData').value = todayISO();
+  el('fcColocarNoFluxoPopup').classList.add('show');
+}
+function fecharColocarNoFluxoPopup(){
+  el('fcColocarNoFluxoPopup').classList.remove('show');
+  fcColocarNoFluxoChave = null;
+}
+function confirmarColocarNoFluxo(){
+  if(!fcColocarNoFluxoChave) return;
+  const data = el('fcColocarNoFluxoData').value;
+  if(!data){ alert('Escolha a data em que isso deve entrar no fluxo.'); return; }
+  fcTitulosResolvidos[fcColocarNoFluxoChave] = data;
+  localStorage.setItem('jambuzada_fc_titulos_resolvidos', JSON.stringify(fcTitulosResolvidos));
+  fecharColocarNoFluxoPopup();
+  renderTitulosAbertoLista();
+  buildAndRenderTable();
 }
 
 const buildAndRenderTableOriginal = buildAndRenderTable;
