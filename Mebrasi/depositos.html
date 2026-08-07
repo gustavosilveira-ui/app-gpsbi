@@ -573,12 +573,9 @@ function mesSeguinte(ano, mes){
   return { ano:String(d.getFullYear()), mes:String(d.getMonth()+1).padStart(2,'0') };
 }
 
-// Teto do Farol — Sr. Roberto pediu (29/07/2026, confirmado "Exato"): Ryngavi e
-// Multicopos passam de R$450.000 pra R$400.000, a partir de 31/07/2026. Gymis e
-// Especial não mudam.
+// Teto vigente do Farol para Ryngavi e Multicopos.
 function tetoFarol(empresa){
-  const hojeIso = new Date().toISOString().slice(0,10);
-  if((empresa==='Ryngavi' || empresa==='Multicopos') && hojeIso>='2026-07-31') return 400000;
+  if(empresa==='Ryngavi' || empresa==='Multicopos') return 400000;
   return 450000;
 }
 // Mesma escala usada no texto executivo do WhatsApp.
@@ -649,10 +646,24 @@ function indicadoresEmpresa(empresa){
   return { nf, fidelidade, total, pendente, totalFarol, pendenteM1, chqTerc, pctPend, pctPendM1 };
 }
 
+// Ryngavi fica limitada a R$ 400 mil no Farol. O excedente é somado
+// ao Total Farol da Multicopos, sem alterar os indicadores contábeis de origem.
+function aplicarExcedenteRyngaviNoFarol(dados){
+  const ryngavi = dados.Ryngavi;
+  const multicopos = dados.Multicopos;
+  if(!ryngavi || !multicopos) return;
+  const excedente = Math.max(0, ryngavi.totalFarol - 400000);
+  ryngavi.totalFarol -= excedente;
+  multicopos.totalFarol += excedente;
+  ryngavi.pctPend = ryngavi.totalFarol / tetoFarol('Ryngavi');
+  multicopos.pctPend = multicopos.totalFarol / tetoFarol('Multicopos');
+}
+
 function renderTabelaIndicadores(){
   const empresas = EMPRESAS_ROBERTO.map(k=>EMPRESA_LABEL[k]).concat(['Online']);
   const dados = {};
   EMPRESAS_ROBERTO.forEach(k=>{ dados[EMPRESA_LABEL[k]] = indicadoresEmpresa(EMPRESA_LABEL[k]); });
+  aplicarExcedenteRyngaviNoFarol(dados);
   // Online só entra na linha "Total" (com o faturamento real dele) — as
   // demais linhas (NF/F/Pend/Cheque/Pend M+1) não fazem sentido pro
   // Online (não usa Situação NF, não tem pendente/cheque terceiros).
