@@ -465,7 +465,7 @@ table.tabela-simples tr.linha-total td{font-weight:800;border-top:2px solid var(
       </div>
       <div class="chart-box" id="farolCard">
         <div class="chart-title" id="farolTitulo">Farol de Limites</div>
-        <div class="chart-sub">Acompanhamento do faturamento frente ao teto de R$ 450 mil.</div>
+        <div class="chart-sub">Acompanhamento do faturamento frente ao teto de R$ 400 mil.</div>
         <div class="chart-canvas-wrap"><canvas id="chartFarol"></canvas></div>
         <div id="farolResumo" class="farol-resumo"></div>
         <div id="farolAlerta" class="farol-alerta"></div>
@@ -1225,13 +1225,16 @@ function renderChartSemanal(){
 }
 
 function renderChartFarol(){
-  const teto=450000;
+  const teto=400000;
   // Gymis não tem farol de limite (decisão de 20/07/2026) — só
   // Ryngavi/Multicopos, e usando o Total Farol certo (NF Ajustada +
   // Fidelidade + Pendente), não o faturamento bruto.
   const empresas=['Ryngavi','Multicopos'];
-  const totais={};
-  empresas.forEach(emp=>{ totais[emp] = dadosFarolEmpresa(emp).totalFarol; });
+  const dadosAjustados = dadosFarolRyngaviMulticopos();
+  const totais={
+    Ryngavi:dadosAjustados.Ryngavi.totalFarol,
+    Multicopos:dadosAjustados.Multicopos.totalFarol
+  };
   function status(valor){
     const p=valor/teto;
     if(p<=.90) return {icone:'🟡',cor:'#C9871F',txt:'Atenção'};
@@ -1768,11 +1771,9 @@ function ehSituacaoNfValida(item){
   const s = normalizeTxt(item.situacao);
   return s === 'faturado' || s === 'faturado (nf)';
 }
-// Teto do Farol — Sr. Roberto pediu (29/07/2026, confirmado "Exato"): Ryngavi e
-// Multicopos passam de R$450.000 pra R$400.000, a partir de 31/07/2026. Gymis e
-// Especial não mudam.
+// Teto vigente do Farol para Ryngavi e Multicopos.
 function tetoFarol(empresa){
-  if((empresa==='Ryngavi' || empresa==='Multicopos') && HOJE_ISO>='2026-07-31') return 400000;
+  if(empresa==='Ryngavi' || empresa==='Multicopos') return 400000;
   return 450000;
 }
 
@@ -1831,6 +1832,17 @@ function dadosFarolEmpresa(empresa){
 
   const totalFarol = nfAjustada + fidelidade + pendente;
   return { faturamentoBruto, fidelidade, nfAjustada, pendente, totalFarol };
+}
+
+// Regra comercial vigente: Ryngavi fica limitada a R$ 400 mil no Farol;
+// tudo que ultrapassar esse valor é transferido para o Farol da Multicopos.
+function dadosFarolRyngaviMulticopos(){
+  const ryngavi = {...dadosFarolEmpresa('Ryngavi')};
+  const multicopos = {...dadosFarolEmpresa('Multicopos')};
+  const excedenteRyngavi = Math.max(0, ryngavi.totalFarol - 400000);
+  ryngavi.totalFarol -= excedenteRyngavi;
+  multicopos.totalFarol += excedenteRyngavi;
+  return { Ryngavi:ryngavi, Multicopos:multicopos, excedenteRyngavi };
 }
 
 
@@ -1908,8 +1920,9 @@ function gerarAnaliseTexto(){
 
   // Farol de cada empresa física (NF Ajustada + Fidelidade + Pendente).
   const farolGymis = dadosFarolEmpresa('Gymis');
-  const farolRyngavi = dadosFarolEmpresa('Ryngavi');
-  const farolMulticopos = dadosFarolEmpresa('Multicopos');
+  const farolAjustado = dadosFarolRyngaviMulticopos();
+  const farolRyngavi = farolAjustado.Ryngavi;
+  const farolMulticopos = farolAjustado.Multicopos;
   const farolEspecial = dadosFarolEmpresa('Especial'); // Pendente dela vai na linha "Esp:" dentro da Gymis
 
   // Gymis: o "F:" dela mostra o faturamento TOTAL da Especial (não é bug
