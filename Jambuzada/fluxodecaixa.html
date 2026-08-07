@@ -2395,15 +2395,37 @@ function fecharTitulosAbertoModal(){
 }
 function renderTitulosAbertoLista(){
   const wrap = el('fcTitulosAbertoLista'); if(!wrap) return;
-  const pendentes = titulosAbertoPendentes()
-    .filter(r=> fcTitulosAbertoTipoAtual==='receber' ? r.valor>=0 : r.valor<0)
-    .slice().sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
-  wrap.innerHTML = pendentes.length ? pendentes.map(r=>`
+  const doTipo = r => fcTitulosAbertoTipoAtual==='receber' ? r.valor>=0 : r.valor<0;
+  // Mais atual pra mais antigo, sempre.
+  const ordenar = arr => arr.slice().sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0);
+
+  const pendentes = ordenar(titulosAbertoPendentes().filter(doTipo));
+  const jaNoFluxo = ordenar(rowsAtrasados.filter(r=>doTipo(r) && (r.chave in fcTitulosResolvidos)));
+
+  const htmlPendentes = pendentes.length ? pendentes.map(r=>`
     <div class="fc-sim-entry" style="gap:10px;">
       <span class="desc">${escapeHtml(r.nome||'Sem nome')} · ${escapeHtml(r.categoria)} · vencido em ${formatDateBR(r.date)}</span>
       <span class="valor" style="color:${r.valor>=0?'var(--green)':'var(--red)'}">${fmtBRL(r.valor)}</span>
       <button class="btn btn-primary btn-sm" onclick="abrirColocarNoFluxoPopup('${r.chave.replace(/'/g,"\\'")}')">Colocar no fluxo</button>
     </div>`).join('') : '<div style="color:var(--text3);font-size:12.5px;">Nenhum título em aberto pendente.</div>';
+
+  const htmlJaNoFluxo = jaNoFluxo.length ? jaNoFluxo.map(r=>`
+    <div class="fc-sim-entry" style="gap:10px;">
+      <span class="desc">${escapeHtml(r.nome||'Sem nome')} · ${escapeHtml(r.categoria)} · no fluxo em ${formatDateBR(fcTitulosResolvidos[r.chave])} (vencia em ${formatDateBR(r.date)})</span>
+      <span class="valor" style="color:var(--text3);">${fmtBRL(r.valor)}</span>
+      <button class="btn btn-ghost btn-sm" onclick="voltarParaEmAberto('${r.chave.replace(/'/g,"\\'")}')">Voltar pra Em Aberto</button>
+    </div>`).join('') : '';
+
+  wrap.innerHTML = htmlPendentes + (jaNoFluxo.length ? `
+    <div style="margin-top:16px;padding-top:10px;border-top:1px solid var(--border);font-weight:700;font-size:12.5px;color:var(--text2);">Já colocados no fluxo</div>
+    ${htmlJaNoFluxo}` : '');
+}
+function voltarParaEmAberto(chave){
+  if(!confirm('Voltar esse título pra "Em Aberto"? Ele sai do fluxo e volta a não contar em nenhum total, até você colocar de novo.')) return;
+  delete fcTitulosResolvidos[chave];
+  localStorage.setItem('jambuzada_fc_titulos_resolvidos', JSON.stringify(fcTitulosResolvidos));
+  renderTitulosAbertoLista();
+  buildAndRenderTable();
 }
 let fcColocarNoFluxoChave = null;
 function abrirColocarNoFluxoPopup(chave){
