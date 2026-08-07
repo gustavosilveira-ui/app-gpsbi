@@ -1040,8 +1040,12 @@ function runningBalance(uptoDate){
   }
   return s;
 }
-const isRecebimento = r => r.grupo==='RECEBIMENTOS';
-const isPagamento = r => r.grupo!=='RECEBIMENTOS' && r.grupo!=='DUPLICATAS_DESCONTADAS' && r.grupo!=='AJUSTES_MANUAIS';
+// Lançamentos Manuais (AJUSTES_MANUAIS) entram de verdade no Saldo
+// Acumulado, e por isso também precisam contar no total de Recebimentos ou
+// Pagamentos (conforme o sinal do valor) e na Necessidade de Caixa Hoje —
+// senão o saldo mexe mas os resumos não batem com ele.
+const isRecebimento = r => r.grupo==='RECEBIMENTOS' || (r.grupo==='AJUSTES_MANUAIS' && r.valor>=0);
+const isPagamento = r => (r.grupo!=='RECEBIMENTOS' && r.grupo!=='DUPLICATAS_DESCONTADAS' && r.grupo!=='AJUSTES_MANUAIS') || (r.grupo==='AJUSTES_MANUAIS' && r.valor<0);
 const isDuplicataDescontada = r => r.grupo==='DUPLICATAS_DESCONTADAS';
 
 /* ---- Análise do Fluxo de Caixa pronta pra WhatsApp (só GPS) ---- */
