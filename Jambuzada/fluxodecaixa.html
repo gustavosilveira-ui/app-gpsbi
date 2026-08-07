@@ -1386,11 +1386,16 @@ function openFluxoFicha(rowId,colId){
     const pct = total ? Math.abs(r.valor)/Math.abs(total)*100 : 0;
     const nome = r.nome || r.historico || r.categoria || 'Sem nome';
     const doc = r.documento || r.fonte || '';
-    // Programação Fornecedor / Pronampe já são simulações — não faz sentido
-    // abrir o popup de tirar/alterar em cima delas.
-    const editavel = r.fonte!=='Programação Fornecedor' && r.fonte!=='Pronampe' && r.fonte!=='Aplicacao' && !r._historico;
+    // Programação Fornecedor pode ser removida direto daqui (o rateio
+    // inteiro). Pronampe/Aplicação já são simulações, sem ação de clique.
+    const editavel = r.fonte!=='Pronampe' && r.fonte!=='Aplicacao' && !r._historico;
+    const ehRateio = r.fonte==='Programação Fornecedor';
     const valorCls = 'valor-modal' + (editavel ? ' fc-valor-clicavel' : '');
-    const valorAttrs = editavel ? ` onclick="abrirTirarPopup(${i})" title="Clique pra tirar ou mudar a data desse lançamento"` : '';
+    const valorAttrs = editavel
+      ? (ehRateio
+          ? ` onclick="removerRateioDaFicha(${i})" title="Clique pra remover esse rateio inteiro do fluxo"`
+          : ` onclick="abrirTirarPopup(${i})" title="Clique pra tirar ou mudar a data desse lançamento"`)
+      : '';
     return `<tr>
       <td>${formatDateBR(r.date)}</td>
       <td>${escapeFichaHtml(r.conta||r.fonte||'Não informada')}</td>
@@ -1935,7 +1940,8 @@ function injetarProgramacoesFornecedor(){
       conta:p.fornecedor,
       fonte:'Programação Fornecedor',
       nome:p.fornecedor,
-      documento:'Rateio GPS'
+      documento:'Rateio GPS',
+      programacaoId:p.id
     });
   }));
 
@@ -2131,6 +2137,20 @@ function renderExclusoes(){
   }).join(''):'<div style="color:var(--text3);font-size:12.5px;">Nenhum lançamento removido ou alterado no fluxo.</div>';
 }
 
+// Remove o rateio inteiro (todas as parcelas de uma vez) direto da Ficha —
+// diferente do Tirar/Alterar normal, já que aqui as parcelas fazem parte de
+// uma "Programação de Pagamentos por Fornecedor" só, não lançamentos soltos.
+function removerRateioDaFicha(i){
+  if(!fcFichaLinhasAtual) return;
+  const r = fcFichaLinhasAtual[i];
+  if(!r || !r.programacaoId) return;
+  const prog = fcProgramacoesFornecedor.find(p=>p.id===r.programacaoId);
+  const desc = prog ? `${prog.fornecedor} (${prog.parcelas.length} parcela(s), total ${fmtBRL(-Math.abs(prog.valor))})` : 'esse rateio';
+  if(!confirm(`Remover ${desc} do fluxo? Todas as parcelas desse rateio saem de uma vez — pra recriar, use "Ratear em várias datas" de novo.`)) return;
+  removerProgramacaoFornecedor(r.programacaoId);
+  closeFluxoFicha();
+}
+
 /* ---------- Popup discreto: tirar/alterar/ratear direto da Ficha ---------- */
 let fcTirarPopupContext = null; // { nome, data, valor }
 function abrirTirarPopup(i){
@@ -2223,7 +2243,12 @@ function ajustarParcelaRateioPopup(i, campo, valor){
 }
 function adicionarParcelaRateioPopup(){
   if(!fcRateioPopupParcelas || !fcTirarPopupContext) return;
-  fcRateioPopupParcelas.push({ data: fcTirarPopupContext.data, valor: 0 });
+  // Sugere o dia seguinte à última parcela (em vez de repetir a mesma data
+  // sempre) — evita o caso de esquecer de ajustar e todas ficarem empilhadas
+  // no mesmo dia sem querer.
+  const ultima = fcRateioPopupParcelas[fcRateioPopupParcelas.length-1];
+  const proximaData = ultima ? nextDateStr(ultima.data) : fcTirarPopupContext.data;
+  fcRateioPopupParcelas.push({ data: proximaData, valor: 0 });
   renderRateioPopup();
 }
 function removerParcelaRateioPopup(i){
