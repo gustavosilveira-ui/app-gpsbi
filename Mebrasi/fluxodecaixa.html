@@ -369,13 +369,13 @@ html.light .fc-day-num{color:#1f2a3d;}
       </div>
     </div>
 
-    <!-- Popup discreto: digitar/alterar o valor de Aplicações do dia -->
+    <!-- Popup discreto: digitar/alterar o valor de Aplicações do dia, e sacar -->
     <div class="modal-overlay" id="fcAplicacaoPopup" style="z-index:310;">
-      <div class="modal-box" style="width:360px;">
+      <div class="modal-box" style="width:380px;">
         <div class="modal-title">💰 Aplicações</div>
         <div class="modal-sub" id="fcAplicacaoPopupInfo"></div>
         <div class="field-group">
-          <label class="field-label">Valor da aplicação (R$)</label>
+          <label class="field-label">Valor aplicado nesse dia (R$)</label>
           <input type="text" inputmode="decimal" id="fcAplicacaoPopupValor" placeholder="Ex.: 15.000,00">
         </div>
         <div class="modal-actions" style="justify-content:space-between;">
@@ -384,6 +384,15 @@ html.light .fc-day-num{color:#1f2a3d;}
             <button class="btn btn-ghost btn-sm" onclick="fecharAplicacaoPopup()">Cancelar</button>
             <button class="btn btn-primary btn-sm" onclick="confirmarAplicacaoPopup()">Salvar</button>
           </div>
+        </div>
+        <div style="border-top:1px solid var(--border);margin:16px 0 12px;padding-top:12px;">
+          <div class="fc-mini-title" style="font-size:12.5px;">🏧 Sacar dessa aplicação</div>
+          <div class="fc-mini-sub" style="margin-bottom:8px;">Esse valor passa a contar no Saldo Acumulado a partir dessa data — pode ser o total ou um valor diferente.</div>
+          <div class="field-group">
+            <label class="field-label">Valor a sacar (R$)</label>
+            <input type="text" inputmode="decimal" id="fcAplicacaoPopupSaque" placeholder="Ex.: 15.000,00">
+          </div>
+          <button class="btn btn-primary btn-sm" style="width:100%;" onclick="confirmarSaquePopup()">Confirmar saque</button>
         </div>
       </div>
     </div>
@@ -1210,6 +1219,7 @@ async function loadData(){
     await loadSaldoInicial();
     await loadAjustesManuais(); // injeta os lançamentos manuais como movimentação real
     await loadAplicacoes();
+    await loadAplicacaoSaques(); // injeta os saques de aplicação como recebimento real
     loadLimiteConta();
     buildAndRenderTable();
     renderFcKpiStrip();
@@ -1307,9 +1317,6 @@ function runningBalanceEmpresa(empresa, uptoDate){
   for(const r of rowsEmp){
     if(r.date > override.data_referencia && r.date <= uptoDate) s += r.valor;
   }
-  // Soma o valor de Aplicações daquele dia por cima (retrato do que está
-  // aplicado naquela data, não uma soma acumulada — decisão do Gustavo).
-  s += aplicacaoValor(empresa, uptoDate);
   return s;
 }
 // Saldo Acumulado no escopo atual: uma empresa só, ou a soma das que
@@ -1998,11 +2005,15 @@ async function removeSaldoInicial(empresa){
 
 /* ================== NOVO: Aplicações (por empresa, editável célula a célula) ==================
    Linha isolada entre SALDO ACUMULADO e RECEBIMENTOS. Cada empresa tem seu
-   próprio valor por dia (é um retrato do que está aplicado naquele dia, não
-   uma soma que se acumula sozinha) — clicando na célula do dia (só quando
-   uma empresa específica está selecionada, nunca no Global) abre um popup
-   pra digitar/atualizar o valor. O Saldo Acumulado soma esse valor por
-   cima do cálculo normal (ver runningBalanceEmpresa). */
+   próprio valor por dia (é um retrato do que está aplicado naquele dia —
+   puramente informativo, NUNCA soma no Saldo Acumulado). Clicando na célula
+   do dia (só quando uma empresa específica está selecionada, nunca no
+   Global) abre um popup pra digitar/atualizar o valor daquele dia, e
+   também pra registrar um SAQUE — aí sim, o valor sacado entra como um
+   recebimento de verdade a partir daquela data (soma em rowsByEmpresa,
+   igual um Lançamento Manual, e passa a contar no Saldo Acumulado dali
+   pra frente através do fluxo normal do runningBalanceEmpresa). */
+const CATEGORIA_SAQUE_APLICACAO = 'Saque de Aplicação';
 let fcAplicacoes = {}; // fcAplicacoes[empresa][data] = valor
 async function loadAplicacoes(){
   const { data, error } = await sb.from('fluxo_aplicacoes').select('*');
@@ -2028,12 +2039,32 @@ function sumAplicacoesRange(empresa, start, end){
   });
   return total;
 }
+// Saques: cada um vira uma linha real de RECEBIMENTOS em rowsByEmpresa,
+// na data do saque — assim o Saldo Acumulado passa a contar com ele a
+// partir dali automaticamente, pelo mesmo mecanismo que já existe pros
+// Lançamentos Manuais.
+let aplicacaoSaques = [];
+async function loadAplicacaoSaques(){
+  const { data, error } = await sb.from('fluxo_aplicacoes_saques').select('*').order('data',{ascending:true});
+  aplicacaoSaques = (!error && data) ? data : [];
+  EMPRESAS.forEach(emp=>{ rowsByEmpresa[emp] = (rowsByEmpresa[emp]||[]).filter(r=>r.categoria!==CATEGORIA_SAQUE_APLICACAO); });
+  aplicacaoSaques.forEach(s=>{
+    if(!rowsByEmpresa[s.empresa]) rowsByEmpresa[s.empresa] = [];
+    rowsByEmpresa[s.empresa].push({ date:s.data, categoria:CATEGORIA_SAQUE_APLICACAO, grupo:'RECEBIMENTOS', valor:Math.abs(s.valor), empresa:s.empresa, fonte:'Aplicacao' });
+  });
+  EMPRESAS.forEach(emp=>{ (rowsByEmpresa[emp]||[]).sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0); });
+  rebuildRowsNoEscopo();
+}
+function totalSacadoEmpresa(empresa){
+  return aplicacaoSaques.filter(s=>s.empresa===empresa).reduce((s,x)=>s+Math.abs(x.valor),0);
+}
 let fcAplicacaoPopupContext = null; // { empresa, data }
 function abrirAplicacaoPopup(empresa, data){
   fcAplicacaoPopupContext = { empresa, data };
   const valorAtual = aplicacaoValor(empresa, data);
-  el('fcAplicacaoPopupInfo').innerHTML = `${escapeHtml(EMPRESA_LABEL[empresa]||empresa)} · ${formatDateBR(data)}`;
+  el('fcAplicacaoPopupInfo').innerHTML = `${escapeHtml(EMPRESA_LABEL[empresa]||empresa)} · ${formatDateBR(data)} · já sacado ao todo: <b>${fmtBRL(totalSacadoEmpresa(empresa))}</b>`;
   el('fcAplicacaoPopupValor').value = valorAtual ? valorAtual.toFixed(2).replace('.',',') : '';
+  el('fcAplicacaoPopupSaque').value = valorAtual ? valorAtual.toFixed(2).replace('.',',') : '';
   el('fcAplicacaoPopup').classList.add('show');
 }
 function fecharAplicacaoPopup(){
@@ -2063,6 +2094,22 @@ async function removerAplicacaoPopup(){
   if(fcAplicacoes[empresa]) delete fcAplicacoes[empresa][data];
   fecharAplicacaoPopup();
   renderTable();
+}
+// Sacar (total ou parcial) — o valor digitado vira um recebimento real na
+// data escolhida e passa a contar no Saldo Acumulado dali pra frente. Não
+// mexe no valor da linha "Aplicações" em si (que continua sendo só o
+// registro do que estava aplicado naquele dia).
+async function confirmarSaquePopup(){
+  if(!fcAplicacaoPopupContext) return;
+  const { empresa, data } = fcAplicacaoPopupContext;
+  const valor = parseMoneyBR(el('fcAplicacaoPopupSaque').value);
+  if(!valor || valor<=0){ alert('Informe um valor válido pra sacar.'); return; }
+  if(!confirm(`Confirma o saque de ${fmtBRL(valor)} em ${formatDateBR(data)} pra ${EMPRESA_LABEL[empresa]}? Esse valor passa a contar no Saldo Acumulado a partir dessa data.`)) return;
+  const { error } = await sb.from('fluxo_aplicacoes_saques').insert({ empresa, data, valor, criado_por: nameFromEmail(currentUser.email) });
+  if(error){ alert('Erro ao registrar o saque: '+error.message); return; }
+  await loadAplicacaoSaques();
+  fecharAplicacaoPopup();
+  buildAndRenderTable();
 }
 
 /* ================== NOVO: Lançamentos Manuais (por empresa) ================== */
