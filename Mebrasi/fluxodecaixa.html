@@ -393,6 +393,7 @@ html.light .fc-day-num{color:#1f2a3d;}
             <input type="text" inputmode="decimal" id="fcAplicacaoPopupSaque" placeholder="Ex.: 15.000,00">
           </div>
           <button class="btn btn-primary btn-sm" style="width:100%;" onclick="confirmarSaquePopup()">Confirmar saque</button>
+          <div id="fcAplicacaoPopupSaquesLista" style="margin-top:10px;"></div>
         </div>
       </div>
     </div>
@@ -2075,7 +2076,34 @@ function abrirAplicacaoPopup(empresa, data){
   el('fcAplicacaoPopupInfo').innerHTML = `${escapeHtml(EMPRESA_LABEL[empresa]||empresa)} · ${formatDateBR(data)} · já sacado ao todo: <b>${fmtBRL(totalSacadoEmpresa(empresa))}</b>`;
   el('fcAplicacaoPopupValor').value = valorAtual ? valorAtual.toFixed(2).replace('.',',') : '';
   el('fcAplicacaoPopupSaque').value = valorAtual ? valorAtual.toFixed(2).replace('.',',') : '';
+  renderSaquesDoPopup();
   el('fcAplicacaoPopup').classList.add('show');
+}
+// Lista os saques já registrados pra essa empresa+data, com botão de
+// remover — sem isso não tinha como desfazer um saque de teste/errado
+// (ficava só acumulando na tabela, contando pro Saldo Acumulado pra sempre).
+function renderSaquesDoPopup(){
+  const wrap = el('fcAplicacaoPopupSaquesLista');
+  if(!wrap || !fcAplicacaoPopupContext) return;
+  const { empresa, data } = fcAplicacaoPopupContext;
+  const saques = aplicacaoSaques.filter(s=>s.empresa===empresa && s.data===data);
+  wrap.innerHTML = saques.length ? saques.map(s=>`
+    <div class="fc-sim-entry">
+      <span class="desc">Saque registrado</span>
+      <span class="valor" style="color:var(--red)">${fmtBRL(s.valor)}</span>
+      <button class="del" onclick="removerSaque(${s.id})">✕</button>
+    </div>`).join('') : '<div style="color:var(--text3);font-size:12px;">Nenhum saque registrado nesse dia.</div>';
+}
+async function removerSaque(id){
+  if(!confirm('Remover esse saque? Ele deixa de contar no Saldo Acumulado.')) return;
+  const { error } = await sb.from('fluxo_aplicacoes_saques').delete().eq('id', id);
+  if(error){ alert('Erro ao remover: '+error.message); return; }
+  await loadAplicacaoSaques();
+  renderSaquesDoPopup();
+  if(fcAplicacaoPopupContext){
+    el('fcAplicacaoPopupInfo').innerHTML = `${escapeHtml(EMPRESA_LABEL[fcAplicacaoPopupContext.empresa]||fcAplicacaoPopupContext.empresa)} · ${formatDateBR(fcAplicacaoPopupContext.data)} · já sacado ao todo: <b>${fmtBRL(totalSacadoEmpresa(fcAplicacaoPopupContext.empresa))}</b>`;
+  }
+  buildAndRenderTable();
 }
 function fecharAplicacaoPopup(){
   el('fcAplicacaoPopup').classList.remove('show');
