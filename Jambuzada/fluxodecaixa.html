@@ -1142,6 +1142,7 @@ function buildRowTree(){
   const recebimentosNode = {
     type:'recebimentos', level:0, label:'RECEBIMENTOS', filter:onlyCurrentRecebimentos, expanded:false,
     children: [
+      { type:'titulosaberto_receber', level:2, label:'Títulos em Aberto', special:'titulosaberto_receber', expanded:false, children:[] },
       ...(temDuplicatasDescontadas ? [{
         type:'duplicatas_descontadas', level:2, label:'Duplicatas descontadas', filter:isDuplicataDescontada,
         expanded:false, children:[]
@@ -1177,12 +1178,16 @@ function buildRowTree(){
     };
   }).filter(sg=>sg.children.length); // esconde grupo sem nenhuma categoria
 
-  const pagamentosNode = { type:'pagamentos', level:0, label:'PAGAMENTOS', filter:isPagamento, expanded:true, children: pagamentoSubgrupos };
+  const pagamentosNode = { type:'pagamentos', level:0, label:'PAGAMENTOS', filter:isPagamento, expanded:true,
+    children: [
+      { type:'titulosaberto_pagar', level:2, label:'Títulos em Aberto', special:'titulosaberto_pagar', expanded:false, children:[] },
+      ...pagamentoSubgrupos
+    ]
+  };
 
   const nodes = [
     { type:'saldo', level:0, label:'SALDO ACUMULADO', special:'saldo', expanded:false, children:[] },
     { type:'aplicacoes', level:0, label:'APLICAÇÕES', special:'aplicacoes', expanded:false, children:[] },
-    { type:'titulosaberto', level:0, label:'TÍTULOS EM ABERTO', special:'titulosaberto', expanded:false, children:[] },
     recebimentosNode,
     pagamentosNode,
   ];
@@ -1292,11 +1297,12 @@ function renderTable(){
         const onClick = editavelCel ? ` onclick="abrirAplicacaoPopup('${c.start}')"` : '';
         const title = editavelCel ? ' title="Clique pra digitar o valor da aplicação desse dia"' : '';
         tbody += `<td class="${cellCls}"${onClick}${title}>${fmtBRLCompacto(val)}</td>`;
-      } else if(rNode.special==='titulosaberto'){
-        val = sumTitulosAbertoRange(c.start, c.end);
+      } else if(rNode.special==='titulosaberto_receber' || rNode.special==='titulosaberto_pagar'){
+        const tipo = rNode.special==='titulosaberto_receber' ? 'receber' : 'pagar';
+        val = sumTitulosAbertoRange(c.start, c.end, tipo);
         const clickableTA = Math.round(val)!==0;
         const cellCls = 'fc-titulos-aberto-cell' + (c.isToday?' fc-today':'') + (clickableTA?' fc-aplicacao-editavel':'');
-        const onClick = clickableTA ? ` onclick="abrirTitulosAbertoPopup()"` : '';
+        const onClick = clickableTA ? ` onclick="abrirTitulosAbertoPopup('${tipo}')"` : '';
         const title = clickableTA ? ' title="Clique pra ver os títulos em aberto e colocar de volta no fluxo"' : '';
         tbody += `<td class="${cellCls}"${onClick}${title}>${fmtBRLCompacto(val)}</td>`;
       } else {
@@ -1821,11 +1827,11 @@ let fcTitulosResolvidos = JSON.parse(localStorage.getItem('jambuzada_fc_titulos_
 function titulosAbertoPendentes(){
   return rowsAtrasados.filter(r=>!(r.chave in fcTitulosResolvidos));
 }
-function sumTitulosAbertoRange(start,end){
+function sumTitulosAbertoRange(start,end,tipo){
   // Sempre exibidos em "hoje" — só soma se a coluna cobrir hoje.
   const hoje = todayISO();
   if(hoje<start || hoje>end) return 0;
-  return titulosAbertoPendentes().reduce((s,r)=>s+r.valor,0);
+  return titulosAbertoPendentes().filter(r=> tipo==='receber' ? r.valor>=0 : r.valor<0).reduce((s,r)=>s+r.valor,0);
 }
 function aplicacaoValor(data){ return fcAplicacoes[data] || 0; }
 function sumAplicacoesRange(start,end){
@@ -2376,8 +2382,12 @@ function renderNecessidadeCaixa(){
 }
 
 /* ---------- Títulos em Aberto: modal de lista + colocar de volta no fluxo ---------- */
-function abrirTitulosAbertoPopup(){
+let fcTitulosAbertoTipoAtual = 'receber';
+function abrirTitulosAbertoPopup(tipo){
+  fcTitulosAbertoTipoAtual = tipo || 'receber';
   renderTitulosAbertoLista();
+  const titulo = document.querySelector('#fcTitulosAbertoModal .modal-title');
+  if(titulo) titulo.textContent = fcTitulosAbertoTipoAtual==='receber' ? '📋 Títulos em Aberto — A Receber' : '📋 Títulos em Aberto — A Pagar';
   el('fcTitulosAbertoModal').classList.add('show');
 }
 function fecharTitulosAbertoModal(){
@@ -2385,7 +2395,9 @@ function fecharTitulosAbertoModal(){
 }
 function renderTitulosAbertoLista(){
   const wrap = el('fcTitulosAbertoLista'); if(!wrap) return;
-  const pendentes = titulosAbertoPendentes().slice().sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+  const pendentes = titulosAbertoPendentes()
+    .filter(r=> fcTitulosAbertoTipoAtual==='receber' ? r.valor>=0 : r.valor<0)
+    .slice().sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
   wrap.innerHTML = pendentes.length ? pendentes.map(r=>`
     <div class="fc-sim-entry" style="gap:10px;">
       <span class="desc">${escapeHtml(r.nome||'Sem nome')} · ${escapeHtml(r.categoria)} · vencido em ${formatDateBR(r.date)}</span>
