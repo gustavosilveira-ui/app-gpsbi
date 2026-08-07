@@ -1309,13 +1309,23 @@ function runningBalanceEmpresa(empresa, uptoDate){
   if(!override || uptoDate < override.data_referencia) return null;
 
   // O valor salvo é o saldo NA PRÓPRIA data de referência (já incluindo
-  // os lançamentos daquele dia) — é exatamente o número que aparece na
-  // coluna daquele dia, batendo com o que o formulário promete ("Define
-  // o saldo numa data"). Por isso só soma a partir do dia SEGUINTE à
+  // os lançamentos REAIS da planilha — cap_/pg_/cr_/fc_/venc_ — daquele
+  // dia) — é exatamente o número que aparece na coluna daquele dia,
+  // batendo com o que o formulário promete ("Define o saldo numa data").
+  // Por isso, pra esses dados reais, só soma a partir do dia SEGUINTE à
   // referência.
+  // Lançamentos Manuais e Saques de Aplicação são diferentes: são
+  // adicionados pelo usuário DEPOIS que o saldo inicial já foi digitado,
+  // então nunca podem estar "já embutidos" nele — contam a partir da
+  // própria data escolhida (inclusive), mesmo que essa data seja a mesma
+  // do saldo inicial (senão o lançamento simplesmente desaparecia do
+  // cálculo, como aconteceu no teste do saque de Aplicação da Ryngavi).
+  const diaSeguinteReferencia = addDaysISO(override.data_referencia, 1);
   let s = Number(override.valor) || 0;
   for(const r of rowsEmp){
-    if(r.date > override.data_referencia && r.date <= uptoDate) s += r.valor;
+    const ehLancamentoDoUsuario = r.grupo==='AJUSTES_MANUAIS' || r.fonte==='Aplicacao';
+    const dataMinima = ehLancamentoDoUsuario ? override.data_referencia : diaSeguinteReferencia;
+    if(r.date >= dataMinima && r.date <= uptoDate) s += r.valor;
   }
   return s;
 }
@@ -2107,6 +2117,21 @@ async function confirmarSaquePopup(){
   if(!confirm(`Confirma o saque de ${fmtBRL(valor)} em ${formatDateBR(data)} pra ${EMPRESA_LABEL[empresa]}? Esse valor passa a contar no Saldo Acumulado a partir dessa data.`)) return;
   const { error } = await sb.from('fluxo_aplicacoes_saques').insert({ empresa, data, valor, criado_por: nameFromEmail(currentUser.email) });
   if(error){ alert('Erro ao registrar o saque: '+error.message); return; }
+
+  // Desconta automaticamente o valor sacado do "valor aplicado" daquele
+  // dia — assim a linha Aplicações já mostra o que sobrou aplicado, sem
+  // precisar editar os dois campos na mão.
+  const valorAplicadoAtual = aplicacaoValor(empresa, data);
+  const novoValorAplicado = Math.max(0, valorAplicadoAtual - valor);
+  const { error: errorAplicacao } = await sb.from('fluxo_aplicacoes').upsert(
+    { empresa, data, valor: novoValorAplicado, atualizado_por: nameFromEmail(currentUser.email), atualizado_em: new Date().toISOString() },
+    { onConflict:'empresa,data' }
+  );
+  if(!errorAplicacao){
+    if(!fcAplicacoes[empresa]) fcAplicacoes[empresa] = {};
+    fcAplicacoes[empresa][data] = novoValorAplicado;
+  }
+
   await loadAplicacaoSaques();
   fecharAplicacaoPopup();
   buildAndRenderTable();
