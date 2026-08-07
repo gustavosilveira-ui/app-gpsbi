@@ -137,6 +137,9 @@ html.light .fc-lvl-0 td{background:#eef1f6;}
 .fc-saldo-pos{color:#4F8F3A;font-weight:800;}
 .fc-saldo-neg{color:var(--red);font-weight:800;background:rgba(239,106,106,.08);}
 .fc-saldo-indisponivel{color:var(--text3);font-weight:400;text-align:center;}
+.fc-aplicacao-cell{color:var(--text2);}
+.fc-aplicacao-editavel{cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;}
+.fc-aplicacao-editavel:hover{background:rgba(90,140,255,.10);}
 .fc-limite-alert{position:relative;overflow:visible;}
 .fc-limit-head{position:relative;display:inline-flex;align-items:center;justify-content:center;}
 .fc-day-head{position:relative;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;line-height:1.05;}
@@ -363,6 +366,25 @@ html.light .fc-day-num{color:#1f2a3d;}
           <button class="btn btn-ghost btn-sm" onclick="closeFluxoFicha()">Fechar</button>
         </div>
         <div id="fluxoFichaBody"></div>
+      </div>
+    </div>
+
+    <!-- Popup discreto: digitar/alterar o valor de Aplicações do dia -->
+    <div class="modal-overlay" id="fcAplicacaoPopup" style="z-index:310;">
+      <div class="modal-box" style="width:360px;">
+        <div class="modal-title">💰 Aplicações</div>
+        <div class="modal-sub" id="fcAplicacaoPopupInfo"></div>
+        <div class="field-group">
+          <label class="field-label">Valor da aplicação (R$)</label>
+          <input type="text" inputmode="decimal" id="fcAplicacaoPopupValor" placeholder="Ex.: 15.000,00">
+        </div>
+        <div class="modal-actions" style="justify-content:space-between;">
+          <button class="btn btn-danger btn-sm" onclick="removerAplicacaoPopup()">Remover</button>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-ghost btn-sm" onclick="fecharAplicacaoPopup()">Cancelar</button>
+            <button class="btn btn-primary btn-sm" onclick="confirmarAplicacaoPopup()">Salvar</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1187,6 +1209,7 @@ async function loadData(){
 
     await loadSaldoInicial();
     await loadAjustesManuais(); // injeta os lançamentos manuais como movimentação real
+    await loadAplicacoes();
     loadLimiteConta();
     buildAndRenderTable();
     renderFcKpiStrip();
@@ -1284,6 +1307,9 @@ function runningBalanceEmpresa(empresa, uptoDate){
   for(const r of rowsEmp){
     if(r.date > override.data_referencia && r.date <= uptoDate) s += r.valor;
   }
+  // Soma o valor de Aplicações daquele dia por cima (retrato do que está
+  // aplicado naquela data, não uma soma acumulada — decisão do Gustavo).
+  s += aplicacaoValor(empresa, uptoDate);
   return s;
 }
 // Saldo Acumulado no escopo atual: uma empresa só, ou a soma das que
@@ -1370,6 +1396,7 @@ function buildRowTree(){
 
   const nodes = [
     { type:'saldo', level:0, label:'SALDO ACUMULADO', special:'saldo', expanded:false, children:[] },
+    { type:'aplicacoes', level:0, label:'APLICAÇÕES', special:'aplicacoes', expanded:false, children:[] },
     recebimentosNode,
     pagamentosNode,
   ];
@@ -1543,7 +1570,7 @@ function renderTable(){
     const hasChildren = rNode.children && rNode.children.length;
     const arrow = hasChildren ? `<span class="fc-toggle">${rNode.expanded?'▾':'▸'}</span> ` : (rNode.level>0 ? '<span class="fc-toggle"></span> ' : '');
     const labelSafe = rNode.label.replace(/'/g,"\\'");
-    const labelClick = hasChildren ? `toggleRowNode('${labelSafe}', ${rNode.level})` : (rNode.special==='saldo' ? '' : `openFluxoFicha('${rowId}', null)`);
+    const labelClick = hasChildren ? `toggleRowNode('${labelSafe}', ${rNode.level})` : ((rNode.special==='saldo'||rNode.special==='aplicacoes') ? '' : `openFluxoFicha('${rowId}', null)`);
     tbody += `<tr class="${cls}" data-key="${rNode._key||''}">`;
     tbody += `<td class="fc-row-label" onclick="${labelClick}">${arrow}${rNode.label}</td>`;
     cols.forEach((c, colIdx)=>{
@@ -1559,6 +1586,17 @@ function renderTable(){
           const cellCls = (val>=0?'fc-saldo-pos':'fc-saldo-neg') + (c.isToday?' fc-today':'');
           tbody += `<td class="${cellCls}">${fmtBRL(val)}</td>`;
         }
+      } else if(rNode.special==='aplicacoes'){
+        // Editável célula a célula só quando uma empresa específica está
+        // selecionada e é uma coluna de dia (não faz sentido editar um
+        // mês/ano inteiro de uma vez, nem editar no Global — não saberia
+        // pra qual das 4 empresas o valor seria).
+        val = sumAplicacoesRange(selectedEmpresa, c.start, c.end);
+        const editavel = !!selectedEmpresa && c.type==='day';
+        const cellCls = 'fc-aplicacao-cell' + (c.isToday?' fc-today':'') + (editavel?' fc-aplicacao-editavel':'');
+        const onClick = editavel ? ` onclick="abrirAplicacaoPopup('${selectedEmpresa}','${c.start}')"` : '';
+        const title = editavel ? ' title="Clique pra digitar o valor da aplicação desse dia"' : (selectedEmpresa ? '' : ' title="Selecione uma empresa pra poder digitar o valor"');
+        tbody += `<td class="${cellCls}"${onClick}${title}>${fmtBRLCompacto(val)}</td>`;
       } else {
         if(rNode.label === CATEGORIA_TITULOS_ABERTO){
           val = rows.reduce((s,r)=>{
@@ -1803,6 +1841,7 @@ function closeFluxoFicha(){
 }
 
 el('tituloObsModal')?.addEventListener('click',function(e){ if(e.target===this) closeTituloObsPopup_(); });
+el('fcAplicacaoPopup')?.addEventListener('click',function(e){ if(e.target===this) fecharAplicacaoPopup(); });
 document.addEventListener('keydown',function(e){ if(e.key==='Escape' && el('tituloObsModal')?.classList.contains('show')) closeTituloObsPopup_(); });
 
 function scrollToToday(){
@@ -1954,6 +1993,75 @@ async function removeSaldoInicial(empresa){
   if(!confirm('Remover o saldo inicial de '+EMPRESA_LABEL[empresa]+'?')) return;
   await sb.from('fluxo_saldo_inicial').delete().eq('empresa', empresa);
   await loadSaldoInicial();
+  renderTable();
+}
+
+/* ================== NOVO: Aplicações (por empresa, editável célula a célula) ==================
+   Linha isolada entre SALDO ACUMULADO e RECEBIMENTOS. Cada empresa tem seu
+   próprio valor por dia (é um retrato do que está aplicado naquele dia, não
+   uma soma que se acumula sozinha) — clicando na célula do dia (só quando
+   uma empresa específica está selecionada, nunca no Global) abre um popup
+   pra digitar/atualizar o valor. O Saldo Acumulado soma esse valor por
+   cima do cálculo normal (ver runningBalanceEmpresa). */
+let fcAplicacoes = {}; // fcAplicacoes[empresa][data] = valor
+async function loadAplicacoes(){
+  const { data, error } = await sb.from('fluxo_aplicacoes').select('*');
+  fcAplicacoes = {};
+  EMPRESAS.forEach(e=>{ fcAplicacoes[e] = {}; });
+  if(!error && data){
+    data.forEach(row=>{
+      if(!fcAplicacoes[row.empresa]) fcAplicacoes[row.empresa] = {};
+      fcAplicacoes[row.empresa][row.data] = Number(row.valor) || 0;
+    });
+  }
+}
+function aplicacaoValor(empresa, data){
+  return (fcAplicacoes[empresa] && fcAplicacoes[empresa][data]) || 0;
+}
+// empresa null/'' = soma as 4 (visão Global).
+function sumAplicacoesRange(empresa, start, end){
+  const empresas = empresa ? [empresa] : EMPRESAS;
+  let total = 0;
+  empresas.forEach(emp=>{
+    const porData = fcAplicacoes[emp] || {};
+    Object.keys(porData).forEach(d=>{ if(d>=start && d<=end) total += porData[d]; });
+  });
+  return total;
+}
+let fcAplicacaoPopupContext = null; // { empresa, data }
+function abrirAplicacaoPopup(empresa, data){
+  fcAplicacaoPopupContext = { empresa, data };
+  const valorAtual = aplicacaoValor(empresa, data);
+  el('fcAplicacaoPopupInfo').innerHTML = `${escapeHtml(EMPRESA_LABEL[empresa]||empresa)} · ${formatDateBR(data)}`;
+  el('fcAplicacaoPopupValor').value = valorAtual ? valorAtual.toFixed(2).replace('.',',') : '';
+  el('fcAplicacaoPopup').classList.add('show');
+}
+function fecharAplicacaoPopup(){
+  el('fcAplicacaoPopup').classList.remove('show');
+  fcAplicacaoPopupContext = null;
+}
+async function confirmarAplicacaoPopup(){
+  if(!fcAplicacaoPopupContext) return;
+  const { empresa, data } = fcAplicacaoPopupContext;
+  const valor = parseMoneyBR(el('fcAplicacaoPopupValor').value);
+  const { error } = await sb.from('fluxo_aplicacoes').upsert(
+    { empresa, data, valor, atualizado_por: nameFromEmail(currentUser.email), atualizado_em: new Date().toISOString() },
+    { onConflict:'empresa,data' }
+  );
+  if(error){ alert('Erro ao salvar a aplicação: '+error.message); return; }
+  if(!fcAplicacoes[empresa]) fcAplicacoes[empresa] = {};
+  fcAplicacoes[empresa][data] = valor;
+  fecharAplicacaoPopup();
+  renderTable();
+}
+async function removerAplicacaoPopup(){
+  if(!fcAplicacaoPopupContext) return;
+  const { empresa, data } = fcAplicacaoPopupContext;
+  if(!confirm('Remover o valor de aplicação de '+EMPRESA_LABEL[empresa]+' em '+formatDateBR(data)+'?')) return;
+  const { error } = await sb.from('fluxo_aplicacoes').delete().eq('empresa', empresa).eq('data', data);
+  if(error){ alert('Erro ao remover: '+error.message); return; }
+  if(fcAplicacoes[empresa]) delete fcAplicacoes[empresa][data];
+  fecharAplicacaoPopup();
   renderTable();
 }
 
