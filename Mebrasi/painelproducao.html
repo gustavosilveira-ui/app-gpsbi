@@ -339,7 +339,10 @@ const LOGIN_URL = 'index.html';
 // como "Qualquer pessoa com o link" (Editor), então dá pra buscar direto
 // via gviz sem precisar de outra autenticação.
 const SHEET_ID_PAINEL = '1uyEpTOL9woWrRVsmoOz9ugWzYMRcRaQjlUni-jm_F44';
-const GID_PAINEL = '0';
+// Nome da aba, não o gid — o gid=0 dessa planilha aponta pra "Base Cfop"
+// (não é sempre a primeira aba visível da esquerda) e trazia dado errado.
+// Buscar pelo nome funciona igual ao venc_/cr_ do Depósitos.
+const SHEET_NAME_PAINEL = 'Painel';
 // Só mostramos as colunas A até M (13) — as colunas depois disso são
 // sempre vazias na planilha (sobra de formatação antiga).
 const PAINEL_MAX_COLS = 13;
@@ -383,7 +386,7 @@ function parseCsv(text){
 }
 
 async function fetchPainelCsv(){
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID_PAINEL}/gviz/tq?tqx=out:csv&gid=${GID_PAINEL}`;
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID_PAINEL}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_NAME_PAINEL)}`;
   const res = await fetch(url);
   if(!res.ok) throw new Error('Falha ao buscar a planilha (HTTP '+res.status+')');
   const text = await res.text();
