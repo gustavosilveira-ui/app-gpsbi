@@ -275,6 +275,10 @@ table.tabela-painel tr.linha-titulo td{font-weight:800;background:var(--navy3);b
 table.tabela-painel tr.linha-subheader td{font-weight:700;color:var(--text3);font-size:10.5px;text-transform:uppercase;background:rgba(255,255,255,.02);}
 table.tabela-painel tr.linha-total td{font-weight:800;border-top:2px solid var(--border2);}
 table.tabela-painel tr.linha-vazia td{border-bottom:none;padding:2px;}
+table.tabela-painel td.cor-azul{color:#1155CC;font-weight:700;}
+table.tabela-painel td.cor-verde{color:#38761D;font-weight:700;}
+table.tabela-painel td.cor-vermelho{color:#CC0000;font-weight:700;}
+table.tabela-painel td.bg-amarelo{background:#FFD966;color:#000;font-weight:700;}
 #painelAtualizadoEm{font-size:11px;color:var(--text3);margin-top:10px;}
 </style>
 
@@ -408,11 +412,18 @@ function renderPainelTabela(rows){
   });
   const linhas = rows.slice(0, ultimaLinhaComConteudo+1);
 
+  // Aproximação visual das cores da planilha (não é a formatação exata —
+  // a exportação que uso não traz cor, só valor — mas reproduz o padrão
+  // visível: nas linhas de Total/Média, coluna C=azul, D=verde, E/F=
+  // vermelho, I=azul; na linha só de percentuais, E/F/G=vermelho; e as
+  // duas últimas linhas da tabela (soma/média final de Vend.Mês Copos)
+  // têm uma célula destacada em amarelo cada.
   let html = '';
-  linhas.forEach(r=>{
+  linhas.forEach((r,i)=>{
     const colA = String(r[0]||'').trim();
     const colB = String(r[1]||'').trim();
     const temConteudo = r.slice(0,PAINEL_MAX_COLS).some(c=>String(c||'').trim()!=='');
+    const ehUltimasDuasLinhas = i >= linhas.length-2;
 
     let cls = '';
     if(!temConteudo) cls = 'linha-vazia';
@@ -420,9 +431,24 @@ function renderPainelTabela(rows){
     else if(colB==='Estoq. Inic.' || colA==='MÊS') cls = 'linha-subheader';
     else if(colA==='Total:' || colA==='Média') cls = 'linha-total';
 
+    const ehLinhaPercentual = !colA && !colB && temConteudo && String(r[4]||'').includes('%');
+
     html += `<tr class="${cls}">`;
     for(let c=0;c<PAINEL_MAX_COLS;c++){
-      html += `<td>${escapeHtml(r[c])}</td>`;
+      let corCls = '';
+      if(cls==='linha-total'){
+        if(c===2) corCls = 'cor-azul';
+        else if(c===3) corCls = 'cor-verde';
+        else if(c===4 || c===5) corCls = 'cor-vermelho';
+        else if(c===8) corCls = 'cor-azul';
+      } else if(ehLinhaPercentual && (c===4||c===5||c===6)){
+        corCls = 'cor-vermelho';
+      } else if(ehUltimasDuasLinhas && !colA){
+        if(i===linhas.length-2 && c===5) corCls = 'bg-amarelo';
+        if(i===linhas.length-1 && c===9) corCls = 'bg-amarelo';
+        if(i===linhas.length-1 && c===5) corCls = 'cor-vermelho';
+      }
+      html += `<td class="${corCls}">${escapeHtml(r[c])}</td>`;
     }
     html += '</tr>';
   });
