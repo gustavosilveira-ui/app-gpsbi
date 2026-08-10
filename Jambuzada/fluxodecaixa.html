@@ -2068,13 +2068,18 @@ function confirmarParcelasFornecedor(){
   // esconder ele — senão o fluxo contaria o valor cheio E o rateio ao mesmo tempo.
   const original = encontrarLancamentoValorCheio(fornecedor, valor);
   let exclusaoCriada = false;
+  let exclusaoId = null;
   if(original && confirm(`Encontrei um lançamento de ${fmtBRL(-Math.abs(original.valor))} em ${formatDateBR(original.date)} pra "${original.nome||fornecedor}" — parece ser o valor cheio que você está rateando agora.\n\nQuer ocultar esse lançamento do fluxo (fica só o rateio)?`)){
-    fcExclusoes.push({nome:original.nome||fornecedor, data:original.date, valor:original.valor, criadoEm:Date.now(), motivo:'Substituído por rateio'});
+    exclusaoId = Date.now();
+    fcExclusoes.push({nome:original.nome||fornecedor, data:original.date, valor:original.valor, criadoEm:exclusaoId, motivo:'Substituído por rateio'});
     localStorage.setItem('jambuzada_fc_exclusoes', JSON.stringify(fcExclusoes));
     exclusaoCriada = true;
   }
 
-  fcProgramacoesFornecedor.push({id:Date.now(),fornecedor,valor,dias,tipoDias,inicio,parcelas});
+  // Guarda o id da exclusão junto da programação — assim, se o rateio for
+  // desfeito depois, dá pra devolver o lançamento original ao fluxo em vez
+  // dele ficar escondido pra sempre (bug encontrado em 11/08/2026).
+  fcProgramacoesFornecedor.push({id:Date.now(),fornecedor,valor,dias,tipoDias,inicio,parcelas,exclusaoId});
   localStorage.setItem('jambuzada_fc_programacoes_fornecedor',JSON.stringify(fcProgramacoesFornecedor));
   fcParcelasEmEdicao = null;
   buildAndRenderTable();
@@ -2276,12 +2281,17 @@ function confirmarRateioNaFicha(){
 
   const { nome, data, valor } = fcTirarPopupContext;
 
-  fcExclusoes.push({ nome, data, valor:-Math.abs(valor), criadoEm:Date.now(), novaData:null, motivo:'Substituído por rateio' });
+  const exclusaoId = Date.now();
+  fcExclusoes.push({ nome, data, valor:-Math.abs(valor), criadoEm:exclusaoId, novaData:null, motivo:'Substituído por rateio' });
   localStorage.setItem('jambuzada_fc_exclusoes', JSON.stringify(fcExclusoes));
 
+  // Guarda o id da exclusão junto da programação — mesma correção do fluxo
+  // de rateio pelo card (11/08/2026): sem isso, desfazer o rateio não
+  // devolvia o lançamento original, ele só sumia do fluxo.
   fcProgramacoesFornecedor.push({
     id:Date.now(), fornecedor:nome, valor, dias:fcRateioPopupParcelas.length, tipoDias:'manual', inicio:data,
-    parcelas: fcRateioPopupParcelas.map(p=>({ data:p.data, valor:Number(p.valor)||0 }))
+    parcelas: fcRateioPopupParcelas.map(p=>({ data:p.data, valor:Number(p.valor)||0 })),
+    exclusaoId
   });
   localStorage.setItem('jambuzada_fc_programacoes_fornecedor', JSON.stringify(fcProgramacoesFornecedor));
 
@@ -2395,8 +2405,17 @@ function confirmarSaquePopup(){
 }
 
 function removerProgramacaoFornecedor(id){
+  const prog = fcProgramacoesFornecedor.find(p=>p.id===id);
   fcProgramacoesFornecedor=fcProgramacoesFornecedor.filter(p=>p.id!==id);
   localStorage.setItem('jambuzada_fc_programacoes_fornecedor',JSON.stringify(fcProgramacoesFornecedor));
+  // Se esse rateio tinha escondido um lançamento original (fluxo "ratear em
+  // cima do valor cheio"), devolve ele pro fluxo — senão a despesa some pra
+  // sempre em vez de voltar à data e valor normais (bug encontrado em
+  // 11/08/2026: "excluir rateio/voltar ao fluxo" não trazia a despesa de volta).
+  if(prog && prog.exclusaoId){
+    fcExclusoes = fcExclusoes.filter(ex=>ex.criadoEm!==prog.exclusaoId);
+    localStorage.setItem('jambuzada_fc_exclusoes', JSON.stringify(fcExclusoes));
+  }
   buildAndRenderTable();
 }
 function renderProgramacoesFornecedor(){
