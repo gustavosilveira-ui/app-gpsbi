@@ -558,6 +558,22 @@ const BANCOS_VALIDOS_POR_EMPRESA = {
   multicopos: ['2371','53','3413'],
   especial: ['53'],
 };
+// Banco Tera: títulos a receber ainda em aberto (venc_) não podem contar na
+// somatória de Contas a Receber, mas continuam aparecendo em Recebimentos
+// só pra sinalizar que o boleto está em aberto — pedido da Shirley,
+// confirmado com o Roberto (10/08/2026). Só existe pra Multicopos/Ryngavi/
+// Gymis (Especial não foi mencionada). Uma vez efetivamente recebido (cr_),
+// já é caixa real e conta normal — a regra só vale enquanto está em aberto.
+const BANCO_TERA_POR_EMPRESA = {
+  gymis: '2383',
+  ryngavi: '2381',
+  multicopos: '2382',
+};
+function isBancoTera(bancoCodigo, empresa){
+  const codigoTera = BANCO_TERA_POR_EMPRESA[empresa];
+  if(!codigoTera) return false;
+  return normalizeBancoCodigo(bancoCodigo) === codigoTera;
+}
 function normalizeBancoCodigo(v){
   if(v===null||v===undefined) return '';
   if(typeof v==='object') v = (v.f ?? v.v ?? '');
@@ -727,6 +743,9 @@ function contaNoTotal_(r){
   // contrário o saldo cresce por um valor que não aparece na movimentação
   // do dia (ex.: R$ 61.609,50 em 07/08/2026).
   if(r.categoria === CATEGORIA_CHEQUE_TERCEIROS) return false;
+  // Banco Tera (título a receber ainda em aberto): mesma lógica — nunca
+  // conta em nenhum total, independente do modo de validação.
+  if(r.categoria === CATEGORIA_BANCO_TERA) return false;
   if(r.contaNoSaldo === false) return VALIDACAO_BATER_COM_BASE;
   return true;
 }
@@ -750,6 +769,7 @@ const GRUPOS_PAGAMENTO = [
 // Terceiros (que não conta no Saldo Acumulado — decisão de 20/07/2026).
 const CATEGORIA_TITULOS_ABERTO = 'Títulos em Aberto';
 const CATEGORIA_CHEQUE_TERCEIROS = 'Cheque Terceiros (não conta no saldo)';
+const CATEGORIA_BANCO_TERA = 'Banco Tera (não conta no aberto)';
 // Decide categoria/grupo/contaNoSaldo final de uma linha, depois de já
 // termos a categoria "natural" (Desc Conta / Plano de Conta) e a origem
 // (pg/cr = realizado; cap/venc = ainda em aberto). Cheque de Terceiros
@@ -781,7 +801,7 @@ function getPeriodoFluxo(){
   const end = `${fimDate.getFullYear()}-${String(fimDate.getMonth()+1).padStart(2,'0')}-${String(fimDate.getDate()).padStart(2,'0')}`;
   return { start, end };
 }
-function finalizarLinha(categoriaOriginal, valor, formaPagto, origem, date){
+function finalizarLinha(categoriaOriginal, valor, formaPagto, origem, date, empresa, bancoCodigo){
   const fp = normalizeTxt(formaPagto);
 
   // cap_/venc_ vencido (já devia ter acontecido e ainda não foi resolvido) = Títulos
@@ -794,6 +814,13 @@ function finalizarLinha(categoriaOriginal, valor, formaPagto, origem, date){
   if((origem === 'cap' || origem === 'venc') && date < HOJE_ISO){
     const grupo = valor >= 0 ? 'RECEBIMENTOS' : 'TITULOS_ABERTO';
     return { categoria: CATEGORIA_TITULOS_ABERTO, grupo, contaNoSaldo:false };
+  }
+
+  // Banco Tera: título a receber AINDA em aberto (venc_, não vencido) nunca
+  // soma no Contas a Receber, mas continua visível em Recebimentos só pra
+  // sinalizar que o boleto está em aberto — pedido da Shirley (10/08/2026).
+  if(origem === 'venc' && isBancoTera(bancoCodigo, empresa)){
+    return { categoria: CATEGORIA_BANCO_TERA, grupo: 'RECEBIMENTOS', contaNoSaldo:false };
   }
 
   if(fp === 'cheque terceiros'){
@@ -1037,7 +1064,7 @@ function rowsFromVENC(table, empresa){
     const categoriaOriginal = (getColNormalized(r,'desc conta')||'Sem categoria').toString().trim();
     const valor = Math.abs(parseMoneyBR(getColNormalized(r,'vl total titulo')));
     const formaPagto = getColNormalized(r,'forma pagto');
-    const { categoria, grupo, contaNoSaldo } = finalizarLinha(categoriaOriginal, valor, formaPagto, 'venc', date);
+    const { categoria, grupo, contaNoSaldo } = finalizarLinha(categoriaOriginal, valor, formaPagto, 'venc', date, empresa, getColNormalized(r,'banco'));
     return { date, categoria, grupo, valor, empresa, origem:'venc', contaNoSaldo, ...rowMeta(r) };
   }).filter(Boolean);
 }
@@ -1398,7 +1425,7 @@ function buildRowTree(){
   const catsByGrupo = {};
   rows.forEach(r=>{ if(!catsByGrupo[r.grupo]) catsByGrupo[r.grupo]=new Set(); catsByGrupo[r.grupo].add(r.categoria); });
 
-  const PRIORIDADE_RECEBIMENTO = [CATEGORIA_TITULOS_ABERTO, CATEGORIA_CHEQUE_TERCEIROS];
+  const PRIORIDADE_RECEBIMENTO = [CATEGORIA_TITULOS_ABERTO, CATEGORIA_CHEQUE_TERCEIROS, CATEGORIA_BANCO_TERA];
   const recebimentoCats = Array.from(catsByGrupo['RECEBIMENTOS']||[]).sort((a,b)=>{
     const pa = PRIORIDADE_RECEBIMENTO.indexOf(a), pb = PRIORIDADE_RECEBIMENTO.indexOf(b);
     if(pa!==-1 || pb!==-1) return (pa===-1?99:pa) - (pb===-1?99:pb);
@@ -1506,6 +1533,7 @@ function renderFcKpiStrip(){
     .filter(r =>
       r.origem === 'venc' &&
       r.grupo === 'RECEBIMENTOS' &&
+      r.categoria !== CATEGORIA_BANCO_TERA &&
       entraNosCards(r) &&
       r.date >= periodoStart &&
       r.date <= periodoEnd
@@ -1629,7 +1657,7 @@ function renderTable(){
             const dataVisual = dataVisualTituloAberto_(r);
             return (dataVisual>=c.start && dataVisual<=c.end) ? s+r.valor : s;
           },0);
-        } else if(rNode.label === CATEGORIA_CHEQUE_TERCEIROS){
+        } else if(rNode.label === CATEGORIA_CHEQUE_TERCEIROS || rNode.label === CATEGORIA_BANCO_TERA){
           // Mesmo tratamento do Títulos em Aberto: a linha é só pra
           // visibilidade (nunca conta no saldo/totais via contaNoTotal_),
           // mas precisa continuar mostrando os próprios valores dela —
@@ -1780,7 +1808,7 @@ async function openFluxoFicha(rowId, colId){
   // linhas que contam pra Saldo/totais (exclui Cheque Terceiros e Títulos em Aberto);
   // detailRows continua com tudo, porque a lista de lançamentos abaixo deve mostrar
   // esses lançamentos também — só não devem inflar o total nem o "por empresa".
-  const rowsParaTotal = (rNode.label === CATEGORIA_TITULOS_ABERTO || rNode.label === CATEGORIA_CHEQUE_TERCEIROS) ? detailRows : detailRows.filter(contaNoTotal_);
+  const rowsParaTotal = (rNode.label === CATEGORIA_TITULOS_ABERTO || rNode.label === CATEGORIA_CHEQUE_TERCEIROS || rNode.label === CATEGORIA_BANCO_TERA) ? detailRows : detailRows.filter(contaNoTotal_);
   const total = rowsParaTotal.reduce((s,r)=>s+r.valor,0);
   const porEmpresa = {};
   rowsParaTotal.forEach(r=>{
