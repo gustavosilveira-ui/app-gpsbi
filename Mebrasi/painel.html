@@ -1140,6 +1140,12 @@ function renderKpis(){
   const clientesOnline = new Set(scoped.filter(r=>r.empresa==='Online').map(r=>r.cliente).filter(Boolean)).size;
   const pedidos = new Set(scoped.map(r=>r.codPedido).filter(Boolean)).size;
   const itens = scoped.reduce((s,r)=>s+(!isProdutoGsl(r) ? (r.qtdFaturada||0) : 0),0);
+  // Visão à parte, só copos (familiaComercial === 'copo', excluindo
+  // GSL/GSN) — mesmo critério do detalhe da empresa e do Painel de Produção.
+  const itensCopo = scoped.reduce((s,r)=>{
+    const familia = normalizeTxt(r.familiaComercial).replace(/\s+/g,' ').trim();
+    return s + (!isProdutoGsl(r) && familia==='copo' ? (r.qtdFaturada||0) : 0);
+  },0);
   const precoMedio = itens>0 ? faturamento/itens : 0;
   // Ticket Médio não pode considerar o Online — o volume alto de pedidos
   // pequenos do canal Online distorce a média pra baixo. Usa só o físico
@@ -1155,6 +1161,7 @@ function renderKpis(){
     { icon:'👥', cor:'var(--cyan)', label:'Clientes', valor:`${fmtNum(clientesMebrasi)} / ${fmtNum(clientesOnline)}`, sub:'Clientes Mebrasi / Online' },
     { icon:'📦', cor:'var(--gold)', label:'Pedidos', valor:fmtNum(pedidos), sub:'Pedidos únicos' },
     { icon:'📊', cor:'var(--purple)', label:'Itens Faturados', valor:fmtNum(itens), sub:'Quantidade sem códigos GSL/GSN' },
+    { icon:'🥤', cor:'var(--purple)', label:'Itens Faturados (Copo)', valor:fmtNum(itensCopo), sub:'Só família "copo", sem GSL/GSN' },
     { icon:'🏷️', cor:'#98C47C', label:'Preço Médio', valor:fmtBRLFull(precoMedio), sub:'Faturamento / Itens sem GSL/GSN' },
     { icon:'🧾', cor:'var(--red)', label:'Ticket Médio', valor:fmtBRLFull(ticketMedio), sub:'Faturamento / Pedidos' },
   ];
@@ -1560,16 +1567,26 @@ function renderTabelaEmpresas(){
     const pedidos = new Set(rs.map(r=>r.codPedido).filter(Boolean)).size;
     const ticket = pedidos>0 ? faturamento/pedidos : 0;
     const itens = emp==='Online' ? 0 : rs.reduce((s,r)=>s+(!isProdutoGsl(r) ? (r.qtdFaturada||0) : 0),0);
+    // Visão à parte, só copos — mesmo critério do "detalhe da empresa" e do
+    // Painel de Produção (familiaComercial === 'copo', excluindo GSL/GSN).
+    const itensCopo = emp==='Online' ? 0 : rs.reduce((s,r)=>{
+      const familia = normalizeTxt(r.familiaComercial).replace(/\s+/g,' ').trim();
+      return s + (!isProdutoGsl(r) && familia==='copo' ? (r.qtdFaturada||0) : 0);
+    },0);
     const precoMedio = itens>0 ? faturamento/itens : 0;
     const participacao = totalFatEscopo ? faturamento/totalFatEscopo : 0;
 
-    return { emp, faturamento, participacao, fatM1, difM1, pctM1, fatY1, difY1, pctY1, clientes, pedidos, ticket, precoMedio, itens };
+    return { emp, faturamento, participacao, fatM1, difM1, pctM1, fatY1, difY1, pctY1, clientes, pedidos, ticket, precoMedio, itens, itensCopo };
   }).filter(l=>l.faturamento>0 || l.pedidos>0 || l.itens>0);
 
   const fisico = scoped.filter(r=>r.empresa!=='Online');
   const totalClientes = new Set(fisico.map(r=>r.cliente).filter(Boolean)).size;
   const totalPedidos = new Set(scoped.map(r=>r.codPedido).filter(Boolean)).size;
   const totalItens = fisico.reduce((s,r)=>s+(!isProdutoGsl(r) ? (r.qtdFaturada||0) : 0),0);
+  const totalItensCopo = fisico.reduce((s,r)=>{
+    const familia = normalizeTxt(r.familiaComercial).replace(/\s+/g,' ').trim();
+    return s + (!isProdutoGsl(r) && familia==='copo' ? (r.qtdFaturada||0) : 0);
+  },0);
   // Ticket Médio do Total não pode considerar o Online (faturamento nem
   // pedidos) — senão o volume de pedidos pequenos do Online distorce a
   // média pra baixo. Usa só as empresas físicas.
@@ -1590,7 +1607,7 @@ function renderTabelaEmpresas(){
     <th>Empresa</th><th>Faturamento</th><th>% Faturamento</th>
     <th>M-1</th><th>MTD vs M-1</th><th>MTD vs M-1 %</th>
     <th>YTD-1</th><th>YTD vs Y-1</th><th>YTD vs Y-1 %</th>
-    <th>Clientes</th><th>Pedidos</th><th>Ticket Médio</th><th>Preço Médio (Item)</th><th>Itens</th>
+    <th>Clientes</th><th>Pedidos</th><th>Ticket Médio</th><th>Preço Médio (Item)</th><th>Itens</th><th>Itens (Copo)</th>
   </tr></thead><tbody>`;
 
   linhas.forEach(l=>{
@@ -1601,7 +1618,7 @@ function renderTabelaEmpresas(){
       }</td><td>${fmtPct(l.participacao)}</td>
       <td>${fmtBRLFull(l.fatM1)}</td><td class="${cellClass(l.difM1)}">${fmtSignedBRL(l.difM1)}</td><td class="${cellClass(l.pctM1)}">${fmtPct(l.pctM1)}</td>
       <td>${fmtBRLFull(l.fatY1)}</td><td class="${cellClass(l.difY1)}">${fmtSignedBRL(l.difY1)}</td><td class="${cellClass(l.pctY1)}">${fmtPct(l.pctY1)}</td>
-      <td>${l.emp==='Online'?'—':fmtNum(l.clientes)}</td><td>${fmtNum(l.pedidos)}</td><td>${fmtBRLFull(l.ticket)}</td><td>${fmtBRLFull(l.precoMedio)}</td><td>${fmtNum(l.itens)}</td>
+      <td>${l.emp==='Online'?'—':fmtNum(l.clientes)}</td><td>${fmtNum(l.pedidos)}</td><td>${fmtBRLFull(l.ticket)}</td><td>${fmtBRLFull(l.precoMedio)}</td><td>${fmtNum(l.itens)}</td><td>${fmtNum(l.itensCopo)}</td>
     </tr>`;
   });
 
@@ -1609,7 +1626,7 @@ function renderTabelaEmpresas(){
     <td>Total</td><td><button class="faturamento-link" data-detalhe-empresa="Total" type="button">${fmtBRLFull(totalFatEscopo)}</button></td><td>100,0%</td>
     <td>${fmtBRLFull(totalM1)}</td><td class="${cellClass(totalDifM1)}">${fmtSignedBRL(totalDifM1)}</td><td class="${cellClass(totalDifM1)}">${fmtPct(totalM1?totalDifM1/totalM1:0)}</td>
     <td>${fmtBRLFull(totalY1)}</td><td class="${cellClass(totalDifY1)}">${fmtSignedBRL(totalDifY1)}</td><td class="${cellClass(totalDifY1)}">${fmtPct(totalY1?totalDifY1/totalY1:0)}</td>
-    <td>${fmtNum(totalClientes)}</td><td>${fmtNum(totalPedidos)}</td><td>${fmtBRLFull(totalTicket)}</td><td>${fmtBRLFull(totalPreco)}</td><td>${fmtNum(totalItens)}</td>
+    <td>${fmtNum(totalClientes)}</td><td>${fmtNum(totalPedidos)}</td><td>${fmtBRLFull(totalTicket)}</td><td>${fmtBRLFull(totalPreco)}</td><td>${fmtNum(totalItens)}</td><td>${fmtNum(totalItensCopo)}</td>
   </tr></tbody>`;
   el('tabelaEmpresas').innerHTML = html;
   el('tabelaEmpresas').querySelectorAll('tr[data-empresa]').forEach(tr=>tr.addEventListener('click',()=>{const emp=tr.dataset.empresa;selectedEmpresa=selectedEmpresa===emp?'':emp;el('empresaSelect').value=selectedEmpresa;renderTudo();}));
