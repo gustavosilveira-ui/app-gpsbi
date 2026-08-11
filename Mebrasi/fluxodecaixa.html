@@ -1387,12 +1387,15 @@ const isPagamento = r => r.grupo!=='RECEBIMENTOS' && r.grupo!=='AJUSTES_MANUAIS'
 // Corrigido aqui com variantes próprias — só usadas nas linhas-resumo da
 // tabela — sem mexer no isRecebimento/isPagamento originais, que outros
 // cards (ex: "A Pagar em Aberto") ainda precisam incluindo Títulos em Aberto.
-// Cheque Terceiros do lado RECEBIMENTO também sai daqui — decisão já
-// confirmada com a Shirley em 27/07: recebimento via cheque de terceiros
-// fica fora do saldo/resumo, com linha própria (isso é diferente do lado
-// Pagamento, onde cheque de terceiros é despesa real e continua contando,
-// controlado por VALIDACAO_BATER_COM_BASE via contaNoTotal_).
-const isRecebimentoResumo = r => isRecebimento(r) && contaNoTotal_(r) && r.categoria!==CATEGORIA_CHEQUE_TERCEIROS;
+// Cheque Terceiros do lado RECEBIMENTO: atualizado em 11/08/2026 — Shirley
+// confirmou (10/08, "isso!") que, uma vez JÁ RECEBIDO (origem 'cr'), ele
+// conta normal (bate com o card "Recebido"); só o que ainda está em
+// aberto (origem 'venc') fica fora daqui, mesma lógica do card.
+const isRecebimentoResumo = r => {
+  if(!isRecebimento(r)) return false;
+  if(r.categoria === CATEGORIA_CHEQUE_TERCEIROS) return r.origem === 'cr';
+  return contaNoTotal_(r);
+};
 const isPagamentoResumo = r => isPagamento(r) && contaNoTotal_(r);
 const isGrupo = g => r => r.grupo===g;
 // Categoria sozinha não basta pra identificar a linha — "Títulos em
@@ -1506,12 +1509,17 @@ function renderFcKpiStrip(){
     )
     .reduce((s,r) => s + Math.abs(r.valor), 0);
 
+  // Cheque Terceiros JÁ RECEBIDO (origem 'cr') entra normal aqui — Shirley
+  // confirmou em 10/08/2026 ("isso!") que ele deve contar no total de
+  // Recebidos, ficando de fora só do Saldo Acumulado (que é o espelho do
+  // extrato bancário, confirmado de novo em 11/08). Por isso NÃO usa
+  // contaNoTotal_ aqui (ele bloquearia Cheque Terceiros de novo) — só
+  // exclui Títulos em Aberto, que nem deveria aparecer numa origem 'cr'.
   const recebido = rows
     .filter(r =>
       r.origem === 'cr' &&
       r.grupo === 'RECEBIMENTOS' &&
-      r.categoria !== CATEGORIA_CHEQUE_TERCEIROS &&
-      contaNoTotal_(r) &&
+      r.categoria !== CATEGORIA_TITULOS_ABERTO &&
       entraNosCards(r) &&
       r.date &&
       r.date.slice(0,7) === mesAtual &&
