@@ -89,7 +89,7 @@ html.light .account-head{background:#243754!important}
         <div class="dre-sub">Estrutura no padrão da DRE gerencial utilizada pelo grupo. Os anos anteriores iniciam fechados; o ano vigente abre os meses automaticamente. Clique nos anos e nas contas para expandir.</div>
       </div>
       <div class="dre-actions">
-        <a class="dre-back" href="fluxodecaixaUuizz.html">← Fluxo de Caixa</a>
+        <button class="dre-back" type="button" onclick="voltarAoFluxo()" style="cursor:pointer;">← Fluxo de Caixa</button>
         <a class="dre-back" href="fechamentofinanceiro.html">📊 Fechamento Financeiro</a>
       </div>
     </div>
@@ -139,6 +139,20 @@ html.light .account-head{background:#243754!important}
 
 </div>
 </div>
+
+
+<script>
+function voltarAoFluxo(){
+  try{
+    const ref = document.referrer ? new URL(document.referrer) : null;
+    if(ref && ref.origin === window.location.origin){
+      window.location.href = ref.href;
+      return;
+    }
+  }catch(e){}
+  window.location.href = './index.html';
+}
+</script>
 
 <script src="nav.js"></script>
 <script src="dregerencial.js"></script>
