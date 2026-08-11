@@ -913,6 +913,62 @@ function flattenRows(nodes){
 }
 
 
+
+/* ================== Fechamento Financeiro · 1º Semestre 2026 ================== */
+let fcChartEntradasSaidas = null;
+let fcChartResultado = null;
+
+function fcFechamentoSemestreDados(){
+  const meses = ['Jan','Fev','Mar','Abr','Mai','Jun'];
+  const mensal = meses.map((mes,i)=>({ mes, entradas:0, saidas:0, resultado:0 }));
+  const scoped = rowsInScope().filter(r=>!r.excluida && r.date && r.date>='2026-01-01' && r.date<='2026-06-30');
+  scoped.forEach(r=>{
+    const m = Number(r.date.slice(5,7))-1;
+    if(m<0 || m>5) return;
+    const impacto = Number.isFinite(Number(r.signedValor)) ? Number(r.signedValor) : (r.grupo==='PAGAMENTOS' ? -Math.abs(Number(r.valor||0)) : Math.abs(Number(r.valor||0)));
+    if(r.grupo==='RECEBIMENTOS') mensal[m].entradas += Math.max(0, impacto);
+    if(r.grupo==='PAGAMENTOS') mensal[m].saidas += Math.abs(Math.min(0, impacto || -Math.abs(Number(r.valor||0))));
+  });
+  mensal.forEach(x=>x.resultado=x.entradas-x.saidas);
+  const entradas = mensal.reduce((s,x)=>s+x.entradas,0);
+  const saidas = mensal.reduce((s,x)=>s+x.saidas,0);
+  const resultado = entradas-saidas;
+  return { mensal, entradas, saidas, resultado, margem: entradas ? resultado/entradas : 0, media: resultado/6 };
+}
+
+function renderFechamentoSemestre(){
+  const card = el('fcFechamentoSemestreCard');
+  if(!card) return;
+  const d = fcFechamentoSemestreDados();
+  const empresaLabel = empresaFiltro==='global' ? 'Global (Uuizz)' : empresaFiltro;
+  const badge = el('fcFechamentoEmpresaBadge'); if(badge) badge.textContent = empresaLabel;
+  const setTxt=(id,v)=>{ const x=el(id); if(x) x.textContent=v; };
+  setTxt('fcKpiEntradas', fmtBRL(d.entradas));
+  setTxt('fcKpiSaidas', fmtBRL(d.saidas));
+  setTxt('fcKpiResultado', fmtBRL(d.resultado));
+  setTxt('fcKpiMargem', (d.margem*100).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%');
+  setTxt('fcKpiMedia', fmtBRL(d.media));
+  const resEl=el('fcKpiResultado'), margemEl=el('fcKpiMargem'), mediaEl=el('fcKpiMedia');
+  [resEl,margemEl,mediaEl].forEach(x=>{ if(x){ x.classList.remove('fc-kpi-pos','fc-kpi-neg'); x.classList.add(d.resultado>=0?'fc-kpi-pos':'fc-kpi-neg'); }});
+
+  if(typeof Chart==='undefined') return;
+  const css = getComputedStyle(document.documentElement);
+  const textColor = css.getPropertyValue('--text2').trim() || '#7b8798';
+  const gridColor = css.getPropertyValue('--border').trim() || 'rgba(127,127,127,.15)';
+  const green = '#4F8F3A', red = '#EF6A6A', blue = '#2D70B8';
+  const moneyTick = v => 'R$ '+Number(v).toLocaleString('pt-BR',{notation:'compact',maximumFractionDigits:1});
+  const moneyTip = v => fmtBRL(Number(v||0));
+  const common = { responsive:true, maintainAspectRatio:false, interaction:{mode:'index',intersect:false}, plugins:{legend:{labels:{color:textColor,usePointStyle:true,boxWidth:8}},tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${moneyTip(c.raw)}`}}}, scales:{x:{ticks:{color:textColor},grid:{display:false}},y:{ticks:{color:textColor,callback:moneyTick},grid:{color:gridColor}}} };
+
+  if(fcChartEntradasSaidas) fcChartEntradasSaidas.destroy();
+  const c1=el('fcChartEntradasSaidas');
+  if(c1) fcChartEntradasSaidas = new Chart(c1,{type:'bar',data:{labels:d.mensal.map(x=>x.mes),datasets:[{label:'Entradas',data:d.mensal.map(x=>x.entradas),backgroundColor:green,borderRadius:5},{label:'Saídas',data:d.mensal.map(x=>x.saidas),backgroundColor:red,borderRadius:5}]},options:common});
+
+  if(fcChartResultado) fcChartResultado.destroy();
+  const c2=el('fcChartResultado');
+  if(c2) fcChartResultado = new Chart(c2,{type:'line',data:{labels:d.mensal.map(x=>x.mes),datasets:[{label:'Resultado',data:d.mensal.map(x=>x.resultado),borderColor:blue,backgroundColor:blue,tension:.28,fill:false,pointRadius:4,pointHoverRadius:6}]},options:common});
+}
+
 /* ================== Visão Semanal · Necessidade de Caixa ================== */
 function fcIsoLocal(d){
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -975,6 +1031,7 @@ function buildAndRenderTable(){
   columnTree = buildColumnTree();
   rowTree = buildRowTree();
   renderTable();
+  renderFechamentoSemestre();
   renderVisaoSemanal();
   renderDebugStats();
   const doScroll = ()=>scrollToToday();
