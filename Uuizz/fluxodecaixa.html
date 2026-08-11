@@ -30,6 +30,9 @@ html.light .fc-lvl-0 td{background:#eef1f6;}
 .fc-lvl-1{font-weight:700;padding-left:14px;}
 .fc-lvl-2{padding-left:28px;color:var(--text2);}
 .fc-saldo-pos{color:#4F8F3A;font-weight:800;}
+.fc-aplicacao-cell{color:var(--text2);}
+.fc-aplicacao-editavel{cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;}
+.fc-aplicacao-editavel:hover{background:rgba(90,140,255,.10);}
 .fc-saldo-neg{color:var(--red);font-weight:800;background:rgba(239,106,106,.08);}
 .fc-limite-alert{position:relative;overflow:visible;}
 .fc-limit-head{position:relative;display:inline-flex;align-items:center;justify-content:center;}
@@ -168,6 +171,10 @@ html.light .fc-empresa-btn{background:#eef1f6;}
 
       <!-- Para e-mails restritos (ex.: Mister Wiz), o JS esconde os botões
            "Global"/"Empoderamento" em runtime e mantém só "Mister Wiz" ativo. -->
+      <div style="display:flex;justify-content:flex-end;margin:0 0 10px;">
+        <a href="fechamentofinanceiro.html" class="btn btn-primary btn-sm" style="text-decoration:none;">📊 Fechamento Financeiro</a>
+      </div>
+
       <div class="fc-empresa-toggle" id="fcEmpresaToggle">
         <button class="fc-empresa-btn active" data-empresa="global" onclick="setEmpresaFiltro('global')">🏢 Global (Uuizz)</button>
         <button class="fc-empresa-btn" data-empresa="Empoderamento" onclick="setEmpresaFiltro('Empoderamento')">Empoderamento</button>
@@ -384,7 +391,7 @@ html.light .fc-empresa-btn{background:#eef1f6;}
 
     <!-- Popup discreto: tirar/alterar data de um lançamento direto da Ficha -->
     <div class="modal-overlay" id="fcTirarPopup" style="z-index:310;">
-      <div class="modal-box" style="width:380px;">
+      <div class="modal-box" style="width:400px;">
         <div class="modal-title">🚫 Tirar / Alterar Lançamento</div>
         <div class="modal-sub" id="fcTirarPopupInfo"></div>
         <div class="field-group">
@@ -397,6 +404,36 @@ html.light .fc-empresa-btn{background:#eef1f6;}
             <button class="btn btn-ghost btn-sm" onclick="fecharTirarPopup()">Cancelar</button>
             <button class="btn btn-primary btn-sm" onclick="confirmarTirarDaFicha(false)">Aplicar</button>
           </div>
+        </div>
+        <div style="border-top:1px solid var(--border);margin:16px 0 0;padding-top:12px;" id="fcTirarPopupRateioWrap"></div>
+      </div>
+    </div>
+
+    <!-- Popup discreto: digitar/alterar o valor de Aplicações do dia, e sacar -->
+    <div class="modal-overlay" id="fcAplicacaoPopup" style="z-index:310;">
+      <div class="modal-box" style="width:380px;">
+        <div class="modal-title">💰 Aplicações</div>
+        <div class="modal-sub" id="fcAplicacaoPopupInfo"></div>
+        <div class="field-group">
+          <label class="field-label">Valor aplicado nesse dia (R$)</label>
+          <input type="text" inputmode="decimal" id="fcAplicacaoPopupValor" placeholder="Ex.: 15.000,00">
+        </div>
+        <div class="modal-actions" style="justify-content:space-between;">
+          <button class="btn btn-danger btn-sm" onclick="removerAplicacaoPopup()">Remover</button>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-ghost btn-sm" onclick="fecharAplicacaoPopup()">Cancelar</button>
+            <button class="btn btn-primary btn-sm" onclick="confirmarAplicacaoPopup()">Salvar</button>
+          </div>
+        </div>
+        <div style="border-top:1px solid var(--border);margin:16px 0 12px;padding-top:12px;">
+          <div style="font-weight:700;font-size:12.5px;">🏧 Sacar dessa aplicação</div>
+          <div style="font-size:11.5px;color:var(--text3);margin-bottom:8px;">Esse valor passa a contar no Saldo Acumulado a partir dessa data — pode ser o total ou um valor diferente.</div>
+          <div class="field-group">
+            <label class="field-label">Valor a sacar (R$)</label>
+            <input type="text" inputmode="decimal" id="fcAplicacaoPopupSaque" placeholder="Ex.: 15.000,00">
+          </div>
+          <button class="btn btn-primary btn-sm" style="width:100%;" onclick="confirmarSaquePopup()">Confirmar saque</button>
+          <div id="fcAplicacaoPopupSaquesLista" style="margin-top:10px;"></div>
         </div>
       </div>
     </div>

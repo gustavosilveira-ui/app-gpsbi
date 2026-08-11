@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fechamento Financeiro · Hub Uuizz</title>
+<link rel="stylesheet" href="theme.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+html{zoom:.88;visibility:hidden}
+.ff-page{max-width:1600px!important;padding:18px 18px 28px!important}
+.ff-head{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;flex-wrap:wrap}
+.ff-title{font-size:18px;font-weight:800}
+.ff-sub{font-size:12px;color:var(--text3);line-height:1.5;margin-top:4px}
+.ff-back{display:inline-flex;align-items:center;gap:7px;text-decoration:none;border:1px solid var(--border2);background:var(--navy3);color:var(--text2);padding:8px 12px;border-radius:9px;font-size:12px;font-weight:700}
+.ff-filters{display:grid;grid-template-columns:auto minmax(180px,1fr) minmax(180px,1fr) auto;gap:10px;align-items:end;margin-top:18px;padding:14px;border:1px solid var(--border2);background:var(--navy3);border-radius:12px}
+.ff-empresa{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap}
+.ff-pill{border:1px solid var(--border2);background:var(--navy2);color:var(--text2);padding:8px 15px;border-radius:999px;font-size:12px;font-weight:750;cursor:pointer}
+.ff-pill.active{background:#2D70B8!important;border-color:#2D70B8!important;color:#fff!important}
+.ff-field label{display:block;font-size:10.5px;color:var(--text3);font-weight:700;text-transform:uppercase;margin-bottom:5px}
+.ff-field input{width:100%;padding:9px 10px;border-radius:8px;border:1px solid var(--border2);background:var(--navy2);color:var(--text);font-family:inherit}
+.ff-presets{display:flex;gap:6px;flex-wrap:wrap}
+.ff-preset{border:1px solid var(--border2);background:transparent;color:var(--text2);padding:7px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer}
+.ff-meta{display:flex;justify-content:space-between;gap:12px;align-items:center;margin:14px 2px 2px;color:var(--text3);font-size:11.5px}
+.ff-kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin-top:12px}
+.ff-kpi{background:var(--navy2);border:1px solid var(--border2);border-radius:12px;padding:15px 16px;min-height:96px}
+.ff-kpi-label{font-size:10.5px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+.ff-kpi-value{font-family:'DM Mono',monospace;font-size:19px;font-weight:850;margin-top:9px;white-space:nowrap}
+.ff-kpi-value.pos{color:#4F8F3A}.ff-kpi-value.neg{color:var(--red)}
+.ff-kpi-note{font-size:10.5px;color:var(--text3);margin-top:5px}
+.ff-grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+.ff-chart-card{background:var(--navy2);border:1px solid var(--border2);border-radius:12px;padding:15px 16px}
+.ff-card-title{font-size:13px;font-weight:800}
+.ff-card-sub{font-size:10.8px;color:var(--text3);margin-top:3px;margin-bottom:12px}
+.ff-chart{height:300px}
+.ff-tables{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+.ff-table{width:100%;border-collapse:collapse;font-size:11.5px}
+.ff-table th{font-size:9.8px;color:var(--text3);text-transform:uppercase;text-align:left;padding:8px;border-bottom:1px solid var(--border2)}
+.ff-table th.num,.ff-table td.num{text-align:right}
+.ff-table td{padding:9px 8px;border-bottom:1px solid var(--border)}
+.ff-table .muted{color:var(--text3)}
+.ff-rank{display:inline-flex;width:21px;height:21px;align-items:center;justify-content:center;border-radius:6px;background:var(--navy3);color:var(--text3);font-size:9px;font-weight:800;margin-right:8px}
+.empty{text-align:center!important;color:var(--text3);padding:18px!important}
+.ff-insights{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin-top:10px}
+.ff-insight{background:var(--navy3);border-radius:9px;padding:11px 12px;font-size:11.7px;line-height:1.45;color:var(--text2)}
+.ff-insight .pos{color:#4F8F3A}.ff-insight .neg{color:var(--red)}
+.ff-note{font-size:10.8px;color:var(--text3);line-height:1.5;margin-top:12px}
+.ff-denied{max-width:520px;margin:80px auto;text-align:center}
+@media(max-width:1250px){.ff-kpis{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:900px){.ff-grid2,.ff-tables,.ff-insights{grid-template-columns:1fr}.ff-filters{grid-template-columns:1fr 1fr}.ff-presets{grid-column:1/-1}}
+@media(max-width:620px){.ff-kpis{grid-template-columns:1fr 1fr}.ff-filters{grid-template-columns:1fr}.ff-kpi-value{font-size:16px}}
+html.light .ff-kpi,html.light .ff-chart-card{background:#fff}
+html.light .ff-filters,html.light .ff-insight,html.light .ff-rank{background:#f5f7fa}
+</style>
+</head>
+<body>
+
+<div class="loading-screen" id="loadingScreen">
+  <div class="spinner"></div>
+  <p id="loadingMsg">Carregando fechamento financeiro...</p>
+</div>
+
+<div id="deniedScreen" style="display:none">
+  <div class="content"><div class="card ff-denied">
+    <div class="card-title">🔒 Acesso restrito</div>
+    <div class="card-sub">Essa página segue as mesmas permissões do Fluxo de Caixa.</div>
+  </div></div>
+</div>
+
+<div id="mainContent" style="display:none">
+  <div class="content wide ff-page">
+    <div class="card">
+      <div class="ff-head">
+        <div>
+          <div class="ff-title">📊 Fechamento Financeiro · Grupo Uuizz</div>
+          <div class="ff-sub">Visão gerencial do caixa realizado: entradas, saídas, resultado financeiro, evolução mensal e principais categorias do período selecionado.</div>
+        </div>
+        <a class="ff-back" href="fluxodecaixaUuizz.html">← Voltar ao Fluxo de Caixa</a>
+      </div>
+
+      <div class="ff-filters">
+        <div class="ff-empresa" id="ffEmpresaToggle">
+          <button class="ff-pill active" data-empresa="global" onclick="setEmpresaFechamento('global')">🏢 Global (Uuizz)</button>
+          <button class="ff-pill" data-empresa="Empoderamento" onclick="setEmpresaFechamento('Empoderamento')">Empoderamento</button>
+          <button class="ff-pill" data-empresa="Mister Wiz" onclick="setEmpresaFechamento('Mister Wiz')">Mister Wiz</button>
+        </div>
+        <div class="ff-presets">
+          <button class="ff-preset" onclick="presetPeriodo('sem1_2026')">1º semestre/26</button>
+          <button class="ff-preset" onclick="presetPeriodo('ano')">Ano atual</button>
+          <button class="ff-preset" onclick="presetPeriodo('mes')">Mês atual</button>
+          <button class="ff-preset" onclick="presetPeriodo('90d')">Últimos 90 dias</button>
+        </div>
+        <div class="ff-field">
+          <label>Data inicial</label>
+          <input type="date" id="ffDataInicio">
+        </div>
+        <div class="ff-field">
+          <label>Data final</label>
+          <input type="date" id="ffDataFim">
+        </div>
+        <button class="btn btn-primary" onclick="renderFechamento()">Aplicar período</button>
+      </div>
+
+      <div class="ff-meta">
+        <span>Período: <b id="ffPeriodoLabel">—</b></span>
+        <span id="ffRegistros">—</span>
+      </div>
+
+      <div class="ff-kpis">
+        <div class="ff-kpi"><div class="ff-kpi-label">Entradas</div><div class="ff-kpi-value" id="ffKpiEntradas">—</div><div class="ff-kpi-note">Recebimentos realizados</div></div>
+        <div class="ff-kpi"><div class="ff-kpi-label">Saídas</div><div class="ff-kpi-value" id="ffKpiSaidas">—</div><div class="ff-kpi-note">Pagamentos realizados</div></div>
+        <div class="ff-kpi"><div class="ff-kpi-label">Resultado financeiro</div><div class="ff-kpi-value" id="ffKpiResultado">—</div><div class="ff-kpi-note">Entradas − saídas</div></div>
+        <div class="ff-kpi"><div class="ff-kpi-label">Margem de caixa</div><div class="ff-kpi-value" id="ffKpiMargem">—</div><div class="ff-kpi-note">Resultado ÷ entradas</div></div>
+        <div class="ff-kpi"><div class="ff-kpi-label">Média mensal · entradas</div><div class="ff-kpi-value" id="ffKpiMediaEntrada">—</div><div class="ff-kpi-note">Média no intervalo</div></div>
+        <div class="ff-kpi"><div class="ff-kpi-label">Média mensal · saídas</div><div class="ff-kpi-value" id="ffKpiMediaSaida">—</div><div class="ff-kpi-note">Média no intervalo</div></div>
+      </div>
+    </div>
+
+    <div class="ff-grid2">
+      <div class="ff-chart-card">
+        <div class="ff-card-title">Entradas x Saídas por mês</div>
+        <div class="ff-card-sub">Comparação mensal dentro do período selecionado.</div>
+        <div class="ff-chart"><canvas id="ffChartMovimento"></canvas></div>
+      </div>
+      <div class="ff-chart-card">
+        <div class="ff-card-title">Resultado financeiro mensal</div>
+        <div class="ff-card-sub">Evolução de entradas menos saídas.</div>
+        <div class="ff-chart"><canvas id="ffChartResultado"></canvas></div>
+      </div>
+      <div class="ff-chart-card">
+        <div class="ff-card-title">Principais grupos de despesas</div>
+        <div class="ff-card-sub">Onde o caixa mais saiu no período.</div>
+        <div class="ff-chart"><canvas id="ffChartDespesas"></canvas></div>
+      </div>
+      <div class="ff-chart-card">
+        <div class="ff-card-title">Principais fontes de recebimento</div>
+        <div class="ff-card-sub">Origens que mais contribuíram para as entradas.</div>
+        <div class="ff-chart"><canvas id="ffChartReceitas"></canvas></div>
+      </div>
+    </div>
+
+    <div class="ff-tables">
+      <div class="ff-chart-card">
+        <div class="ff-card-title">Top despesas detalhadas</div>
+        <div class="ff-card-sub">Categorias de pagamento ordenadas por valor.</div>
+        <table class="ff-table"><thead><tr><th>Categoria</th><th class="num">Valor</th><th class="num">%</th></tr></thead><tbody id="ffTabelaDespesas"></tbody></table>
+      </div>
+      <div class="ff-chart-card">
+        <div class="ff-card-title">Top recebimentos detalhados</div>
+        <div class="ff-card-sub">Categorias de recebimento ordenadas por valor.</div>
+        <table class="ff-table"><thead><tr><th>Categoria</th><th class="num">Valor</th><th class="num">%</th></tr></thead><tbody id="ffTabelaReceitas"></tbody></table>
+      </div>
+    </div>
+
+    <div class="ff-chart-card" style="margin-top:14px">
+      <div class="ff-card-title">Leitura executiva do período</div>
+      <div class="ff-card-sub">Resumo automático para apoiar o fechamento.</div>
+      <div class="ff-insights" id="ffInsights"></div>
+      <div class="ff-note">O painel segue o mesmo racional de realizado do fluxo: no Empoderamento, apenas itens quitados; no Mister Wiz, apenas itens conciliados. O resultado apresentado é financeiro/caixa, não DRE contábil.</div>
+    </div>
+  </div>
+</div>
+
+<script src="nav.js"></script>
+<script src="fechamentofinanceiro.js"></script>
+</body>
+</html>
