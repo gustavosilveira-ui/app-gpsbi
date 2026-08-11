@@ -7,13 +7,12 @@
 <link rel="stylesheet" href="theme.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <style>
-html{zoom:.88;visibility:hidden}
-.dre-page{max-width:1600px!important;padding:18px 18px 30px!important}
+html{visibility:hidden}
+.dre-page{max-width:100%!important;padding:18px 14px 28px!important}
 .dre-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;flex-wrap:wrap}
 .dre-title{font-size:18px;font-weight:850}
-.dre-sub{font-size:12px;color:var(--text3);line-height:1.5;margin-top:4px;max-width:950px}
+.dre-sub{font-size:12px;color:var(--text3);line-height:1.5;margin-top:4px;max-width:1050px}
 .dre-actions{display:flex;gap:8px;flex-wrap:wrap}
 .dre-back{display:inline-flex;align-items:center;text-decoration:none;border:1px solid var(--border2);background:var(--navy3);color:var(--text2);padding:8px 12px;border-radius:9px;font-size:12px;font-weight:700}
 .dre-filters{display:grid;grid-template-columns:auto minmax(180px,1fr) minmax(180px,1fr) auto;gap:10px;align-items:end;margin-top:18px;padding:14px;border:1px solid var(--border2);background:var(--navy3);border-radius:12px}
@@ -25,46 +24,55 @@ html{zoom:.88;visibility:hidden}
 .dre-field label{display:block;font-size:10.5px;color:var(--text3);font-weight:700;text-transform:uppercase;margin-bottom:5px}
 .dre-field input{width:100%;padding:9px 10px;border-radius:8px;border:1px solid var(--border2);background:var(--navy2);color:var(--text);font-family:inherit}
 .dre-meta{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:12px 2px 0;font-size:11.5px;color:var(--text3);flex-wrap:wrap}
+
 .dre-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-top:12px}
 .dre-kpi{background:var(--navy2);border:1px solid var(--border2);border-radius:12px;padding:15px 16px}
 .dre-kpi-label{font-size:10px;color:var(--text3);font-weight:750;text-transform:uppercase}
 .dre-kpi-value{font-family:'DM Mono',monospace;font-size:18px;font-weight:850;margin-top:8px}
 .dre-kpi-value.pos{color:#4F8F3A}.dre-kpi-value.neg{color:var(--red)}
-.dre-grid{display:grid;grid-template-columns:minmax(650px,1.25fr) minmax(420px,.75fr);gap:14px;margin-top:14px;align-items:start}
-.dre-card{background:var(--navy2);border:1px solid var(--border2);border-radius:12px;padding:15px 16px}
+
+.dre-card{background:var(--navy2);border:1px solid var(--border2);border-radius:12px;padding:15px 16px;margin-top:14px}
 .dre-card-title{font-size:13px;font-weight:850}
 .dre-card-sub{font-size:10.8px;color:var(--text3);margin:3px 0 12px}
-.dre-table{width:100%;border-collapse:collapse;font-size:12px}
-.dre-table th{text-align:left;color:var(--text3);font-size:9.8px;text-transform:uppercase;padding:8px 10px;border-bottom:1px solid var(--border2)}
-.dre-table th:nth-child(2),.dre-table th:nth-child(3){text-align:right}
-.dre-table td{padding:9px 10px;border-bottom:1px solid var(--border)}
-.dre-num,.dre-pct{text-align:right;font-family:'DM Mono',monospace;white-space:nowrap}
-.dre-pct{width:100px;color:var(--text2)}
-.dre-label{font-weight:650}
-.dre-label.level-1{padding-left:24px}.dre-label.level-2{padding-left:50px;color:var(--text2);font-weight:500}
-.dre-arrow{border:none;background:transparent;color:var(--cyan);cursor:pointer;width:22px;padding:0;text-align:left;font-weight:900}
-.dre-arrow.blank{display:inline-block}
-.dre-major td{font-weight:800;background:rgba(45,112,184,.05)}
-.dre-group td{font-weight:700}
-.dre-total td{font-weight:850;border-top:1px solid var(--border2);background:var(--navy3)}
-.dre-final td{font-weight:900;font-size:13px;border-top:2px solid var(--border2);background:rgba(47,214,184,.07)}
-.dre-final .dre-num{color:#4F8F3A}
-.dre-badge{display:inline-block;margin-left:8px;font-size:9px;background:rgba(45,112,184,.10);color:var(--text3);padding:3px 6px;border-radius:999px;vertical-align:middle}
-.dre-chart{height:340px}
-.dre-note{font-size:10.8px;color:var(--text3);line-height:1.55;margin-top:12px;padding:11px 12px;border-radius:9px;background:var(--navy3)}
-.dre-method{margin-top:14px}
-.dre-method-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:10px}
-.dre-method-item{background:var(--navy3);border-radius:9px;padding:11px 12px;font-size:11.5px;line-height:1.45}
-.dre-method-item b{display:block;margin-bottom:4px}
+.dre-wrap{overflow:auto;max-height:72vh;border:1px solid var(--border2);border-radius:10px}
+.dre-matrix{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:10.8px}
+.dre-matrix th,.dre-matrix td{padding:7px 9px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);white-space:nowrap}
+.dre-matrix th{position:sticky;top:0;z-index:5;background:var(--navy3);text-align:center;font-size:9.6px}
+.dre-sticky{position:sticky;left:0;z-index:4;background:var(--navy2)!important;min-width:300px;max-width:300px;text-align:left!important}
+.account-head{z-index:7!important;background:#243754!important;color:#fff!important;font-weight:850!important}
+.year-head{min-width:105px;font-weight:850}
+.year-head button{border:none;background:transparent;color:var(--cyan);font-weight:900;cursor:pointer;margin-right:5px}
+.month-head{min-width:92px}
+.dre-account{font-weight:700}
+.dre-account.level-1{padding-left:22px!important}
+.dre-account.level-2{padding-left:48px!important;font-weight:500;color:var(--text2)}
+.row-toggle{width:22px;border:none;background:transparent;color:var(--cyan);cursor:pointer;font-weight:900;padding:0;text-align:left}
+.row-toggle.blank{display:inline-block}
+.num-cell,.pct-cell{text-align:right;font-family:'DM Mono',monospace;min-width:92px}
+.pct-cell{font-weight:750}
+.dre-row.receita td{background:rgba(79,143,58,.08)}
+.dre-row.deducao td,.dre-row.custo td,.dre-row.opex td{background:rgba(239,106,106,.08)}
+.dre-row.total td{font-weight:850;background:rgba(45,112,184,.06)}
+.dre-row.gross td{background:rgba(79,143,58,.08)}
+.dre-row.percent td{font-weight:850}
+.dre-row.sub td{background:rgba(239,106,106,.035)}
+.dre-row.final td{font-weight:900;border-top:2px solid var(--border2);background:rgba(47,214,184,.08)}
+.dre-row.invest td{background:rgba(120,130,150,.06)}
+.dre-row.detail td{font-size:10.2px;color:var(--text2)}
+html.light .dre-kpi,html.light .dre-card,.dre-row.detail .dre-sticky{background:#fff}
+html.light .dre-filters,html.light .dre-matrix th{background:#f5f7fa}
+html.light .dre-sticky{background:#fff!important}
+html.light .account-head{background:#243754!important}
+.dre-note{font-size:10.8px;color:var(--text3);line-height:1.5;margin-top:10px}
 .dre-denied{max-width:520px;margin:80px auto;text-align:center}
-html.light .dre-card,html.light .dre-kpi{background:#fff}
-html.light .dre-filters,html.light .dre-total td,html.light .dre-note,html.light .dre-method-item{background:#f5f7fa}
-@media(max-width:1200px){.dre-kpis{grid-template-columns:repeat(3,1fr)}.dre-grid{grid-template-columns:1fr}}
-@media(max-width:900px){.dre-filters{grid-template-columns:1fr 1fr}.dre-presets{grid-column:1/-1}.dre-method-grid{grid-template-columns:1fr}}
-@media(max-width:620px){.dre-kpis{grid-template-columns:1fr 1fr}.dre-filters{grid-template-columns:1fr}.dre-label.level-2{padding-left:28px}}
+
+@media(max-width:1100px){.dre-kpis{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:800px){.dre-filters{grid-template-columns:1fr 1fr}.dre-presets{grid-column:1/-1}.dre-sticky{min-width:250px;max-width:250px}}
+@media(max-width:620px){.dre-kpis{grid-template-columns:1fr 1fr}.dre-filters{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
+
 <div class="loading-screen" id="loadingScreen"><div class="spinner"></div><p id="loadingMsg">Carregando DRE gerencial...</p></div>
 
 <div id="deniedScreen" style="display:none">
@@ -78,7 +86,7 @@ html.light .dre-filters,html.light .dre-total td,html.light .dre-note,html.light
     <div class="dre-head">
       <div>
         <div class="dre-title">📑 DRE Gerencial · Grupo Uuizz</div>
-        <div class="dre-sub">Estrutura gerencial construída como espelho do plano de contas do Fluxo de Caixa, com contas expansíveis por categoria. Permite analisar Global, Empoderamento ou Mister Wiz e qualquer período.</div>
+        <div class="dre-sub">Estrutura no padrão da DRE gerencial utilizada pelo grupo. Os anos anteriores iniciam fechados; o ano vigente abre os meses automaticamente. Clique nos anos e nas contas para expandir.</div>
       </div>
       <div class="dre-actions">
         <a class="dre-back" href="fluxodecaixaUuizz.html">← Fluxo de Caixa</a>
@@ -93,10 +101,10 @@ html.light .dre-filters,html.light .dre-total td,html.light .dre-note,html.light
         <button class="dre-pill" data-empresa="Mister Wiz" onclick="setEmpresaDre('Mister Wiz')">Mister Wiz</button>
       </div>
       <div class="dre-presets">
+        <button class="dre-preset" onclick="presetDre('3anos')">Últimos 3 anos</button>
         <button class="dre-preset" onclick="presetDre('sem1_2026')">1º semestre/26</button>
         <button class="dre-preset" onclick="presetDre('ano')">Ano atual</button>
         <button class="dre-preset" onclick="presetDre('mes')">Mês atual</button>
-        <button class="dre-preset" onclick="presetDre('12m')">Últimos 12 meses</button>
       </div>
       <div class="dre-field"><label>Data inicial</label><input type="date" id="dreDataInicio"></div>
       <div class="dre-field"><label>Data final</label><input type="date" id="dreDataFim"></div>
@@ -112,37 +120,21 @@ html.light .dre-filters,html.light .dre-total td,html.light .dre-note,html.light
       <div class="dre-kpi"><div class="dre-kpi-label">Receita líquida</div><div class="dre-kpi-value" id="dreKpiReceitaLiquida">—</div></div>
       <div class="dre-kpi"><div class="dre-kpi-label">Lucro bruto</div><div class="dre-kpi-value" id="dreKpiLucroBruto">—</div></div>
       <div class="dre-kpi"><div class="dre-kpi-label">Margem bruta</div><div class="dre-kpi-value" id="dreKpiMargemBruta">—</div></div>
-      <div class="dre-kpi"><div class="dre-kpi-label">Resultado líquido</div><div class="dre-kpi-value" id="dreKpiResultado">—</div></div>
+      <div class="dre-kpi"><div class="dre-kpi-label">Lucro líquido</div><div class="dre-kpi-value" id="dreKpiResultado">—</div></div>
       <div class="dre-kpi"><div class="dre-kpi-label">Margem líquida</div><div class="dre-kpi-value" id="dreKpiMargemLiquida">—</div></div>
     </div>
   </div>
 
-  <div class="dre-grid">
-    <div class="dre-card">
-      <div class="dre-card-title">Demonstrativo do Resultado</div>
-      <div class="dre-card-sub">Clique nas setas para expandir grupos e categorias.</div>
-      <table class="dre-table">
-        <thead><tr><th>Conta / Categoria</th><th>Valor</th><th>Margem</th></tr></thead>
+  <div class="dre-card">
+    <div class="dre-card-title">Demonstrativo do Resultado</div>
+    <div class="dre-card-sub">Anos nas colunas e plano de contas nas linhas. Abra um ano para enxergar os meses; abra uma conta para enxergar as categorias.</div>
+    <div class="dre-wrap">
+      <table class="dre-matrix">
+        <thead id="dreHead"></thead>
         <tbody id="dreBody"></tbody>
       </table>
     </div>
-
-    <div class="dre-card">
-      <div class="dre-card-title">Evolução mensal</div>
-      <div class="dre-card-sub">Receita líquida, lucro bruto e resultado líquido dentro do período.</div>
-      <div class="dre-chart"><canvas id="dreChart"></canvas></div>
-      <div class="dre-note">Esta é uma <b>DRE gerencial por regime de caixa</b>, construída a partir do mesmo realizado usado pelo Fluxo: Quitado no Empoderamento e Conciliado no Mister Wiz. Não substitui a DRE contábil por competência.</div>
-    </div>
-  </div>
-
-  <div class="dre-card dre-method">
-    <div class="dre-card-title">Racional da estrutura</div>
-    <div class="dre-card-sub">Mantive o plano de contas já parametrizado no Fluxo, sem reclassificar categorias silenciosamente.</div>
-    <div class="dre-method-grid">
-      <div class="dre-method-item"><b>Receita líquida</b>Recebimentos realizados menos o grupo “Deduções Da Receita”.</div>
-      <div class="dre-method-item"><b>Lucro bruto / Margem bruta</b>Receita líquida menos “Fornecedores”, tratado aqui como custo direto gerencial.</div>
-      <div class="dre-method-item"><b>Resultado líquido / Margem líquida</b>Lucro bruto menos despesas operacionais e despesas financeiras.</div>
-    </div>
+    <div class="dre-note">DRE gerencial construída a partir dos lançamentos realizados do Fluxo de Caixa. A classificação segue as contas já parametrizadas no fluxo e separa investimentos e itens financeiros quando identificáveis pelas categorias.</div>
   </div>
 
 </div>

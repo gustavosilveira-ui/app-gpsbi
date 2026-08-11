@@ -717,9 +717,11 @@ function chartDefaults(){
   return {
     responsive:true,
     maintainAspectRatio:false,
+    interaction:{mode:'nearest',intersect:true,axis:'xy'},
+    hover:{mode:'nearest',intersect:true},
     plugins:{
       legend:{labels:{color:getComputedStyle(document.documentElement).getPropertyValue('--text2').trim() || '#526078',font:{family:'Sora'}}},
-      tooltip:{callbacks:{label:(ctx)=>`${ctx.dataset.label||ctx.label}: ${fmtBRL(ctx.raw)}`}}
+      tooltip:{mode:'nearest',intersect:true,callbacks:{label:(ctx)=>`${ctx.dataset.label||ctx.label}: ${fmtBRL(ctx.raw)}`}}
     },
     scales:{
       x:{ticks:{color:getComputedStyle(document.documentElement).getPropertyValue('--text3').trim() || '#718096'},grid:{display:false}},

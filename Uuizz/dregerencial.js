@@ -561,303 +561,316 @@ function rowsFromHotmart(table){
 }
 
 
-/* ================== Estado · DRE Gerencial ================== */
+/* ================== Estado · DRE Gerencial em matriz ================== */
 let rows = [];
-let rowsBase = [];
-let ajustesManuais = [];
 let currentUser = null;
 let gpsStaff = false;
 let restritoMisterWiz = false;
 let empresaFiltro = 'global';
-let dreExpanded = new Set(['receita_bruta','deducoes','custos','opex','financeiras']);
+
+const nowDre = new Date();
+const ANO_ATUAL_DRE = nowDre.getFullYear();
+let dreExpandedRows = new Set();
+let dreExpandedYears = new Set([ANO_ATUAL_DRE]);
 
 function rowsInScope(){
-  return empresaFiltro==='global' ? rows : rows.filter(r=>r.empresa===empresaFiltro);
+  return empresaFiltro === 'global' ? rows : rows.filter(r => r.empresa === empresaFiltro);
 }
-
-function formatDateBR(dstr){
-  if(!dstr) return '';
-  const [y,m,d] = dstr.split('-');
-  return `${d}/${m}/${y}`;
-}
-
 function isoHoje(){
   const d=new Date();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
-
-function setEmpresaDre(v){
-  if(restritoMisterWiz && v!=='Mister Wiz') return;
-  empresaFiltro=v;
-  document.querySelectorAll('#dreEmpresaToggle .dre-pill').forEach(b=>{
-    b.classList.toggle('active',b.dataset.empresa===v);
-  });
-  renderDre();
+function formatDateBR(dstr){
+  if(!dstr) return '';
+  const [y,m,d]=dstr.split('-');
+  return `${d}/${m}/${y}`;
 }
-
-function presetDre(tipo){
-  const hoje=new Date();
-  let ini='',fim='';
-  if(tipo==='sem1_2026'){ ini='2026-01-01'; fim='2026-06-30'; }
-  if(tipo==='ano'){ ini=`${hoje.getFullYear()}-01-01`; fim=isoHoje(); }
-  if(tipo==='mes'){
-    ini=`${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}-01`;
-    fim=isoHoje();
-  }
-  if(tipo==='12m'){
-    const d=new Date(hoje); d.setMonth(d.getMonth()-11); d.setDate(1);
-    ini=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`;
-    fim=isoHoje();
-  }
-  el('dreDataInicio').value=ini;
-  el('dreDataFim').value=fim;
-  renderDre();
+function normDre(s){
+  return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
 }
+function valAbs(r){ return Math.abs(Number(r.valor)||0); }
+function isRec(r){ return r.grupo==='RECEBIMENTOS'; }
+function isPag(r){ return r.grupo==='PAGAMENTOS'; }
+function catNorm(r){ return normDre(r.categoria||''); }
+function grpNorm(r){ return normDre(r.grupoDisplay||''); }
 
-function periodoValido(){
-  const ini=el('dreDataInicio').value, fim=el('dreDataFim').value;
-  if(!ini||!fim) return false;
-  if(ini>fim){ alert('A data inicial não pode ser maior que a data final.'); return false; }
+function isInvestimento(r){
+  const t=catNorm(r)+' '+grpNorm(r);
+  return /(investimento|aplicacao|cdb|resgate de investimento|saldo total investimento)/.test(t);
+}
+function isReceitaFinanceira(r){
+  if(!isRec(r)) return false;
+  const t=catNorm(r);
+  return /(rendimento|juros receb|receita financeira)/.test(t) && !isInvestimento(r);
+}
+function isImpostoRendaCsll(r){
+  if(!isPag(r)) return false;
+  const t=catNorm(r);
+  return /(^|\b)(irpj|csll|imposto de renda)(\b|$)/.test(t);
+}
+function isDeducao(r){
+  return isPag(r) && grpNorm(r)==='deducoes da receita';
+}
+function isFornecedor(r){
+  return isPag(r) && grpNorm(r)==='fornecedores';
+}
+function isPessoal(r){
+  return isPag(r) && grpNorm(r)==='despesas com pessoal';
+}
+function isInfra(r){
+  return isPag(r) && grpNorm(r)==='despesas com infra-estrutura';
+}
+function isTiMarketing(r){
+  const g=grpNorm(r);
+  return isPag(r) && (g==='despesa com ti' || g==='despesas com marketing');
+}
+function isLogistica(r){
+  const g=grpNorm(r);
+  return isPag(r) && (g==='despesas logisticas' || g==='despesas com viagem');
+}
+function isFinanceiroGrupo(r){
+  return isPag(r) && grpNorm(r)==='despesas financeiras';
+}
+function isBancaria(r){
+  if(!isFinanceiroGrupo(r)) return false;
+  const t=catNorm(r);
+  return /(tarifa|bancar|boleto|cartao|iof|taxa|maquininha|adquirencia)/.test(t);
+}
+function isDespFinanceira(r){
+  return isFinanceiroGrupo(r) && !isBancaria(r) && !isImpostoRendaCsll(r);
+}
+function isAdministrativa(r){
+  if(!isPag(r)) return false;
+  if(isDeducao(r)||isFornecedor(r)||isPessoal(r)||isInfra(r)||isTiMarketing(r)||isLogistica(r)||isFinanceiroGrupo(r)||isImpostoRendaCsll(r)||isInvestimento(r)) return false;
   return true;
 }
+function isReceitaBruta(r){
+  return isRec(r) && !isReceitaFinanceira(r) && !isInvestimento(r);
+}
 
-function linhasPeriodo(){
+function selectedRows(){
   const ini=el('dreDataInicio').value, fim=el('dreDataFim').value;
-  return rowsInScope().filter(r=>
-    r && r.date && r.date>=ini && r.date<=fim &&
-    !r.excluida &&
-    (r.grupo==='RECEBIMENTOS'||r.grupo==='PAGAMENTOS')
-  );
+  return rowsInScope().filter(r=>r&&r.date&&r.date>=ini&&r.date<=fim&&!r.excluida&&(isRec(r)||isPag(r)));
 }
+function inPeriod(r, period){
+  if(period.type==='year') return Number(r.date.slice(0,4))===period.year;
+  return Number(r.date.slice(0,4))===period.year && Number(r.date.slice(5,7))===period.month;
+}
+function rowsPeriod(base,period){ return base.filter(r=>inPeriod(r,period)); }
 
-function somaGrupo(linhas, grupoDisplay){
-  return linhas
-    .filter(r=>r.grupo==='PAGAMENTOS' && (r.grupoDisplay||'Outros')===grupoDisplay)
-    .reduce((s,r)=>s+Math.abs(Number(r.valor)||0),0);
-}
-function somaReceita(linhas){
-  return linhas.filter(r=>r.grupo==='RECEBIMENTOS').reduce((s,r)=>s+Math.abs(Number(r.valor)||0),0);
-}
-function agruparCategorias(linhas, filtro){
+function sumWhere(base,pred){ return base.filter(pred).reduce((s,r)=>s+valAbs(r),0); }
+function groupCats(base,pred){
   const m=new Map();
-  linhas.filter(filtro).forEach(r=>{
-    const nome=(r.categoria||'Sem categoria').trim()||'Sem categoria';
-    m.set(nome,(m.get(nome)||0)+Math.abs(Number(r.valor)||0));
+  base.filter(pred).forEach(r=>{
+    const c=(r.categoria||'Sem categoria').trim()||'Sem categoria';
+    m.set(c,(m.get(c)||0)+valAbs(r));
   });
   return [...m.entries()].map(([label,valor])=>({label,valor})).sort((a,b)=>b.valor-a.valor);
 }
-function agruparGruposOpex(linhas){
-  const grupos=[
-    'Despesas Com Pessoal',
-    'Despesas Com Marketing',
-    'Despesas Administrativas',
-    'Despesa com TI',
-    'Despesas Com Infra-Estrutura',
-    'Despesas Logísticas',
-    'Despesas com Viagem',
-    'Outros',
-    'Lançamentos Manuais (GPS)'
-  ];
-  return grupos.map(g=>({
-    label:g,
-    valor:somaGrupo(linhas,g),
-    categorias:agruparCategorias(linhas,r=>r.grupo==='PAGAMENTOS'&&(r.grupoDisplay||'Outros')===g)
-  })).filter(x=>x.valor!==0);
+
+function calcPeriod(base){
+  const rb=sumWhere(base,isReceitaBruta);
+  const ded=sumWhere(base,isDeducao);
+  const rl=rb-ded;
+  const forn=sumWhere(base,isFornecedor);
+  const lb=rl-forn;
+  const mb=rl?lb/rl:0;
+
+  const pessoal=sumWhere(base,isPessoal);
+  const infra=sumWhere(base,isInfra);
+  const banc=sumWhere(base,isBancaria);
+  const adm=sumWhere(base,isAdministrativa);
+  const log=sumWhere(base,isLogistica);
+  const timkt=sumWhere(base,isTiMarketing);
+  const op=pessoal+infra+banc+adm+log+timkt;
+
+  const lucroOp=lb-op;
+  const lucroPct=rl?lucroOp/rl:0;
+
+  const recFin=sumWhere(base,isReceitaFinanceira);
+  const despFin=sumWhere(base,isDespFinanceira);
+  const resFin=recFin-despFin;
+  const lair=lucroOp+resFin;
+
+  const ircsll=sumWhere(base,isImpostoRendaCsll);
+  const liquido=lair-ircsll;
+  const ml=rl?liquido/rl:0;
+
+  const invRec=sumWhere(base,r=>isInvestimento(r)&&isRec(r));
+  const invPag=sumWhere(base,r=>isInvestimento(r)&&isPag(r));
+  const investimentos=invRec-invPag;
+
+  return {rb,ded,rl,forn,lb,mb,pessoal,infra,banc,adm,log,timkt,op,lucroOp,lucroPct,recFin,despFin,resFin,lair,ircsll,liquido,ml,investimentos};
 }
 
-function calcDre(linhas){
-  const receitaBruta=somaReceita(linhas);
-  const deducoes=somaGrupo(linhas,'Deduções Da Receita');
-  const receitaLiquida=receitaBruta-deducoes;
-  const custos=somaGrupo(linhas,'Fornecedores');
-  const lucroBruto=receitaLiquida-custos;
-  const margemBruta=receitaLiquida?lucroBruto/receitaLiquida:0;
-
-  const opex=agruparGruposOpex(linhas);
-  const despesasOperacionais=opex.reduce((s,x)=>s+x.valor,0);
-  const resultadoOperacional=lucroBruto-despesasOperacionais;
-
-  const despesasFinanceiras=somaGrupo(linhas,'Despesas Financeiras');
-  const resultadoLiquido=resultadoOperacional-despesasFinanceiras;
-  const margemLiquida=receitaLiquida?resultadoLiquido/receitaLiquida:0;
-
-  return {
-    receitaBruta,deducoes,receitaLiquida,custos,lucroBruto,margemBruta,
-    opex,despesasOperacionais,resultadoOperacional,despesasFinanceiras,
-    resultadoLiquido,margemLiquida
-  };
+function buildPeriods(){
+  const ini=Number(el('dreDataInicio').value.slice(0,4));
+  const fim=Number(el('dreDataFim').value.slice(0,4));
+  const periods=[];
+  for(let y=ini;y<=fim;y++){
+    periods.push({type:'year',year:y,key:`y${y}`,label:String(y)});
+    if(dreExpandedYears.has(y)){
+      for(let m=1;m<=12;m++){
+        periods.push({type:'month',year:y,month:m,key:`y${y}m${m}`,label:['JAN.','FEV.','MAR.','ABR.','MAI.','JUN.','JUL.','AGO.','SET.','OUT.','NOV.','DEZ.'][m-1]});
+      }
+    }
+  }
+  return periods;
 }
-
+function toggleYearDre(y){
+  if(dreExpandedYears.has(y)) dreExpandedYears.delete(y); else dreExpandedYears.add(y);
+  renderDre();
+}
+function toggleRowDre(k){
+  if(dreExpandedRows.has(k)) dreExpandedRows.delete(k); else dreExpandedRows.add(k);
+  renderDre();
+}
 function fmtPct(v){
+  if(!Number.isFinite(v)) return '0%';
   return (v*100).toFixed(1).replace('.',',')+'%';
+}
+function fmtNum(v,pct=false){
+  if(pct) return fmtPct(v);
+  const n=Math.abs(v)<0.005?0:v;
+  return n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 }
 function esc(s){
   return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
 }
-function toggleDre(key){
-  if(dreExpanded.has(key)) dreExpanded.delete(key); else dreExpanded.add(key);
-  renderDre();
-}
-function arrow(key, temFilhos=true){
-  if(!temFilhos) return '<span class="dre-arrow blank"></span>';
-  return `<button class="dre-arrow" onclick="toggleDre('${key}')">${dreExpanded.has(key)?'▾':'▸'}</button>`;
-}
-function rowHtml({classe='',key='',label='',valor=null,pct=null,level=0,temFilhos=false,extra=''}) {
-  return `<tr class="${classe}">
-    <td class="dre-label level-${level}">${arrow(key,temFilhos)}<span>${label}</span>${extra}</td>
-    <td class="dre-num">${valor===null?'':fmtBRL(valor)}</td>
-    <td class="dre-pct">${pct===null?'':fmtPct(pct)}</td>
-  </tr>`;
-}
-function childrenCategorias(cats, parentKey, sinal='menos'){
-  if(!dreExpanded.has(parentKey)) return '';
-  return cats.map((c,i)=>rowHtml({
-    classe:'dre-child',
-    label:esc(c.label),
-    valor:sinal==='menos'?-c.valor:c.valor,
-    level:2
-  })).join('');
-}
-function renderEstrutura(linhas,d){
-  const recCats=agruparCategorias(linhas,r=>r.grupo==='RECEBIMENTOS');
-  const dedCats=agruparCategorias(linhas,r=>r.grupo==='PAGAMENTOS'&&(r.grupoDisplay||'Outros')==='Deduções Da Receita');
-  const custoCats=agruparCategorias(linhas,r=>r.grupo==='PAGAMENTOS'&&(r.grupoDisplay||'Outros')==='Fornecedores');
-  const finCats=agruparCategorias(linhas,r=>r.grupo==='PAGAMENTOS'&&(r.grupoDisplay||'Outros')==='Despesas Financeiras');
 
-  let h='';
-  h+=rowHtml({classe:'dre-major receita',key:'receita_bruta',label:'RECEITA BRUTA',valor:d.receitaBruta,level:0,temFilhos:recCats.length>0});
-  h+=childrenCategorias(recCats,'receita_bruta','mais');
+function makeAccountRows(base){
+  const specs = [
+    {key:'rb', label:'1 Receita Bruta', cls:'receita', value:d=>d.rb, pred:isReceitaBruta, expand:true},
+    {key:'ded', label:'(-) Deduções e Impostos sobre Vendas', cls:'deducao', value:d=>-d.ded, pred:isDeducao, expand:true},
+    {key:'rl', label:'1.2 Receita Líquida', cls:'total', value:d=>d.rl},
 
-  h+=rowHtml({classe:'dre-major deducao',key:'deducoes',label:'(-) DEDUÇÕES DA RECEITA',valor:-d.deducoes,level:0,temFilhos:dedCats.length>0});
-  h+=childrenCategorias(dedCats,'deducoes','menos');
+    {key:'forn', label:'2. Fornecedores', cls:'custo', value:d=>-d.forn, pred:isFornecedor, expand:true},
+    {key:'lb', label:'3. Lucro Bruto', cls:'total gross', value:d=>d.lb},
+    {key:'mb', label:'3. Lucro Bruto %', cls:'percent', value:d=>d.mb, pct:true},
 
-  h+=rowHtml({classe:'dre-total',label:'= RECEITA LÍQUIDA',valor:d.receitaLiquida,level:0});
+    {key:'op', label:'4 Despesas Operacionais', cls:'opex', value:d=>-d.op, expand:true},
+    {key:'pessoal', parent:'op', label:'4.1 Despesas Com Pessoal', cls:'sub', value:d=>-d.pessoal, pred:isPessoal, expand:true},
+    {key:'infra', parent:'op', label:'4.2 Despesas Com Infra-Estrutura', cls:'sub', value:d=>-d.infra, pred:isInfra, expand:true},
+    {key:'banc', parent:'op', label:'4.3 Despesas Bancárias', cls:'sub', value:d=>-d.banc, pred:isBancaria, expand:true},
+    {key:'adm', parent:'op', label:'4.4 Despesas Administrativas', cls:'sub', value:d=>-d.adm, pred:isAdministrativa, expand:true},
+    {key:'log', parent:'op', label:'4.5 Despesas Logísticas', cls:'sub', value:d=>-d.log, pred:isLogistica, expand:true},
+    {key:'timkt', parent:'op', label:'4.6 Despesas Com TI / Marketing', cls:'sub', value:d=>-d.timkt, pred:isTiMarketing, expand:true},
 
-  h+=rowHtml({classe:'dre-major custo',key:'custos',label:'(-) CUSTOS DIRETOS · FORNECEDORES',valor:-d.custos,level:0,temFilhos:custoCats.length>0});
-  h+=childrenCategorias(custoCats,'custos','menos');
+    {key:'lop', label:'Lucro Operacional R$', cls:'total op', value:d=>d.lucroOp},
+    {key:'loppct', label:'Lucro %', cls:'percent', value:d=>d.lucroPct, pct:true},
 
-  h+=rowHtml({classe:'dre-total gross',label:'= LUCRO BRUTO',valor:d.lucroBruto,pct:d.margemBruta,level:0,
-      extra:'<span class="dre-badge">Margem bruta</span>'});
-
-  h+=rowHtml({classe:'dre-major',key:'opex',label:'(-) DESPESAS OPERACIONAIS',valor:-d.despesasOperacionais,level:0,temFilhos:d.opex.length>0});
-  if(dreExpanded.has('opex')){
-    d.opex.forEach((g,idx)=>{
-      const key=`opex_${idx}`;
-      h+=rowHtml({classe:'dre-group',key,label:esc(g.label),valor:-g.valor,level:1,temFilhos:g.categorias.length>0});
-      h+=childrenCategorias(g.categorias,key,'menos');
-    });
-  }
-
-  h+=rowHtml({classe:'dre-total op',label:'= RESULTADO OPERACIONAL',valor:d.resultadoOperacional,level:0});
-
-  h+=rowHtml({classe:'dre-major financeira',key:'financeiras',label:'(-) DESPESAS FINANCEIRAS',valor:-d.despesasFinanceiras,level:0,temFilhos:finCats.length>0});
-  h+=childrenCategorias(finCats,'financeiras','menos');
-
-  h+=rowHtml({classe:'dre-final',label:'= RESULTADO LÍQUIDO',valor:d.resultadoLiquido,pct:d.margemLiquida,level:0,
-      extra:'<span class="dre-badge">Margem líquida</span>'});
-
-  el('dreBody').innerHTML=h;
+    {key:'recfin', label:'(+) Receitas Financeiras', cls:'receita', value:d=>d.recFin, pred:isReceitaFinanceira, expand:true},
+    {key:'despfin', label:'(-) Despesas Financeiras', cls:'deducao', value:d=>-d.despFin, pred:isDespFinanceira, expand:true},
+    {key:'resfin', label:'Resultado Financeiro', cls:'total', value:d=>d.resFin},
+    {key:'lair', label:'Lucro Antes dos Impostos (LAIR)', cls:'total', value:d=>d.lair},
+    {key:'ircsll', label:'13. (-) Imposto de Renda e CSLL', cls:'deducao', value:d=>-d.ircsll, pred:isImpostoRendaCsll, expand:true},
+    {key:'liq', label:'14. Lucro Líquido do Exercício', cls:'final', value:d=>d.liquido},
+    {key:'inv', label:'8. Investimentos', cls:'invest', value:d=>d.investimentos, pred:isInvestimento, expand:true}
+  ];
+  return specs;
 }
 
-function agruparMes(linhas){
-  const map=new Map();
-  linhas.forEach(r=>{
-    const k=r.date.slice(0,7);
-    if(!map.has(k)) map.set(k,[]);
-    map.get(k).push(r);
-  });
-  const ini=new Date(el('dreDataInicio').value+'T00:00:00');
-  const fim=new Date(el('dreDataFim').value+'T00:00:00');
-  const cur=new Date(ini.getFullYear(),ini.getMonth(),1);
-  while(cur<=fim){
-    const k=`${cur.getFullYear()}-${String(cur.getMonth()+1).padStart(2,'0')}`;
-    if(!map.has(k)) map.set(k,[]);
-    cur.setMonth(cur.getMonth()+1);
-  }
-  return [...map.entries()].sort((a,b)=>a[0].localeCompare(b[0])).map(([k,rs])=>({k,...calcDre(rs)}));
-}
-function labelMes(k){
-  const [y,m]=k.split('-').map(Number);
-  const n=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-  return `${n[m-1]}/${String(y).slice(2)}`;
-}
+function renderDreTable(base){
+  const periods=buildPeriods();
+  const calcMap=new Map(periods.map(p=>[p.key,calcPeriod(rowsPeriod(base,p))]));
+  const specs=makeAccountRows(base);
 
-let dreChart=null;
-function renderChart(linhas){
-  const mensal=agruparMes(linhas);
-  if(dreChart) dreChart.destroy();
-  dreChart=new Chart(el('dreChart'),{
-    type:'line',
-    data:{
-      labels:mensal.map(x=>labelMes(x.k)),
-      datasets:[
-        {label:'Receita líquida',data:mensal.map(x=>x.receitaLiquida),borderColor:'#2D70B8',backgroundColor:'rgba(45,112,184,.10)',tension:.25,pointRadius:3},
-        {label:'Lucro bruto',data:mensal.map(x=>x.lucroBruto),borderColor:'#2FD6B8',backgroundColor:'rgba(47,214,184,.08)',tension:.25,pointRadius:3},
-        {label:'Resultado líquido',data:mensal.map(x=>x.resultadoLiquido),borderColor:'#F5B942',backgroundColor:'rgba(245,185,66,.08)',tension:.25,pointRadius:3}
-      ]
-    },
-    options:{
-      responsive:true,maintainAspectRatio:false,
-      interaction:{mode:'index',intersect:true,axis:'x'},
-      hover:{mode:'index',intersect:true},
-      plugins:{
-        legend:{labels:{color:getComputedStyle(document.documentElement).getPropertyValue('--text2').trim()||'#526078',font:{family:'Sora'}}},
-        tooltip:{mode:'index',intersect:true,callbacks:{label:ctx=>`${ctx.dataset.label}: ${fmtBRL(ctx.raw)}`}}
-      },
-      scales:{
-        x:{ticks:{color:getComputedStyle(document.documentElement).getPropertyValue('--text3').trim()||'#718096'},grid:{display:false}},
-        y:{ticks:{color:getComputedStyle(document.documentElement).getPropertyValue('--text3').trim()||'#718096',callback:v=>'R$ '+Number(v).toLocaleString('pt-BR')},grid:{color:'rgba(120,130,150,.12)'}}
-      }
+  let head='<tr><th class="dre-sticky account-head">DRE GERENCIAL · UUIZZ</th>';
+  periods.forEach(p=>{
+    if(p.type==='year'){
+      const open=dreExpandedYears.has(p.year);
+      head+=`<th class="year-head"><button onclick="toggleYearDre(${p.year})">${open?'⊟':'⊞'}</button>${p.label}</th>`;
+    }else{
+      head+=`<th class="month-head">${p.label}</th>`;
     }
   });
+  head+='</tr>';
+  el('dreHead').innerHTML=head;
+
+  let body='';
+  specs.forEach(s=>{
+    if(s.parent && !dreExpandedRows.has(s.parent)) return;
+
+    const canExpand = !!s.expand && s.pred && groupCats(base,s.pred).length>0;
+    body+=`<tr class="dre-row ${s.cls}">
+      <td class="dre-sticky dre-account level-${s.parent?1:0}">
+        ${canExpand?`<button class="row-toggle" onclick="toggleRowDre('${s.key}')">${dreExpandedRows.has(s.key)?'⊟':'⊞'}</button>`:'<span class="row-toggle blank"></span>'}
+        <span>${esc(s.label)}</span>
+      </td>`;
+
+    periods.forEach(p=>{
+      const d=calcMap.get(p.key);
+      body+=`<td class="${s.pct?'pct-cell':'num-cell'}">${fmtNum(s.value(d),s.pct)}</td>`;
+    });
+    body+='</tr>';
+
+    if(canExpand && dreExpandedRows.has(s.key)){
+      const cats=groupCats(base,s.pred);
+      cats.forEach(cat=>{
+        body+=`<tr class="dre-row detail">
+          <td class="dre-sticky dre-account level-2"><span class="row-toggle blank"></span>${esc(cat.label)}</td>`;
+        periods.forEach(p=>{
+          const rs=rowsPeriod(base,p).filter(s.pred).filter(r=>(r.categoria||'Sem categoria').trim()===cat.label);
+          let v=rs.reduce((acc,r)=>acc+valAbs(r),0);
+          if(s.key==='ded'||s.key==='forn'||s.key==='pessoal'||s.key==='infra'||s.key==='banc'||s.key==='adm'||s.key==='log'||s.key==='timkt'||s.key==='despfin'||s.key==='ircsll') v=-v;
+          if(s.key==='inv'){
+            const rin=rs.filter(isRec).reduce((a,r)=>a+valAbs(r),0);
+            const rout=rs.filter(isPag).reduce((a,r)=>a+valAbs(r),0);
+            v=rin-rout;
+          }
+          body+=`<td class="num-cell">${fmtNum(v,false)}</td>`;
+        });
+        body+='</tr>';
+      });
+    }
+  });
+  el('dreBody').innerHTML=body;
 }
 
-function renderKpis(d){
-  el('dreKpiReceitaLiquida').textContent=fmtBRL(d.receitaLiquida);
-  el('dreKpiLucroBruto').textContent=fmtBRL(d.lucroBruto);
-  el('dreKpiMargemBruta').textContent=fmtPct(d.margemBruta);
-  el('dreKpiResultado').textContent=fmtBRL(d.resultadoLiquido);
-  el('dreKpiMargemLiquida').textContent=fmtPct(d.margemLiquida);
-  el('dreKpiResultado').className='dre-kpi-value '+(d.resultadoLiquido>=0?'pos':'neg');
+function renderCards(d){
+  el('dreKpiReceitaLiquida').textContent=fmtBRL(d.rl);
+  el('dreKpiLucroBruto').textContent=fmtBRL(d.lb);
+  el('dreKpiMargemBruta').textContent=fmtPct(d.mb);
+  el('dreKpiResultado').textContent=fmtBRL(d.liquido);
+  el('dreKpiMargemLiquida').textContent=fmtPct(d.ml);
+  el('dreKpiResultado').className='dre-kpi-value '+(d.liquido>=0?'pos':'neg');
+}
+function setEmpresaDre(v){
+  if(restritoMisterWiz && v!=='Mister Wiz') return;
+  empresaFiltro=v;
+  document.querySelectorAll('#dreEmpresaToggle .dre-pill').forEach(b=>b.classList.toggle('active',b.dataset.empresa===v));
+  renderDre();
+}
+function presetDre(tipo){
+  const hoje=new Date(); let ini='',fim='';
+  if(tipo==='sem1_2026'){ini='2026-01-01';fim='2026-06-30';}
+  if(tipo==='ano'){ini=`${hoje.getFullYear()}-01-01`;fim=isoHoje();}
+  if(tipo==='mes'){ini=`${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}-01`;fim=isoHoje();}
+  if(tipo==='3anos'){ini=`${hoje.getFullYear()-2}-01-01`;fim=`${hoje.getFullYear()}-12-31`;}
+  el('dreDataInicio').value=ini; el('dreDataFim').value=fim;
+  dreExpandedYears=new Set([ANO_ATUAL_DRE]);
+  renderDre();
 }
 function renderDre(){
-  if(!periodoValido()) return;
-  const linhas=linhasPeriodo();
-  const d=calcDre(linhas);
-  renderKpis(d);
-  renderEstrutura(linhas,d);
-  renderChart(linhas);
-  el('drePeriodoLabel').textContent=`${formatDateBR(el('dreDataInicio').value)} a ${formatDateBR(el('dreDataFim').value)}`;
+  const ini=el('dreDataInicio').value, fim=el('dreDataFim').value;
+  if(!ini||!fim) return;
+  if(ini>fim){alert('A data inicial não pode ser maior que a data final.');return;}
+  const base=selectedRows();
+  const d=calcPeriod(base);
+  renderCards(d);
+  renderDreTable(base);
+  el('drePeriodoLabel').textContent=`${formatDateBR(ini)} a ${formatDateBR(fim)}`;
   el('dreEmpresaLabel').textContent=empresaFiltro==='global'?'Global (Uuizz)':empresaFiltro;
-  el('dreRegistros').textContent=`${linhas.length.toLocaleString('pt-BR')} lançamentos realizados`;
-}
-
-async function loadDreAjustesManuais(){
-  let q=sb.from('fluxo_ajustes_manuais').select('*').order('data',{ascending:true});
-  if(restritoMisterWiz) q=q.eq('empresa','Mister Wiz');
-  const {data,error}=await q;
-  ajustesManuais=(!error&&data)?data:[];
-  rows=rows.filter(r=>r.fonte!=='Manual');
-  ajustesManuais.forEach(a=>{
-    const grupo=a.valor>=0?'RECEBIMENTOS':'PAGAMENTOS';
-    const grupoDisplay=grupo==='PAGAMENTOS'?'Lançamentos Manuais (GPS)':null;
-    rows.push({
-      date:a.data,categoria:a.descricao||'Ajuste',grupoDisplay,grupo,
-      valor:Math.abs(a.valor),signedValor:a.valor,conta:'Lançamentos manuais',
-      nome:a.descricao,empresa:a.empresa,fonte:'Manual'
-    });
-  });
-  rows.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
+  el('dreRegistros').textContent=`${base.length.toLocaleString('pt-BR')} lançamentos realizados`;
 }
 
 async function doLogout(){
   await sb.auth.signOut();
   window.location.href=LOGIN_URL;
 }
-
 async function initDre(){
   const {data}=await sb.auth.getSession();
-  if(!data.session){ window.location.replace(LOGIN_URL); return; }
+  if(!data.session){window.location.replace(LOGIN_URL);return;}
   currentUser=data.session.user;
   const email=currentUser.email||'';
 
@@ -870,6 +883,7 @@ async function initDre(){
 
   gpsStaff=isGpsStaff(email);
   restritoMisterWiz=isRestritoMisterWiz(email);
+
   if(restritoMisterWiz){
     empresaFiltro='Mister Wiz';
     document.querySelectorAll('#dreEmpresaToggle .dre-pill').forEach(b=>{
@@ -912,11 +926,10 @@ async function initDre(){
         ...rowsFromHistoricoEmpoderamento()
       ];
     }
-    await loadDreAjustesManuais();
     rows.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
 
-    el('dreDataInicio').value='2026-01-01';
-    el('dreDataFim').value='2026-06-30';
+    el('dreDataInicio').value=`${ANO_ATUAL_DRE-2}-01-01`;
+    el('dreDataFim').value=`${ANO_ATUAL_DRE}-12-31`;
     renderDre();
 
     el('loadingScreen').style.display='none';
