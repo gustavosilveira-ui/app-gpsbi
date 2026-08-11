@@ -183,22 +183,22 @@ input,textarea,select{width:100%;background:var(--navy3);border:1px solid var(--
         <div class="mini-insight"><div class="mi-icon">🏆</div><div class="mi-label">Líder do mês</div><div class="mi-value">Roberto Ferreira</div><div class="mi-sub">53 OS em junho</div></div>
         <div class="mini-insight"><div class="mi-icon">🚀</div><div class="mi-label">Maior evolução</div><div class="mi-value">André Luis</div><div class="mi-sub">43 → 48 OS</div></div>
         <div class="mini-insight"><div class="mi-icon">⏱️</div><div class="mi-label">Tempo médio geral</div><div class="mi-value">1,63 dia</div><div class="mi-sub">média histórica</div></div>
-        <div class="mini-insight"><div class="mi-icon">⚠️</div><div class="mi-label">Ponto de atenção</div><div class="mi-value">88 OS abertas</div><div class="mi-sub">não atendidas em junho</div></div>
+        <div class="mini-insight"><div class="mi-icon">⚠️</div><div class="mi-label">Ponto de atenção</div><div class="mi-value">88 OS atendidas</div><div class="mi-sub">fora do SLA em junho</div></div>
       </div>
     </div>
 
     <div class="kpi-grid">
       <div class="kpi"><div class="kpi-icon cyan-i">📋</div><div class="kpi-body"><div class="kpi-label">OS Abertas · Junho</div><div class="kpi-value">318</div><div class="kpi-sub">-11,4% vs. maio</div></div></div>
-      <div class="kpi"><div class="kpi-icon pos-i">✅</div><div class="kpi-body"><div class="kpi-label">OS Atendidas</div><div class="kpi-value">230</div><div class="kpi-sub">72,3% das abertas</div></div></div>
+      <div class="kpi"><div class="kpi-icon pos-i">✅</div><div class="kpi-body"><div class="kpi-label">Atendidas no SLA</div><div class="kpi-value">230</div><div class="kpi-sub">72,3% das abertas</div></div></div>
       <div class="kpi"><div class="kpi-icon gold-i">👷</div><div class="kpi-body"><div class="kpi-label">Técnicos com produção</div><div class="kpi-value">16</div><div class="kpi-sub">incluindo parceiros</div></div></div>
-      <div class="kpi"><div class="kpi-icon neg-i">📐</div><div class="kpi-body"><div class="kpi-label">Fora do SLA</div><div class="kpi-value" style="color:var(--neg)">27,7%</div><div class="kpi-sub">atenção imediata</div></div></div>
+      <div class="kpi"><div class="kpi-icon pos-i">📐</div><div class="kpi-body"><div class="kpi-label">% Atendidas no SLA</div><div class="kpi-value" style="color:var(--pos)">72,3%</div><div class="kpi-sub">vs. 93,3% em maio</div></div></div>
     </div>
 
     <div class="grid3">
-      <div class="card"><div class="card-title">Evolução das OS em 2026</div><div class="card-sub">Abertas e atendidas por mês</div><div class="chart-box md"><canvas id="chartVolume"></canvas></div></div>
+      <div class="card"><div class="card-title">Evolução das OS em 2026</div><div class="card-sub">Abertas e atendidas no SLA por mês</div><div class="chart-box md"><canvas id="chartVolume"></canvas></div></div>
       <div class="card"><div class="card-title">Ranking · Junho</div><div class="card-sub">Top técnicos por OS atendidas</div><div class="chart-box md"><canvas id="chartRanking"></canvas></div></div>
       <div class="card"><div class="card-title">Leitura GPSBI</div><div class="card-sub">Sinais que merecem ação da gestão</div><div class="insight-list">
-        <div class="insight-row"><div class="ico">📉</div><div><b>Queda de atendimento em junho</b><span>Foram 230 OS atendidas contra 335 em maio.</span></div></div>
+        <div class="insight-row"><div class="ico">📉</div><div><b>Queda no atendimento dentro do SLA</b><span>O índice caiu de 93,3% em maio para 72,3% em junho, recuo de 21,0 p.p.</span></div></div>
         <div class="insight-row"><div class="ico">🚨</div><div><b>SLA voltou a subir</b><span>O indicador saiu de 6,7% para 27,7% fora do prazo.</span></div></div>
         <div class="insight-row"><div class="ico">🔧</div><div><b>Operação corretiva dominante</b><span>96,5% das OS do mês são corretivas.</span></div></div>
         <div class="insight-row"><div class="ico">🎯</div><div><b>Concentração no topo</b><span>Os quatro primeiros concentram 58% das OS do ranking.</span></div></div>
@@ -239,13 +239,13 @@ input,textarea,select{width:100%;background:var(--navy3);border:1px solid var(--
     
     <div class="kpi-grid">
       <div class="kpi"><div class="kpi-icon cyan-i">📥</div><div class="kpi-body"><div class="kpi-label">OS Abertas · Junho</div><div class="kpi-value">318</div></div></div>
-      <div class="kpi"><div class="kpi-icon pos-i">✅</div><div class="kpi-body"><div class="kpi-label">Atendidas · Junho</div><div class="kpi-value">230</div><div class="kpi-sub">72,3% do total</div></div></div>
-      <div class="kpi"><div class="kpi-icon neg-i">⏱️</div><div class="kpi-body"><div class="kpi-label">Fora do SLA (48h) · Junho</div><div class="kpi-value" style="color:var(--neg);">27,7%</div><div class="kpi-sub">salto vs. 6,7% em maio</div></div></div>
+      <div class="kpi"><div class="kpi-icon pos-i">✅</div><div class="kpi-body"><div class="kpi-label">Atendidas no SLA · Junho</div><div class="kpi-value">230</div><div class="kpi-sub">72,3% do total</div></div></div>
+      <div class="kpi"><div class="kpi-icon neg-i">⏱️</div><div class="kpi-body"><div class="kpi-label">Atendidas Fora do SLA · Junho</div><div class="kpi-value" style="color:var(--neg);">88</div><div class="kpi-sub">27,7% do total</div></div></div>
       <div class="kpi"><div class="kpi-icon gold-i">🔧</div><div class="kpi-body"><div class="kpi-label">Corretivas · Junho</div><div class="kpi-value">96,5%</div><div class="kpi-sub">vs. 3,5% preventivas</div></div></div>
     </div>
     <div class="grid2">
       <div class="card">
-        <div class="card-title">OS Abertas × Atendidas × Fora do SLA</div>
+        <div class="card-title">Abertas no mês × Atendidas no SLA × Atendidas Fora do SLA</div>
         <div class="card-sub">Evolução mensal — SLA definido em 48h (2 dias)</div>
         <div class="chart-box"><canvas id="chartSLA"></canvas></div>
       </div>
@@ -375,12 +375,12 @@ const clientesMaio = [
 
 // ---------- BLOCO 3 · SLA / OPERAÇÃO (dados reais Jan-Jun/2026) ----------
 const indicadores = [
-  {mes:'Jan',abertas:271,atendidas:229,foraSLA:15.5,dias:6.4},
-  {mes:'Fev',abertas:278,atendidas:234,foraSLA:15.8,dias:6.14},
-  {mes:'Mar',abertas:313,atendidas:269,foraSLA:14.1,dias:5.11},
-  {mes:'Abr',abertas:302,atendidas:269,foraSLA:10.9,dias:3.96},
-  {mes:'Mai',abertas:359,atendidas:335,foraSLA:6.7,dias:2.01},
-  {mes:'Jun',abertas:318,atendidas:230,foraSLA:27.7,dias:3.62},
+  {mes:'Jan',abertas:271,atendidasNoSLA:229,foraSLA:15.5,dias:6.4},
+  {mes:'Fev',abertas:278,atendidasNoSLA:234,foraSLA:15.8,dias:6.14},
+  {mes:'Mar',abertas:313,atendidasNoSLA:269,foraSLA:14.1,dias:5.11},
+  {mes:'Abr',abertas:302,atendidasNoSLA:269,foraSLA:10.9,dias:3.96},
+  {mes:'Mai',abertas:359,atendidasNoSLA:335,foraSLA:6.7,dias:2.01},
+  {mes:'Jun',abertas:318,atendidasNoSLA:230,foraSLA:27.7,dias:3.62},
 ];
 
 // ---------- BLOCO 4 · CENTRAL (anonimizado, dados reais de volume/TMO) ----------
@@ -430,7 +430,7 @@ function renderAll(){
   charts.volume = new Chart(document.getElementById('chartVolume'), {
     data:{labels:indicadores.map(i=>i.mes),datasets:[
       {type:'line',label:'OS Abertas',data:indicadores.map(i=>i.abertas),borderColor:'#2D70B8',backgroundColor:'rgba(45,112,184,.12)',fill:true,tension:.35,pointRadius:4},
-      {type:'line',label:'OS Atendidas',data:indicadores.map(i=>i.atendidas),borderColor:'#2fd6b8',backgroundColor:'rgba(47,214,184,.08)',fill:true,tension:.35,pointRadius:4}
+      {type:'line',label:'Atendidas no SLA',data:indicadores.map(i=>i.atendidasNoSLA),borderColor:'#2fd6b8',backgroundColor:'rgba(47,214,184,.08)',fill:true,tension:.35,pointRadius:4}
     ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:corTexto()}}},scales:{x:{grid:{display:false},ticks:{color:corTexto()}},y:{grid:{color:corGrid()},ticks:{color:corTexto()}}}}
   });
   // Ranking Técnicos
@@ -449,21 +449,20 @@ function renderAll(){
       scales:{ x:{grid:{color:corGrid()},ticks:{color:corTexto(),font:{size:10.5}}}, y:{grid:{display:false},ticks:{color:corTextoForte(),font:{size:11}}} } }
   });
 
-  // SLA — abertas vs atendidas vs % fora SLA
+  // SLA — abertas vs atendidas no SLA vs atendidas fora do SLA
   charts.sla?.destroy();
   charts.sla = new Chart(document.getElementById('chartSLA'), {
     data:{ labels: indicadores.map(i=>i.mes),
       datasets:[
-        { type:'bar', label:'OS Abertas', data: indicadores.map(i=>i.abertas), backgroundColor:'#4281bf', borderRadius:4, order:2 },
-        { type:'bar', label:'Atendidas', data: indicadores.map(i=>i.atendidas), backgroundColor:'#3ae9d1', borderRadius:4, order:2 },
-        { type:'line', label:'% Fora do SLA', data: indicadores.map(i=>i.foraSLA), yAxisID:'y1', borderColor:'#ef6a6a', backgroundColor:'#ef6a6a', tension:.3, order:1 },
+        { type:'bar', label:'Abertas no mês', data: indicadores.map(i=>i.abertas), backgroundColor:'#4281bf', borderRadius:4 },
+        { type:'bar', label:'Atendidas no SLA', data: indicadores.map(i=>i.atendidasNoSLA), backgroundColor:'#3ae9d1', borderRadius:4 },
+        { type:'bar', label:'Atendidas Fora do SLA', data: indicadores.map(i=>i.abertas-i.atendidasNoSLA), backgroundColor:'#ef6a6a', borderRadius:4 },
       ]},
     options:{ responsive:true, maintainAspectRatio:false,
       plugins:{ legend:{labels:{color:corTexto()}} },
       scales:{
         x:{ grid:{display:false}, ticks:{color:corTexto()} },
-        y:{ grid:{color:corGrid()}, ticks:{color:corTexto()} },
-        y1:{ position:'right', grid:{display:false}, ticks:{color:'#ef6a6a', callback:v=>v+'%'}, suggestedMax:35 }
+        y:{ grid:{color:corGrid()}, ticks:{color:corTexto(), precision:0}, beginAtZero:true }
       } }
   });
 
