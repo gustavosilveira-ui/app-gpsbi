@@ -7,7 +7,6 @@
 <link rel="stylesheet" href="theme.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <style>
 html{zoom:.8;}
 .fc-page-content{max-width:100% !important;padding:16px 14px !important;}
@@ -146,24 +145,6 @@ html.light .fc-empresa-btn{background:#eef1f6;}
 .fc-valor-clicavel{cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;}
 .fc-valor-clicavel:hover{opacity:.75;}
 
-
-/* Fechamento Financeiro · 1º Semestre */
-.fc-fechamento-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:16px;}
-.fc-fechamento-badge{font-size:11px;font-weight:800;color:var(--text2);background:var(--navy3);border:1px solid var(--border2);padding:7px 10px;border-radius:999px;white-space:nowrap;}
-.fc-kpi-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:16px;}
-.fc-kpi-card{background:var(--navy3);border:1px solid var(--border);border-radius:12px;padding:14px 15px;min-width:0;}
-.fc-kpi-label{font-size:10px;color:var(--text3);font-weight:800;text-transform:uppercase;letter-spacing:.04em;margin-bottom:7px;}
-.fc-kpi-value{font-family:'DM Mono',monospace;font-size:18px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.fc-kpi-note{font-size:10.5px;color:var(--text3);margin-top:5px;line-height:1.35;}
-.fc-kpi-pos{color:#4F8F3A}.fc-kpi-neg{color:var(--red)}
-.fc-chart-grid{display:grid;grid-template-columns:1.35fr 1fr;gap:14px;}
-.fc-chart-box{background:var(--navy3);border:1px solid var(--border);border-radius:12px;padding:14px;min-width:0;}
-.fc-chart-title{font-size:12.5px;font-weight:800;margin-bottom:2px;}
-.fc-chart-sub{font-size:10.5px;color:var(--text3);margin-bottom:10px;}
-.fc-chart-canvas{height:260px;position:relative;}
-@media(max-width:1100px){.fc-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.fc-chart-grid{grid-template-columns:1fr;}}
-@media(max-width:650px){.fc-kpi-grid{grid-template-columns:1fr;}.fc-chart-canvas{height:230px;}}
-
 </style>
 </head>
 <body>
@@ -190,6 +171,10 @@ html.light .fc-empresa-btn{background:#eef1f6;}
 
       <!-- Para e-mails restritos (ex.: Mister Wiz), o JS esconde os botões
            "Global"/"Empoderamento" em runtime e mantém só "Mister Wiz" ativo. -->
+      <div style="display:flex;justify-content:flex-end;margin:0 0 10px;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;"><a href="fechamentofinanceiro.html" class="btn btn-primary btn-sm" style="text-decoration:none;">📊 Fechamento Financeiro</a><a href="dregerencial.html" class="btn btn-ghost btn-sm" style="text-decoration:none;">📑 DRE Gerencial</a></div>
+      </div>
+
       <div class="fc-empresa-toggle" id="fcEmpresaToggle">
         <button class="fc-empresa-btn active" data-empresa="global" onclick="setEmpresaFiltro('global')">🏢 Global (Uuizz)</button>
         <button class="fc-empresa-btn" data-empresa="Empoderamento" onclick="setEmpresaFiltro('Empoderamento')">Empoderamento</button>
@@ -205,35 +190,6 @@ html.light .fc-empresa-btn{background:#eef1f6;}
       <div id="fcDebugStats" style="font-size:11px;color:var(--text3);margin-top:8px;"></div>
     </div>
 
-
-    <div class="card" id="fcFechamentoSemestreCard" style="margin:14px 0 16px;">
-        <div class="fc-fechamento-head">
-          <div>
-            <div class="card-title">📊 Fechamento Financeiro · 1º Semestre 2026</div>
-            <div class="card-sub" style="margin-bottom:0;">Janeiro a junho · entradas, saídas e resultado financeiro. Os números acompanham a empresa selecionada acima.</div>
-          </div>
-          <div class="fc-fechamento-badge" id="fcFechamentoEmpresaBadge">Global (Uuizz)</div>
-        </div>
-        <div class="fc-kpi-grid">
-          <div class="fc-kpi-card"><div class="fc-kpi-label">Entradas</div><div class="fc-kpi-value fc-kpi-pos" id="fcKpiEntradas">R$ 0,00</div><div class="fc-kpi-note">Total recebido no semestre</div></div>
-          <div class="fc-kpi-card"><div class="fc-kpi-label">Saídas</div><div class="fc-kpi-value fc-kpi-neg" id="fcKpiSaidas">R$ 0,00</div><div class="fc-kpi-note">Total pago no semestre</div></div>
-          <div class="fc-kpi-card"><div class="fc-kpi-label">Resultado financeiro</div><div class="fc-kpi-value" id="fcKpiResultado">R$ 0,00</div><div class="fc-kpi-note">Entradas menos saídas</div></div>
-          <div class="fc-kpi-card"><div class="fc-kpi-label">Margem financeira</div><div class="fc-kpi-value" id="fcKpiMargem">0,0%</div><div class="fc-kpi-note">Resultado ÷ entradas</div></div>
-          <div class="fc-kpi-card"><div class="fc-kpi-label">Média mensal</div><div class="fc-kpi-value" id="fcKpiMedia">R$ 0,00</div><div class="fc-kpi-note">Resultado médio por mês</div></div>
-        </div>
-        <div class="fc-chart-grid">
-          <div class="fc-chart-box">
-            <div class="fc-chart-title">Entradas x Saídas por mês</div>
-            <div class="fc-chart-sub">Comparativo mensal do primeiro semestre.</div>
-            <div class="fc-chart-canvas"><canvas id="fcChartEntradasSaidas"></canvas></div>
-          </div>
-          <div class="fc-chart-box">
-            <div class="fc-chart-title">Resultado financeiro mensal</div>
-            <div class="fc-chart-sub">Saldo entre entradas e saídas em cada mês.</div>
-            <div class="fc-chart-canvas"><canvas id="fcChartResultado"></canvas></div>
-          </div>
-        </div>
-      </div>
 
     <div class="card" id="fcVisaoSemanalCard">
       <div class="card-title">📅 Visão Semanal · Necessidade de Caixa</div>
@@ -514,7 +470,7 @@ html.light .fc-empresa-btn{background:#eef1f6;}
 </div>
 
 <script src="nav.js"></script>
-<script src="fluxodecaixaUuizz.js"></script>
+<script src="fluxodecaixa.js"></script>
 <script>
 /* Análise pronta para WhatsApp — adicionada sem alterar a visão semanal atual */
 let analiseFluxoWhatsBound = false;
