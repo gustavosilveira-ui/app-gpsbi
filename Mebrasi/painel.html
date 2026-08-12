@@ -835,8 +835,17 @@ const SITUACOES_INVALIDAS_FISICO = ['cancelado', 'orcamento', 'pedido', 'pedido 
 function situacaoValida(situacao, fonte){
   const s = normalizeTxt(situacao);
   const f = normalizeTxt(fonte);
-  if(f === 'online') return s === 'finalizado' || s === 'enviado';
+  // "venda" é aceito por compatibilidade com bases Online resumidas.
+  if(f === 'online') return s === 'finalizado' || s === 'enviado' || s === 'venda';
   return !SITUACOES_INVALIDAS_FISICO.includes(s);
+}
+
+// No XLSX resumido, cada linha representa um dia e Qtd Faturada recebe a
+// "Quantidade de vendas". Nas bases detalhadas, contamos códigos únicos.
+function contarPedidos(rs){
+  const fisicos = new Set(rs.filter(r=>r.empresa!=='Online').map(r=>r.codPedido).filter(Boolean)).size;
+  const online = rs.filter(r=>r.empresa==='Online').reduce((s,r)=>s+(r.qtdFaturada||0),0);
+  return fisicos + online;
 }
 
 function isClienteMulticopos(r){
@@ -1138,14 +1147,9 @@ function renderKpis(){
   const faturamento = scoped.reduce((s,r)=>s+r.faturamento,0);
   const clientesMebrasi = new Set(scoped.filter(r=>r.empresa!=='Online').map(r=>r.cliente).filter(Boolean)).size;
   const clientesOnline = new Set(scoped.filter(r=>r.empresa==='Online').map(r=>r.cliente).filter(Boolean)).size;
-  const pedidos = new Set(scoped.map(r=>r.codPedido).filter(Boolean)).size;
-  const itens = scoped.reduce((s,r)=>s+(!isProdutoGsl(r) ? (r.qtdFaturada||0) : 0),0);
-  // Visão à parte, só copos (familiaComercial === 'copo', excluindo
-  // GSL/GSN) — mesmo critério do detalhe da empresa e do Painel de Produção.
-  const itensCopo = scoped.reduce((s,r)=>{
-    const familia = normalizeTxt(r.familiaComercial).replace(/\s+/g,' ').trim();
-    return s + (!isProdutoGsl(r) && familia==='copo' ? (r.qtdFaturada||0) : 0);
-  },0);
+  const pedidos = contarPedidos(scoped);
+  // Quantidade do Online representa pedidos, não itens; fica fora dos itens.
+  const itens = scoped.reduce((s,r)=>s+(r.empresa!=='Online' && !isProdutoGsl(r) ? (r.qtdFaturada||0) : 0),0);
   const precoMedio = itens>0 ? faturamento/itens : 0;
   // Ticket Médio não pode considerar o Online — o volume alto de pedidos
   // pequenos do canal Online distorce a média pra baixo. Usa só o físico
@@ -1161,7 +1165,6 @@ function renderKpis(){
     { icon:'👥', cor:'var(--cyan)', label:'Clientes', valor:`${fmtNum(clientesMebrasi)} / ${fmtNum(clientesOnline)}`, sub:'Clientes Mebrasi / Online' },
     { icon:'📦', cor:'var(--gold)', label:'Pedidos', valor:fmtNum(pedidos), sub:'Pedidos únicos' },
     { icon:'📊', cor:'var(--purple)', label:'Itens Faturados', valor:fmtNum(itens), sub:'Quantidade sem códigos GSL/GSN' },
-    { icon:'🥤', cor:'var(--purple)', label:'Itens Faturados (Copo)', valor:fmtNum(itensCopo), sub:'Só família "copo", sem GSL/GSN' },
     { icon:'🏷️', cor:'#98C47C', label:'Preço Médio', valor:fmtBRLFull(precoMedio), sub:'Faturamento / Itens sem GSL/GSN' },
     { icon:'🧾', cor:'var(--red)', label:'Ticket Médio', valor:fmtBRLFull(ticketMedio), sub:'Faturamento / Pedidos' },
   ];
@@ -1564,7 +1567,7 @@ function renderTabelaEmpresas(){
 
     // No Power BI, clientes do canal Online não entram no indicador de clientes Mebrasi.
     const clientes = emp==='Online' ? 0 : new Set(rs.map(r=>r.cliente).filter(Boolean)).size;
-    const pedidos = new Set(rs.map(r=>r.codPedido).filter(Boolean)).size;
+    const pedidos = contarPedidos(rs);
     const ticket = pedidos>0 ? faturamento/pedidos : 0;
     const itens = emp==='Online' ? 0 : rs.reduce((s,r)=>s+(!isProdutoGsl(r) ? (r.qtdFaturada||0) : 0),0);
     // Visão à parte, só copos — mesmo critério do "detalhe da empresa" e do
@@ -1581,7 +1584,7 @@ function renderTabelaEmpresas(){
 
   const fisico = scoped.filter(r=>r.empresa!=='Online');
   const totalClientes = new Set(fisico.map(r=>r.cliente).filter(Boolean)).size;
-  const totalPedidos = new Set(scoped.map(r=>r.codPedido).filter(Boolean)).size;
+  const totalPedidos = contarPedidos(scoped);
   const totalItens = fisico.reduce((s,r)=>s+(!isProdutoGsl(r) ? (r.qtdFaturada||0) : 0),0);
   const totalItensCopo = fisico.reduce((s,r)=>{
     const familia = normalizeTxt(r.familiaComercial).replace(/\s+/g,' ').trim();
@@ -1908,8 +1911,8 @@ const FRASE_PADRAO = '💬 *Empresas orientadas por dados tomam decisões mais l
 function gerarAnaliseTexto(){
   const scoped = rowsInScope().filter(r=>!isClienteMulticopos(r));
   const faturamento = scoped.reduce((s,r)=>s+r.faturamento,0);
-  const pedidos = new Set(scoped.map(r=>r.codPedido).filter(Boolean)).size;
-  const itens = scoped.reduce((s,r)=>s+(!isProdutoGsl(r) ? (r.qtdFaturada||0) : 0),0);
+  const pedidos = contarPedidos(scoped);
+  const itens = scoped.reduce((s,r)=>s+(r.empresa!=='Online' && !isProdutoGsl(r) ? (r.qtdFaturada||0) : 0),0);
   const pmi = itens>0 ? faturamento/itens : 0;
 
   // Mesma regra do card e da tabela: Ticket Médio não considera o Online.
