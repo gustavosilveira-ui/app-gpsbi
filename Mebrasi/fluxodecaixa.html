@@ -187,8 +187,12 @@ html.light .fc-day-num{color:#1f2a3d;}
   #fluxoFichaModal, #fluxoFichaModal *{ visibility:visible; }
   #fluxoFichaModal{ position:absolute; top:0; left:0; width:100%; background:#fff; }
   #fluxoFichaModal .modal-box{ width:100%; max-width:none; max-height:none; overflow:visible; box-shadow:none; color:#000; background:#fff; }
+  /* Impressão só traz os títulos (igual a exportação em Excel) — sem KPIs,
+     sem "Por empresa" e sem o campo de busca, só a lista de lançamentos. */
   #fcFichaHeaderNoPrint > div:last-child{ display:none !important; }
+  #fcFichaResumoKpis, #fcFichaPorEmpresaWrap{ display:none !important; }
   #fcFichaBuscaWrap input, #fcFichaContagemFiltrada{ display:none !important; }
+  #fcFichaListaImprimir{ max-height:none !important; overflow:visible !important; border:none !important; }
 }
 .modal-title{font-size:16px;font-weight:700;margin-bottom:4px;}
 .modal-sub{font-size:12px;color:var(--text3);margin-bottom:16px;}
@@ -818,6 +822,16 @@ function getPeriodoFluxo(){
 function finalizarLinha(categoriaOriginal, valor, formaPagto, origem, date, empresa, bancoCodigo){
   const fp = normalizeTxt(formaPagto);
 
+  // Banco Tera tem prioridade sobre tudo, inclusive Títulos em Aberto: um
+  // título do Tera nunca soma em nenhum total — nem em aberto, nem já
+  // recebido — porque o dinheiro nunca cai na conta da empresa (é um fator
+  // de recebíveis). Vale tanto pra ainda em aberto (venc_) quanto pra já
+  // processado (cr_) — confirmado com a Shirley (12/08/2026, corrige o
+  // entendimento anterior que só cobria o venc_).
+  if((origem === 'venc' || origem === 'cr') && isBancoTera(bancoCodigo, empresa)){
+    return { categoria: CATEGORIA_BANCO_TERA, grupo: 'RECEBIMENTOS', contaNoSaldo:false };
+  }
+
   // cap_/venc_ vencido (já devia ter acontecido e ainda não foi resolvido) = Títulos
   // em Aberto, SEMPRE — não importa qual é a forma de pagamento planejada, inclusive
   // Cheque Terceiros. Precisa ser checado ANTES do Cheque Terceiros: senão um título
@@ -828,13 +842,6 @@ function finalizarLinha(categoriaOriginal, valor, formaPagto, origem, date, empr
   if((origem === 'cap' || origem === 'venc') && date < HOJE_ISO){
     const grupo = valor >= 0 ? 'RECEBIMENTOS' : 'TITULOS_ABERTO';
     return { categoria: CATEGORIA_TITULOS_ABERTO, grupo, contaNoSaldo:false };
-  }
-
-  // Banco Tera: título a receber AINDA em aberto (venc_, não vencido) nunca
-  // soma no Contas a Receber, mas continua visível em Recebimentos só pra
-  // sinalizar que o boleto está em aberto — pedido da Shirley (10/08/2026).
-  if(origem === 'venc' && isBancoTera(bancoCodigo, empresa)){
-    return { categoria: CATEGORIA_BANCO_TERA, grupo: 'RECEBIMENTOS', contaNoSaldo:false };
   }
 
   if(fp === 'cheque terceiros'){
@@ -1136,9 +1143,15 @@ function rowsFromCR(table, empresa){
     const date = parseDateCell(typeof dateRaw==='object' && dateRaw!==null ? (dateRaw.v||dateRaw) : dateRaw);
     if(!date) return null;
     const categoriaOriginal = (getColNormalized(r,'desc conta')||'Sem categoria').toString().trim();
-    const valor = Math.abs(parseMoneyBR(getColNormalized(r,'valor pago')));
+    // Mesma regra do venc_: valor negativo aqui é um crédito já devolvido ao
+    // cliente e já baixado (Shirley, 11/08/2026) — não é recebimento de
+    // verdade, então a linha nem entra no fluxo (evita duplicar o efeito,
+    // como aconteceu com o título da Multicopos que "duplicou" R$2.365,34).
+    const valorParsed = parseMoneyBR(getColNormalized(r,'valor pago'));
+    if(valorParsed < 0) return null;
+    const valor = Math.abs(valorParsed);
     const formaPagto = getColNormalized(r,'forma pagto');
-    const { categoria, grupo, contaNoSaldo } = finalizarLinha(categoriaOriginal, valor, formaPagto, 'cr');
+    const { categoria, grupo, contaNoSaldo } = finalizarLinha(categoriaOriginal, valor, formaPagto, 'cr', date, empresa, getColNormalized(r,'banco'));
     return { date, categoria, grupo, valor, empresa, origem:'cr', contaNoSaldo, ...rowMeta(r) };
   }).filter(Boolean);
 }
@@ -1538,11 +1551,18 @@ function renderFcKpiStrip(){
   // extrato bancário, confirmado de novo em 11/08). Por isso NÃO usa
   // contaNoTotal_ aqui (ele bloquearia Cheque Terceiros de novo) — só
   // exclui Títulos em Aberto, que nem deveria aparecer numa origem 'cr'.
+  // Cheque Terceiros JÁ RECEBIDO (origem 'cr') entra normal aqui — Shirley
+  // confirmou em 10/08/2026 ("isso!") que ele deve contar no total de
+  // Recebidos, ficando de fora só do Saldo Acumulado (que é o espelho do
+  // extrato bancário, confirmado de novo em 11/08). Banco Tera é diferente:
+  // nunca conta aqui, esteja em aberto ou já processado — o dinheiro nunca
+  // cai na conta da empresa (fator de recebíveis, confirmado 12/08/2026).
   const recebido = rows
     .filter(r =>
       r.origem === 'cr' &&
       r.grupo === 'RECEBIMENTOS' &&
       r.categoria !== CATEGORIA_TITULOS_ABERTO &&
+      r.categoria !== CATEGORIA_BANCO_TERA &&
       entraNosCards(r) &&
       r.date &&
       r.date.slice(0,7) === mesAtual &&
@@ -1877,16 +1897,18 @@ async function openFluxoFicha(rowId, colId){
   fcFichaPeriodoAtual = rangeLabel(range.start, range.end);
 
   el('fluxoFichaBody').innerHTML = `
-    <div class="fc-detail-summary">
+    <div class="fc-detail-summary" id="fcFichaResumoKpis">
       <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${fmtBRL(total)}</div><div class="fc-detail-kpi-lbl">Total no período</div></div>
       <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${empresas.length}</div><div class="fc-detail-kpi-lbl">Empresas com movimento</div></div>
       <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${qtd}</div><div class="fc-detail-kpi-lbl">Lançamentos</div></div>
     </div>
-    <div style="font-size:12.5px;font-weight:800;margin:12px 0 6px;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;">Por empresa</div>
-    <table class="fc-detail-table">
-      <thead><tr><th>Empresa</th><th class="num">Valor</th><th class="num">%</th><th class="num">Itens</th></tr></thead>
-      <tbody>${empresasHtml}</tbody>
-    </table>
+    <div id="fcFichaPorEmpresaWrap">
+      <div style="font-size:12.5px;font-weight:800;margin:12px 0 6px;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;">Por empresa</div>
+      <table class="fc-detail-table">
+        <thead><tr><th>Empresa</th><th class="num">Valor</th><th class="num">%</th><th class="num">Itens</th></tr></thead>
+        <tbody>${empresasHtml}</tbody>
+      </table>
+    </div>
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin:16px 0 6px;" id="fcFichaBuscaWrap">
       <div style="font-size:12.5px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;">Lançamentos</div>
       <div style="display:flex;align-items:center;gap:8px;">
@@ -1894,7 +1916,7 @@ async function openFluxoFicha(rowId, colId){
         <span id="fcFichaContagemFiltrada" style="font-size:11.5px;color:var(--text3);white-space:nowrap;"></span>
       </div>
     </div>
-    <div class="fc-detail-list">
+    <div class="fc-detail-list" id="fcFichaListaImprimir">
       <table class="fc-detail-table" style="margin-top:0;">
         <thead><tr><th>Data</th><th>Empresa</th><th>Nome</th><th>Documento</th><th>Status</th><th class="num">%</th><th>Observação</th><th class="num">Valor</th></tr></thead>
         <tbody id="fcFichaLancamentosBody"></tbody>
