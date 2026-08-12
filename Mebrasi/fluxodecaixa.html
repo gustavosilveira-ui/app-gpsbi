@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Fluxo de Caixa · Mebrasi</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 /* ===== theme.css embutido (Mebrasi ainda não hospeda esse arquivo separado) ===== */
 /* ================================================================
@@ -181,6 +182,14 @@ html.light .fc-day-num{color:#1f2a3d;}
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.55);display:none;align-items:center;justify-content:center;z-index:300;}
 .modal-overlay.show{display:flex;}
 .modal-box{background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius);padding:24px;width:460px;max-width:92vw;max-height:80vh;overflow-y:auto;box-shadow:0 30px 70px rgba(0,0,0,.5);}
+@media print{
+  body *{ visibility:hidden; }
+  #fluxoFichaModal, #fluxoFichaModal *{ visibility:visible; }
+  #fluxoFichaModal{ position:absolute; top:0; left:0; width:100%; background:#fff; }
+  #fluxoFichaModal .modal-box{ width:100%; max-width:none; max-height:none; overflow:visible; box-shadow:none; color:#000; background:#fff; }
+  #fcFichaHeaderNoPrint > div:last-child{ display:none !important; }
+  #fcFichaBuscaWrap input, #fcFichaContagemFiltrada{ display:none !important; }
+}
 .modal-title{font-size:16px;font-weight:700;margin-bottom:4px;}
 .modal-sub{font-size:12px;color:var(--text3);margin-bottom:16px;}
 .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;}
@@ -359,12 +368,16 @@ html.light .fc-day-num{color:#1f2a3d;}
     <!-- Modal: ficha do item do Fluxo -->
     <div class="modal-overlay" id="fluxoFichaModal">
       <div class="modal-box" style="width:1180px;max-width:96vw;">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;" id="fcFichaHeaderNoPrint">
           <div>
             <div class="modal-title" id="fluxoFichaTitulo">Ficha do Fluxo</div>
             <div class="modal-sub" id="fluxoFichaSub">Detalhamento por empresa.</div>
           </div>
-          <button class="btn btn-ghost btn-sm" onclick="closeFluxoFicha()">Fechar</button>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-ghost btn-sm" onclick="imprimirFichaFluxo()" title="Imprimir essa ficha">🖨️ Imprimir</button>
+            <button class="btn btn-ghost btn-sm" onclick="exportarFichaExcel()" title="Baixar essa ficha em Excel">📊 Exportar Excel</button>
+            <button class="btn btn-ghost btn-sm" onclick="closeFluxoFicha()">Fechar</button>
+          </div>
         </div>
         <div id="fluxoFichaBody"></div>
       </div>
@@ -1063,7 +1076,16 @@ function rowsFromVENC(table, empresa){
     const pedidoVenc = (getColNormalized(r,'pedido')||'').toString().trim();
     date = dataAjustadaPorPedido(empresa, pedidoVenc, date);
     const categoriaOriginal = (getColNormalized(r,'desc conta')||'Sem categoria').toString().trim();
-    const valor = Math.abs(parseMoneyBR(getColNormalized(r,'vl total titulo')));
+    // "Saldo" é o que realmente falta receber (mesmo racional já aplicado
+    // no cap_ pro pagamento parcial). Quando o Saldo vem negativo, é um
+    // crédito que a empresa já devolveu ao cliente e já foi baixado
+    // (Shirley, 11/08/2026) — não é mais um título em aberto de verdade,
+    // então a linha nem entra no fluxo.
+    const saldoRaw = getColNormalized(r,'saldo');
+    const valorBase = (saldoRaw!==undefined && saldoRaw!=='' && saldoRaw!==null) ? saldoRaw : getColNormalized(r,'vl total titulo');
+    const valorParsed = parseMoneyBR(valorBase);
+    if(valorParsed < 0) return null;
+    const valor = Math.abs(valorParsed);
     const formaPagto = getColNormalized(r,'forma pagto');
     const { categoria, grupo, contaNoSaldo } = finalizarLinha(categoriaOriginal, valor, formaPagto, 'venc', date, empresa, getColNormalized(r,'banco'));
     return { date, categoria, grupo, valor, empresa, origem:'venc', contaNoSaldo, ...rowMeta(r) };
@@ -1800,6 +1822,12 @@ async function excluirTituloObsPopup_(){
   await reabrirFichaAtual_();
 }
 let fcFichaAtual=null;
+// Estado da Ficha aberta no momento — usado pela busca ao vivo, impressão
+// e exportação, sem precisar reconsultar/reabrir o modal.
+let fcFichaDetailRowsAtual = [];
+let fcFichaTotalAtual = 0;
+let fcFichaTituloAtual = '';
+let fcFichaPeriodoAtual = '';
 async function reabrirFichaAtual_(){ if(fcFichaAtual) await openFluxoFicha(fcFichaAtual.rowId,fcFichaAtual.colId); }
 
 async function openFluxoFicha(rowId, colId){
@@ -1841,46 +1869,12 @@ async function openFluxoFicha(rowId, colId){
     </tr>`;
   }).join('') : `<tr><td colspan="4" style="color:var(--text3);">Nenhum lançamento encontrado nesse período.</td></tr>`;
 
-  const detailRowsOrdenadas = detailRows
-    .slice()
-    .sort((a,b)=>{
-      const diff = Math.abs(b.valor || 0) - Math.abs(a.valor || 0);
-      if(diff !== 0) return diff;
-      return a.date<b.date?-1:a.date>b.date?1:0;
-    })
-    .slice(0,120);
-  fcTituloObsRowsAtual = detailRowsOrdenadas;
-  const detalheHtml = detailRowsOrdenadas
-    .map((r,idx)=>{
-      const pct = total ? (Math.abs(r.valor) / Math.abs(total)) * 100 : 0;
-      const doc = r.titulo || r.banco || r.forma || r.situacao || '';
-      const ehAberto = r.categoria === CATEGORIA_TITULOS_ABERTO;
-      // Do lado de recebimento, cheque de terceiros vem com a categoria genérica
-      // (CATEGORIA_CHEQUE_TERCEIROS). Do lado de pagamento, a categoria continua
-      // sendo a real (ex: "Materia Prima") — o único jeito de identificar os dois
-      // casos de forma consistente é pelo contaNoSaldo (que finalizarLinha já marca
-      // como false nos dois), já que ele nunca é false por causa de Título em Aberto
-      // sozinho sem também ser cheque (esse caso já foi tratado acima por ehAberto).
-      const ehCheque = !ehAberto && r.contaNoSaldo===false;
-      const tagCategoria = ehAberto
-        ? `<span class="fc-tag-aberto" title="Ainda não foi pago/recebido — só está previsto">⏳ Em aberto</span>`
-        : ehCheque
-        ? `<span class="fc-tag-cheque" title="Não entra no Saldo Acumulado">🚫 Cheque Terc.</span>`
-        : `<span class="fc-tag-realizado" title="Já foi pago/recebido de verdade">✓ Realizado</span>`;
-      const dataExibida = r.categoria===CATEGORIA_TITULOS_ABERTO ? dataVisualTituloAberto_(r) : r.date;
-      const dataTitle = (r.categoria===CATEGORIA_TITULOS_ABERTO && dataExibida!==r.date) ? ` title="Vencimento original: ${formatDateBR(r.date)}"` : '';
-      return `
-      <tr>
-        <td${dataTitle}>${formatDateBR(dataExibida)}</td>
-        <td>${escapeHtml(EMPRESA_LABEL[r.empresa] || r.empresa || 'Geral')}</td>
-        <td class="wrap" title="${escapeHtml(r.nome || 'Sem nome')}">${escapeHtml(r.nome || 'Sem nome')}</td>
-        <td class="small" title="${escapeHtml(doc)}">${escapeHtml(doc)}</td>
-        <td>${tagCategoria}</td>
-        <td class="num">${pct.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%</td>
-        <td>${renderTituloObsHtml_(r,idx)}</td>
-        <td class="valor-modal" style="color:${r.valor>=0?'#4F8F3A':'var(--red)'}">${fmtNumeroFicha(r.valor)}</td>
-      </tr>`;
-    }).join('');
+  // Guarda o estado atual pra busca/impressão/exportação poderem reusar sem
+  // precisar recalcular tudo de novo.
+  fcFichaDetailRowsAtual = detailRows;
+  fcFichaTotalAtual = total;
+  fcFichaTituloAtual = rNode.label;
+  fcFichaPeriodoAtual = rangeLabel(range.start, range.end);
 
   el('fluxoFichaBody').innerHTML = `
     <div class="fc-detail-summary">
@@ -1893,19 +1887,115 @@ async function openFluxoFicha(rowId, colId){
       <thead><tr><th>Empresa</th><th class="num">Valor</th><th class="num">%</th><th class="num">Itens</th></tr></thead>
       <tbody>${empresasHtml}</tbody>
     </table>
-    <div style="font-size:12.5px;font-weight:800;margin:16px 0 6px;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;">Lançamentos</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin:16px 0 6px;" id="fcFichaBuscaWrap">
+      <div style="font-size:12.5px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;">Lançamentos</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <input type="text" id="fcFichaBuscaInput" placeholder="🔎 Buscar por cliente/fornecedor..." oninput="renderFichaLancamentosFiltrado(this.value)" style="padding:7px 10px;border:1px solid var(--border2);border-radius:8px;background:var(--field-bg,#fff);font-size:12.5px;width:260px;">
+        <span id="fcFichaContagemFiltrada" style="font-size:11.5px;color:var(--text3);white-space:nowrap;"></span>
+      </div>
+    </div>
     <div class="fc-detail-list">
       <table class="fc-detail-table" style="margin-top:0;">
         <thead><tr><th>Data</th><th>Empresa</th><th>Nome</th><th>Documento</th><th>Status</th><th class="num">%</th><th>Observação</th><th class="num">Valor</th></tr></thead>
-        <tbody>${detalheHtml || `<tr><td colspan="8" style="color:var(--text3);">Sem lançamentos.</td></tr>`}</tbody>
+        <tbody id="fcFichaLancamentosBody"></tbody>
       </table>
     </div>
-    ${detailRows.length>120 ? `<div class="fc-detail-muted">Mostrando os primeiros 120 lançamentos.</div>` : ``}
+    <div class="fc-detail-muted" id="fcFichaMostrandoAviso"></div>
   `;
+  renderFichaLancamentosFiltrado('');
   el('fluxoFichaModal').classList.add('show');
+}
+// Monta uma linha da tabela de Lançamentos — extraído do openFluxoFicha
+// original pra poder ser reusado tanto no carregamento inicial quanto no
+// filtro de busca ao vivo (sem duplicar a lógica das tags/observação).
+function renderLinhaFicha_(r, idx, total){
+  const pct = total ? (Math.abs(r.valor) / Math.abs(total)) * 100 : 0;
+  const doc = r.titulo || r.banco || r.forma || r.situacao || '';
+  const ehAberto = r.categoria === CATEGORIA_TITULOS_ABERTO;
+  // Do lado de recebimento, cheque de terceiros vem com a categoria genérica
+  // (CATEGORIA_CHEQUE_TERCEIROS). Do lado de pagamento, a categoria continua
+  // sendo a real (ex: "Materia Prima") — o único jeito de identificar os dois
+  // casos de forma consistente é pelo contaNoSaldo (que finalizarLinha já marca
+  // como false nos dois), já que ele nunca é false por causa de Título em Aberto
+  // sozinho sem também ser cheque (esse caso já foi tratado acima por ehAberto).
+  const ehCheque = !ehAberto && r.contaNoSaldo===false;
+  const tagCategoria = ehAberto
+    ? `<span class="fc-tag-aberto" title="Ainda não foi pago/recebido — só está previsto">⏳ Em aberto</span>`
+    : ehCheque
+    ? `<span class="fc-tag-cheque" title="Não entra no Saldo Acumulado">🚫 Cheque Terc.</span>`
+    : `<span class="fc-tag-realizado" title="Já foi pago/recebido de verdade">✓ Realizado</span>`;
+  const dataExibida = r.categoria===CATEGORIA_TITULOS_ABERTO ? dataVisualTituloAberto_(r) : r.date;
+  const dataTitle = (r.categoria===CATEGORIA_TITULOS_ABERTO && dataExibida!==r.date) ? ` title="Vencimento original: ${formatDateBR(r.date)}"` : '';
+  return `
+  <tr>
+    <td${dataTitle}>${formatDateBR(dataExibida)}</td>
+    <td>${escapeHtml(EMPRESA_LABEL[r.empresa] || r.empresa || 'Geral')}</td>
+    <td class="wrap" title="${escapeHtml(r.nome || 'Sem nome')}">${escapeHtml(r.nome || 'Sem nome')}</td>
+    <td class="small" title="${escapeHtml(doc)}">${escapeHtml(doc)}</td>
+    <td>${tagCategoria}</td>
+    <td class="num">${pct.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%</td>
+    <td>${renderTituloObsHtml_(r,idx)}</td>
+    <td class="valor-modal" style="color:${r.valor>=0?'#4F8F3A':'var(--red)'}">${fmtNumeroFicha(r.valor)}</td>
+  </tr>`;
+}
+// Filtra os lançamentos da Ficha aberta por nome do cliente/fornecedor —
+// sem fechar/reabrir o modal, e sem perder o resto (por empresa, totais).
+function renderFichaLancamentosFiltrado(termoBusca){
+  const termo = normalizeTxt(termoBusca||'').trim();
+  const filtrados = termo
+    ? fcFichaDetailRowsAtual.filter(r => normalizeTxt(r.nome||'').includes(termo))
+    : fcFichaDetailRowsAtual;
+  const ordenadas = filtrados
+    .slice()
+    .sort((a,b)=>{
+      const diff = Math.abs(b.valor || 0) - Math.abs(a.valor || 0);
+      if(diff !== 0) return diff;
+      return a.date<b.date?-1:a.date>b.date?1:0;
+    })
+    .slice(0,120);
+  fcTituloObsRowsAtual = ordenadas;
+  const html = ordenadas.map((r,idx)=>renderLinhaFicha_(r, idx, fcFichaTotalAtual)).join('');
+  const corpo = el('fcFichaLancamentosBody');
+  if(corpo) corpo.innerHTML = html || `<tr><td colspan="8" style="color:var(--text3);">Nenhum lançamento encontrado${termo?' pra essa busca':''}.</td></tr>`;
+  const contagem = el('fcFichaContagemFiltrada');
+  if(contagem) contagem.textContent = termo ? `${filtrados.length} de ${fcFichaDetailRowsAtual.length} lançamentos` : '';
+  const aviso = el('fcFichaMostrandoAviso');
+  if(aviso) aviso.textContent = filtrados.length>120 ? `Mostrando os primeiros 120 lançamentos${termo?' dessa busca':''}.` : '';
 }
 function closeFluxoFicha(){
   el('fluxoFichaModal').classList.remove('show');
+}
+function imprimirFichaFluxo(){
+  window.print();
+}
+// Exporta os lançamentos da Ficha aberta em Excel — respeita a busca ativa
+// (se tiver algo digitado, exporta só o filtrado, igual o que está na tela).
+function exportarFichaExcel(){
+  if(typeof XLSX==='undefined'){ alert('Não consegui carregar a biblioteca de Excel — tenta recarregar a página.'); return; }
+  const termo = normalizeTxt(el('fcFichaBuscaInput')?.value||'').trim();
+  const linhas = termo
+    ? fcFichaDetailRowsAtual.filter(r => normalizeTxt(r.nome||'').includes(termo))
+    : fcFichaDetailRowsAtual;
+  if(!linhas.length){ alert('Não tem lançamento pra exportar.'); return; }
+  const dados = linhas.map(r=>{
+    const ehAberto = r.categoria === CATEGORIA_TITULOS_ABERTO;
+    const ehCheque = !ehAberto && r.contaNoSaldo===false;
+    const status = ehAberto ? 'Em aberto' : ehCheque ? 'Cheque Terceiros' : 'Realizado';
+    const dataExibida = r.categoria===CATEGORIA_TITULOS_ABERTO ? dataVisualTituloAberto_(r) : r.date;
+    return {
+      'Data': formatDateBR(dataExibida),
+      'Empresa': EMPRESA_LABEL[r.empresa] || r.empresa || 'Geral',
+      'Nome': r.nome || 'Sem nome',
+      'Documento': r.titulo || r.banco || r.forma || r.situacao || '',
+      'Status': status,
+      'Valor': r.valor,
+    };
+  });
+  const ws = XLSX.utils.json_to_sheet(dados);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Ficha');
+  const nomeArquivo = ('Ficha - '+fcFichaTituloAtual+' - '+fcFichaPeriodoAtual).replace(/[\\/:*?"<>|]/g,'').slice(0,120) + '.xlsx';
+  XLSX.writeFile(wb, nomeArquivo);
 }
 
 el('tituloObsModal')?.addEventListener('click',function(e){ if(e.target===this) closeTituloObsPopup_(); });
