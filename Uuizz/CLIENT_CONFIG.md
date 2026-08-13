@@ -26,7 +26,7 @@ const CLIENT_CONFIG = {
   fontesDados: {
     comercial: {
       tipo: 'XLSX estático no deploy',
-      arquivo: 'pivot.xlsx',
+      arquivo: 'Basegerencial.xlsx',
       empresa: 'Mister Wiz',
       dataCaptada: 'Data de Inclusão (completa)',
       dataFaturada: 'Data do Faturamento (completa)',

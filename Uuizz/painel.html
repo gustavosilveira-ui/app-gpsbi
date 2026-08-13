@@ -6,11 +6,13 @@
 <title>Hub GPSBI · Mister Wiz</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="theme.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="base_comercial_misterwiz.js"></script>
+<script src="nav.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
@@ -398,6 +400,23 @@ html.light .kpi-card{background:#fff}
 .period-summary-growth.neutral{color:var(--text3)}
 html.light .period-summary-item{background:#F6F9FC;}
 </style>
+<style>
+/* O BI usa a mesma navegação compartilhada das demais telas do Hub. */
+#mainContent > .topbar,#mainContent > .page-nav{display:none!important;}
+#suggestionsCard{display:none!important;}
+.history-table th,.history-table td{text-align:center!important;vertical-align:middle;}
+.history-table th:first-child,.history-table td:first-child{text-align:left!important;}
+.status-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:-2px 0 18px;}
+.status-card{background:var(--navy2);border:1px solid var(--border2);border-radius:14px;padding:15px 17px;display:flex;align-items:center;gap:13px;min-height:82px;}
+.status-dot{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px;flex:none;}
+.status-card.faturado .status-dot{background:rgba(34,197,94,.14);color:#22c55e;}
+.status-card.aguardando .status-dot{background:rgba(245,185,66,.16);color:#d99a12;}
+.status-card.atrasado .status-dot{background:rgba(239,106,106,.14);color:#ef6a6a;}
+.status-title{font-size:11.5px;color:var(--text2);font-weight:700;margin-bottom:4px;}
+.status-value{font-size:17px;font-weight:800;color:var(--text);}
+.status-sub{font-size:10.5px;color:var(--text3);margin-top:2px;}
+@media(max-width:900px){.status-grid{grid-template-columns:1fr;}}
+</style>
 </head>
 <body>
 
@@ -507,6 +526,21 @@ html.light .period-summary-item{background:#F6F9FC;}
       </div>
     </div>
 
+    <div class="status-grid" aria-label="Resumo por situação do pedido">
+      <div class="status-card faturado">
+        <div class="status-dot">✓</div>
+        <div><div class="status-title">Faturado</div><div class="status-value" id="statusFaturadoValor">--</div><div class="status-sub" id="statusFaturadoQtd">-- pedidos</div></div>
+      </div>
+      <div class="status-card aguardando">
+        <div class="status-dot">⌛</div>
+        <div><div class="status-title">Aguardando faturamento</div><div class="status-value" id="statusAguardandoValor">--</div><div class="status-sub" id="statusAguardandoQtd">-- pedidos</div></div>
+      </div>
+      <div class="status-card atrasado">
+        <div class="status-dot">!</div>
+        <div><div class="status-title">Faturamento atrasado</div><div class="status-value" id="statusAtrasadoValor">--</div><div class="status-sub" id="statusAtrasadoQtd">-- pedidos</div></div>
+      </div>
+    </div>
+
     <div class="gauge-section" id="gaugeSection" style="display:none;">
       <div class="gauge-wrap"><canvas id="gaugeChart" width="140" height="140"></canvas>
         <div class="gauge-center"><div class="gauge-pct" id="gaugePct">--</div><div class="gauge-sub">da meta</div></div>
@@ -544,7 +578,7 @@ html.light .period-summary-item{background:#F6F9FC;}
     <div class="charts-grid hero-charts" id="whatsResumoImagem">
       <div class="chart-card evolution-card">
         <div class="chart-title">Evolução do faturamento</div>
-        <div class="chart-sub">Desde 2025 · variação % contra o mesmo período do mês anterior · clique num mês ou arraste pra selecionar vários</div>
+        <div class="chart-sub">Histórico mensal disponível · variação % contra o mesmo período do mês anterior · clique num mês ou arraste pra selecionar vários</div>
         <div class="chart-box big"><canvas id="evolutionChart"></canvas></div>
         <div id="evolutionDebug" style="font-size:11px;color:var(--text3);margin-top:8px;"></div>
       </div>
@@ -766,7 +800,7 @@ function canAccessMisterWizBi(email){
 }
 let captadaRows=[], faturadaRows=[], metasMap={}, allVendors=[], allCanais=[];
 let debugStats = {};
-let selectedMes='', selectedVendedor='', selectedCanal='', selectedProjeto='', selectedFamilia='', selectedProdutoFiltro='', selectedYears=['2025','2026'];
+let selectedMes='', selectedVendedor='', selectedCanal='', selectedProjeto='', selectedFamilia='', selectedProdutoFiltro='', selectedYears=['2026'];
 let dateFrom='', dateTo='';
 let currentTheme = localStorage.getItem('gpsbi_tangram_theme_v3') || 'light';
 
@@ -844,7 +878,9 @@ function parseDate(v){
 function parseMoney(v){
   if(v===null||v===undefined||v==='') return 0;
   if(typeof v==='number') return v;
-  return parseFloat(String(v).replace(/\./g,'').replace(',','.')) || 0;
+  let s=String(v).replace(/[^0-9,.-]/g,'').trim();
+  if(s.includes(',')) s=s.replace(/\./g,'').replace(',','.');
+  return parseFloat(s) || 0;
 }
 function normalizeTxt(s){
   return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
@@ -1034,6 +1070,14 @@ async function initAuth(){
   // sem preferência salva ainda, mantém o padrão (claro) sem forçar nada.
   const savedTheme = currentUser.user_metadata && currentUser.user_metadata.theme;
   applyTheme(savedTheme || currentTheme, true);
+  renderAppNav({
+    activePage:'painel.html',
+    userLabel:nameFromEmail(email),
+    userRole,
+    onLogout:doLogout,
+    sb,
+    currentUser
+  });
   const fcLink = document.getElementById('navFluxoCaixa');
   if(fcLink) fcLink.style.display = canAccessMisterWizBi(email) ? '' : 'none';
   document.documentElement.style.visibility='visible';
@@ -1055,7 +1099,7 @@ function setupUI(){
   el('rankingSection').style.display='block';
   el('vendedorLabel').style.display='inline';
   el('vendedorSelect').style.display='inline';
-  el('suggestionsCard').style.display='block';
+  el('suggestionsCard').style.display='none';
   if(userRole==='owner') el('btnMetas').style.display='flex';
   if(gpsStaff) el('previewToggleBtn').style.display='flex';
   document.getElementById('logoutBtn').addEventListener('click', doLogout);
@@ -1114,16 +1158,16 @@ async function loadData(){
     sel.value = selectedMes;
     sel.addEventListener('change', ()=>{ selectedMes=sel.value; clearDateRange(); render(); setTimeout(fitFiltersBar,30); });
 
-    // Anos disponíveis: força 2025 e 2026 como padrão, mesmo que algum ano não apareça em uma das bases.
+    // Exibe somente os anos que realmente existem na base ou nas metas.
     const anosBase = [
       ...captadaRows.map(r=>r.mes && r.mes.slice(0,4)),
       ...faturadaRows.map(r=>r.mes && r.mes.slice(0,4)),
-      ...Object.keys(metasMap||{}).map(m=>m && m.slice(0,4)),
-      '2025','2026'
+      ...Object.keys(metasMap||{}).map(m=>m && m.slice(0,4))
     ].filter(Boolean);
     const anos = Array.from(new Set(anosBase)).sort();
-    // Padrão Power BI/original: sempre abrir com 2025 e 2026 marcados.
-    selectedYears = ['2025','2026'];
+    selectedYears = anos.includes(String(new Date().getFullYear()))
+      ? [String(new Date().getFullYear())]
+      : anos.slice(-1);
     const yearBox = el('yearFilter');
     yearBox.innerHTML = anos.map(a=>`<label class="year-pill"><input type="checkbox" value="${a}" ${selectedYears.includes(a)?'checked':''}><span>${a}</span></label>`).join('');
     yearBox.querySelectorAll('input').forEach(chk=>chk.addEventListener('change',()=>{
@@ -1270,17 +1314,30 @@ function render(){
   const ticketMedio = pedidosUnicos>0 ? totalCap/pedidosUnicos : 0;
 
   el('kpiCaptado').textContent = fmtBRL(totalCap);
-  el('kpiCaptadoSub').textContent = selectedMes
-    ? pedidosUnicos + ' pedidos · ' + mesLabelFull(selectedMes)
-    : pedidosUnicos + ' pedidos · anos ' + periodYearsLabel();
+  el('kpiCaptadoSub').textContent = '';
   el('kpiFaturado').textContent = fmtBRL(totalFat);
-  el('kpiFaturadoSub').textContent = new Set(fatPeriodo.map(r=>r.pedido)).size + ' pedidos faturados' + (selectedMes ? ' · '+mesLabelFull(selectedMes) : '');
+  el('kpiFaturadoSub').textContent = '';
   el('kpiClientes').textContent = new Set(capPeriodo.map(r=>r.cliente).filter(Boolean)).size.toLocaleString('pt-BR');
   el('kpiItens').textContent = capPeriodo.reduce((s,r)=>s+(r.qtd||1),0).toLocaleString('pt-BR',{maximumFractionDigits:0});
   el('kpiPedidos').textContent = pedidosUnicos.toLocaleString('pt-BR');
   el('kpiPedidosSub').textContent = totalMeta>0 ? 'Meta: '+fmtBRL(totalMeta)+' · '+pct+'%' : 'Meta: —';
   el('kpiTicket').textContent = fmtBRL(ticketMedio);
   el('kpiTicketSub').textContent = selectedMes ? 'Sobre '+mesLabelFull(selectedMes) : 'Sobre anos ' + periodYearsLabel();
+
+  const statusResumo = (nome)=>{
+    const rows = capPeriodo.filter(r=>normalizeTxt(r.situacao)===normalizeTxt(nome));
+    return { valor:rows.reduce((s,r)=>s+r.total,0), pedidos:new Set(rows.map(r=>String(r.pedido||'').trim()).filter(Boolean)).size };
+  };
+  const statusMap = [
+    ['Faturado','statusFaturadoValor','statusFaturadoQtd'],
+    ['Aguardando faturamento','statusAguardandoValor','statusAguardandoQtd'],
+    ['Faturamento atrasado','statusAtrasadoValor','statusAtrasadoQtd']
+  ];
+  statusMap.forEach(([nome,idValor,idQtd])=>{
+    const resumo=statusResumo(nome);
+    el(idValor).textContent=fmtBRLFull(resumo.valor);
+    el(idQtd).textContent=`${resumo.pedidos.toLocaleString('pt-BR')} pedido${resumo.pedidos===1?'':'s'}`;
+  });
 
   // Resumo executivo acompanha o mês selecionado no gráfico/filtro.
   // Sem seleção, usa o mês vigente. O comparativo considera os primeiros N dias
@@ -1335,7 +1392,7 @@ function render(){
   renderTopClientes(capPeriodo);
   renderTopFamilias(capPeriodo);
   renderTopProdutos(capPeriodo);
-  if(userRole==='owner' || userRole==='viewer') { renderRanking(); renderSuggestions(); renderMatrix(); }
+  if(userRole==='owner' || userRole==='viewer') { renderRanking(); renderMatrix(); }
   if(gpsStaff && !previewAsClient) renderAnaliseWhats();
   else { const c = el('analiseWhatsCard'); if(c) c.style.display='none'; }
 }
@@ -1985,12 +2042,11 @@ function renderDailyWeekly(rows){
 
   const wLabels = weekKeys.map(k=>{ const [y,w]=k.split('-W'); return 'S'+w+'/'+y.slice(2); });
   const wColors = weekKeys.map(k=> (dateFrom===weekMap[k].start && dateTo===weekMap[k].end) ? cyan : blue);
-  const wData = { labels:wLabels, datasets:[{ data: weekKeys.map(k=>weekMap[k].total), borderColor:blue, backgroundColor:blue+'22', fill:true, pointBackgroundColor:wColors, pointRadius:weekKeys.map(k=>(dateFrom===weekMap[k].start&&dateTo===weekMap[k].end)?5:3) }] };
+  const wData = { labels:wLabels, datasets:[{ data: weekKeys.map(k=>weekMap[k].total), borderColor:wColors, backgroundColor:wColors.map(c=>c+'AA'), borderWidth:1, borderRadius:6, maxBarThickness:46 }] };
   const wOpts = {
     responsive:true, maintainAspectRatio:false,
     interaction:{mode:'index', intersect:false},
     plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmtBRLFull(c.parsed.y)}}},
-    elements:{line:{tension:.35},point:{hoverRadius:6}},
     onClick:(evt, elements)=>{
       if(!elements.length) return;
       const k = weekKeys[elements[0].index];
@@ -2002,7 +2058,7 @@ function renderDailyWeekly(rows){
   };
 
   if(dailyChart){dailyChart.data=dData;dailyChart.options=dOpts;dailyChart.update();} else dailyChart=new Chart(el('dailyChart'),{type:'line',data:dData,options:dOpts});
-  if(weeklyChart){weeklyChart.data=wData;weeklyChart.options=wOpts;weeklyChart.update();} else weeklyChart=new Chart(el('weeklyChart'),{type:'line',data:wData,options:wOpts});
+  if(weeklyChart){weeklyChart.data=wData;weeklyChart.options=wOpts;weeklyChart.update();} else weeklyChart=new Chart(el('weeklyChart'),{type:'bar',data:wData,options:wOpts});
 }
 
 function renderMonthlyHistory(){

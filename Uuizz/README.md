@@ -4,9 +4,9 @@ Projeto consolidado com o BI Comercial da Mister Wiz.
 
 ## Atualização da base comercial
 
-1. Exporte o relatório do Omie mantendo os cabeçalhos atuais.
-2. Renomeie o arquivo para `pivot.xlsx`.
-3. Substitua apenas esse arquivo no deploy.
+1. Baixe a planilha `Basegerencial.xlsx` mantendo a aba `Comercial` e os cabeçalhos atuais.
+2. Substitua o arquivo `Basegerencial.xlsx` no projeto.
+3. Execute `python gerar_base_comercial.py` antes do deploy para atualizar `base_comercial_misterwiz.js`.
 
 O painel usa `Data de Inclusão (completa)` na Receita Captada e
 `Data do Faturamento (completa)` na Receita Faturada.
