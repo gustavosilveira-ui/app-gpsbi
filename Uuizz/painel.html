@@ -413,7 +413,8 @@ html.light .period-summary-item{background:#F6F9FC;}
 .history-client-link{border:none;background:none;color:var(--blue);font-family:'Sora',sans-serif;font-size:11px;font-weight:700;cursor:pointer;text-align:left;padding:2px 0;}
 .history-client-link:hover{text-decoration:underline;}
 .status-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:-2px 0 18px;}
-.status-card{background:var(--navy2);border:1px solid var(--border2);border-radius:14px;padding:15px 17px;display:flex;align-items:center;gap:13px;min-height:82px;}
+.status-card{background:var(--navy2);border:1px solid var(--border2);border-radius:14px;padding:15px 17px;display:flex;align-items:center;gap:13px;min-height:82px;cursor:pointer;transition:transform .15s,border-color .15s,box-shadow .15s;}
+.status-card:hover{transform:translateY(-2px);border-color:var(--cyan);box-shadow:var(--shadow)}
 .status-dot{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px;flex:none;}
 .status-card.faturado .status-dot{background:rgba(34,197,94,.14);color:#22c55e;}
 .status-card.aguardando .status-dot{background:rgba(245,185,66,.16);color:#d99a12;}
@@ -421,6 +422,9 @@ html.light .period-summary-item{background:#F6F9FC;}
 .status-title{font-size:11.5px;color:var(--text2);font-weight:700;margin-bottom:4px;}
 .status-value{font-size:17px;font-weight:800;color:var(--text);}
 .status-sub{font-size:10.5px;color:var(--text3);margin-top:2px;}
+.status-modal-box{width:1500px;max-width:96vw;max-height:90vh;overflow:auto;background:var(--navy2);border:1px solid var(--border2);border-radius:16px;padding:22px;box-shadow:0 30px 70px rgba(0,0,0,.35)}
+.status-modal-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0}.status-modal-kpi{background:var(--navy3);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center}.status-modal-kpi b{display:block;font-size:18px}.status-modal-kpi span{font-size:10.5px;color:var(--text3)}
+.status-detail-table{width:100%;border-collapse:collapse;font-size:11.5px}.status-detail-table th,.status-detail-table td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:middle}.status-detail-table th{color:var(--text3);font-size:10px;text-transform:uppercase;text-align:center;white-space:nowrap}.status-detail-table th:nth-child(2),.status-detail-table td:nth-child(2){text-align:left}.status-detail-table td{text-align:center}.status-client-row{font-weight:700;background:rgba(45,112,184,.045)}.status-toggle{width:24px;height:24px;border:1px solid var(--border2);border-radius:6px;background:var(--field-bg);color:var(--text);cursor:pointer;font-weight:800}.status-product-row{display:none;background:rgba(45,112,184,.025)}.status-product-row.open{display:table-row}.status-product-name{text-align:left!important;padding-left:30px!important}.status-client-link{border:0;background:none;color:var(--blue);font:inherit;font-weight:700;cursor:pointer;text-align:left}.status-client-link:hover{text-decoration:underline}
 @media(max-width:900px){.status-grid{grid-template-columns:1fr;}}
 </style>
 </head>
@@ -550,15 +554,15 @@ html.light .period-summary-item{background:#F6F9FC;}
     </div>
 
     <div class="status-grid" aria-label="Resumo por situação do pedido">
-      <div class="status-card faturado">
+      <div class="status-card faturado" onclick="openStatusModal('Faturado')" role="button" tabindex="0">
         <div class="status-dot">✓</div>
         <div><div class="status-title">Faturado</div><div class="status-value" id="statusFaturadoValor">--</div><div class="status-sub" id="statusFaturadoQtd">-- pedidos</div></div>
       </div>
-      <div class="status-card aguardando">
+      <div class="status-card aguardando" onclick="openStatusModal('Aguardando faturamento')" role="button" tabindex="0">
         <div class="status-dot">⌛</div>
         <div><div class="status-title">Aguardando faturamento</div><div class="status-value" id="statusAguardandoValor">--</div><div class="status-sub" id="statusAguardandoQtd">-- pedidos</div></div>
       </div>
-      <div class="status-card atrasado">
+      <div class="status-card atrasado" onclick="openStatusModal('Faturamento atrasado')" role="button" tabindex="0">
         <div class="status-dot">!</div>
         <div><div class="status-title">Faturamento atrasado</div><div class="status-value" id="statusAtrasadoValor">--</div><div class="status-sub" id="statusAtrasadoQtd">-- pedidos</div></div>
       </div>
@@ -726,6 +730,21 @@ html.light .period-summary-item{background:#F6F9FC;}
       <pre id="analiseWhatsTexto" style="white-space:pre-wrap;font-family:'Sora',sans-serif;font-size:13px;line-height:1.7;background:var(--navy3);border-radius:10px;padding:14px 16px;margin-bottom:12px;max-height:90px;overflow-y:auto;"></pre>
       <div style="display:flex;gap:10px;flex-wrap:wrap;"><button id="analiseWhatsBtn" style="padding:9px 18px;border-radius:9px;border:none;font-weight:700;cursor:pointer;color:#fff;background:linear-gradient(90deg,var(--blue),var(--cyan));font-family:'Sora',sans-serif;font-size:12.5px;">📋 Copiar texto</button><button id="analiseWhatsImagemBtn" style="padding:9px 18px;border-radius:9px;border:1px solid var(--border2);font-weight:700;cursor:pointer;color:var(--text);background:var(--navy3);font-family:'Sora',sans-serif;font-size:12.5px;">🖼️ Copiar imagem</button></div>
     </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="statusModal">
+  <div class="status-modal-box">
+    <div class="client-modal-head">
+      <div><h2 id="statusModalTitle">Detalhamento por situação</h2><p id="statusModalSub">Clique no + para ver produtos e documentos.</p></div>
+      <button class="client-close-btn" onclick="closeStatusModal()">✕</button>
+    </div>
+    <div class="status-modal-summary">
+      <div class="status-modal-kpi"><b id="statusModalValor">--</b><span>Valor total</span></div>
+      <div class="status-modal-kpi"><b id="statusModalPedidos">--</b><span>Pedidos únicos</span></div>
+      <div class="status-modal-kpi"><b id="statusModalQtd">--</b><span>Quantidade de itens</span></div>
+    </div>
+    <div style="overflow:auto"><table class="status-detail-table"><thead><tr><th></th><th>Cliente / Produto</th><th>Vendedor</th><th>Pedido</th><th>Nota fiscal</th><th>Data</th><th>Quantidade</th><th>Valor</th></tr></thead><tbody id="statusModalBody"></tbody></table></div>
   </div>
 </div>
 
@@ -1329,7 +1348,8 @@ function render(){
 
   // Para o card Captada, mostra apenas o que ainda precisa ser faturado.
   // A Faturada segue a data real de faturamento e a situação Faturado.
-  const captadaPendenteRows = capPeriodo.filter(r=>{
+  const carteiraPendentePeriodo = filterRowsYears(captadaRows, vendFilter, canalFilter);
+  const captadaPendenteRows = carteiraPendentePeriodo.filter(r=>{
     const s=normalizeTxt(r.situacao);
     return s==='aguardando faturamento' || s==='faturamento atrasado';
   });
@@ -1360,7 +1380,7 @@ function render(){
   el('kpiTicketSub').textContent = '';
 
   const statusResumo = (nome)=>{
-    const origem = normalizeTxt(nome)==='faturado' ? fatPeriodo : capPeriodo;
+    const origem = normalizeTxt(nome)==='faturado' ? fatPeriodo : carteiraPendentePeriodo;
     const rows = origem.filter(r=>normalizeTxt(r.situacao)===normalizeTxt(nome));
     return { valor:rows.reduce((s,r)=>s+r.total,0), pedidos:new Set(rows.map(r=>String(r.pedido||'').trim()).filter(Boolean)).size };
   };
@@ -2282,6 +2302,75 @@ async function saveMetas(){
   else alert('Erro ao salvar: '+error.message);
 }
 async function doLogout(){ await sb.auth.signOut(); window.location.href = LOGIN_URL; }
+
+/* ---- Detalhamento expansível dos cards de Situação ---- */
+let statusModalClients = [];
+function escapeStatusHtml(value){
+  return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+function statusRowsFor(nome){
+  const alvo=normalizeTxt(nome);
+  const vendFilter=selectedVendedor, canalFilter=selectedCanal;
+  const origem = alvo==='faturado'
+    ? (selectedMes ? filterRows(faturadaRows,selectedMes,vendFilter,canalFilter) : filterRowsYears(faturadaRows,vendFilter,canalFilter))
+    : filterRowsYears(captadaRows,vendFilter,canalFilter);
+  return origem.filter(r=>normalizeTxt(r.situacao)===alvo);
+}
+function formatStatusDate(dateStr){
+  if(!dateStr) return '—';
+  const d=new Date(dateStr+'T00:00:00');
+  return isNaN(d) ? dateStr : d.toLocaleDateString('pt-BR');
+}
+function openStatusModal(nome){
+  const rows=statusRowsFor(nome);
+  const groups=new Map();
+  rows.forEach(r=>{
+    const cliente=r.cliente||'Cliente não informado';
+    if(!groups.has(cliente)) groups.set(cliente,[]);
+    groups.get(cliente).push(r);
+  });
+  statusModalClients=[...groups.keys()];
+  const pedidos=new Set(rows.map(r=>String(r.pedido||'').trim()).filter(Boolean));
+  const qtd=rows.reduce((s,r)=>s+(Number(r.qtd)||0),0);
+  const valor=rows.reduce((s,r)=>s+(Number(r.total)||0),0);
+  el('statusModalTitle').textContent=nome;
+  el('statusModalSub').textContent = normalizeTxt(nome)==='faturado'
+    ? `Documentos faturados no período selecionado · clique no + para expandir`
+    : `Carteira pendente acumulada · clique no + para expandir`;
+  el('statusModalValor').textContent=fmtBRLFull(valor);
+  el('statusModalPedidos').textContent=pedidos.size.toLocaleString('pt-BR');
+  el('statusModalQtd').textContent=qtd.toLocaleString('pt-BR',{maximumFractionDigits:0});
+  const body=el('statusModalBody');
+  body.innerHTML = groups.size ? [...groups.entries()].map(([cliente,clientRows],idx)=>{
+    const sellers=[...new Set(clientRows.map(r=>r.vendedor).filter(Boolean))].join(', ');
+    const clientOrders=new Set(clientRows.map(r=>String(r.pedido||'').trim()).filter(Boolean));
+    const clientNfs=new Set(clientRows.map(r=>String(r.nf||'').trim()).filter(v=>v&&normalizeTxt(v)!=='n/d'));
+    const clientQtd=clientRows.reduce((s,r)=>s+(Number(r.qtd)||0),0);
+    const clientValor=clientRows.reduce((s,r)=>s+(Number(r.total)||0),0);
+    const detail=clientRows.map(r=>`<tr class="status-product-row status-group-${idx}">
+      <td></td><td class="status-product-name">${escapeStatusHtml(r.produto||'Sem descrição')}</td>
+      <td>${escapeStatusHtml(r.vendedor||'—')}</td><td>${escapeStatusHtml(r.pedido||'—')}</td><td>${escapeStatusHtml(r.nf||'—')}</td>
+      <td>${formatStatusDate(r.date)}</td><td>${(Number(r.qtd)||0).toLocaleString('pt-BR',{maximumFractionDigits:2})}</td><td>${fmtBRLFull(r.total)}</td>
+    </tr>`).join('');
+    return `<tr class="status-client-row"><td><button class="status-toggle" onclick="toggleStatusGroup(${idx},this)">+</button></td>
+      <td><button class="status-client-link" data-status-client="${idx}">${escapeStatusHtml(cliente)}</button></td>
+      <td>${escapeStatusHtml(sellers||'—')}</td><td>${clientOrders.size}</td><td>${clientNfs.size||'—'}</td><td>—</td>
+      <td>${clientQtd.toLocaleString('pt-BR',{maximumFractionDigits:2})}</td><td>${fmtBRLFull(clientValor)}</td></tr>${detail}`;
+  }).join('') : '<tr><td colspan="8" class="empty">Nenhum registro nesta situação.</td></tr>';
+  body.querySelectorAll('[data-status-client]').forEach(btn=>btn.addEventListener('click',()=>{
+    const cliente=statusModalClients[Number(btn.dataset.statusClient)];
+    closeStatusModal(); openClientModal(cliente);
+  }));
+  el('statusModal').classList.add('show');
+}
+function toggleStatusGroup(idx,button){
+  const rows=document.querySelectorAll(`.status-group-${idx}`);
+  const opening=!rows[0]?.classList.contains('open');
+  rows.forEach(row=>row.classList.toggle('open',opening));
+  button.textContent=opening?'−':'+';
+}
+function closeStatusModal(){ el('statusModal').classList.remove('show'); }
+el('statusModal').addEventListener('click',e=>{ if(e.target.id==='statusModal') closeStatusModal(); });
 
 /* ---- Ficha do Cliente ---- */
 let currentClientName = null;
