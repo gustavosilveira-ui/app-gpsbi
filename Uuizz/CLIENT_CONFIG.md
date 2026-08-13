@@ -11,7 +11,7 @@ const CLIENT_CONFIG = {
     grupo: ['Empoderamento (Conta Azul)', 'Mister Wiz (Omie)'],
   },
   modulos: {
-    dashboard: false,       // não contratado nesta fase
+    dashboard: true,        // BI Comercial Mister Wiz
     fluxoCaixa: true,
     agenda: true,
     mural: true,
@@ -24,6 +24,13 @@ const CLIENT_CONFIG = {
     dominiosCadastroPermitidos: ['empoderamentoadolescente.com.br', 'gpsbi.com.br'], // ASSUNÇÃO — confirmar domínio da Mister Wiz
   },
   fontesDados: {
+    comercial: {
+      tipo: 'XLSX estático no deploy',
+      arquivo: 'pivot.xlsx',
+      empresa: 'Mister Wiz',
+      dataCaptada: 'Data de Inclusão (completa)',
+      dataFaturada: 'Data do Faturamento (completa)',
+    },
     financeiro: {
       tipo: 'Google Sheets (gviz)',
       sheetId: '1eFzTg4nqZecn7fqjcvFOOQOhcE0cl5iAR1U1p_gKO2s', // extrair de https://docs.google.com/spreadsheets/d/ESTE_ID/edit
@@ -38,7 +45,7 @@ const CLIENT_CONFIG = {
     realizadoCapCar: 'Situação = "Quitado"',
     realizadoMovimentacao: 'Situação = "Conciliado"',
     limiteBancario: { Empoderamento: 0, 'Mister Wiz': 0 }, // nenhuma das duas pode operar no vermelho
-    metaFaturamento: 'Não aplicável nesta fase (Simulador adiado)',
+    metaFaturamento: 'Configurável no BI Comercial por vendedor e mês',
   },
 };
 ```

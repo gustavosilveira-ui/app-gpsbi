@@ -405,6 +405,13 @@ body{
       </div>
 
       <div class="app-actions">
+        <button class="app-action primary" id="btnComercialHome" type="button" onclick="window.location.href='painel.html'" style="display:none;">
+          <span class="app-action-icon">📊</span>
+          <span>
+            <span class="app-action-title">BI Comercial · Mister Wiz</span>
+            <span class="app-action-sub">Vendas captadas, faturamento, clientes, produtos e desempenho comercial.</span>
+          </span>
+        </button>
         <button class="app-action primary" type="button" onclick="window.location.href='agenda.html'">
           <span class="app-action-icon">🗓️</span>
           <span>
@@ -703,6 +710,8 @@ function enterApp(user){
   document.getElementById('userChipName').textContent = display.name;
   const btnFluxo = document.getElementById('btnFluxoHome');
   if(btnFluxo) btnFluxo.style.display = canAccessFluxo(display.email) ? '' : 'none';
+  const btnComercial = document.getElementById('btnComercialHome');
+  if(btnComercial) btnComercial.style.display = canAccessFluxo(display.email) ? '' : 'none';
 }
 
 

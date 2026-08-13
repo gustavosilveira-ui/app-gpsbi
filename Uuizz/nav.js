@@ -8,6 +8,7 @@ const APP_PAGES = [
   { href:'agenda.html', label:'🗓️ Minha Agenda' },
   { href:'mural.html', label:'📣 Mural' },
 ];
+const APP_PAGE_COMERCIAL = { href:'painel.html', label:'📊 BI Comercial' };
 const APP_PAGE_FLUXO = { href:'fluxodecaixa.html', label:'💰 Fluxo de Caixa' };
 
 // Acesso ao Fluxo: equipe GPSBI + gestora principal da Uuizz (Daniela) +
@@ -43,7 +44,9 @@ function renderAppNav({ activePage, userLabel, userRole, onLogout, sb, currentUs
   const theme = savedInAccount || localStorage.getItem('uuizz_theme') || 'light';
   document.documentElement.classList.toggle('light', theme==='light');
 
-  const pages = _navCanSeeFluxo(currentUser && currentUser.email) ? [...APP_PAGES, APP_PAGE_FLUXO] : APP_PAGES;
+  const pages = _navCanSeeFluxo(currentUser && currentUser.email)
+    ? [APP_PAGE_COMERCIAL, ...APP_PAGES, APP_PAGE_FLUXO]
+    : APP_PAGES;
   const navLinks = pages.map(p=>{
     const cls = p.href===activePage ? 'active' : '';
     return `<a class="${cls}" href="${p.href}">${p.label}</a>`;

@@ -52,13 +52,15 @@ as $$
   select public.current_email() like '%@gpsbi.com.br';
 $$;
 
--- Acesso ao Fluxo de Caixa: gestora principal (Daniela) + equipe GPSBI.
+-- Acesso financeiro/comercial: Daniela + GPSBI + usuários restritos Mister Wiz.
 create or replace function public.can_access_fluxo()
 returns boolean
 language sql
 stable
 as $$
-  select public.is_gestor_principal() or public.is_gpsbi_staff();
+  select public.is_gestor_principal()
+    or public.is_gpsbi_staff()
+    or public.current_email() in ('miria@misterwiz.com.br','custodio@sforza.com.br');
 $$;
 
 -- ============================================================
@@ -245,3 +247,97 @@ create policy ajustes_manuais_delete on fluxo_ajustes_manuais for delete
 --   - @empoderamentoadolescente.com.br
 --   - @gpsbi.com.br
 -- ============================================================
+
+-- ============================================================
+-- 6) BI COMERCIAL · MISTER WIZ
+-- ============================================================
+create table if not exists metas_comercial_misterwiz (
+  id bigint generated always as identity primary key,
+  vendedor text not null,
+  mes_ano text not null,
+  meta_captada numeric not null default 0,
+  criado_em timestamptz not null default now(),
+  unique(vendedor, mes_ano)
+);
+alter table metas_comercial_misterwiz enable row level security;
+drop policy if exists metas_mw_select on metas_comercial_misterwiz;
+drop policy if exists metas_mw_write on metas_comercial_misterwiz;
+create policy metas_mw_select on metas_comercial_misterwiz for select
+  using (auth.role()='authenticated' and public.can_access_fluxo());
+create policy metas_mw_write on metas_comercial_misterwiz for all
+  using (auth.role()='authenticated' and public.is_owner())
+  with check (auth.role()='authenticated' and public.is_owner());
+
+create table if not exists client_notes (
+  id bigint generated always as identity primary key,
+  cliente text not null,
+  vendedor text,
+  nota text not null,
+  usuario_email text default public.current_email(),
+  criado_em timestamptz not null default now()
+);
+alter table client_notes enable row level security;
+drop policy if exists client_notes_mw on client_notes;
+create policy client_notes_mw on client_notes for all
+  using (auth.role()='authenticated' and public.can_access_fluxo())
+  with check (auth.role()='authenticated' and public.can_access_fluxo());
+
+create table if not exists client_followups (
+  id bigint generated always as identity primary key,
+  cliente text not null,
+  vendedor text,
+  data_contato date not null,
+  observacao text,
+  feito boolean not null default false,
+  usuario_email text default public.current_email(),
+  criado_em timestamptz not null default now()
+);
+alter table client_followups enable row level security;
+drop policy if exists client_followups_mw on client_followups;
+create policy client_followups_mw on client_followups for all
+  using (auth.role()='authenticated' and public.can_access_fluxo())
+  with check (auth.role()='authenticated' and public.can_access_fluxo());
+
+create table if not exists comercial_mensagens (
+  id bigint generated always as identity primary key,
+  tipo text not null default 'observacao',
+  mensagem text not null,
+  resposta text,
+  status text not null default 'aberto',
+  autor_email text not null default public.current_email(),
+  autor_nome text,
+  criado_em timestamptz not null default now()
+);
+alter table comercial_mensagens enable row level security;
+drop policy if exists comercial_mensagens_mw on comercial_mensagens;
+create policy comercial_mensagens_mw on comercial_mensagens for all
+  using (auth.role()='authenticated' and public.can_access_fluxo())
+  with check (auth.role()='authenticated' and public.can_access_fluxo());
+
+create table if not exists comercial_mensagens_reacoes (
+  id bigint generated always as identity primary key,
+  mensagem_id bigint not null references comercial_mensagens(id) on delete cascade,
+  usuario_email text not null default public.current_email(),
+  tipo text not null,
+  criado_em timestamptz not null default now(),
+  unique(mensagem_id, usuario_email, tipo)
+);
+alter table comercial_mensagens_reacoes enable row level security;
+drop policy if exists comercial_reacoes_mw on comercial_mensagens_reacoes;
+create policy comercial_reacoes_mw on comercial_mensagens_reacoes for all
+  using (auth.role()='authenticated' and public.can_access_fluxo())
+  with check (auth.role()='authenticated' and lower(usuario_email)=public.current_email());
+
+create table if not exists comercial_mensagens_leituras (
+  id bigint generated always as identity primary key,
+  mensagem_id bigint not null references comercial_mensagens(id) on delete cascade,
+  usuario_email text not null default public.current_email(),
+  usuario_nome text,
+  lido_em timestamptz not null default now(),
+  unique(mensagem_id, usuario_email)
+);
+alter table comercial_mensagens_leituras enable row level security;
+drop policy if exists comercial_leituras_mw on comercial_mensagens_leituras;
+create policy comercial_leituras_mw on comercial_mensagens_leituras for all
+  using (auth.role()='authenticated' and public.can_access_fluxo())
+  with check (auth.role()='authenticated' and lower(usuario_email)=public.current_email());
