@@ -1854,6 +1854,39 @@ function totalSacadoAplicacao(){ return fcAplicacaoSaques.reduce((s,x)=>s+Math.a
 // valor cheio original quando ele é substituído por um rateio.
 let fcExclusoes = JSON.parse(localStorage.getItem('jambuzada_fc_exclusoes')||'[]');
 
+// Identidade funcional de uma exclusão. Além de impedir novos registros
+// repetidos, saneia duplicidades que já tenham ficado gravadas no navegador.
+function fcExclusaoKey(ex){
+  return [
+    normalizeTxt(ex.nome || ''),
+    ex.data || '',
+    Math.abs(Number(ex.valor)||0).toFixed(2),
+    ex.novaData || ''
+  ].join('||');
+}
+function deduplicarFcExclusoes(){
+  const vistas = new Set();
+  const limpas = [];
+  fcExclusoes.forEach(ex=>{
+    const chave = fcExclusaoKey(ex);
+    if(vistas.has(chave)) return;
+    vistas.add(chave);
+    limpas.push(ex);
+  });
+  if(limpas.length !== fcExclusoes.length){
+    fcExclusoes = limpas;
+    localStorage.setItem('jambuzada_fc_exclusoes', JSON.stringify(fcExclusoes));
+  }
+}
+function adicionarFcExclusao(ex){
+  const chave = fcExclusaoKey(ex);
+  if(fcExclusoes.some(atual=>fcExclusaoKey(atual)===chave)) return false;
+  fcExclusoes.push(ex);
+  localStorage.setItem('jambuzada_fc_exclusoes', JSON.stringify(fcExclusoes));
+  return true;
+}
+deduplicarFcExclusoes();
+
 function isoLocal(d){
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
@@ -1887,6 +1920,17 @@ function injetarProgramacoesFornecedor(){
   // saía de `rows` e não tinha mais como ser reencontrado nas próximas
   // renderizações, então "sumia" em vez de aparecer na nova data.
   rows = rowsBase.slice();
+
+  // Títulos em Aberto recolocados no fluxo precisam existir ANTES da etapa
+  // de exclusão. Antes eles eram recriados só no fim da função, portanto uma
+  // regra "Remover do fluxo" até os filtrava, mas o título era inserido de
+  // novo logo depois e continuava aparecendo nos totais e na ficha.
+  Object.keys(fcTitulosResolvidos).forEach(chave=>{
+    const original = rowsAtrasados.find(r=>r.chave===chave);
+    if(!original) return;
+    const dataEscolhida = fcTitulosResolvidos[chave] || original.date;
+    rows.push({date:dataEscolhida, categoria:original.categoria, grupo:original.grupo, valor:original.valor, conta:'Título em Aberto', fonte:'Título Resolvido', nome:original.nome, documento:original.documento});
+  });
 
   // Antes de tirar os lançamentos excluídos, clona (com a nova data) os que
   // o usuário pediu pra alterar em vez de só remover.
@@ -1959,15 +2003,6 @@ function injetarProgramacoesFornecedor(){
   // só os saques de fato.
   fcAplicacaoSaques.forEach(s=>{
     rows.push({date:s.data,categoria:'Saque de Aplicação',grupo:'RECEBIMENTOS',valor:Math.abs(s.valor),conta:'Aplicações',fonte:'Aplicacao',nome:'Saque de Aplicação'});
-  });
-
-  // Títulos em Aberto que o usuário já colocou de volta no fluxo — cada um
-  // vira um lançamento real na data escolhida, com a categoria original.
-  Object.keys(fcTitulosResolvidos).forEach(chave=>{
-    const original = rowsAtrasados.find(r=>r.chave===chave);
-    if(!original) return;
-    const dataEscolhida = fcTitulosResolvidos[chave] || original.date;
-    rows.push({date:dataEscolhida, categoria:original.categoria, grupo:original.grupo, valor:original.valor, conta:'Título em Aberto', fonte:'Título Resolvido', nome:original.nome, documento:original.documento});
   });
 
   rows.sort((a,b)=>a.date.localeCompare(b.date));
@@ -2117,12 +2152,11 @@ function excluirLancamentoManual(){
     if(!confirm('Não encontrei um lançamento com esse nome, data e valor exatos no fluxo atual. Quer salvar mesmo assim? (a regra passa a valer automaticamente se ele aparecer depois com esses mesmos dados)')) return;
   }
 
-  fcExclusoes.push({
+  adicionarFcExclusao({
     nome, data, valor:-Math.abs(valor), criadoEm:Date.now(),
     novaData: novaData || null,
     motivo: novaData ? 'Data alterada' : 'Removido manualmente'
   });
-  localStorage.setItem('jambuzada_fc_exclusoes', JSON.stringify(fcExclusoes));
   el('fcExcluirNome').value=''; el('fcExcluirData').value=''; el('fcExcluirValor').value=''; el('fcExcluirNovaData').value='';
   buildAndRenderTable();
 }
@@ -2193,12 +2227,11 @@ function confirmarTirarDaFicha(remover){
   if(!remover && !novaData){ alert('Informe a nova data, ou clique em "Remover do fluxo" pra só tirar.'); return; }
   if(!remover && novaData===fcTirarPopupContext.data){ alert('A nova data precisa ser diferente da data original.'); return; }
   const { nome, data, valor } = fcTirarPopupContext;
-  fcExclusoes.push({
+  adicionarFcExclusao({
     nome, data, valor:-Math.abs(valor), criadoEm:Date.now(),
     novaData: remover ? null : novaData,
     motivo: remover ? 'Removido pela Ficha' : 'Data alterada pela Ficha'
   });
-  localStorage.setItem('jambuzada_fc_exclusoes', JSON.stringify(fcExclusoes));
   fecharTirarPopup();
   closeFluxoFicha();
   buildAndRenderTable();
