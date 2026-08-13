@@ -950,8 +950,9 @@ function rowToRecord(row, tipo){
 function situacaoOk(situacao, tipo){
   const s = normalizeTxt(situacao);
   if(tipo==='captada'){
-    // Regra Mister Wiz: somente pedidos que ainda precisam ser faturados.
-    return s==='aguardando faturamento' || s==='faturamento atrasado';
+    // Base operacional dos demais indicadores: todos os pedidos válidos entram.
+    // A separação por Situação dos cards Captada/Faturada é feita no render().
+    return !s.includes('cancelado') && !s.includes('rejeitada');
   }
   return SITUACOES_FATURADA.map(normalizeTxt).includes(s);
 }
