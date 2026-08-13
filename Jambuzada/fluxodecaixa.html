@@ -265,7 +265,7 @@ html.light #fcTitulosAbertoLista .fc-detail-table th:last-child,html.light #fcTi
 
     <!-- Popup discreto: tirar/alterar data de um lançamento direto da Ficha -->
     <div class="modal-overlay" id="fcTirarPopup" style="z-index:310;">
-      <div class="modal-box" style="width:400px;">
+      <div class="modal-box" style="width:540px;max-width:96vw;">
         <div class="modal-title">🚫 Tirar / Alterar Lançamento</div>
         <div class="modal-sub" id="fcTirarPopupInfo"></div>
         <div class="field-group">
@@ -2392,16 +2392,16 @@ function renderRateioPopup(){
     <div style="font-size:11.5px;color:var(--text3);margin-bottom:8px;">Distribua manualmente ou gere todas as parcelas de uma vez.</div>
     <div style="background:var(--navy3);border-radius:10px;padding:9px;margin-bottom:9px;">
       <div style="font-size:11px;font-weight:800;margin-bottom:6px;">GERAR PARCELAS AUTOMATICAMENTE</div>
-      <div style="display:grid;grid-template-columns:70px 1fr 105px;gap:6px;">
-        <input type="number" id="fcRateioAutoQtd" min="2" max="120" value="${Math.max(2,fcRateioPopupParcelas.length)}" title="Quantidade de parcelas">
-        <input type="date" id="fcRateioAutoInicio" value="${fcRateioPopupParcelas[0]?.data||fcTirarPopupContext.data}" title="Primeira data">
-        <select id="fcRateioAutoIntervalo" title="Intervalo"><option value="mensal">Mensal</option><option value="quinzenal">Quinzenal</option><option value="semanal">Semanal</option><option value="diario">Diário</option></select>
+      <div style="display:grid;grid-template-columns:100px minmax(155px,1fr) 130px;gap:8px;align-items:end;">
+        <div><label style="font-size:9.5px;color:var(--text3);font-weight:700;display:block;margin-bottom:3px;">QTD. TOTAL</label><input type="number" id="fcRateioAutoQtd" min="2" max="120" value="${Math.max(2,fcRateioPopupParcelas.length)}" style="width:100%;" oninput="validarCamposGeradorRateio_()"></div>
+        <div><label style="font-size:9.5px;color:var(--text3);font-weight:700;display:block;margin-bottom:3px;">PRIMEIRA DATA</label><input type="date" id="fcRateioAutoInicio" value="${fcRateioPopupParcelas[0]?.data||fcTirarPopupContext.data}" style="width:100%;"></div>
+        <div><label style="font-size:9.5px;color:var(--text3);font-weight:700;display:block;margin-bottom:3px;">PERIODICIDADE</label><select id="fcRateioAutoIntervalo" style="width:100%;"><option value="mensal">Mensal</option><option value="quinzenal">Quinzenal</option><option value="semanal">Semanal</option><option value="diario">Diário</option></select></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;">
         <div><label style="font-size:9.5px;color:var(--text3);font-weight:700;">VALOR FIXO (OPCIONAL)</label><input type="text" inputmode="decimal" id="fcRateioAutoValorFixo" placeholder="Ex.: 200,00" style="width:100%;"></div>
-        <div><label style="font-size:9.5px;color:var(--text3);font-weight:700;">RESTANTE NAS ÚLTIMAS</label><input type="number" id="fcRateioAutoUltimas" min="1" max="120" value="1" style="width:100%;"></div>
+        <div><label style="font-size:9.5px;color:var(--text3);font-weight:700;">QTD. PARCELAS FINAIS</label><input type="number" id="fcRateioAutoUltimas" min="1" max="${Math.max(2,fcRateioPopupParcelas.length)}" value="1" style="width:100%;" oninput="validarCamposGeradorRateio_()"></div>
       </div>
-      <div style="font-size:10px;color:var(--text3);margin-top:5px;">Sem valor fixo, divide igualmente. Com valor fixo, usa esse valor nas primeiras e divide o saldo nas últimas.</div>
+      <div id="fcRateioAutoAjuda" style="font-size:10px;color:var(--text3);margin-top:5px;">Exemplo: total 6, fixo R$ 200 e finais 1 = cinco de R$ 200 e o saldo na última.</div>
       <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:6px;" onclick="gerarParcelasAutomaticasPopup()">Gerar parcelas</button>
     </div>
     ${linhas}
@@ -2420,13 +2420,22 @@ function iniciarRateioNaFicha(){
 function addMesesISO_(dataISO,meses){
   const [a,m,d]=dataISO.split('-').map(Number);const alvo=new Date(a,m-1+meses,1);const ultimo=new Date(alvo.getFullYear(),alvo.getMonth()+1,0).getDate();alvo.setDate(Math.min(d,ultimo));return isoLocal(alvo);
 }
+function validarCamposGeradorRateio_(){
+  const qtdEl=el('fcRateioAutoQtd'),ultEl=el('fcRateioAutoUltimas'),ajuda=el('fcRateioAutoAjuda');if(!qtdEl||!ultEl)return true;
+  const qtd=Math.max(2,Math.min(120,parseInt(qtdEl.value,10)||2));qtdEl.value=qtd;ultEl.max=qtd;
+  const ult=parseInt(ultEl.value,10)||1;
+  const valido=ult>=1&&ult<=qtd;
+  if(ajuda){ajuda.style.color=valido?'var(--text3)':'var(--red)';ajuda.textContent=valido?'Exemplo: total 6, fixo R$ 200 e finais 1 = cinco de R$ 200 e o saldo na última.':`A quantidade de parcelas finais precisa ficar entre 1 e ${qtd}.`;}
+  return valido;
+}
 function gerarParcelasAutomaticasPopup(){
   if(!fcTirarPopupContext)return;
+  if(!validarCamposGeradorRateio_()){alert('A quantidade de parcelas finais não pode ser maior que a quantidade total.');return;}
   const qtd=Math.max(2,Math.min(120,parseInt(el('fcRateioAutoQtd')?.value,10)||2));
   const inicio=el('fcRateioAutoInicio')?.value||fcTirarPopupContext.data;
   const intervalo=el('fcRateioAutoIntervalo')?.value||'mensal';
   const valorFixo=Math.abs(parseMoneyBR(el('fcRateioAutoValorFixo')?.value||''));
-  const qtdUltimas=Math.max(1,Math.min(qtd,parseInt(el('fcRateioAutoUltimas')?.value,10)||1));
+  const qtdUltimas=parseInt(el('fcRateioAutoUltimas')?.value,10)||1;
   if(!inicio){alert('Informe a data da primeira parcela.');return;}
   const valorTotal=fcTirarPopupContext.valor;
   const qtdFixas=valorFixo>0?qtd-qtdUltimas:0;
