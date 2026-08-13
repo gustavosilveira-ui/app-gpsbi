@@ -837,26 +837,25 @@ function getPeriodoFluxo(){
 function finalizarLinha(categoriaOriginal, valor, formaPagto, origem, date, empresa, bancoCodigo){
   const fp = normalizeTxt(formaPagto);
 
-  // Banco Tera tem prioridade sobre tudo, inclusive Títulos em Aberto: um
-  // título do Tera nunca soma em nenhum total — nem em aberto, nem já
-  // recebido — porque o dinheiro nunca cai na conta da empresa (é um fator
-  // de recebíveis). Vale tanto pra ainda em aberto (venc_) quanto pra já
-  // processado (cr_) — confirmado com a Shirley (12/08/2026, corrige o
-  // entendimento anterior que só cobria o venc_).
-  if((origem === 'venc' || origem === 'cr') && isBancoTera(bancoCodigo, empresa)){
-    return { categoria: CATEGORIA_BANCO_TERA, grupo: 'RECEBIMENTOS', contaNoSaldo:false };
-  }
-
   // cap_/venc_ vencido (já devia ter acontecido e ainda não foi resolvido) = Títulos
   // em Aberto, SEMPRE — não importa qual é a forma de pagamento planejada, inclusive
-  // Cheque Terceiros. Precisa ser checado ANTES do Cheque Terceiros: senão um título
-  // vencido que será pago via cheque de terceiros aparecia disfarçado de despesa
-  // normal já realizada na categoria de verdade, quando na real ainda está em aberto
-  // (bug encontrado em 31/07/2026 — o "24.054" do cap_especial aparecendo em
-  // "Fornecedores/Produção" em vez de "Títulos em Aberto").
+  // Cheque Terceiros ou Banco Tera. Precisa ser checado ANTES dessas duas: um título
+  // vencido precisa aparecer na janela de Títulos em Aberto pra visibilidade/cobrança
+  // (mesmo Banco Tera — Shirley esclareceu em 13/08/2026 que ele só não pode contar
+  // em nenhum total que afete o saldo, mas precisa continuar visível nessa janela).
+  // A exclusão dos totais (Saldo Acumulado, A Receber em Aberto, Recebido) é
+  // garantida à parte pela flag ehBancoTera em cada linha, não pela categoria.
   if((origem === 'cap' || origem === 'venc') && date < HOJE_ISO){
     const grupo = valor >= 0 ? 'RECEBIMENTOS' : 'TITULOS_ABERTO';
     return { categoria: CATEGORIA_TITULOS_ABERTO, grupo, contaNoSaldo:false };
+  }
+
+  // Banco Tera: título a receber AINDA em aberto (venc_, não vencido) ou já
+  // processado (cr_) nunca soma no Contas a Receber, mas continua visível
+  // em Recebimentos só pra sinalizar que o boleto está em aberto — pedido
+  // da Shirley (10/08/2026, refinado em 13/08).
+  if((origem === 'venc' || origem === 'cr') && isBancoTera(bancoCodigo, empresa)){
+    return { categoria: CATEGORIA_BANCO_TERA, grupo: 'RECEBIMENTOS', contaNoSaldo:false };
   }
 
   if(fp === 'cheque terceiros'){
@@ -1110,7 +1109,7 @@ function rowsFromVENC(table, empresa){
     const valor = Math.abs(valorParsed);
     const formaPagto = getColNormalized(r,'forma pagto');
     const { categoria, grupo, contaNoSaldo } = finalizarLinha(categoriaOriginal, valor, formaPagto, 'venc', date, empresa, getColNormalized(r,'banco'));
-    return { date, categoria, grupo, valor, empresa, origem:'venc', contaNoSaldo, ...rowMeta(r) };
+    return { date, categoria, grupo, valor, empresa, origem:'venc', contaNoSaldo, ehBancoTera: isBancoTera(getColNormalized(r,'banco'), empresa), ...rowMeta(r) };
   }).filter(Boolean);
 }
 
@@ -1167,7 +1166,7 @@ function rowsFromCR(table, empresa){
     const valor = Math.abs(valorParsed);
     const formaPagto = getColNormalized(r,'forma pagto');
     const { categoria, grupo, contaNoSaldo } = finalizarLinha(categoriaOriginal, valor, formaPagto, 'cr', date, empresa, getColNormalized(r,'banco'));
-    return { date, categoria, grupo, valor, empresa, origem:'cr', contaNoSaldo, ...rowMeta(r) };
+    return { date, categoria, grupo, valor, empresa, origem:'cr', contaNoSaldo, ehBancoTera: isBancoTera(getColNormalized(r,'banco'), empresa), ...rowMeta(r) };
   }).filter(Boolean);
 }
 
@@ -1578,6 +1577,7 @@ function renderFcKpiStrip(){
       r.grupo === 'RECEBIMENTOS' &&
       r.categoria !== CATEGORIA_TITULOS_ABERTO &&
       r.categoria !== CATEGORIA_BANCO_TERA &&
+      !r.ehBancoTera &&
       entraNosCards(r) &&
       r.date &&
       r.date.slice(0,7) === mesAtual &&
@@ -1600,6 +1600,7 @@ function renderFcKpiStrip(){
       r.origem === 'venc' &&
       r.grupo === 'RECEBIMENTOS' &&
       r.categoria !== CATEGORIA_BANCO_TERA &&
+      !r.ehBancoTera &&
       entraNosCards(r) &&
       r.date >= periodoStart &&
       r.date <= periodoEnd
@@ -1957,7 +1958,9 @@ function renderLinhaFicha_(r, idx, total){
   // sozinho sem também ser cheque (esse caso já foi tratado acima por ehAberto).
   const ehCheque = !ehAberto && r.contaNoSaldo===false;
   const tagCategoria = ehAberto
-    ? `<span class="fc-tag-aberto" title="Ainda não foi pago/recebido — só está previsto">⏳ Em aberto</span>`
+    ? (r.ehBancoTera
+        ? `<span class="fc-tag-aberto" title="Vencido e Banco Tera — aparece aqui pra visibilidade, mas nunca conta em nenhum total (nem A Receber em Aberto, nem Saldo Acumulado)">⏳🏦 Em aberto (Tera)</span>`
+        : `<span class="fc-tag-aberto" title="Ainda não foi pago/recebido — só está previsto">⏳ Em aberto</span>`)
     : ehCheque
     ? `<span class="fc-tag-cheque" title="Não entra no Saldo Acumulado">🚫 Cheque Terc.</span>`
     : `<span class="fc-tag-realizado" title="Já foi pago/recebido de verdade">✓ Realizado</span>`;
