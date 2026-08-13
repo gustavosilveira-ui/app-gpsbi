@@ -161,10 +161,22 @@ html.light .fc-day-num{color:#1f2a3d;}
 .fc-tag-aberto{background:rgba(245,185,66,.16);color:var(--gold);}.fc-tag-fluxo{background:rgba(47,214,184,.14);color:var(--green);}.fc-tag-removido{background:rgba(239,106,106,.13);color:var(--red);}
 .fc-titulo-note-btn{border:1px solid var(--border2);background:var(--navy3);color:var(--text2);border-radius:7px;padding:5px 8px;font-size:10.5px;font-weight:800;cursor:pointer;white-space:nowrap;}.fc-titulo-note-btn.has-note{color:var(--cyan);border-color:rgba(54,226,201,.35);}
 .fc-titulo-obs-info{background:var(--navy3);border-radius:10px;padding:11px 13px;font-size:12px;line-height:1.5;margin-bottom:8px;}.fc-titulo-obs-meta{font-size:10.5px;color:var(--text3);margin-bottom:8px;}.fc-titulo-obs-box textarea{width:100%;min-height:110px;resize:vertical;}
-#fcTitulosAbertoLista .fc-detail-list{max-height:390px;}
-#fcTitulosAbertoLista .fc-detail-table{min-width:1040px;table-layout:auto;}
+#fcTitulosAbertoLista .fc-detail-list{max-height:430px;overflow-x:auto;}
+#fcTitulosAbertoLista .fc-detail-table{width:100%;min-width:1060px;table-layout:fixed;}
 #fcTitulosAbertoLista .fc-detail-table th,#fcTitulosAbertoLista .fc-detail-table td{white-space:nowrap;}
-#fcTitulosAbertoLista .fc-detail-table td.wrap{white-space:normal;min-width:210px;}
+#fcTitulosAbertoLista .fc-detail-table td.wrap{white-space:normal;overflow-wrap:anywhere;}
+#fcTitulosAbertoLista .fc-detail-table th:nth-child(1){width:88px;}
+#fcTitulosAbertoLista .fc-detail-table th:nth-child(2){width:185px;}
+#fcTitulosAbertoLista .fc-detail-table th:nth-child(3){width:205px;}
+#fcTitulosAbertoLista .fc-detail-table th:nth-child(4){width:125px;}
+#fcTitulosAbertoLista .fc-detail-table th:nth-child(5){width:125px;}
+#fcTitulosAbertoLista .fc-detail-table th:nth-child(6){width:48px;}
+#fcTitulosAbertoLista .fc-detail-table th:nth-child(7){width:100px;}
+#fcTitulosAbertoLista .fc-detail-table th:nth-child(8){width:92px;}
+#fcTitulosAbertoLista .fc-detail-table th:nth-child(9){width:145px;}
+#fcTitulosAbertoLista .fc-detail-table th:last-child,#fcTitulosAbertoLista .fc-detail-table td:last-child{position:sticky;right:0;z-index:2;background:var(--navy2);box-shadow:-8px 0 12px rgba(0,0,0,.08);}
+html.light #fcTitulosAbertoLista .fc-detail-table th:last-child,html.light #fcTitulosAbertoLista .fc-detail-table td:last-child{background:#fff;}
+#fcTitulosAbertoLista .fc-titulo-acao{max-width:100%;font-size:10.5px;padding-left:8px;padding-right:8px;}
 @media print{
   @page{size:landscape;margin:10mm;}
   body *{visibility:hidden!important;}
@@ -1955,7 +1967,57 @@ function fcExclusaoMatchesRow(ex, row){
   return mesmoNome && mesmoValor;
 }
 function lancamentoExcluido(row){
-  return fcExclusoes.some(ex=>fcExclusaoMatchesRow(ex, row));
+  return fcExclusoes.some(ex=>fcExclusaoMatchesRow(ex, row)) || fcProgramacoesFornecedor.some(p=>fcProgramacaoMatchesRow(p,row));
+}
+// Liga um rateio ao mesmo título mesmo quando o Omie altera apenas o saldo
+// restante. O vínculo usa fornecedor + data original e, quando disponível,
+// documento. Só vale para rateios que efetivamente substituíram uma linha real.
+function fcProgramacaoMatchesRow(p,row){
+  if(!p?.exclusaoId || !row || row.fonte==='Programação Fornecedor' || row.fonte==='Pronampe' || row.fonte==='Aplicacao') return false;
+  if(Number(row.valor)>=0) return false;
+  const fornecedor=normalizeTxt(p.fornecedor||'');
+  const nome=normalizeTxt(row.nome||row.conta||'');
+  if(!fornecedor || !(nome===fornecedor || nome.includes(fornecedor) || fornecedor.includes(nome))) return false;
+  const dataOriginal=p.dataOriginal||p.inicio;
+  if(dataOriginal && row.date!==dataOriginal) return false;
+  if(p.documento && row.documento && normalizeTxt(p.documento)!==normalizeTxt(row.documento)) return false;
+  return true;
+}
+function ajustarParcelasAoSaldoOmie_(prog,saldoNovo){
+  saldoNovo=Math.max(0,Math.round(Number(saldoNovo||0)*100)/100);
+  const parcelas=(prog.parcelas||[]).map(p=>({...p,valor:Math.max(0,Math.round(Number(p.valor||0)*100)/100)})).sort((a,b)=>a.data.localeCompare(b.data));
+  let total=Math.round(parcelas.reduce((s,p)=>s+p.valor,0)*100)/100;
+  let diferenca=Math.round((total-saldoNovo)*100)/100;
+  if(diferenca>0){
+    // O que já foi pago abate primeiro as parcelas mais próximas.
+    for(const p of parcelas){
+      if(diferenca<=0) break;
+      const abatimento=Math.min(p.valor,diferenca);
+      p.valor=Math.round((p.valor-abatimento)*100)/100;
+      diferenca=Math.round((diferenca-abatimento)*100)/100;
+    }
+  }else if(diferenca<0 && parcelas.length){
+    // Se o Omie aumentar o saldo (estorno/ajuste), preserva as datas e joga
+    // a diferença na última parcela.
+    parcelas[parcelas.length-1].valor=Math.round((parcelas[parcelas.length-1].valor+Math.abs(diferenca))*100)/100;
+  }
+  prog.parcelas=parcelas.filter(p=>p.valor>0.009);
+  prog.dias=prog.parcelas.length;
+  prog.valor=saldoNovo;
+  prog.saldoOmieAtual=saldoNovo;
+  prog.ultimoAjusteOmie=new Date().toISOString();
+}
+function sincronizarRateiosComSaldoOmie_(){
+  let mudou=false;
+  fcProgramacoesFornecedor.forEach(prog=>{
+    if(!prog?.exclusaoId) return;
+    const candidatos=rows.filter(r=>fcProgramacaoMatchesRow(prog,r));
+    if(candidatos.length!==1) return; // evita adivinhar quando houver dois títulos iguais
+    const saldo=Math.abs(Number(candidatos[0].valor)||0);
+    const saldoAnterior=Number(prog.saldoOmieAtual ?? prog.valor ?? 0);
+    if(saldo>0 && Math.abs(saldo-saldoAnterior)>0.01){ajustarParcelasAoSaldoOmie_(prog,saldo);mudou=true;}
+  });
+  if(mudou)localStorage.setItem('jambuzada_fc_programacoes_fornecedor',JSON.stringify(fcProgramacoesFornecedor));
 }
 function injetarProgramacoesFornecedor(){
   // Sempre recomeça da base pristina (nunca acumula em cima do resultado da
@@ -1974,6 +2036,10 @@ function injetarProgramacoesFornecedor(){
     const dataEscolhida = fcTitulosResolvidos[chave] || original.date;
     rows.push({date:dataEscolhida, categoria:original.categoria, grupo:original.grupo, valor:original.valor, conta:'Título em Aberto', fonte:'Título Resolvido', nome:original.nome, documento:original.documento});
   });
+
+  // Antes de filtrar o lançamento original, atualiza o rateio caso o Omie
+  // tenha trazido um saldo restante diferente após pagamento parcial.
+  sincronizarRateiosComSaldoOmie_();
 
   // Antes de tirar os lançamentos excluídos, clona (com a nova data) os que
   // o usuário pediu pra alterar em vez de só remover.
@@ -2157,7 +2223,11 @@ function confirmarParcelasFornecedor(){
   // Guarda o id da exclusão junto da programação — assim, se o rateio for
   // desfeito depois, dá pra devolver o lançamento original ao fluxo em vez
   // dele ficar escondido pra sempre (bug encontrado em 11/08/2026).
-  fcProgramacoesFornecedor.push({id:Date.now(),fornecedor,valor,dias,tipoDias,inicio,parcelas,exclusaoId});
+  fcProgramacoesFornecedor.push({
+    id:Date.now(),fornecedor,valor,dias,tipoDias,inicio,parcelas,exclusaoId,
+    dataOriginal:original?.date||inicio,documento:original?.documento||'',fonteOriginal:original?.fonte||'',
+    saldoOmieAtual:valor,valorOriginal:valor
+  });
   localStorage.setItem('jambuzada_fc_programacoes_fornecedor',JSON.stringify(fcProgramacoesFornecedor));
   fcParcelasEmEdicao = null;
   buildAndRenderTable();
@@ -2247,6 +2317,8 @@ function abrirTirarPopup(i){
     nome: r.nome || r.categoria || r.conta || 'Sem nome',
     data: r.date,
     valor: Math.abs(Number(r.valor)||0),
+    documento: r.documento || '',
+    fonteOriginal: r.fonte || '',
     ajusteManualId: r.ajusteManualId || null,
     sinalOriginal: (Number(r.valor)||0) < 0 ? -1 : 1
   };
@@ -2304,7 +2376,16 @@ function renderRateioPopup(){
   const original = fcTirarPopupContext.valor;
   wrap.innerHTML = `
     <div style="font-weight:700;font-size:12.5px;margin-bottom:4px;">✂️ Ratear em várias datas</div>
-    <div style="font-size:11.5px;color:var(--text3);margin-bottom:8px;">Distribua o valor nas datas que quiser — some quanto quiser em cada uma.</div>
+    <div style="font-size:11.5px;color:var(--text3);margin-bottom:8px;">Distribua manualmente ou gere todas as parcelas de uma vez.</div>
+    <div style="background:var(--navy3);border-radius:10px;padding:9px;margin-bottom:9px;">
+      <div style="font-size:11px;font-weight:800;margin-bottom:6px;">GERAR PARCELAS AUTOMATICAMENTE</div>
+      <div style="display:grid;grid-template-columns:70px 1fr 105px;gap:6px;">
+        <input type="number" id="fcRateioAutoQtd" min="2" max="120" value="${Math.max(2,fcRateioPopupParcelas.length)}" title="Quantidade de parcelas">
+        <input type="date" id="fcRateioAutoInicio" value="${fcRateioPopupParcelas[0]?.data||fcTirarPopupContext.data}" title="Primeira data">
+        <select id="fcRateioAutoIntervalo" title="Intervalo"><option value="mensal">Mensal</option><option value="quinzenal">Quinzenal</option><option value="semanal">Semanal</option><option value="diario">Diário</option></select>
+      </div>
+      <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:6px;" onclick="gerarParcelasAutomaticasPopup()">Gerar e dividir ${fmtBRL(original)}</button>
+    </div>
     ${linhas}
     <button class="btn btn-ghost btn-sm" style="width:100%;margin:6px 0;" onclick="adicionarParcelaRateioPopup()">+ Adicionar parcela</button>
     <div style="font-size:12px;color:var(--text3);margin-bottom:8px;">Total rateado: <b>${fmtBRL(total)}</b>${Math.abs(total-original)>0.01?` (valor original: ${fmtBRL(original)})`:''}</div>
@@ -2316,6 +2397,24 @@ function renderRateioPopup(){
 function iniciarRateioNaFicha(){
   if(!fcTirarPopupContext) return;
   fcRateioPopupParcelas = [{ data: fcTirarPopupContext.data, valor: fcTirarPopupContext.valor }];
+  renderRateioPopup();
+}
+function addMesesISO_(dataISO,meses){
+  const [a,m,d]=dataISO.split('-').map(Number);const alvo=new Date(a,m-1+meses,1);const ultimo=new Date(alvo.getFullYear(),alvo.getMonth()+1,0).getDate();alvo.setDate(Math.min(d,ultimo));return isoLocal(alvo);
+}
+function gerarParcelasAutomaticasPopup(){
+  if(!fcTirarPopupContext)return;
+  const qtd=Math.max(2,Math.min(120,parseInt(el('fcRateioAutoQtd')?.value,10)||2));
+  const inicio=el('fcRateioAutoInicio')?.value||fcTirarPopupContext.data;
+  const intervalo=el('fcRateioAutoIntervalo')?.value||'mensal';
+  if(!inicio){alert('Informe a data da primeira parcela.');return;}
+  const valorTotal=fcTirarPopupContext.valor;const base=Math.floor((valorTotal/qtd)*100)/100;let acumulado=0;
+  fcRateioPopupParcelas=Array.from({length:qtd},(_,i)=>{
+    let data=inicio;
+    if(intervalo==='mensal')data=addMesesISO_(inicio,i);
+    else{const dias=intervalo==='quinzenal'?15:intervalo==='semanal'?7:1;const dt=new Date(inicio+'T00:00:00');dt.setDate(dt.getDate()+i*dias);data=isoLocal(dt);}
+    const valor=i===qtd-1?Math.round((valorTotal-acumulado)*100)/100:base;acumulado+=valor;return{data,valor};
+  });
   renderRateioPopup();
 }
 function cancelarRateioNaFicha(){
@@ -2355,7 +2454,7 @@ function confirmarRateioNaFicha(){
     return;
   }
 
-  const { nome, data, valor } = fcTirarPopupContext;
+  const { nome, data, valor, documento, fonteOriginal } = fcTirarPopupContext;
 
   const exclusaoId = Date.now();
   fcExclusoes.push({ nome, data, valor:-Math.abs(valor), criadoEm:exclusaoId, novaData:null, motivo:'Substituído por rateio' });
@@ -2367,7 +2466,7 @@ function confirmarRateioNaFicha(){
   fcProgramacoesFornecedor.push({
     id:Date.now(), fornecedor:nome, valor, dias:fcRateioPopupParcelas.length, tipoDias:'manual', inicio:data,
     parcelas: fcRateioPopupParcelas.map(p=>({ data:p.data, valor:Number(p.valor)||0 })),
-    exclusaoId
+    exclusaoId, dataOriginal:data, documento:documento||'', fonteOriginal:fonteOriginal||'', saldoOmieAtual:valor, valorOriginal:valor
   });
   localStorage.setItem('jambuzada_fc_programacoes_fornecedor', JSON.stringify(fcProgramacoesFornecedor));
 
@@ -2498,7 +2597,7 @@ function renderProgramacoesFornecedor(){
   const wrap=el('fcFornecedorProgramacoes'); if(!wrap) return;
   wrap.innerHTML=fcProgramacoesFornecedor.length?fcProgramacoesFornecedor.map(p=>`
     <div class="fc-sim-entry">
-      <span class="desc">${escapeHtml(p.fornecedor)} · ${p.dias} ${p.tipoDias==='corridos'?'dias do mês':(p.tipoDias==='manual'?'parcela(s)':'dias úteis')}</span>
+      <span class="desc">${escapeHtml(p.fornecedor)} · ${p.parcelas?.length||p.dias} ${p.tipoDias==='corridos'?'dias do mês':(p.tipoDias==='manual'?'parcela(s)':'dias úteis')}${p.ultimoAjusteOmie?' · saldo sincronizado com o Omie':''}</span>
       <span class="data">${formatDateBR(p.inicio)}</span>
       <span class="valor" style="color:var(--red)">${fmtBRL(-p.valor)}</span>
       <button class="del" onclick="removerProgramacaoFornecedor(${p.id})">✕</button>
@@ -2602,7 +2701,6 @@ function renderTitulosAbertoLista(termoBusca=''){
   const total=fcTitulosAbertoRowsAtual.reduce((s,r)=>s+r.valor,0);
   const cats={};fcTitulosAbertoRowsAtual.forEach(r=>{cats[r.categoria||'Sem categoria']=(cats[r.categoria||'Sem categoria']||0)+r.valor;});
   const porCategoria=Object.entries(cats).sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]));
-  const catsHtml=porCategoria.map(([c,v])=>`<tr><td>${escapeHtml(c)}</td><td class="num" style="color:${v>=0?'#4F8F3A':'var(--red)'}">${fmtBRL(v)}</td><td class="num">${total?(Math.abs(v)/Math.abs(total)*100).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1}):'0,0'}%</td><td class="num">${fcTitulosAbertoRowsAtual.filter(r=>(r.categoria||'Sem categoria')===c).length}</td></tr>`).join('');
   const linhasHtml=ordenados.map(r=>{
     const status=tituloStatus_(r);const pct=total?Math.abs(r.valor)/Math.abs(total)*100:0;
     const statusHtml=status==='aberto'?'<span class="fc-tag-aberto">⏳ Em aberto</span>':status==='fluxo'?`<span class="fc-tag-fluxo">✓ No fluxo · ${formatDateBR(fcTitulosResolvidos[r.chave])}</span>`:'<span class="fc-tag-removido">🚫 Removido do fluxo</span>';
@@ -2615,7 +2713,6 @@ function renderTitulosAbertoLista(termoBusca=''){
   }).join('');
   wrap.innerHTML=`
     <div class="fc-detail-summary"><div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${fmtBRL(total)}</div><div class="fc-detail-kpi-lbl">Total em aberto</div></div><div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${porCategoria.length}</div><div class="fc-detail-kpi-lbl">Categorias com movimento</div></div><div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${fcTitulosAbertoRowsAtual.length}</div><div class="fc-detail-kpi-lbl">Títulos</div></div></div>
-    <div style="font-size:12.5px;font-weight:800;margin:12px 0 6px;text-transform:uppercase;">Por categoria</div><table class="fc-detail-table"><thead><tr><th>Categoria</th><th class="num">Valor</th><th class="num">%</th><th class="num">Itens</th></tr></thead><tbody>${catsHtml||'<tr><td colspan="4">Nenhum título.</td></tr>'}</tbody></table>
     <div class="fc-titulos-toolbar" id="fcTitulosBuscaWrap"><b style="font-size:12.5px;text-transform:uppercase;">Lançamentos</b><div><input class="fc-titulos-search" value="${escapeHtml(termoBusca)}" placeholder="🔎 Buscar por nome, categoria ou documento..." oninput="renderTitulosAbertoLista(this.value)"> <span style="font-size:11px;color:var(--text3);">${termo?filtrados.length+' de '+fcTitulosAbertoRowsAtual.length:''}</span></div></div>
     <div class="fc-detail-list"><table class="fc-detail-table"><thead><tr><th>Vencimento</th><th>Categoria</th><th>Nome</th><th>Documento</th><th>Status</th><th class="num">%</th><th>Observação</th><th class="num">Valor</th><th>Ação</th></tr></thead><tbody>${linhasHtml||'<tr><td colspan="9">Nenhum título encontrado.</td></tr>'}</tbody></table></div>`;
 }
