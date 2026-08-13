@@ -183,6 +183,7 @@ html.light .fc-day-num{color:#1f2a3d;}
 .modal-overlay.show{display:flex;}
 .modal-box{background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius);padding:24px;width:460px;max-width:92vw;max-height:80vh;overflow-y:auto;box-shadow:0 30px 70px rgba(0,0,0,.5);}
 @media print{
+  @page{ size: landscape; margin: 12mm; }
   body *{ visibility:hidden; }
   #fluxoFichaModal, #fluxoFichaModal *{ visibility:visible; }
   #fluxoFichaModal{ position:absolute; top:0; left:0; width:100%; background:#fff; }
@@ -195,8 +196,10 @@ html.light .fc-day-num{color:#1f2a3d;}
   #fcFichaListaImprimir{ max-height:none !important; overflow:visible !important; border:none !important; }
   /* O recorte de 2 linhas (-webkit-line-clamp) e as larguras fixas de coluna
      são pra caber na tela — na impressão isso vazava texto de uma linha em
-     cima da outra. Deixa a tabela crescer livre, sem cortar nada. */
-  #fcFichaListaImprimir table{ table-layout:auto !important; }
+     cima da outra, e a tabela larga demais cortava a última coluna (Valor).
+     Deixa a tabela crescer livre, com fonte menor, em paisagem. */
+  #fcFichaListaImprimir table{ table-layout:auto !important; font-size:10px !important; width:100% !important; }
+  #fcFichaListaImprimir td, #fcFichaListaImprimir th{ padding:4px 6px !important; }
   #fcFichaListaImprimir td{ vertical-align:top !important; }
   #fcFichaListaImprimir td.wrap{
     display:table-cell !important;
@@ -208,6 +211,7 @@ html.light .fc-day-num{color:#1f2a3d;}
     min-width:0 !important;
   }
   #fcFichaListaImprimir td.small{ overflow:visible !important; white-space:normal !important; max-width:none !important; }
+  #fcFichaListaImprimir td.valor-modal{ white-space:nowrap !important; }
 }
 .modal-title{font-size:16px;font-weight:700;margin-bottom:4px;}
 .modal-sub{font-size:12px;color:var(--text3);margin-bottom:16px;}
@@ -1949,7 +1953,13 @@ async function openFluxoFicha(rowId, colId){
 function renderLinhaFicha_(r, idx, total){
   const pct = total ? (Math.abs(r.valor) / Math.abs(total)) * 100 : 0;
   const doc = r.titulo || r.banco || r.forma || r.situacao || '';
-  const ehAberto = r.categoria === CATEGORIA_TITULOS_ABERTO;
+  // "Em aberto" cobre dois casos: já vencido (categoria vira Títulos em
+  // Aberto) E ainda não vencido, hoje em diante (continua na categoria
+  // "real" dele, tipo Sócios/Fornecedores, mas a origem cap_/venc_ mostra
+  // que ainda é só previsão — nunca foi de fato pago/recebido). Antes só
+  // cobria o primeiro caso, e um lançamento de hoje/futuro aparecia
+  // incorretamente como "✓ Realizado" (bug encontrado em 13/08/2026).
+  const ehAberto = r.categoria === CATEGORIA_TITULOS_ABERTO || r.origem === 'cap' || r.origem === 'venc';
   // Do lado de recebimento, cheque de terceiros vem com a categoria genérica
   // (CATEGORIA_CHEQUE_TERCEIROS). Do lado de pagamento, a categoria continua
   // sendo a real (ex: "Materia Prima") — o único jeito de identificar os dois
@@ -1959,16 +1969,21 @@ function renderLinhaFicha_(r, idx, total){
   const ehCheque = !ehAberto && r.contaNoSaldo===false;
   const tagCategoria = ehAberto
     ? (r.ehBancoTera
-        ? `<span class="fc-tag-aberto" title="Vencido e Banco Tera — aparece aqui pra visibilidade, mas nunca conta em nenhum total (nem A Receber em Aberto, nem Saldo Acumulado)">⏳🏦 Em aberto (Tera)</span>`
+        ? `<span class="fc-tag-aberto" title="Vencido e Banco Tera — aparece aqui pra visibilidade, mas nunca conta em nenhum total (nem A Receber em Aberto, nem Saldo Acumulado)">⏳🏦 Tera</span>`
         : `<span class="fc-tag-aberto" title="Ainda não foi pago/recebido — só está previsto">⏳ Em aberto</span>`)
     : ehCheque
     ? `<span class="fc-tag-cheque" title="Não entra no Saldo Acumulado">🚫 Cheque Terc.</span>`
     : `<span class="fc-tag-realizado" title="Já foi pago/recebido de verdade">✓ Realizado</span>`;
-  const dataExibida = r.categoria===CATEGORIA_TITULOS_ABERTO ? dataVisualTituloAberto_(r) : r.date;
-  const dataTitle = (r.categoria===CATEGORIA_TITULOS_ABERTO && dataExibida!==r.date) ? ` title="Vencimento original: ${formatDateBR(r.date)}"` : '';
+  // Na Ficha, sempre mostra a data ORIGINAL de vencimento — a "hoje" que
+  // aparece na tabela principal é só um reposicionamento visual pra juntar
+  // tudo que está vencido numa coluna só (facilita ver de longe); aqui no
+  // detalhe, o que importa é saber a data real de cada título (corrigido
+  // 13/08/2026 — antes mostrava "hoje" pra todos, escondendo qual estava
+  // mais atrasado).
+  const dataExibida = r.date;
   return `
   <tr>
-    <td${dataTitle}>${formatDateBR(dataExibida)}</td>
+    <td>${formatDateBR(dataExibida)}</td>
     <td>${escapeHtml(EMPRESA_LABEL[r.empresa] || r.empresa || 'Geral')}</td>
     <td class="wrap" title="${escapeHtml(r.nome || 'Sem nome')}">${escapeHtml(r.nome || 'Sem nome')}</td>
     <td class="small" title="${escapeHtml(doc)}">${escapeHtml(doc)}</td>
@@ -2018,10 +2033,10 @@ function exportarFichaExcel(){
     : fcFichaDetailRowsAtual;
   if(!linhas.length){ alert('Não tem lançamento pra exportar.'); return; }
   const dados = linhas.map(r=>{
-    const ehAberto = r.categoria === CATEGORIA_TITULOS_ABERTO;
+    const ehAberto = r.categoria === CATEGORIA_TITULOS_ABERTO || r.origem === 'cap' || r.origem === 'venc';
     const ehCheque = !ehAberto && r.contaNoSaldo===false;
     const status = ehAberto ? 'Em aberto' : ehCheque ? 'Cheque Terceiros' : 'Realizado';
-    const dataExibida = r.categoria===CATEGORIA_TITULOS_ABERTO ? dataVisualTituloAberto_(r) : r.date;
+    const dataExibida = r.date;
     return {
       'Data': formatDateBR(dataExibida),
       'Empresa': EMPRESA_LABEL[r.empresa] || r.empresa || 'Geral',
