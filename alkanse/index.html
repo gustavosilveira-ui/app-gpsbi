@@ -412,7 +412,7 @@ body{
             <span class="app-action-sub">Técnicos, clientes, SLA e monitoramento.</span>
           </span>
         </button>
-        <button class="app-action primary" type="button" onclick="abrirPagina('fluxodecaixa.html')">
+        <button class="app-action primary" type="button" id="btnFluxoCaixa" onclick="abrirPagina('fluxodecaixa.html')">
           <span class="app-action-icon">💰</span>
           <span>
             <span class="app-action-title">Fluxo de Caixa</span>
@@ -672,6 +672,16 @@ function getUserDisplay(user){
   return { email, name, initials };
 }
 
+// E-mails autorizados a ver o Fluxo de Caixa (espelha pode_ver_fluxo_caixa() no banco —
+// aqui é só pra esconder o botão da home; a proteção real dos dados é a RLS do Supabase).
+const ALLOWED_FLUXO_EMAILS = ['daniel.morante@grupofb.com.br', 'karina@grupofb.com.br', 'fabiana@grupofb.com.br'];
+function podeVerFluxoCaixa(email){
+  if(!email) return false;
+  const e = email.toLowerCase();
+  if(e.endsWith('@gpsbi.com.br')) return true;
+  return ALLOWED_FLUXO_EMAILS.includes(e);
+}
+
 function enterApp(user){
   const display = getUserDisplay(user);
   currentUserEmail = display.email;
@@ -679,6 +689,8 @@ function enterApp(user){
   document.getElementById('screen-app').style.display = 'flex';
   document.getElementById('userAvatar').textContent = display.initials;
   document.getElementById('userChipName').textContent = display.name;
+  const btnFluxo = document.getElementById('btnFluxoCaixa');
+  if(btnFluxo) btnFluxo.style.display = podeVerFluxoCaixa(display.email) ? '' : 'none';
 }
 
 

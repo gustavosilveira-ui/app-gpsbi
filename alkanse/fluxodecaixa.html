@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hub Alkanse · Fluxo de Caixa</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --navy:#F6F9FC; --navy2:#FFFFFF; --navy3:#F1F6FB; --navy4:#E8FAF8;
+  --cyan:#008D90; --blue:#2D70B8;
+  --pos:#1f9e88; --neg:#d64545; --gold:#b5810f;
+  --text:#071B33; --text2:#344054; --text3:#667085;
+  --border:rgba(7,27,51,.06); --border2:#E6EAF0;
+  --radius:16px; --shadow:0 18px 42px rgba(7,27,51,.06);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--navy);color:var(--text);font-family:'Sora',sans-serif;padding-bottom:60px;}
+.topbar{display:flex;align-items:center;gap:16px;padding:12px 24px;background:var(--navy2);border-bottom:1px solid var(--border2);position:sticky;top:0;z-index:50;}
+.topbar .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:14px;}
+.topbar a.back{margin-left:auto;font-size:12.5px;font-weight:700;color:var(--text3);text-decoration:none;padding:8px 14px;border-radius:999px;}
+.topbar a.back:hover{background:var(--navy3);color:var(--text);}
+.content{width:calc(100% - 36px);max-width:1400px;margin:0 auto;padding:28px 0;}
+.card{background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius);padding:22px;box-shadow:var(--shadow);margin-bottom:20px;}
+.card-title{font-size:16px;font-weight:800;margin-bottom:4px;}
+.card-sub{font-size:12px;color:var(--text3);margin-bottom:18px;}
+.kpi-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin-bottom:20px;}
+.kpi{background:#fff;border:1px solid var(--border2);border-radius:16px;padding:16px 18px;box-shadow:var(--shadow);}
+.kpi-label{font-size:10.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;font-weight:700;margin-bottom:6px;}
+.kpi-value{font-size:19px;font-weight:800;font-family:'DM Mono',monospace;}
+.kpi-value.pos{color:var(--pos);}
+.kpi-value.neg{color:var(--neg);}
+.kpi-sub{font-size:10.5px;color:var(--text3);margin-top:4px;}
+table{width:100%;border-collapse:collapse;font-size:12.5px;}
+th{background:var(--navy3);color:var(--text2);text-align:right;padding:9px 12px;font-size:10.5px;text-transform:uppercase;letter-spacing:.03em;font-weight:700;}
+th:first-child{text-align:left;}
+td{padding:9px 12px;border-bottom:1px solid var(--border);text-align:right;font-family:'DM Mono',monospace;}
+td:first-child{text-align:left;font-family:'Sora',sans-serif;font-weight:600;}
+tr.total td{font-weight:800;border-top:2px solid var(--border2);background:var(--navy3);}
+tr.recebimentos td{color:var(--pos);}
+.field-row{display:flex;gap:10px;align-items:end;flex-wrap:wrap;}
+.field-group{display:flex;flex-direction:column;gap:6px;}
+.field-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;}
+input{background:var(--navy3);border:1px solid var(--border2);border-radius:9px;padding:10px 12px;color:var(--text);font:13px 'Sora',sans-serif;}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:10px 16px;border-radius:9px;border:none;font:700 12px 'Sora',sans-serif;cursor:pointer;background:linear-gradient(90deg,var(--blue),var(--cyan));color:#fff;}
+.btn:disabled{opacity:.5;cursor:default;}
+.msg{font-size:12px;margin-top:10px;}
+.msg.ok{color:var(--pos);}
+.msg.err{color:var(--neg);}
+.empty-state{text-align:center;color:var(--text3);padding:28px 12px;font-size:12px;}
+.loading{text-align:center;color:var(--text3);padding:40px 12px;font-size:13px;}
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:10.5px;font-weight:700;background:rgba(181,129,15,.14);color:var(--gold);}
+@media(max-width:1000px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">💰 Fluxo de Caixa · Alkanse</div>
+  <a class="back" href="index.html">← Voltar ao Hub</a>
+</div>
+
+<div class="content" id="app" style="display:none;">
+
+  <div class="kpi-grid">
+    <div class="kpi"><div class="kpi-label">Recebido · mês vigente</div><div class="kpi-value pos" id="kpiRecebido">—</div></div>
+    <div class="kpi"><div class="kpi-label">Pago · mês vigente</div><div class="kpi-value neg" id="kpiPago">—</div></div>
+    <div class="kpi"><div class="kpi-label">A Receber em Aberto</div><div class="kpi-value" id="kpiAReceber">—</div></div>
+    <div class="kpi"><div class="kpi-label">A Pagar em Aberto</div><div class="kpi-value" id="kpiAPagar">—</div></div>
+    <div class="kpi"><div class="kpi-label">Saldo Atual</div><div class="kpi-value" id="kpiSaldo">—</div><div class="kpi-sub" id="kpiSaldoSub"></div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📌 Saldo bancário de hoje</div>
+    <div class="card-sub">Entre no banco, confira o saldo e lance aqui. O Fluxo de Caixa sempre usa o lançamento mais recente como ponto de partida do Saldo Atual.</div>
+    <div class="field-row">
+      <div class="field-group"><label class="field-label">Data</label><input type="date" id="saldoData"></div>
+      <div class="field-group"><label class="field-label">Saldo (R$)</label><input type="text" id="saldoValor" placeholder="Ex.: 123456,78" style="width:180px"></div>
+      <button class="btn" id="btnSalvarSaldo">Salvar saldo</button>
+    </div>
+    <div class="msg" id="saldoMsg"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Fluxo de Caixa por categoria</div>
+    <div class="card-sub" id="periodoSub">Realizado (Pago/Recebido), por mês.</div>
+    <div id="tabelaWrap"><div class="loading">Carregando dados da planilha...</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Contas a Receber em Aberto</div>
+    <div class="card-sub">Ordenado por vencimento.</div>
+    <div id="aReceberWrap"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Contas a Pagar em Aberto</div>
+    <div class="card-sub">Ordenado por vencimento.</div>
+    <div id="aPagarWrap"></div>
+  </div>
+
+</div>
+
+<div id="gate" style="padding:60px 24px;text-align:center;">Verificando acesso...</div>
+
+<script>
+/* ================== CONFIG ================== */
+const SUPABASE_URL = 'https://ikncdkgaefwzdveotvka.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_XtrW_VlYPu1bE7FNA1V2lA_Srq9c5T6';
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// E-mails autorizados a ver o Fluxo de Caixa (espelha a função pode_ver_fluxo_caixa()
+// do banco — essa checagem aqui é só pra UX/visibilidade; a proteção de verdade dos
+// dados sensíveis do Supabase é a Row Level Security no servidor).
+const ALLOWED_FLUXO_EMAILS = ['daniel.morante@grupofb.com.br', 'karina@grupofb.com.br', 'fabiana@grupofb.com.br'];
+function podeVerFluxoCaixa(email){
+  if(!email) return false;
+  const e = email.toLowerCase();
+  if(e.endsWith('@gpsbi.com.br')) return true;
+  return ALLOWED_FLUXO_EMAILS.includes(e);
+}
+
+// Planilha "Financeiro" (alimentada pelo script de importação do planoContas.xls).
+// PRECISA estar compartilhada como "qualquer pessoa com o link pode visualizar"
+// pra essa leitura via gviz funcionar direto do navegador.
+const SHEET_ID = '1YbJeKx7X2MuDbOhY-SPSYPmM1RfyFzHeL4OyBhn9fpo';
+const SHEET_ABA = 'Financeiro';
+const GVIZ_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(SHEET_ABA)}`;
+
+/* ================== CATEGORIAS (mesma taxonomia já usada na planilha atual) ================== */
+const CATEGORIAS_ORDEM = [
+  'Recebimentos','Investimentos','Deduções Da Receita','Fornecedores','Despesas Financeiras',
+  'Despesas Com Pessoal','Despesas Administrativas','Despesas com Viagem',
+  'Despesas Com Infra-Estrutura','Despesas Logísticas','Despesa com TI',
+  'Despesas Com Marketing','A Classificar'
+];
+// Regras por palavra-chave, checadas em ordem — a primeira que bater vence.
+// "A Classificar" é o alerta pra revisarmos junto com o cliente, igual fizemos
+// no Mebrasi: preferimos sinalizar a categoria incerta a chutar errado.
+const REGRAS = [
+  { grupo:'Investimentos', palavras:['integralizacao de capital','aumento de capital','equipamento imobilizado','investimento'] },
+  { grupo:'Deduções Da Receita', palavras:['iss','issqn','ipi','icms','irrf','pis','cofins','csll','irpj','simples nacional','substituicao tributaria','imposto de renda'] },
+  { grupo:'Despesas Financeiras', palavras:['tarifa','juro','iof','emprestimo','financiamento','desagio','cheque devolvido','multa','cartao de credito','estorno'] },
+  { grupo:'Despesas Com Pessoal', palavras:['salario','folha','ferias','rescisao','fgts','gps/inss','gps','inss','vale transporte','refeicao','alimentacao','beneficio','assistencia medica','assistencia odontologica','pensao alimenticia','comissao','ajuda de custo','13o salario','plr','contribuicao sindical','contribuicao associativa','epi ','copa cozinha','uniforme'] },
+  { grupo:'Despesas com Viagem', palavras:['viagem','hospedagem','passagem aerea','diaria'] },
+  { grupo:'Despesas Com Infra-Estrutura', palavras:['eletricidade','agua','esgoto',' gas ','internet','telefonia','telefone'] },
+  { grupo:'Despesas Logísticas', palavras:['combustivel','pedagio','estacionamento','frete','transportadora','correios','remessas','moto-boy','logistic'] },
+  { grupo:'Despesa com TI', palavras:['software','informatica','sistema','licenca de uso','dominio','hospedagem de site','nuvem','cloud'] },
+  { grupo:'Despesas Com Marketing', palavras:['marketing','propaganda','publicidade','confraternizacao','patrocinio','brinde'] },
+  { grupo:'Fornecedores', palavras:['aquisicao de produtos','fornecedor','materia prima','equipamento projeto','equipamento estoque','equipamento obra','mao de obra','servico terceirizado','servicos terceirizados','beneficiamento'] },
+  { grupo:'Despesas Administrativas', palavras:['contabil','juridic','judicial','aluguel','cartorio','seguranca patrimonial','seguro','seguradora','papelaria','moveis','eletrodomestico','limpeza','iptu','curso','escola','faculdade','processo','documentos diversos','crea','donativo','contribuicao associativa','caixinha'] },
+];
+function normalizeTxt(s){
+  return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+}
+function classificar(contaOriginal, valor){
+  const c = normalizeTxt(contaOriginal);
+  if(c.includes('receita')) return 'Recebimentos';
+  if(valor >= 0 && (c.includes('venda') || c.includes('servico prestado'))) return 'Recebimentos';
+  for(const r of REGRAS){
+    if(r.palavras.some(p => c.includes(normalizeTxt(p)))) return r.grupo;
+  }
+  return valor >= 0 ? 'Recebimentos' : 'A Classificar';
+}
+
+/* ================== PARSING DA PLANILHA ================== */
+function parseGvizDate(cell){
+  // Datas gravadas como Date de verdade pelo Apps Script chegam como
+  // "Date(ano,mes0based,dia)" nesse formato de string no gviz.
+  if(cell === null || cell === undefined) return null;
+  const v = cell.v;
+  if(v === null || v === undefined || v === '') return null;
+  if(typeof v === 'string' && v.startsWith('Date(')){
+    const nums = v.slice(5,-1).split(',').map(Number);
+    return new Date(nums[0], nums[1], nums[2]);
+  }
+  if(typeof v === 'string'){
+    const m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if(m) return new Date(Number(m[3]), Number(m[2])-1, Number(m[1]));
+  }
+  return null;
+}
+function parseGvizNum(cell){
+  if(!cell || cell.v === null || cell.v === undefined) return 0;
+  const n = Number(cell.v);
+  return isNaN(n) ? 0 : n;
+}
+function parseGvizStr(cell){
+  if(!cell || cell.v === null || cell.v === undefined) return '';
+  return cell.v.toString().trim();
+}
+function isoDate(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+
+async function carregarFinanceiro(){
+  const res = await fetch(GVIZ_URL);
+  const text = await res.text();
+  const jsonStr = text.substring(text.indexOf('{'), text.lastIndexOf('}')+1);
+  const data = JSON.parse(jsonStr);
+  const linhas = data.table.rows;
+  const out = [];
+  for(const linha of linhas){
+    const c = linha.c;
+    if(!c) continue;
+    const dataCaixa = parseGvizDate(c[0]);
+    const dataVenc = parseGvizDate(c[1]);
+    const conta = parseGvizStr(c[2]);
+    const nome = parseGvizStr(c[3]);
+    const debito = parseGvizNum(c[4]);
+    const credito = parseGvizNum(c[5]);
+    const situacao = normalizeTxt(parseGvizStr(c[6]));
+    const doc = parseGvizStr(c[7]);
+    if(!conta && !nome) continue; // linha vazia
+    const valor = credito - debito;
+    const realizado = situacao === 'pago' || situacao === 'recebido';
+    const dataEfetiva = realizado ? (dataCaixa || dataVenc) : dataVenc;
+    if(!dataEfetiva) continue;
+    out.push({
+      date: dataEfetiva, conta, nome, valor, realizado,
+      situacao, doc, categoria: classificar(conta, valor)
+    });
+  }
+  return out;
+}
+
+/* ================== SALDO INICIAL (Supabase) ================== */
+async function getUltimoSaldo(){
+  const { data, error } = await supabaseClient
+    .from('fluxo_saldo_inicial')
+    .select('*')
+    .order('data_referencia', { ascending:false })
+    .limit(1);
+  if(error || !data || !data.length) return null;
+  return data[0];
+}
+async function salvarSaldo(dataRef, valor, email){
+  return await supabaseClient.from('fluxo_saldo_inicial').insert({
+    data_referencia: dataRef, valor, criado_por: email
+  });
+}
+
+/* ================== RENDER ================== */
+const HOJE = new Date();
+const HOJE_ISO = isoDate(HOJE);
+const MES_ATUAL_INICIO = new Date(HOJE.getFullYear(), HOJE.getMonth(), 1);
+
+function fmtMoeda(v){
+  return v.toLocaleString('pt-BR', { style:'currency', currency:'BRL' });
+}
+
+function renderKpis(rows, saldoBase){
+  const noMes = r => r.date >= MES_ATUAL_INICIO && r.date <= HOJE;
+  const recebido = rows.filter(r=>r.realizado && r.valor>0 && noMes(r)).reduce((s,r)=>s+r.valor,0);
+  const pago = rows.filter(r=>r.realizado && r.valor<0 && noMes(r)).reduce((s,r)=>s+Math.abs(r.valor),0);
+  const aReceber = rows.filter(r=>!r.realizado && r.valor>0).reduce((s,r)=>s+r.valor,0);
+  const aPagar = rows.filter(r=>!r.realizado && r.valor<0).reduce((s,r)=>s+Math.abs(r.valor),0);
+
+  document.getElementById('kpiRecebido').textContent = fmtMoeda(recebido);
+  document.getElementById('kpiPago').textContent = fmtMoeda(pago);
+  document.getElementById('kpiAReceber').textContent = fmtMoeda(aReceber);
+  document.getElementById('kpiAPagar').textContent = fmtMoeda(aPagar);
+
+  let saldoAtual = null;
+  if(saldoBase){
+    const dataBase = new Date(saldoBase.data_referencia+'T00:00:00');
+    const movApos = rows.filter(r=>r.realizado && r.date > dataBase).reduce((s,r)=>s+r.valor,0);
+    saldoAtual = Number(saldoBase.valor) + movApos;
+    document.getElementById('kpiSaldoSub').textContent = `Base: ${dataBase.toLocaleDateString('pt-BR')}`;
+  } else {
+    document.getElementById('kpiSaldoSub').textContent = 'Nenhum saldo lançado ainda';
+  }
+  document.getElementById('kpiSaldo').textContent = saldoAtual !== null ? fmtMoeda(saldoAtual) : '—';
+}
+
+function renderTabela(rows){
+  const realizados = rows.filter(r=>r.realizado);
+  const meses = [...new Set(realizados.map(r=>`${r.date.getFullYear()}-${String(r.date.getMonth()+1).padStart(2,'0')}`))].sort();
+  if(!meses.length){ document.getElementById('tabelaWrap').innerHTML = '<div class="empty-state">Sem lançamentos realizados ainda.</div>'; return; }
+  const mesesRecentes = meses.slice(-6); // últimos 6 meses com dado
+  const porCatMes = {};
+  CATEGORIAS_ORDEM.forEach(cat=>{ porCatMes[cat]={}; mesesRecentes.forEach(m=>porCatMes[cat][m]=0); });
+  realizados.forEach(r=>{
+    const m = `${r.date.getFullYear()}-${String(r.date.getMonth()+1).padStart(2,'0')}`;
+    if(!mesesRecentes.includes(m)) return;
+    porCatMes[r.categoria][m] += r.valor;
+  });
+  const labelMes = m => { const [y,mm]=m.split('-'); return new Date(y,mm-1,1).toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}).replace('.',''); };
+
+  let html = '<table><thead><tr><th>Categoria</th>' + mesesRecentes.map(m=>`<th>${labelMes(m)}</th>`).join('') + '</tr></thead><tbody>';
+  CATEGORIAS_ORDEM.forEach(cat=>{
+    const temValor = mesesRecentes.some(m=>porCatMes[cat][m] !== 0);
+    if(!temValor) return;
+    const cls = cat==='Recebimentos' ? 'recebimentos' : (cat==='A Classificar' ? '' : '');
+    html += `<tr class="${cls}"><td>${cat}${cat==='A Classificar'?' <span class="pill">revisar</span>':''}</td>` +
+      mesesRecentes.map(m=>`<td>${fmtMoeda(porCatMes[cat][m])}</td>`).join('') + '</tr>';
+  });
+  const totalPorMes = mesesRecentes.map(m => CATEGORIAS_ORDEM.reduce((s,cat)=>s+porCatMes[cat][m],0));
+  html += '<tr class="total"><td>Total</td>' + totalPorMes.map(v=>`<td>${fmtMoeda(v)}</td>`).join('') + '</tr>';
+  html += '</tbody></table>';
+  document.getElementById('tabelaWrap').innerHTML = html;
+}
+
+function renderAbertos(rows){
+  const receber = rows.filter(r=>!r.realizado && r.valor>0).sort((a,b)=>a.date-b.date);
+  const pagar = rows.filter(r=>!r.realizado && r.valor<0).sort((a,b)=>a.date-b.date);
+  const tabela = list => {
+    if(!list.length) return '<div class="empty-state">Nenhum título em aberto.</div>';
+    return '<table><thead><tr><th>Vencimento</th><th>Conta</th><th>Nome</th><th>Valor</th></tr></thead><tbody>' +
+      list.slice(0,50).map(r=>`<tr><td style="text-align:left;font-family:'Sora',sans-serif;">${r.date.toLocaleDateString('pt-BR')}</td><td style="text-align:left;font-family:'Sora',sans-serif;">${r.conta}</td><td style="text-align:left;font-family:'Sora',sans-serif;">${r.nome}</td><td>${fmtMoeda(Math.abs(r.valor))}</td></tr>`).join('') +
+      '</tbody></table>' + (list.length>50 ? `<div class="card-sub" style="margin-top:10px;">Mostrando 50 de ${list.length} títulos.</div>` : '');
+  };
+  document.getElementById('aReceberWrap').innerHTML = tabela(receber);
+  document.getElementById('aPagarWrap').innerHTML = tabela(pagar);
+}
+
+/* ================== INIT ================== */
+let rowsGlobais = [];
+async function iniciar(userEmail){
+  document.getElementById('saldoData').value = HOJE_ISO;
+  try{
+    const [rows, saldoBase] = await Promise.all([carregarFinanceiro(), getUltimoSaldo()]);
+    rowsGlobais = rows;
+    renderKpis(rows, saldoBase);
+    renderTabela(rows);
+    renderAbertos(rows);
+  } catch(e){
+    document.getElementById('tabelaWrap').innerHTML = `<div class="empty-state">Não consegui carregar a planilha. Confirme se a aba "Financeiro" está compartilhada como "qualquer pessoa com o link pode ver".<br><br>${e.message}</div>`;
+  }
+
+  document.getElementById('btnSalvarSaldo').addEventListener('click', async ()=>{
+    const dataRef = document.getElementById('saldoData').value;
+    const valorTxt = document.getElementById('saldoValor').value.trim();
+    const msg = document.getElementById('saldoMsg');
+    msg.className = 'msg'; msg.textContent='';
+    if(!dataRef || !valorTxt){ msg.className='msg err'; msg.textContent='Preencha a data e o valor.'; return; }
+    const valor = Number(valorTxt.replace(/\./g,'').replace(',','.'));
+    if(isNaN(valor)){ msg.className='msg err'; msg.textContent='Valor inválido.'; return; }
+    const { error } = await salvarSaldo(dataRef, valor, userEmail);
+    if(error){ msg.className='msg err'; msg.textContent='Erro ao salvar: '+error.message; return; }
+    msg.className='msg ok'; msg.textContent='Saldo salvo!';
+    document.getElementById('saldoValor').value='';
+    const saldoBase = await getUltimoSaldo();
+    renderKpis(rowsGlobais, saldoBase);
+  });
+}
+
+(async function(){
+  const { data } = await supabaseClient.auth.getSession();
+  const session = data?.session;
+  if(!session?.user){
+    window.location.href = 'index.html';
+    return;
+  }
+  const email = session.user.email;
+  if(!podeVerFluxoCaixa(email)){
+    document.getElementById('gate').innerHTML = '<p>Você não tem acesso ao Fluxo de Caixa.</p><p style="margin-top:10px;"><a href="index.html" style="color:var(--blue);">Voltar ao Hub</a></p>';
+    return;
+  }
+  document.getElementById('gate').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  iniciar(email);
+})();
+</script>
+</body>
+</html>
