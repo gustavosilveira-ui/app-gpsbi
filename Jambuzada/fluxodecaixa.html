@@ -155,6 +155,8 @@ html.light .fc-day-num{color:#1f2a3d;}
 .fc-detail-list .fc-detail-table th:nth-child(5),.fc-detail-list .fc-detail-table td:nth-child(5){width:75px;}
 .fc-detail-list .fc-detail-table th:nth-child(6),.fc-detail-list .fc-detail-table td:nth-child(6){width:95px;}
 .fc-detail-muted{font-size:11.5px;color:var(--text3);line-height:1.45;margin-top:8px;}
+.fc-ficha-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:16px 0 6px;}
+.fc-ficha-search{width:290px;max-width:100%;padding:8px 11px;border:1px solid var(--border2);border-radius:9px;background:var(--navy3);color:var(--text);font-size:12.5px;}
 .fc-titulos-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:16px 0 8px;}
 .fc-titulos-search{width:290px;max-width:100%;padding:8px 11px;border:1px solid var(--border2);border-radius:9px;background:var(--navy3);color:var(--text);font-size:12.5px;}
 .fc-tag-aberto,.fc-tag-fluxo,.fc-tag-removido{display:inline-flex;align-items:center;padding:4px 9px;border-radius:999px;font-size:10.5px;font-weight:800;white-space:nowrap;}
@@ -1405,6 +1407,26 @@ function rowsForFicha(rNode,start,end){
   if(!rNode || rNode.special==='saldo') return [];
   return rows.filter(r=>r.date>=start && r.date<=end && rNode.filter(r) && Math.abs(r.valor||0)>0);
 }
+let fcFichaLinhasBase=[];
+let fcFichaTotalAtual=0;
+function renderFichaLancamentosFiltrado(termoBusca=''){
+  const termo=normalizeTxt(termoBusca).trim();
+  const filtradas=termo?fcFichaLinhasBase.filter(r=>normalizeTxt(r.nome||r.historico||r.categoria||'').includes(termo)):fcFichaLinhasBase;
+  // As ações usam o índice desta lista; atualizá-la aqui mantém remover,
+  // alterar data e ratear apontando para a linha correta após a busca.
+  fcFichaLinhasAtual=filtradas;
+  const html=filtradas.slice(0,120).map((r,i)=>{
+    const pct=fcFichaTotalAtual?Math.abs(r.valor)/Math.abs(fcFichaTotalAtual)*100:0;
+    const nome=r.nome||r.historico||r.categoria||'Sem nome';const doc=r.documento||r.fonte||'';
+    const editavel=r.fonte!=='Pronampe'&&r.fonte!=='Aplicacao'&&!r._historico;const ehRateio=r.fonte==='Programação Fornecedor';
+    const valorCls='valor-modal'+(editavel?' fc-valor-clicavel':'');
+    const valorAttrs=editavel?(ehRateio?` onclick="removerRateioDaFicha(${i})" title="Clique pra remover esse rateio inteiro do fluxo"`:` onclick="abrirTirarPopup(${i})" title="Clique pra tirar ou mudar a data desse lançamento"`):'';
+    return `<tr><td>${formatDateBR(r.date)}</td><td>${escapeFichaHtml(r.conta||r.fonte||'Não informada')}</td><td class="wrap" title="${escapeFichaHtml(nome)}">${escapeFichaHtml(nome)}</td><td class="small" title="${escapeFichaHtml(doc)}">${escapeFichaHtml(doc)}</td><td class="num">${pct.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%</td><td class="${valorCls}" style="color:${r.valor>=0?'#4F8F3A':'var(--red)'}"${valorAttrs}>${fmtNumeroFicha(r.valor)}</td></tr>`;
+  }).join('');
+  const body=el('fcFichaLancamentosBody');if(body)body.innerHTML=html||`<tr><td colspan="6" style="color:var(--text3);">Nenhum lançamento encontrado para esse nome.</td></tr>`;
+  const cont=el('fcFichaBuscaContagem');if(cont)cont.textContent=termo?`${filtradas.length} de ${fcFichaLinhasBase.length}`:'';
+  const aviso=el('fcFichaMostrandoAviso');if(aviso)aviso.textContent=filtradas.length>120?'Mostrando os primeiros 120 lançamentos.':'';
+}
 function openFluxoFicha(rowId,colId){
   const rNode = fcRowDetailRefs[rowId];
   const col = fcColDetailRefs[colId];
@@ -1441,31 +1463,9 @@ function openFluxoFicha(rowId,colId){
   if(histVal!==null && Math.abs(histVal)>0){
     linhas.push({date:col.start,conta:'Histórico consolidado',nome:'Dados históricos consolidados',documento:'',historico:'Sem detalhamento individual nesta versão',valor:histVal,_historico:true});
   }
-  fcFichaLinhasAtual = linhas; // guarda pra o popup de tirar/alterar direto da Ficha
-
-  const detalheHtml = linhas.slice(0,120).map((r,i)=>{
-    const pct = total ? Math.abs(r.valor)/Math.abs(total)*100 : 0;
-    const nome = r.nome || r.historico || r.categoria || 'Sem nome';
-    const doc = r.documento || r.fonte || '';
-    // Programação Fornecedor pode ser removida direto daqui (o rateio
-    // inteiro). Pronampe/Aplicação já são simulações, sem ação de clique.
-    const editavel = r.fonte!=='Pronampe' && r.fonte!=='Aplicacao' && !r._historico;
-    const ehRateio = r.fonte==='Programação Fornecedor';
-    const valorCls = 'valor-modal' + (editavel ? ' fc-valor-clicavel' : '');
-    const valorAttrs = editavel
-      ? (ehRateio
-          ? ` onclick="removerRateioDaFicha(${i})" title="Clique pra remover esse rateio inteiro do fluxo"`
-          : ` onclick="abrirTirarPopup(${i})" title="Clique pra tirar ou mudar a data desse lançamento"`)
-      : '';
-    return `<tr>
-      <td>${formatDateBR(r.date)}</td>
-      <td>${escapeFichaHtml(r.conta||r.fonte||'Não informada')}</td>
-      <td class="wrap" title="${escapeFichaHtml(nome)}">${escapeFichaHtml(nome)}</td>
-      <td class="small" title="${escapeFichaHtml(doc)}">${escapeFichaHtml(doc)}</td>
-      <td class="num">${pct.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%</td>
-      <td class="${valorCls}" style="color:${r.valor>=0?'#4F8F3A':'var(--red)'}"${valorAttrs}>${fmtNumeroFicha(r.valor)}</td>
-    </tr>`;
-  }).join('');
+  fcFichaLinhasBase=linhas;
+  fcFichaLinhasAtual=linhas;
+  fcFichaTotalAtual=total;
 
   el('fluxoFichaBody').innerHTML = `
     <div class="fc-detail-summary">
@@ -1475,10 +1475,11 @@ function openFluxoFicha(rowId,colId){
     </div>
     <div style="font-size:12.5px;font-weight:800;margin:12px 0 6px;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;">Por conta</div>
     <table class="fc-detail-table"><thead><tr><th>Conta</th><th class="num">Valor</th><th class="num">%</th><th class="num">Itens</th></tr></thead><tbody>${contasHtml}</tbody></table>
-    <div style="font-size:12.5px;font-weight:800;margin:16px 0 6px;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;">Lançamentos</div>
-    <div class="fc-detail-list"><table class="fc-detail-table" style="margin-top:0;"><thead><tr><th>Data</th><th>Conta</th><th>Nome</th><th>Documento</th><th class="num">%</th><th class="num">Valor</th></tr></thead><tbody>${detalheHtml||`<tr><td colspan="6" style="color:var(--text3);">Sem lançamentos.</td></tr>`}</tbody></table></div>
-    ${linhas.length>120?`<div class="fc-detail-muted">Mostrando os primeiros 120 lançamentos.</div>`:''}
+    <div class="fc-ficha-toolbar"><div style="font-size:12.5px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;">Lançamentos</div><div><input class="fc-ficha-search" placeholder="🔎 Buscar por nome..." oninput="renderFichaLancamentosFiltrado(this.value)"> <span id="fcFichaBuscaContagem" style="font-size:11px;color:var(--text3);"></span></div></div>
+    <div class="fc-detail-list"><table class="fc-detail-table" style="margin-top:0;"><thead><tr><th>Data</th><th>Conta</th><th>Nome</th><th>Documento</th><th class="num">%</th><th class="num">Valor</th></tr></thead><tbody id="fcFichaLancamentosBody"></tbody></table></div>
+    <div class="fc-detail-muted" id="fcFichaMostrandoAviso"></div>
   `;
+  renderFichaLancamentosFiltrado('');
   el('fluxoFichaModal').classList.add('show');
 }
 function closeFluxoFicha(){ el('fluxoFichaModal').classList.remove('show'); }
@@ -1983,10 +1984,14 @@ function fcProgramacaoMatchesRow(p,row){
   if(Number(row.valor)>=0) return false;
   const fornecedor=normalizeTxt(p.fornecedor||'');
   const nome=normalizeTxt(row.nome||row.conta||'');
-  if(!fornecedor || !(nome===fornecedor || nome.includes(fornecedor) || fornecedor.includes(nome))) return false;
+  if(!fornecedor || nome!==fornecedor) return false;
   const dataOriginal=p.dataOriginal||p.inicio;
   if(dataOriginal && row.date!==dataOriginal) return false;
-  if(p.documento && row.documento && normalizeTxt(p.documento)!==normalizeTxt(row.documento)) return false;
+  if(p.documento && normalizeTxt(row.documento||'')!==normalizeTxt(p.documento)) return false;
+  if(p.chaveLancamento){
+    const chave=[normalizeTxt(row.nome||row.conta||''),row.date||'',normalizeTxt(row.documento||''),normalizeTxt(row.fonte||'')].join('|');
+    if(chave!==p.chaveLancamento) return false;
+  }
   return true;
 }
 function ajustarParcelasAoSaldoOmie_(prog,saldoNovo){
@@ -2380,6 +2385,8 @@ function renderRateioPopup(){
     </div>`).join('');
   const total = fcRateioPopupParcelas.reduce((s,p)=>s+Number(p.valor||0),0);
   const original = fcTirarPopupContext.valor;
+  const falta = Math.round((original-total)*100)/100;
+  const saldoTexto = Math.abs(falta)<=0.01 ? `<span style="color:var(--green);font-weight:800;">✓ Valor totalmente distribuído</span>` : falta>0 ? `<span style="color:var(--gold);font-weight:800;">Falta distribuir: ${fmtBRL(falta)}</span>` : `<span style="color:var(--red);font-weight:800;">Passou do total: ${fmtBRL(Math.abs(falta))}</span>`;
   wrap.innerHTML = `
     <div style="font-weight:700;font-size:12.5px;margin-bottom:4px;">✂️ Ratear em várias datas</div>
     <div style="font-size:11.5px;color:var(--text3);margin-bottom:8px;">Distribua manualmente ou gere todas as parcelas de uma vez.</div>
@@ -2390,11 +2397,16 @@ function renderRateioPopup(){
         <input type="date" id="fcRateioAutoInicio" value="${fcRateioPopupParcelas[0]?.data||fcTirarPopupContext.data}" title="Primeira data">
         <select id="fcRateioAutoIntervalo" title="Intervalo"><option value="mensal">Mensal</option><option value="quinzenal">Quinzenal</option><option value="semanal">Semanal</option><option value="diario">Diário</option></select>
       </div>
-      <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:6px;" onclick="gerarParcelasAutomaticasPopup()">Gerar e dividir ${fmtBRL(original)}</button>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;">
+        <div><label style="font-size:9.5px;color:var(--text3);font-weight:700;">VALOR FIXO (OPCIONAL)</label><input type="text" inputmode="decimal" id="fcRateioAutoValorFixo" placeholder="Ex.: 200,00" style="width:100%;"></div>
+        <div><label style="font-size:9.5px;color:var(--text3);font-weight:700;">RESTANTE NAS ÚLTIMAS</label><input type="number" id="fcRateioAutoUltimas" min="1" max="120" value="1" style="width:100%;"></div>
+      </div>
+      <div style="font-size:10px;color:var(--text3);margin-top:5px;">Sem valor fixo, divide igualmente. Com valor fixo, usa esse valor nas primeiras e divide o saldo nas últimas.</div>
+      <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:6px;" onclick="gerarParcelasAutomaticasPopup()">Gerar parcelas</button>
     </div>
     ${linhas}
     <button class="btn btn-ghost btn-sm" style="width:100%;margin:6px 0;" onclick="adicionarParcelaRateioPopup()">+ Adicionar parcela</button>
-    <div style="font-size:12px;color:var(--text3);margin-bottom:8px;">Total rateado: <b>${fmtBRL(total)}</b>${Math.abs(total-original)>0.01?` (valor original: ${fmtBRL(original)})`:''}</div>
+    <div style="background:var(--navy3);border-radius:9px;padding:8px 10px;font-size:12px;margin-bottom:8px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;"><span>Título: <b>${fmtBRL(original)}</b> · Distribuído: <b>${fmtBRL(total)}</b></span>${saldoTexto}</div>
     <div style="display:flex;gap:8px;">
       <button class="btn btn-ghost btn-sm" style="flex:1;" onclick="cancelarRateioNaFicha()">Cancelar rateio</button>
       <button class="btn btn-primary btn-sm" style="flex:1;" onclick="confirmarRateioNaFicha()">Confirmar rateio</button>
@@ -2413,13 +2425,25 @@ function gerarParcelasAutomaticasPopup(){
   const qtd=Math.max(2,Math.min(120,parseInt(el('fcRateioAutoQtd')?.value,10)||2));
   const inicio=el('fcRateioAutoInicio')?.value||fcTirarPopupContext.data;
   const intervalo=el('fcRateioAutoIntervalo')?.value||'mensal';
+  const valorFixo=Math.abs(parseMoneyBR(el('fcRateioAutoValorFixo')?.value||''));
+  const qtdUltimas=Math.max(1,Math.min(qtd,parseInt(el('fcRateioAutoUltimas')?.value,10)||1));
   if(!inicio){alert('Informe a data da primeira parcela.');return;}
-  const valorTotal=fcTirarPopupContext.valor;const base=Math.floor((valorTotal/qtd)*100)/100;let acumulado=0;
+  const valorTotal=fcTirarPopupContext.valor;
+  const qtdFixas=valorFixo>0?qtd-qtdUltimas:0;
+  if(valorFixo*qtdFixas>valorTotal+0.01){alert('O valor fixo das primeiras parcelas ultrapassa o total do título. Ajuste o valor ou a quantidade.');return;}
+  const saldoFinal=Math.round((valorTotal-valorFixo*qtdFixas)*100)/100;
+  const baseIgual=Math.floor((valorTotal/qtd)*100)/100;
+  const baseFinal=Math.floor((saldoFinal/qtdUltimas)*100)/100;
+  let acumulado=0;
   fcRateioPopupParcelas=Array.from({length:qtd},(_,i)=>{
     let data=inicio;
     if(intervalo==='mensal')data=addMesesISO_(inicio,i);
     else{const dias=intervalo==='quinzenal'?15:intervalo==='semanal'?7:1;const dt=new Date(inicio+'T00:00:00');dt.setDate(dt.getDate()+i*dias);data=isoLocal(dt);}
-    const valor=i===qtd-1?Math.round((valorTotal-acumulado)*100)/100:base;acumulado+=valor;return{data,valor};
+    let valor;
+    if(valorFixo>0&&i<qtdFixas) valor=valorFixo;
+    else if(valorFixo>0) valor=i===qtd-1?Math.round((valorTotal-acumulado)*100)/100:baseFinal;
+    else valor=i===qtd-1?Math.round((valorTotal-acumulado)*100)/100:baseIgual;
+    acumulado=Math.round((acumulado+valor)*100)/100;return{data,valor};
   });
   renderRateioPopup();
 }
@@ -2440,7 +2464,9 @@ function adicionarParcelaRateioPopup(){
   // no mesmo dia sem querer.
   const ultima = fcRateioPopupParcelas[fcRateioPopupParcelas.length-1];
   const proximaData = ultima ? nextDateStr(ultima.data) : fcTirarPopupContext.data;
-  fcRateioPopupParcelas.push({ data: proximaData, valor: 0 });
+  const distribuido=fcRateioPopupParcelas.reduce((s,p)=>s+Number(p.valor||0),0);
+  const restante=Math.max(0,Math.round((fcTirarPopupContext.valor-distribuido)*100)/100);
+  fcRateioPopupParcelas.push({ data: proximaData, valor: restante });
   renderRateioPopup();
 }
 function removerParcelaRateioPopup(i){
@@ -2451,6 +2477,8 @@ function removerParcelaRateioPopup(i){
 function confirmarRateioNaFicha(){
   if(!fcTirarPopupContext || !fcRateioPopupParcelas || !fcRateioPopupParcelas.length){ alert('Adicione ao menos uma parcela.'); return; }
   if(fcRateioPopupParcelas.some(p=>!p.data || !p.valor)){ alert('Preencha data e valor de todas as parcelas.'); return; }
+  const totalRateado=Math.round(fcRateioPopupParcelas.reduce((s,p)=>s+Number(p.valor||0),0)*100)/100;
+  if(Math.abs(totalRateado-fcTirarPopupContext.valor)>0.01){alert(`O rateio precisa fechar o valor do título. Diferença: ${fmtBRL(Math.abs(fcTirarPopupContext.valor-totalRateado))}.`);return;}
 
   // Lançamento Manual: continua sendo Lançamento Manual — rateado em várias
   // linhas, uma por parcela — em vez de virar uma "Programação Fornecedor"
@@ -2472,7 +2500,8 @@ function confirmarRateioNaFicha(){
   fcProgramacoesFornecedor.push({
     id:Date.now(), fornecedor:nome, valor, dias:fcRateioPopupParcelas.length, tipoDias:'manual', inicio:data,
     parcelas: fcRateioPopupParcelas.map(p=>({ data:p.data, valor:Number(p.valor)||0 })),
-    exclusaoId, dataOriginal:data, documento:documento||'', fonteOriginal:fonteOriginal||'', saldoOmieAtual:valor, valorOriginal:valor
+    exclusaoId, dataOriginal:data, documento:documento||'', fonteOriginal:fonteOriginal||'', saldoOmieAtual:valor, valorOriginal:valor,
+    chaveLancamento:[normalizeTxt(nome),data||'',normalizeTxt(documento||''),normalizeTxt(fonteOriginal||'')].join('|')
   });
   localStorage.setItem('jambuzada_fc_programacoes_fornecedor', JSON.stringify(fcProgramacoesFornecedor));
 
@@ -2659,13 +2688,13 @@ const FC_TITULO_OBS_PREFIX = '__JAMBUZADA_TITULO_OBS__:';
 
 function tituloObsKey_(r){ return r.chave; }
 function parseTituloObsMsg_(m){
-  if(!m || m.tipo!=='titulo_observacao' || typeof m.mensagem!=='string' || !m.mensagem.startsWith(FC_TITULO_OBS_PREFIX)) return null;
+  if(!m || m.tipo!=='observacao' || typeof m.mensagem!=='string' || !m.mensagem.startsWith(FC_TITULO_OBS_PREFIX)) return null;
   try{return JSON.parse(m.mensagem.slice(FC_TITULO_OBS_PREFIX.length));}catch(e){return null;}
 }
 async function loadTituloObservacoes_(lista){
   const chaves=new Set(lista.map(tituloObsKey_));
   if(!chaves.size){fcTituloObsCache={};return;}
-  const {data,error}=await sb.from('jambuzada_fluxo_mensagens').select('*').eq('tipo','titulo_observacao').order('criado_em',{ascending:false});
+  const {data,error}=await sb.from('jambuzada_fluxo_mensagens').select('*').eq('tipo','observacao').order('criado_em',{ascending:false});
   if(error){console.warn('Não foi possível carregar observações dos títulos:',error.message);fcTituloObsCache={};return;}
   const cache={};
   (data||[]).forEach(m=>{const p=parseTituloObsMsg_(m);if(p&&chaves.has(p.chave)&&!cache[p.chave])cache[p.chave]={...m,payload:p};});
@@ -2788,7 +2817,7 @@ async function salvarTituloObsPopup_(){
   const chave=fcTituloObsPopupChave;if(!chave)return;const texto=el('fcTituloObsPopupTexto').value.trim();if(!texto){alert('Digite a observação antes de salvar.');return;}
   const existente=fcTituloObsCache[chave];const mensagem=FC_TITULO_OBS_PREFIX+JSON.stringify({chave,texto});let error;
   if(existente){if(existente.autor_email!==currentUser.email&&!gpsStaff){alert('Somente quem criou a observação ou o time GPS pode editá-la.');return;}({error}=await sb.from('jambuzada_fluxo_mensagens').update({mensagem,autor_nome:nameFromEmail(currentUser.email),autor_email:currentUser.email}).eq('id',existente.id));}
-  else({error}=await sb.from('jambuzada_fluxo_mensagens').insert({autor_email:currentUser.email,autor_nome:nameFromEmail(currentUser.email),tipo:'titulo_observacao',mensagem,status:'aberto'}));
+  else({error}=await sb.from('jambuzada_fluxo_mensagens').insert({autor_email:currentUser.email,autor_nome:nameFromEmail(currentUser.email),tipo:'observacao',mensagem,status:'aberto'}));
   if(error){alert('Erro ao salvar observação: '+error.message);return;}closeTituloObsPopup_();await loadTituloObservacoes_(fcTitulosAbertoRowsAtual);renderTitulosAbertoLista(el('fcTitulosBuscaWrap')?.querySelector('input')?.value||'');
 }
 async function excluirTituloObsPopup_(){
