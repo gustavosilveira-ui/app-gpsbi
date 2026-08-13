@@ -6,6 +6,7 @@
 <title>Fluxo de Caixa · Jambuzada | GPSBI</title>
 <link rel="stylesheet" href="theme.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 html{zoom:.8;}
 .fc-page-content{max-width:100% !important;padding:16px 14px !important;}
@@ -154,6 +155,26 @@ html.light .fc-day-num{color:#1f2a3d;}
 .fc-detail-list .fc-detail-table th:nth-child(5),.fc-detail-list .fc-detail-table td:nth-child(5){width:75px;}
 .fc-detail-list .fc-detail-table th:nth-child(6),.fc-detail-list .fc-detail-table td:nth-child(6){width:95px;}
 .fc-detail-muted{font-size:11.5px;color:var(--text3);line-height:1.45;margin-top:8px;}
+.fc-titulos-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:16px 0 8px;}
+.fc-titulos-search{width:290px;max-width:100%;padding:8px 11px;border:1px solid var(--border2);border-radius:9px;background:var(--navy3);color:var(--text);font-size:12.5px;}
+.fc-tag-aberto,.fc-tag-fluxo,.fc-tag-removido{display:inline-flex;align-items:center;padding:4px 9px;border-radius:999px;font-size:10.5px;font-weight:800;white-space:nowrap;}
+.fc-tag-aberto{background:rgba(245,185,66,.16);color:var(--gold);}.fc-tag-fluxo{background:rgba(47,214,184,.14);color:var(--green);}.fc-tag-removido{background:rgba(239,106,106,.13);color:var(--red);}
+.fc-titulo-note-btn{border:1px solid var(--border2);background:var(--navy3);color:var(--text2);border-radius:7px;padding:5px 8px;font-size:10.5px;font-weight:800;cursor:pointer;white-space:nowrap;}.fc-titulo-note-btn.has-note{color:var(--cyan);border-color:rgba(54,226,201,.35);}
+.fc-titulo-obs-info{background:var(--navy3);border-radius:10px;padding:11px 13px;font-size:12px;line-height:1.5;margin-bottom:8px;}.fc-titulo-obs-meta{font-size:10.5px;color:var(--text3);margin-bottom:8px;}.fc-titulo-obs-box textarea{width:100%;min-height:110px;resize:vertical;}
+#fcTitulosAbertoLista .fc-detail-list{max-height:390px;}
+#fcTitulosAbertoLista .fc-detail-table{min-width:1040px;table-layout:auto;}
+#fcTitulosAbertoLista .fc-detail-table th,#fcTitulosAbertoLista .fc-detail-table td{white-space:nowrap;}
+#fcTitulosAbertoLista .fc-detail-table td.wrap{white-space:normal;min-width:210px;}
+@media print{
+  @page{size:landscape;margin:10mm;}
+  body *{visibility:hidden!important;}
+  #fcTitulosAbertoModal,#fcTitulosAbertoModal *{visibility:visible!important;}
+  #fcTitulosAbertoModal{position:absolute!important;inset:0!important;background:#fff!important;display:block!important;}
+  #fcTitulosAbertoModal .modal-box{width:100%!important;max-width:none!important;max-height:none!important;overflow:visible!important;box-shadow:none!important;background:#fff!important;color:#000!important;border:0!important;}
+  #fcTitulosAbertoAcoes,#fcTitulosBuscaWrap,.fc-titulo-note-btn,.fc-titulo-acao{display:none!important;}
+  #fcTitulosAbertoLista .fc-detail-list{max-height:none!important;overflow:visible!important;border:0!important;}
+  #fcTitulosAbertoLista .fc-detail-table{min-width:0!important;width:100%!important;font-size:9px!important;color:#000!important;}
+}
 @media(max-width:760px){.fc-detail-summary{grid-template-columns:1fr;}}
 
 </style>
@@ -273,15 +294,37 @@ html.light .fc-day-num{color:#1f2a3d;}
 
     <!-- Modal: lista de Títulos em Aberto -->
     <div class="modal-overlay" id="fcTitulosAbertoModal">
-      <div class="modal-box" style="width:640px;max-width:96vw;">
+      <div class="modal-box" style="width:1180px;max-width:96vw;">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
           <div>
             <div class="modal-title">📋 Títulos em Aberto</div>
             <div class="modal-sub">Recebimentos e pagamentos com Situação "Atrasado" — não contam em nenhum total até você colocar de volta no fluxo.</div>
           </div>
-          <button class="btn btn-ghost btn-sm" onclick="fecharTitulosAbertoModal()">Fechar</button>
+          <div id="fcTitulosAbertoAcoes" style="display:flex;gap:8px;">
+            <button class="btn btn-ghost btn-sm" onclick="imprimirTitulosAberto()">🖨️ Imprimir</button>
+            <button class="btn btn-ghost btn-sm" onclick="exportarTitulosAbertoExcel()">📊 Exportar Excel</button>
+            <button class="btn btn-ghost btn-sm" onclick="fecharTitulosAbertoModal()">Fechar</button>
+          </div>
         </div>
-        <div id="fcTitulosAbertoLista" style="max-height:60vh;overflow-y:auto;"></div>
+        <div id="fcTitulosAbertoLista"></div>
+      </div>
+    </div>
+
+    <!-- Observação compartilhada de um título em aberto -->
+    <div class="modal-overlay" id="tituloObsModal" style="z-index:330;">
+      <div class="modal-box fc-titulo-obs-box" style="width:500px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px;">
+          <div><div class="modal-title" id="fcTituloObsPopupTitulo">📝 Observação do título</div><div class="modal-sub" id="fcTituloObsPopupSub"></div></div>
+          <button class="btn btn-ghost btn-sm" onclick="closeTituloObsPopup_()">Fechar</button>
+        </div>
+        <div class="fc-titulo-obs-info" id="fcTituloObsPopupInfo"></div>
+        <div class="fc-titulo-obs-meta" id="fcTituloObsPopupMeta"></div>
+        <textarea id="fcTituloObsPopupTexto" placeholder="Ex.: fornecedor contatado, aguardando retorno..."></textarea>
+        <div class="modal-actions">
+          <button class="btn btn-danger btn-sm" id="fcTituloObsPopupExcluir" onclick="excluirTituloObsPopup_()" style="display:none;margin-right:auto;">Excluir</button>
+          <button class="btn btn-ghost btn-sm" onclick="closeTituloObsPopup_()">Cancelar</button>
+          <button class="btn btn-primary btn-sm" id="fcTituloObsPopupSalvar" onclick="salvarTituloObsPopup_()">Salvar</button>
+        </div>
       </div>
     </div>
 
@@ -2504,45 +2547,86 @@ function renderNecessidadeCaixa(){
 
 /* ---------- Títulos em Aberto: modal de lista + colocar de volta no fluxo ---------- */
 let fcTitulosAbertoTipoAtual = 'receber';
-function abrirTitulosAbertoPopup(tipo){
+let fcTitulosAbertoRowsAtual = [];
+let fcTituloObsPopupChave = null;
+let fcTituloObsCache = {};
+const FC_TITULO_OBS_PREFIX = '__JAMBUZADA_TITULO_OBS__:';
+
+function tituloObsKey_(r){ return r.chave; }
+function parseTituloObsMsg_(m){
+  if(!m || m.tipo!=='titulo_observacao' || typeof m.mensagem!=='string' || !m.mensagem.startsWith(FC_TITULO_OBS_PREFIX)) return null;
+  try{return JSON.parse(m.mensagem.slice(FC_TITULO_OBS_PREFIX.length));}catch(e){return null;}
+}
+async function loadTituloObservacoes_(lista){
+  const chaves=new Set(lista.map(tituloObsKey_));
+  if(!chaves.size){fcTituloObsCache={};return;}
+  const {data,error}=await sb.from('jambuzada_fluxo_mensagens').select('*').eq('tipo','titulo_observacao').order('criado_em',{ascending:false});
+  if(error){console.warn('Não foi possível carregar observações dos títulos:',error.message);fcTituloObsCache={};return;}
+  const cache={};
+  (data||[]).forEach(m=>{const p=parseTituloObsMsg_(m);if(p&&chaves.has(p.chave)&&!cache[p.chave])cache[p.chave]={...m,payload:p};});
+  fcTituloObsCache=cache;
+}
+function renderTituloObsHtml_(r){
+  const obs=fcTituloObsCache[tituloObsKey_(r)];
+  const tem=!!(obs?.payload?.texto||'').trim();
+  return `<button class="fc-titulo-note-btn ${tem?'has-note':''}" onclick="openTituloObsPopup_('${r.chave.replace(/'/g,"\\'")}')">${tem?'📝 Ver':'＋ Adicionar'}</button>`;
+}
+function tituloResolvidoRow_(r){
+  const data=fcTitulosResolvidos[r.chave]||r.date;
+  return {date:data,categoria:r.categoria,grupo:r.grupo,valor:r.valor,conta:'Título em Aberto',fonte:'Título Resolvido',nome:r.nome,documento:r.documento};
+}
+function tituloStatus_(r){
+  if(!(r.chave in fcTitulosResolvidos)) return 'aberto';
+  return lancamentoExcluido(tituloResolvidoRow_(r))?'removido':'fluxo';
+}
+
+async function abrirTitulosAbertoPopup(tipo){
   fcTitulosAbertoTipoAtual = tipo || 'receber';
-  renderTitulosAbertoLista();
   const titulo = document.querySelector('#fcTitulosAbertoModal .modal-title');
   if(titulo) titulo.textContent = fcTitulosAbertoTipoAtual==='receber' ? '📋 Títulos em Aberto — A Receber' : '📋 Títulos em Aberto — A Pagar';
   el('fcTitulosAbertoModal').classList.add('show');
+  el('fcTitulosAbertoLista').innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);">Carregando títulos e observações...</div>';
+  const doTipo=r=>fcTitulosAbertoTipoAtual==='receber'?r.valor>=0:r.valor<0;
+  fcTitulosAbertoRowsAtual=rowsAtrasados.filter(doTipo);
+  await loadTituloObservacoes_(fcTitulosAbertoRowsAtual);
+  renderTitulosAbertoLista('');
 }
 function fecharTitulosAbertoModal(){
   el('fcTitulosAbertoModal').classList.remove('show');
 }
-function renderTitulosAbertoLista(){
+function renderTitulosAbertoLista(termoBusca=''){
   const wrap = el('fcTitulosAbertoLista'); if(!wrap) return;
-  const doTipo = r => fcTitulosAbertoTipoAtual==='receber' ? r.valor>=0 : r.valor<0;
-  // Mais atual pra mais antigo, sempre.
-  const ordenar = arr => arr.slice().sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0);
-
-  const pendentes = ordenar(titulosAbertoPendentes().filter(doTipo));
-  const jaNoFluxo = ordenar(rowsAtrasados.filter(r=>doTipo(r) && (r.chave in fcTitulosResolvidos)));
-
-  const htmlPendentes = pendentes.length ? pendentes.map(r=>`
-    <div class="fc-sim-entry" style="gap:10px;">
-      <span class="desc">${escapeHtml(r.nome||'Sem nome')} · ${escapeHtml(r.categoria)} · vencido em ${formatDateBR(r.date)}</span>
-      <span class="valor" style="color:${r.valor>=0?'var(--green)':'var(--red)'}">${fmtBRL(r.valor)}</span>
-      <button class="btn btn-primary btn-sm" onclick="abrirColocarNoFluxoPopup('${r.chave.replace(/'/g,"\\'")}')">Colocar no fluxo</button>
-    </div>`).join('') : '<div style="color:var(--text3);font-size:12.5px;">Nenhum título em aberto pendente.</div>';
-
-  const htmlJaNoFluxo = jaNoFluxo.length ? jaNoFluxo.map(r=>`
-    <div class="fc-sim-entry" style="gap:10px;">
-      <span class="desc">${escapeHtml(r.nome||'Sem nome')} · ${escapeHtml(r.categoria)} · no fluxo em ${formatDateBR(fcTitulosResolvidos[r.chave])} (vencia em ${formatDateBR(r.date)})</span>
-      <span class="valor" style="color:var(--text3);">${fmtBRL(r.valor)}</span>
-      <button class="btn btn-ghost btn-sm" onclick="voltarParaEmAberto('${r.chave.replace(/'/g,"\\'")}')">Voltar pra Em Aberto</button>
-    </div>`).join('') : '';
-
-  wrap.innerHTML = htmlPendentes + (jaNoFluxo.length ? `
-    <div style="margin-top:16px;padding-top:10px;border-top:1px solid var(--border);font-weight:700;font-size:12.5px;color:var(--text2);">Já colocados no fluxo</div>
-    ${htmlJaNoFluxo}` : '');
+  const termo=normalizeTxt(termoBusca).trim();
+  const filtrados=fcTitulosAbertoRowsAtual.filter(r=>!termo||normalizeTxt([r.nome,r.categoria,r.documento].join(' ')).includes(termo));
+  const ordenados=filtrados.slice().sort((a,b)=>a.date.localeCompare(b.date)||Math.abs(b.valor)-Math.abs(a.valor));
+  const total=fcTitulosAbertoRowsAtual.reduce((s,r)=>s+r.valor,0);
+  const cats={};fcTitulosAbertoRowsAtual.forEach(r=>{cats[r.categoria||'Sem categoria']=(cats[r.categoria||'Sem categoria']||0)+r.valor;});
+  const porCategoria=Object.entries(cats).sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]));
+  const catsHtml=porCategoria.map(([c,v])=>`<tr><td>${escapeHtml(c)}</td><td class="num" style="color:${v>=0?'#4F8F3A':'var(--red)'}">${fmtBRL(v)}</td><td class="num">${total?(Math.abs(v)/Math.abs(total)*100).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1}):'0,0'}%</td><td class="num">${fcTitulosAbertoRowsAtual.filter(r=>(r.categoria||'Sem categoria')===c).length}</td></tr>`).join('');
+  const linhasHtml=ordenados.map(r=>{
+    const status=tituloStatus_(r);const pct=total?Math.abs(r.valor)/Math.abs(total)*100:0;
+    const statusHtml=status==='aberto'?'<span class="fc-tag-aberto">⏳ Em aberto</span>':status==='fluxo'?`<span class="fc-tag-fluxo">✓ No fluxo · ${formatDateBR(fcTitulosResolvidos[r.chave])}</span>`:'<span class="fc-tag-removido">🚫 Removido do fluxo</span>';
+    const acao=status==='aberto'
+      ? `<button class="btn btn-primary btn-sm fc-titulo-acao" onclick="abrirColocarNoFluxoPopup('${r.chave.replace(/'/g,"\\'")}')">Colocar no fluxo</button>`
+      : status==='fluxo'
+        ? `<div class="fc-titulo-acao" style="display:flex;gap:5px;"><button class="btn btn-primary btn-sm" onclick="abrirGerenciarTituloNoFluxo('${r.chave.replace(/'/g,"\\'")}')">Gerenciar</button><button class="btn btn-ghost btn-sm" onclick="voltarParaEmAberto('${r.chave.replace(/'/g,"\\'")}')">Voltar</button></div>`
+        : `<button class="btn btn-ghost btn-sm fc-titulo-acao" onclick="voltarParaEmAberto('${r.chave.replace(/'/g,"\\'")}')">Voltar pra Em Aberto</button>`;
+    return `<tr><td>${formatDateBR(r.date)}</td><td>${escapeHtml(r.categoria||'Sem categoria')}</td><td class="wrap">${escapeHtml(r.nome||'Sem nome')}</td><td>${escapeHtml(r.documento||'')}</td><td>${statusHtml}</td><td class="num">${pct.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%</td><td>${renderTituloObsHtml_(r)}</td><td class="valor-modal" style="color:${r.valor>=0?'#4F8F3A':'var(--red)'}">${fmtNumeroFicha(r.valor)}</td><td>${acao}</td></tr>`;
+  }).join('');
+  wrap.innerHTML=`
+    <div class="fc-detail-summary"><div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${fmtBRL(total)}</div><div class="fc-detail-kpi-lbl">Total em aberto</div></div><div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${porCategoria.length}</div><div class="fc-detail-kpi-lbl">Categorias com movimento</div></div><div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${fcTitulosAbertoRowsAtual.length}</div><div class="fc-detail-kpi-lbl">Títulos</div></div></div>
+    <div style="font-size:12.5px;font-weight:800;margin:12px 0 6px;text-transform:uppercase;">Por categoria</div><table class="fc-detail-table"><thead><tr><th>Categoria</th><th class="num">Valor</th><th class="num">%</th><th class="num">Itens</th></tr></thead><tbody>${catsHtml||'<tr><td colspan="4">Nenhum título.</td></tr>'}</tbody></table>
+    <div class="fc-titulos-toolbar" id="fcTitulosBuscaWrap"><b style="font-size:12.5px;text-transform:uppercase;">Lançamentos</b><div><input class="fc-titulos-search" value="${escapeHtml(termoBusca)}" placeholder="🔎 Buscar por nome, categoria ou documento..." oninput="renderTitulosAbertoLista(this.value)"> <span style="font-size:11px;color:var(--text3);">${termo?filtrados.length+' de '+fcTitulosAbertoRowsAtual.length:''}</span></div></div>
+    <div class="fc-detail-list"><table class="fc-detail-table"><thead><tr><th>Vencimento</th><th>Categoria</th><th>Nome</th><th>Documento</th><th>Status</th><th class="num">%</th><th>Observação</th><th class="num">Valor</th><th>Ação</th></tr></thead><tbody>${linhasHtml||'<tr><td colspan="9">Nenhum título encontrado.</td></tr>'}</tbody></table></div>`;
 }
 function voltarParaEmAberto(chave){
   if(!confirm('Voltar esse título pra "Em Aberto"? Ele sai do fluxo e volta a não contar em nenhum total, até você colocar de novo.')) return;
+  const original=rowsAtrasados.find(r=>r.chave===chave);
+  if(original){
+    const rowResolvida=tituloResolvidoRow_(original);
+    fcExclusoes=fcExclusoes.filter(ex=>!fcExclusaoMatchesRow(ex,rowResolvida));
+    localStorage.setItem('jambuzada_fc_exclusoes',JSON.stringify(fcExclusoes));
+  }
   delete fcTitulosResolvidos[chave];
   localStorage.setItem('jambuzada_fc_titulos_resolvidos', JSON.stringify(fcTitulosResolvidos));
   renderTitulosAbertoLista();
@@ -2571,6 +2655,50 @@ function confirmarColocarNoFluxo(){
   renderTitulosAbertoLista();
   buildAndRenderTable();
 }
+
+function abrirGerenciarTituloNoFluxo(chave){
+  const r=rowsAtrasados.find(x=>x.chave===chave);if(!r)return;
+  const resolvido=tituloResolvidoRow_(r);
+  fcTirarPopupContext={nome:resolvido.nome||resolvido.categoria||'Sem nome',data:resolvido.date,valor:Math.abs(Number(resolvido.valor)||0),ajusteManualId:null,sinalOriginal:Number(resolvido.valor)<0?-1:1};
+  el('fcTirarPopupInfo').innerHTML=`${escapeFichaHtml(fcTirarPopupContext.nome)} · ${formatDateBR(fcTirarPopupContext.data)} · ${fmtBRL(resolvido.valor)}`;
+  el('fcTirarPopupNovaData').value='';fcRateioPopupParcelas=null;renderRateioPopup();
+  fecharTitulosAbertoModal();el('fcTirarPopup').classList.add('show');
+}
+
+function openTituloObsPopup_(chave){
+  const r=rowsAtrasados.find(x=>x.chave===chave);if(!r)return;
+  fcTituloObsPopupChave=chave;const obs=fcTituloObsCache[chave];const texto=obs?.payload?.texto||'';
+  const podeEditar=!obs||obs.autor_email===currentUser.email||gpsStaff;
+  el('fcTituloObsPopupTitulo').textContent=texto?'📝 Observação do título':'＋ Nova observação';
+  el('fcTituloObsPopupSub').textContent=r.documento||'Sem documento';
+  el('fcTituloObsPopupInfo').innerHTML=`<b>${escapeHtml(r.nome||'Sem nome')}</b><br>Vencimento: ${formatDateBR(r.date)} · Valor: ${fmtBRL(r.valor)}`;
+  const autor=obs?(obs.autor_nome||obs.autor_email||'Usuário'):'';const dataObs=obs?.criado_em?new Date(obs.criado_em).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}):'';
+  el('fcTituloObsPopupMeta').textContent=texto?`Registrado por ${autor}${dataObs?' em '+dataObs:''}`:'Ainda não há observação para este título.';
+  el('fcTituloObsPopupTexto').value=texto;el('fcTituloObsPopupTexto').disabled=!podeEditar;
+  el('fcTituloObsPopupSalvar').style.display=podeEditar?'inline-flex':'none';el('fcTituloObsPopupExcluir').style.display=obs&&podeEditar?'inline-flex':'none';
+  el('tituloObsModal').classList.add('show');if(podeEditar)setTimeout(()=>el('fcTituloObsPopupTexto').focus(),50);
+}
+function closeTituloObsPopup_(){el('tituloObsModal').classList.remove('show');fcTituloObsPopupChave=null;}
+async function salvarTituloObsPopup_(){
+  const chave=fcTituloObsPopupChave;if(!chave)return;const texto=el('fcTituloObsPopupTexto').value.trim();if(!texto){alert('Digite a observação antes de salvar.');return;}
+  const existente=fcTituloObsCache[chave];const mensagem=FC_TITULO_OBS_PREFIX+JSON.stringify({chave,texto});let error;
+  if(existente){if(existente.autor_email!==currentUser.email&&!gpsStaff){alert('Somente quem criou a observação ou o time GPS pode editá-la.');return;}({error}=await sb.from('jambuzada_fluxo_mensagens').update({mensagem,autor_nome:nameFromEmail(currentUser.email),autor_email:currentUser.email}).eq('id',existente.id));}
+  else({error}=await sb.from('jambuzada_fluxo_mensagens').insert({autor_email:currentUser.email,autor_nome:nameFromEmail(currentUser.email),tipo:'titulo_observacao',mensagem,status:'aberto'}));
+  if(error){alert('Erro ao salvar observação: '+error.message);return;}closeTituloObsPopup_();await loadTituloObservacoes_(fcTitulosAbertoRowsAtual);renderTitulosAbertoLista(el('fcTitulosBuscaWrap')?.querySelector('input')?.value||'');
+}
+async function excluirTituloObsPopup_(){
+  const existente=fcTituloObsCache[fcTituloObsPopupChave];if(!existente)return;if(existente.autor_email!==currentUser.email&&!gpsStaff){alert('Somente quem criou a observação ou o time GPS pode excluí-la.');return;}if(!confirm('Excluir esta observação?'))return;
+  const {error}=await sb.from('jambuzada_fluxo_mensagens').delete().eq('id',existente.id);if(error){alert('Erro ao excluir observação: '+error.message);return;}closeTituloObsPopup_();await loadTituloObservacoes_(fcTitulosAbertoRowsAtual);renderTitulosAbertoLista();
+}
+function imprimirTitulosAberto(){window.print();}
+function exportarTitulosAbertoExcel(){
+  if(typeof XLSX==='undefined'){alert('Não consegui carregar a biblioteca de Excel. Recarregue a página e tente novamente.');return;}
+  const termo=normalizeTxt(el('fcTitulosBuscaWrap')?.querySelector('input')?.value||'').trim();
+  const lista=fcTitulosAbertoRowsAtual.filter(r=>!termo||normalizeTxt([r.nome,r.categoria,r.documento].join(' ')).includes(termo));if(!lista.length){alert('Não há títulos para exportar.');return;}
+  const dados=lista.map(r=>{const status=tituloStatus_(r);return {'Vencimento':formatDateBR(r.date),'Categoria':r.categoria||'Sem categoria','Nome':r.nome||'Sem nome','Documento':r.documento||'','Status':status==='aberto'?'Em aberto':status==='fluxo'?'No fluxo em '+formatDateBR(fcTitulosResolvidos[r.chave]):'Removido do fluxo','Observação':fcTituloObsCache[r.chave]?.payload?.texto||'','Valor':r.valor};});
+  const ws=XLSX.utils.json_to_sheet(dados);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Títulos em Aberto');XLSX.writeFile(wb,`Titulos_em_Aberto_${fcTitulosAbertoTipoAtual==='receber'?'Receber':'Pagar'}.xlsx`);
+}
+el('tituloObsModal')?.addEventListener('click',e=>{if(e.target.id==='tituloObsModal')closeTituloObsPopup_();});
 
 const buildAndRenderTableOriginal = buildAndRenderTable;
 buildAndRenderTable = function(){
