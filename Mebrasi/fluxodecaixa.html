@@ -1548,6 +1548,12 @@ function renderFcKpiStrip(){
   const entraNosCards = r =>
     normalizeTxt(r.categoria) !== normalizeTxt('Transferências à Débito');
 
+  // Exceção exclusiva da Gymis no card Pago: o relatório CAP/PG da empresa
+  // considera "Transferências à Débito" no total pago. Ryngavi, Multicopos
+  // e os demais cards continuam seguindo a regra geral de exclusão acima.
+  const entraNoCardPago = r =>
+    r.empresa === 'gymis' || entraNosCards(r);
+
   // O card Pago passa a usar as mesmas linhas já classificadas pelo fluxo:
   // origem PG + lado PAGAMENTOS + regras de total. Assim ele acompanha
   // automaticamente categorias novas e não depende de uma lista fixa de contas.
@@ -1556,7 +1562,7 @@ function renderFcKpiStrip(){
       r.origem === 'pg' &&
       isPagamento(r) &&
       contaNoTotal_(r) &&
-      entraNosCards(r) &&
+      entraNoCardPago(r) &&
       r.date &&
       r.date.slice(0,7) === mesAtual &&
       r.date < HOJE_ISO
