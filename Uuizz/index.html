@@ -201,10 +201,11 @@ body{
 .app-hero p{font-size:13px;color:var(--text2);line-height:1.6;max-width:560px;margin:0 auto;}
 .app-actions{display:grid;grid-template-columns:1fr;gap:12px;margin-top:8px;}
 .app-action{
-  display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--text);
+  display:flex;align-items:center;justify-content:flex-start;gap:12px;text-align:left;text-decoration:none;color:var(--text);
   background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:14px;
   padding:16px;cursor:pointer;transition:all .2s;font-family:'Sora',sans-serif;
 }
+.app-action > span:not(.app-action-icon){display:block;flex:1;min-width:0;text-align:left;}
 .app-action:hover{transform:translateY(-1px);background:rgba(255,255,255,0.065);border-color:rgba(58,233,209,0.28);}
 .app-action.primary{grid-column:1/-1;background:linear-gradient(90deg,rgba(66,129,191,0.20),rgba(58,233,209,0.14));border-color:rgba(58,233,209,0.28);}
 .app-action-icon{
