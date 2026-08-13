@@ -2394,11 +2394,11 @@ function renderRateioPopup(){
       <div style="font-size:11px;font-weight:800;margin-bottom:6px;">GERAR PARCELAS AUTOMATICAMENTE</div>
       <div style="display:grid;grid-template-columns:130px 110px minmax(155px,1fr) 130px;gap:8px;align-items:end;">
         <div><label style="font-size:9.5px;color:var(--text3);font-weight:700;display:block;margin-bottom:3px;">VALOR ANTECIPADO</label><input type="text" inputmode="decimal" id="fcRateioAutoValorFixo" placeholder="Ex.: 200,00" style="width:100%;" oninput="atualizarPreviaAntecipacao_()"></div>
-        <div><label style="font-size:9.5px;color:var(--text3);font-weight:700;display:block;margin-bottom:3px;">QTD. ANTECIPAÇÕES</label><input type="number" id="fcRateioAutoFixas" min="1" max="120" value="1" style="width:100%;" oninput="atualizarPreviaAntecipacao_()"></div>
-        <div><label style="font-size:9.5px;color:var(--text3);font-weight:700;display:block;margin-bottom:3px;">PRIMEIRA DATA</label><input type="date" id="fcRateioAutoInicio" value="${fcRateioPopupParcelas[0]?.data||fcTirarPopupContext.data}" style="width:100%;"></div>
-        <div><label style="font-size:9.5px;color:var(--text3);font-weight:700;display:block;margin-bottom:3px;">PERIODICIDADE</label><select id="fcRateioAutoIntervalo" style="width:100%;"><option value="mensal">Mensal</option><option value="quinzenal">Quinzenal</option><option value="semanal">Semanal</option><option value="diario">Diário útil</option></select></div>
+        <div><label style="font-size:9.5px;color:var(--text3);font-weight:700;display:block;margin-bottom:3px;">QTD. ANTECIPAÇÕES</label><input type="number" id="fcRateioAutoFixas" min="1" max="120" value="1" style="width:100%;" oninput="atualizarSugestaoVencimento_()"></div>
+        <div><label style="font-size:9.5px;color:var(--text3);font-weight:700;display:block;margin-bottom:3px;">PRIMEIRA DATA</label><input type="date" id="fcRateioAutoInicio" value="${fcRateioPopupParcelas[0]?.data||fcTirarPopupContext.data}" style="width:100%;" onchange="atualizarSugestaoVencimento_()"></div>
+        <div><label style="font-size:9.5px;color:var(--text3);font-weight:700;display:block;margin-bottom:3px;">PERIODICIDADE</label><select id="fcRateioAutoIntervalo" style="width:100%;" onchange="atualizarSugestaoVencimento_()"><option value="diario">Diário útil</option><option value="semanal">Semanal</option><option value="quinzenal">Quinzenal</option><option value="mensal">Mensal</option></select></div>
       </div>
-      <div style="margin-top:6px;"><label style="font-size:9.5px;color:var(--text3);font-weight:700;display:block;margin-bottom:3px;">VENCIMENTO FINAL — PARCELA COM O SALDO</label><input type="date" id="fcRateioAutoVencimento" value="${fcTirarPopupContext.data}" style="width:100%;" oninput="atualizarPreviaAntecipacao_()"></div>
+      <div style="margin-top:6px;"><label style="font-size:9.5px;color:var(--text3);font-weight:700;display:block;margin-bottom:3px;">DATA DA ÚLTIMA PARCELA — EDITÁVEL</label><input type="date" id="fcRateioAutoVencimento" value="" style="width:100%;" oninput="atualizarPreviaAntecipacao_()"></div>
       <div id="fcRateioAutoAjuda" style="font-size:10.5px;color:var(--text3);margin-top:6px;">Informe o valor, a quantidade de antecipações e o vencimento final.</div>
       <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:6px;" onclick="gerarParcelasAutomaticasPopup()">Gerar parcelas</button>
     </div>
@@ -2409,6 +2409,7 @@ function renderRateioPopup(){
       <button class="btn btn-ghost btn-sm" style="flex:1;" onclick="cancelarRateioNaFicha()">Cancelar rateio</button>
       <button class="btn btn-primary btn-sm" style="flex:1;" onclick="confirmarRateioNaFicha()">Confirmar rateio</button>
     </div>`;
+  setTimeout(()=>{if(el('fcRateioAutoVencimento')&&!el('fcRateioAutoVencimento').value)atualizarSugestaoVencimento_();},0);
 }
 function iniciarRateioNaFicha(){
   if(!fcTirarPopupContext) return;
@@ -2432,6 +2433,17 @@ function atualizarPreviaAntecipacao_(){
   ajuda.style.color='var(--cyan)';ajuda.innerHTML=`Prévia: <b>${qtd} × ${fmtBRL(fixo)}</b> antecipados + parcela final de <b>${fmtBRL(saldo)}</b>.`;
 }
 function proximoDiaUtilISO_(dataISO){const d=new Date(dataISO+'T00:00:00');while(d.getDay()===0||d.getDay()===6)d.setDate(d.getDate()+1);return isoLocal(d);}
+function atualizarSugestaoVencimento_(){
+  const inicio=el('fcRateioAutoInicio')?.value,qtd=Math.max(1,parseInt(el('fcRateioAutoFixas')?.value,10)||1),intervalo=el('fcRateioAutoIntervalo')?.value||'diario',campo=el('fcRateioAutoVencimento');if(!inicio||!campo)return;
+  let sugerida;
+  if(intervalo==='mensal') sugerida=addMesesISO_(inicio,qtd);
+  else if(intervalo==='diario'){
+    const d=new Date(inicio+'T00:00:00');let cont=0;while(cont<qtd){d.setDate(d.getDate()+1);if(d.getDay()!==0&&d.getDay()!==6)cont++;}sugerida=isoLocal(d);
+  }else{
+    const d=new Date(inicio+'T00:00:00');d.setDate(d.getDate()+qtd*(intervalo==='quinzenal'?15:7));sugerida=proximoDiaUtilISO_(isoLocal(d));
+  }
+  campo.value=proximoDiaUtilISO_(sugerida);atualizarPreviaAntecipacao_();
+}
 function gerarParcelasAutomaticasPopup(){
   if(!fcTirarPopupContext)return;
   if(!validarCamposGeradorRateio_()){alert('Confira o valor antecipado, a quantidade e o vencimento final. As antecipações precisam deixar um saldo positivo para a última parcela.');return;}
