@@ -173,6 +173,13 @@ html.light .fc-day-num{color:#1f2a3d;}
 #fcTitulosAbertoLista .fc-detail-table th:nth-child(6){width:100px;}
 #fcTitulosAbertoLista .fc-detail-table th:nth-child(7){width:110px;}
 #fcTitulosAbertoLista .fc-detail-table th:nth-child(8){width:150px;}
+#fcTitulosAbertoLista .fc-detail-table.fc-titulos-receber th:nth-child(1){width:88px;}
+#fcTitulosAbertoLista .fc-detail-table.fc-titulos-receber th:nth-child(2){width:auto;}
+#fcTitulosAbertoLista .fc-detail-table.fc-titulos-receber th:nth-child(3){width:125px;}
+#fcTitulosAbertoLista .fc-detail-table.fc-titulos-receber th:nth-child(4){width:48px;}
+#fcTitulosAbertoLista .fc-detail-table.fc-titulos-receber th:nth-child(5){width:100px;}
+#fcTitulosAbertoLista .fc-detail-table.fc-titulos-receber th:nth-child(6){width:110px;}
+#fcTitulosAbertoLista .fc-detail-table.fc-titulos-receber th:nth-child(7){width:150px;}
 #fcTitulosAbertoLista .fc-detail-table th:last-child,#fcTitulosAbertoLista .fc-detail-table td:last-child{position:sticky;right:0;z-index:2;background:var(--navy2);box-shadow:-8px 0 12px rgba(0,0,0,.08);}
 html.light #fcTitulosAbertoLista .fc-detail-table th:last-child,html.light #fcTitulosAbertoLista .fc-detail-table td:last-child{background:#fff;}
 #fcTitulosAbertoLista .fc-titulo-acao{max-width:100%;font-size:10.5px;padding-left:8px;padding-right:8px;}
@@ -2694,12 +2701,14 @@ function fecharTitulosAbertoModal(){
 }
 function renderTitulosAbertoLista(termoBusca=''){
   const wrap = el('fcTitulosAbertoLista'); if(!wrap) return;
+  const ehReceber=fcTitulosAbertoTipoAtual==='receber';
   const termo=normalizeTxt(termoBusca).trim();
-  const filtrados=fcTitulosAbertoRowsAtual.filter(r=>!termo||normalizeTxt([r.nome,r.categoria].join(' ')).includes(termo));
+  const filtrados=fcTitulosAbertoRowsAtual.filter(r=>!termo||normalizeTxt(ehReceber?r.nome:[r.nome,r.categoria].join(' ')).includes(termo));
   const ordenados=filtrados.slice().sort((a,b)=>a.date.localeCompare(b.date)||Math.abs(b.valor)-Math.abs(a.valor));
   const total=fcTitulosAbertoRowsAtual.reduce((s,r)=>s+r.valor,0);
   const cats={};fcTitulosAbertoRowsAtual.forEach(r=>{cats[r.categoria||'Sem categoria']=(cats[r.categoria||'Sem categoria']||0)+r.valor;});
   const porCategoria=Object.entries(cats).sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]));
+  const qtdClientes=new Set(fcTitulosAbertoRowsAtual.map(r=>normalizeTxt(r.nome||'')).filter(Boolean)).size;
   const linhasHtml=ordenados.map(r=>{
     const status=tituloStatus_(r);const pct=total?Math.abs(r.valor)/Math.abs(total)*100:0;
     const statusHtml=status==='aberto'?'<span class="fc-tag-aberto">⏳ Em aberto</span>':status==='fluxo'?`<span class="fc-tag-fluxo">✓ No fluxo · ${formatDateBR(fcTitulosResolvidos[r.chave])}</span>`:'<span class="fc-tag-removido">🚫 Removido do fluxo</span>';
@@ -2708,12 +2717,12 @@ function renderTitulosAbertoLista(termoBusca=''){
       : status==='fluxo'
         ? `<div class="fc-titulo-acao" style="display:flex;gap:5px;"><button class="btn btn-primary btn-sm" onclick="abrirGerenciarTituloNoFluxo('${r.chave.replace(/'/g,"\\'")}')">Gerenciar</button><button class="btn btn-ghost btn-sm" onclick="voltarParaEmAberto('${r.chave.replace(/'/g,"\\'")}')">Voltar</button></div>`
         : `<button class="btn btn-ghost btn-sm fc-titulo-acao" onclick="voltarParaEmAberto('${r.chave.replace(/'/g,"\\'")}')">Voltar pra Em Aberto</button>`;
-    return `<tr><td>${formatDateBR(r.date)}</td><td>${escapeHtml(r.categoria||'Sem categoria')}</td><td class="wrap">${escapeHtml(r.nome||'Sem nome')}</td><td>${statusHtml}</td><td class="num">${pct.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%</td><td>${renderTituloObsHtml_(r)}</td><td class="valor-modal" style="color:${r.valor>=0?'#4F8F3A':'var(--red)'}">${fmtNumeroFicha(r.valor)}</td><td>${acao}</td></tr>`;
+    return `<tr><td>${formatDateBR(r.date)}</td>${ehReceber?'':`<td>${escapeHtml(r.categoria||'Sem categoria')}</td>`}<td class="wrap">${escapeHtml(r.nome||'Sem nome')}</td><td>${statusHtml}</td><td class="num">${pct.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%</td><td>${renderTituloObsHtml_(r)}</td><td class="valor-modal" style="color:${r.valor>=0?'#4F8F3A':'var(--red)'}">${fmtNumeroFicha(r.valor)}</td><td>${acao}</td></tr>`;
   }).join('');
   wrap.innerHTML=`
-    <div class="fc-detail-summary"><div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${fmtBRL(total)}</div><div class="fc-detail-kpi-lbl">Total em aberto</div></div><div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${porCategoria.length}</div><div class="fc-detail-kpi-lbl">Categorias com movimento</div></div><div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${fcTitulosAbertoRowsAtual.length}</div><div class="fc-detail-kpi-lbl">Títulos</div></div></div>
-    <div class="fc-titulos-toolbar" id="fcTitulosBuscaWrap"><b style="font-size:12.5px;text-transform:uppercase;">Lançamentos</b><div><input class="fc-titulos-search" value="${escapeHtml(termoBusca)}" placeholder="🔎 Buscar por nome ou categoria..." oninput="renderTitulosAbertoLista(this.value)"> <span style="font-size:11px;color:var(--text3);">${termo?filtrados.length+' de '+fcTitulosAbertoRowsAtual.length:''}</span></div></div>
-    <div class="fc-detail-list"><table class="fc-detail-table"><thead><tr><th>Vencimento</th><th>Categoria</th><th>Nome</th><th>Status</th><th class="num">%</th><th>Observação</th><th class="num">Valor</th><th>Ação</th></tr></thead><tbody>${linhasHtml||'<tr><td colspan="8">Nenhum título encontrado.</td></tr>'}</tbody></table></div>`;
+    <div class="fc-detail-summary"><div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${fmtBRL(total)}</div><div class="fc-detail-kpi-lbl">Total em aberto</div></div><div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${ehReceber?qtdClientes:porCategoria.length}</div><div class="fc-detail-kpi-lbl">${ehReceber?'Clientes com títulos':'Categorias com movimento'}</div></div><div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${fcTitulosAbertoRowsAtual.length}</div><div class="fc-detail-kpi-lbl">Títulos</div></div></div>
+    <div class="fc-titulos-toolbar" id="fcTitulosBuscaWrap"><b style="font-size:12.5px;text-transform:uppercase;">Lançamentos</b><div><input class="fc-titulos-search" value="${escapeHtml(termoBusca)}" placeholder="${ehReceber?'🔎 Buscar por nome...':'🔎 Buscar por nome ou categoria...'}" oninput="renderTitulosAbertoLista(this.value)"> <span style="font-size:11px;color:var(--text3);">${termo?filtrados.length+' de '+fcTitulosAbertoRowsAtual.length:''}</span></div></div>
+    <div class="fc-detail-list"><table class="fc-detail-table ${ehReceber?'fc-titulos-receber':''}"><thead><tr><th>Vencimento</th>${ehReceber?'':'<th>Categoria</th>'}<th>Nome</th><th>Status</th><th class="num">%</th><th>Observação</th><th class="num">Valor</th><th>Ação</th></tr></thead><tbody>${linhasHtml||`<tr><td colspan="${ehReceber?7:8}">Nenhum título encontrado.</td></tr>`}</tbody></table></div>`;
 }
 function voltarParaEmAberto(chave){
   if(!confirm('Voltar esse título pra "Em Aberto"? Ele sai do fluxo e volta a não contar em nenhum total, até você colocar de novo.')) return;
@@ -2790,8 +2799,9 @@ function imprimirTitulosAberto(){window.print();}
 function exportarTitulosAbertoExcel(){
   if(typeof XLSX==='undefined'){alert('Não consegui carregar a biblioteca de Excel. Recarregue a página e tente novamente.');return;}
   const termo=normalizeTxt(el('fcTitulosBuscaWrap')?.querySelector('input')?.value||'').trim();
-  const lista=fcTitulosAbertoRowsAtual.filter(r=>!termo||normalizeTxt([r.nome,r.categoria].join(' ')).includes(termo));if(!lista.length){alert('Não há títulos para exportar.');return;}
-  const dados=lista.map(r=>{const status=tituloStatus_(r);return {'Vencimento':formatDateBR(r.date),'Categoria':r.categoria||'Sem categoria','Nome':r.nome||'Sem nome','Status':status==='aberto'?'Em aberto':status==='fluxo'?'No fluxo em '+formatDateBR(fcTitulosResolvidos[r.chave]):'Removido do fluxo','Observação':fcTituloObsCache[r.chave]?.payload?.texto||'','Valor':r.valor};});
+  const ehReceber=fcTitulosAbertoTipoAtual==='receber';
+  const lista=fcTitulosAbertoRowsAtual.filter(r=>!termo||normalizeTxt(ehReceber?r.nome:[r.nome,r.categoria].join(' ')).includes(termo));if(!lista.length){alert('Não há títulos para exportar.');return;}
+  const dados=lista.map(r=>{const status=tituloStatus_(r);return {'Vencimento':formatDateBR(r.date),...(ehReceber?{}:{'Categoria':r.categoria||'Sem categoria'}),'Nome':r.nome||'Sem nome','Status':status==='aberto'?'Em aberto':status==='fluxo'?'No fluxo em '+formatDateBR(fcTitulosResolvidos[r.chave]):'Removido do fluxo','Observação':fcTituloObsCache[r.chave]?.payload?.texto||'','Valor':r.valor};});
   const ws=XLSX.utils.json_to_sheet(dados);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Títulos em Aberto');XLSX.writeFile(wb,`Titulos_em_Aberto_${fcTitulosAbertoTipoAtual==='receber'?'Receber':'Pagar'}.xlsx`);
 }
 el('tituloObsModal')?.addEventListener('click',e=>{if(e.target.id==='tituloObsModal')closeTituloObsPopup_();});
