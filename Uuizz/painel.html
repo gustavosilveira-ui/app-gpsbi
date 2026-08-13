@@ -77,10 +77,11 @@ html.light body::before{background:radial-gradient(circle at 80% 6%,rgba(54,226,
 .page-nav a{padding:7px 14px;border-radius:999px;font-size:12px;font-weight:600;color:var(--text3);white-space:nowrap;transition:all .15s;text-decoration:none;}
 .page-nav a:hover{background:var(--navy3);color:var(--text);}
 .page-nav a.active{background:linear-gradient(90deg,var(--blue),var(--cyan));color:#fff;}
-.filters-bar-outer{overflow:visible;margin-bottom:20px;}
-.filters-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:0;padding:14px 18px;background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius);width:100%;}
+.filters-bar-outer{overflow-x:auto;overflow-y:hidden;margin-bottom:20px;}
+.filters-bar{display:flex;align-items:center;gap:12px;flex-wrap:nowrap;margin-bottom:0;padding:14px 18px;background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius);width:100%;min-width:max-content;}
 .filter-label{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;flex:none;white-space:nowrap;}
-.month-select,.vendedor-select,.canal-select{background:var(--navy3);border:1px solid var(--border2);color:var(--text);border-radius:8px;padding:7px 12px;font-family:'Sora',sans-serif;font-size:12.5px;cursor:pointer;flex:none;width:auto;min-width:170px;}
+.month-select,.vendedor-select,.canal-select{background:var(--navy3);border:1px solid var(--border2);color:var(--text);border-radius:8px;padding:7px 12px;font-family:'Sora',sans-serif;font-size:12.5px;cursor:pointer;flex:none;width:auto;}
+.month-select{min-width:170px}.vendedor-select{min-width:180px}.canal-select{min-width:110px}
 .badge-role{margin-left:auto;padding:5px 12px;border-radius:999px;font-size:11px;font-weight:600;flex:none;white-space:nowrap;}
 
 /* ===== Observações, Avisos e Solicitações (mesmo padrão do Fluxo de Caixa) ===== */
@@ -1329,6 +1330,20 @@ function render(){
   const totalCap = capPeriodo.reduce((s,r)=>s+r.total,0);
   const totalFat = fatPeriodo.reduce((s,r)=>s+r.total,0);
 
+  // Para o card Captada, mostra apenas o que ainda precisa ser faturado.
+  // A Faturada segue a data real de faturamento e a situação Faturado.
+  const captadaPendenteRows = capPeriodo.filter(r=>{
+    const s=normalizeTxt(r.situacao);
+    return s==='aguardando faturamento' || s==='faturamento atrasado';
+  });
+  const totalCaptadoPendente = captadaPendenteRows.reduce((s,r)=>s+r.total,0);
+  const pedidosCaptadosPendentes = new Set(
+    captadaPendenteRows.map(r=>String(r.pedido||'').trim()).filter(Boolean)
+  ).size;
+  const notasFaturadasPeriodo = new Set(
+    fatPeriodo.map(r=>String(r.nf||'').trim()).filter(v=>v && normalizeTxt(v)!=='n/d')
+  ).size;
+
   const totalMeta = selectedMes
     ? (vendFilter ? getMeta(selectedMes, vendFilter) : allVendors.reduce((s,v)=>s+getMeta(selectedMes,v),0))
     : totalMetaYears(vendFilter);
@@ -1336,10 +1351,10 @@ function render(){
   const pedidosUnicos = new Set(capPeriodo.map(r=>r.pedido)).size;
   const ticketMedio = pedidosUnicos>0 ? totalCap/pedidosUnicos : 0;
 
-  el('kpiCaptado').textContent = fmtBRL(totalCap);
-  el('kpiCaptadoSub').textContent = '';
+  el('kpiCaptado').textContent = fmtBRL(totalCaptadoPendente);
+  el('kpiCaptadoSub').textContent = `${pedidosCaptadosPendentes.toLocaleString('pt-BR')} pedido${pedidosCaptadosPendentes===1?'':'s'} único${pedidosCaptadosPendentes===1?'':'s'} pendente${pedidosCaptadosPendentes===1?'':'s'}`;
   el('kpiFaturado').textContent = fmtBRL(totalFat);
-  el('kpiFaturadoSub').textContent = '';
+  el('kpiFaturadoSub').textContent = `${notasFaturadasPeriodo.toLocaleString('pt-BR')} nota${notasFaturadasPeriodo===1?'':'s'} fisca${notasFaturadasPeriodo===1?'l':'is'} única${notasFaturadasPeriodo===1?'':'s'}`;
   el('kpiClientes').textContent = new Set(capPeriodo.map(r=>r.cliente).filter(Boolean)).size.toLocaleString('pt-BR');
   el('kpiItens').textContent = capPeriodo.reduce((s,r)=>s+(r.qtd||1),0).toLocaleString('pt-BR',{maximumFractionDigits:0});
   el('kpiPedidos').textContent = pedidosUnicos.toLocaleString('pt-BR');
