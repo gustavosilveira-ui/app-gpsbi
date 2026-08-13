@@ -2392,17 +2392,14 @@ function renderRateioPopup(){
     <div style="font-size:11.5px;color:var(--text3);margin-bottom:8px;">Distribua manualmente ou gere todas as parcelas de uma vez.</div>
     <div style="background:var(--navy3);border-radius:10px;padding:9px;margin-bottom:9px;">
       <div style="font-size:11px;font-weight:800;margin-bottom:6px;">GERAR PARCELAS AUTOMATICAMENTE</div>
-      <div style="display:grid;grid-template-columns:130px 100px minmax(155px,1fr) 130px;gap:8px;align-items:end;">
-        <div><label style="font-size:9.5px;color:var(--text3);font-weight:700;display:block;margin-bottom:3px;">VALOR PADRÃO</label><input type="text" inputmode="decimal" id="fcRateioAutoValorFixo" placeholder="Ex.: 200,00" style="width:100%;" oninput="sugerirQuantidadeRateio_()"></div>
-        <div><label style="font-size:9.5px;color:var(--text3);font-weight:700;display:block;margin-bottom:3px;">QTD. SUGERIDA</label><input type="number" id="fcRateioAutoQtd" min="2" max="120" value="${Math.max(2,fcRateioPopupParcelas.length)}" style="width:100%;" readonly></div>
+      <div style="display:grid;grid-template-columns:130px 110px minmax(155px,1fr) 130px;gap:8px;align-items:end;">
+        <div><label style="font-size:9.5px;color:var(--text3);font-weight:700;display:block;margin-bottom:3px;">VALOR ANTECIPADO</label><input type="text" inputmode="decimal" id="fcRateioAutoValorFixo" placeholder="Ex.: 200,00" style="width:100%;" oninput="atualizarPreviaAntecipacao_()"></div>
+        <div><label style="font-size:9.5px;color:var(--text3);font-weight:700;display:block;margin-bottom:3px;">QTD. ANTECIPAÇÕES</label><input type="number" id="fcRateioAutoFixas" min="1" max="120" value="1" style="width:100%;" oninput="atualizarPreviaAntecipacao_()"></div>
         <div><label style="font-size:9.5px;color:var(--text3);font-weight:700;display:block;margin-bottom:3px;">PRIMEIRA DATA</label><input type="date" id="fcRateioAutoInicio" value="${fcRateioPopupParcelas[0]?.data||fcTirarPopupContext.data}" style="width:100%;"></div>
         <div><label style="font-size:9.5px;color:var(--text3);font-weight:700;display:block;margin-bottom:3px;">PERIODICIDADE</label><select id="fcRateioAutoIntervalo" style="width:100%;"><option value="mensal">Mensal</option><option value="quinzenal">Quinzenal</option><option value="semanal">Semanal</option><option value="diario">Diário útil</option></select></div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;">
-        <div><label style="font-size:9.5px;color:var(--text3);font-weight:700;">QTD. COM VALOR PADRÃO</label><input type="number" id="fcRateioAutoFixas" min="0" max="${Math.max(1,fcRateioPopupParcelas.length-1)}" value="${Math.max(1,fcRateioPopupParcelas.length-1)}" style="width:100%;" oninput="validarCamposGeradorRateio_()"></div>
-        <div><label style="font-size:9.5px;color:var(--text3);font-weight:700;">QTD. FINAIS (SALDO)</label><input type="number" id="fcRateioAutoUltimas" value="1" style="width:100%;" readonly></div>
-      </div>
-      <div id="fcRateioAutoAjuda" style="font-size:10px;color:var(--text3);margin-top:5px;">Digite o valor padrão para receber a sugestão.</div>
+      <div style="margin-top:6px;"><label style="font-size:9.5px;color:var(--text3);font-weight:700;display:block;margin-bottom:3px;">VENCIMENTO FINAL — PARCELA COM O SALDO</label><input type="date" id="fcRateioAutoVencimento" value="${fcTirarPopupContext.data}" style="width:100%;" oninput="atualizarPreviaAntecipacao_()"></div>
+      <div id="fcRateioAutoAjuda" style="font-size:10.5px;color:var(--text3);margin-top:6px;">Informe o valor, a quantidade de antecipações e o vencimento final.</div>
       <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:6px;" onclick="gerarParcelasAutomaticasPopup()">Gerar parcelas</button>
     </div>
     ${linhas}
@@ -2422,46 +2419,54 @@ function addMesesISO_(dataISO,meses){
   const [a,m,d]=dataISO.split('-').map(Number);const alvo=new Date(a,m-1+meses,1);const ultimo=new Date(alvo.getFullYear(),alvo.getMonth()+1,0).getDate();alvo.setDate(Math.min(d,ultimo));return isoLocal(alvo);
 }
 function validarCamposGeradorRateio_(){
-  const qtd=parseInt(el('fcRateioAutoQtd')?.value,10)||2,fixasEl=el('fcRateioAutoFixas'),ultEl=el('fcRateioAutoUltimas'),ajuda=el('fcRateioAutoAjuda');if(!fixasEl||!ultEl)return false;
-  const fixas=parseInt(fixasEl.value,10);const valido=Number.isInteger(fixas)&&fixas>=0&&fixas<qtd;const finais=valido?qtd-fixas:0;ultEl.value=finais;
-  if(ajuda){ajuda.style.color=valido?'var(--text3)':'var(--red)';ajuda.textContent=valido?`${fixas} parcela(s) no valor padrão e ${finais} parcela(s) final(is) dividindo o saldo.`:`A quantidade padrão precisa ficar entre 0 e ${qtd-1}.`;}
+  const fixo=Math.abs(parseMoneyBR(el('fcRateioAutoValorFixo')?.value||'')),qtd=parseInt(el('fcRateioAutoFixas')?.value,10)||0,total=fcTirarPopupContext?.valor||0,venc=el('fcRateioAutoVencimento')?.value;
+  const valido=fixo>0&&qtd>=1&&fixo*qtd<total&&!!venc;
+  atualizarPreviaAntecipacao_();
   return valido;
 }
-function sugerirQuantidadeRateio_(){
-  const fixo=Math.abs(parseMoneyBR(el('fcRateioAutoValorFixo')?.value||'')),total=fcTirarPopupContext?.valor||0,qtdEl=el('fcRateioAutoQtd'),fixasEl=el('fcRateioAutoFixas');if(!qtdEl||!fixasEl)return;
-  if(!fixo){el('fcRateioAutoAjuda').textContent='Digite o valor padrão para receber a sugestão.';return;}
-  const qtd=Math.max(2,Math.min(120,Math.ceil(total/fixo)));qtdEl.value=qtd;fixasEl.max=qtd-1;fixasEl.value=qtd-1;validarCamposGeradorRateio_();
+function atualizarPreviaAntecipacao_(){
+  const fixo=Math.abs(parseMoneyBR(el('fcRateioAutoValorFixo')?.value||'')),qtd=parseInt(el('fcRateioAutoFixas')?.value,10)||0,total=fcTirarPopupContext?.valor||0,ajuda=el('fcRateioAutoAjuda');if(!ajuda)return;
+  const saldo=Math.round((total-fixo*qtd)*100)/100;
+  if(!fixo||!qtd){ajuda.style.color='var(--text3)';ajuda.textContent='Informe o valor e a quantidade de antecipações.';return;}
+  if(saldo<=0){ajuda.style.color='var(--red)';ajuda.textContent='As antecipações já atingem ou ultrapassam o valor do título.';return;}
+  ajuda.style.color='var(--cyan)';ajuda.innerHTML=`Prévia: <b>${qtd} × ${fmtBRL(fixo)}</b> antecipados + parcela final de <b>${fmtBRL(saldo)}</b>.`;
 }
 function proximoDiaUtilISO_(dataISO){const d=new Date(dataISO+'T00:00:00');while(d.getDay()===0||d.getDay()===6)d.setDate(d.getDate()+1);return isoLocal(d);}
 function gerarParcelasAutomaticasPopup(){
   if(!fcTirarPopupContext)return;
-  if(!validarCamposGeradorRateio_()){alert('A quantidade de parcelas finais não pode ser maior que a quantidade total.');return;}
-  const qtd=Math.max(2,Math.min(120,parseInt(el('fcRateioAutoQtd')?.value,10)||2));
+  if(!validarCamposGeradorRateio_()){alert('Confira o valor antecipado, a quantidade e o vencimento final. As antecipações precisam deixar um saldo positivo para a última parcela.');return;}
+  const qtdFixas=Math.max(1,Math.min(120,parseInt(el('fcRateioAutoFixas')?.value,10)||1));
+  const qtd=qtdFixas+1;
   const inicio=el('fcRateioAutoInicio')?.value||fcTirarPopupContext.data;
   const intervalo=el('fcRateioAutoIntervalo')?.value||'mensal';
   const valorFixo=Math.abs(parseMoneyBR(el('fcRateioAutoValorFixo')?.value||''));
-  const qtdFixas=parseInt(el('fcRateioAutoFixas')?.value,10)||0;
-  const qtdUltimas=qtd-qtdFixas;
+  const vencimentoOriginal=el('fcRateioAutoVencimento')?.value;
+  const qtdUltimas=1;
   if(!inicio){alert('Informe a data da primeira parcela.');return;}
   const valorTotal=fcTirarPopupContext.valor;
   if(valorFixo*qtdFixas>valorTotal+0.01){alert('O valor fixo das primeiras parcelas ultrapassa o total do título. Ajuste o valor ou a quantidade.');return;}
   const saldoFinal=Math.round((valorTotal-valorFixo*qtdFixas)*100)/100;
-  const baseIgual=Math.floor((valorTotal/qtd)*100)/100;
-  const baseFinal=Math.floor((saldoFinal/qtdUltimas)*100)/100;
   let acumulado=0;
   const ajustesFimSemana=[];
+  const parcelasAnteriores=fcRateioPopupParcelas;
   fcRateioPopupParcelas=Array.from({length:qtd},(_,i)=>{
-    let data=inicio;
-    if(intervalo==='mensal')data=addMesesISO_(inicio,i);
+    let data;
+    if(i===qtd-1)data=vencimentoOriginal;
+    else if(intervalo==='mensal')data=addMesesISO_(inicio,i);
     else if(intervalo==='diario'){let dt=new Date(inicio+'T00:00:00'),cont=0;while(cont<i){dt.setDate(dt.getDate()+1);if(dt.getDay()!==0&&dt.getDay()!==6)cont++;}data=isoLocal(dt);}
     else{const dias=intervalo==='quinzenal'?15:7;const dt=new Date(inicio+'T00:00:00');dt.setDate(dt.getDate()+i*dias);data=isoLocal(dt);}
     const ajustada=proximoDiaUtilISO_(data);if(ajustada!==data){ajustesFimSemana.push(`${formatDateBR(data)} → ${formatDateBR(ajustada)}`);data=ajustada;}
     let valor;
-    if(valorFixo>0&&i<qtdFixas) valor=valorFixo;
-    else if(valorFixo>0) valor=i===qtd-1?Math.round((valorTotal-acumulado)*100)/100:baseFinal;
-    else valor=i===qtd-1?Math.round((valorTotal-acumulado)*100)/100:baseIgual;
+    if(i<qtdFixas) valor=valorFixo;
+    else valor=Math.round((valorTotal-acumulado)*100)/100;
     acumulado=Math.round((acumulado+valor)*100)/100;return{data,valor};
   });
+  const dataFinal=fcRateioPopupParcelas[fcRateioPopupParcelas.length-1].data;
+  if(fcRateioPopupParcelas.slice(0,-1).some(p=>p.data>=dataFinal)){
+    fcRateioPopupParcelas=parcelasAnteriores;
+    alert('A quantidade de antecipações não cabe antes do vencimento final com essa periodicidade. Reduza a quantidade, antecipe a primeira data ou altere a periodicidade.');
+    return;
+  }
   renderRateioPopup();
   if(ajustesFimSemana.length)alert('⚠️ Datas no fim de semana foram movidas para o próximo dia útil:\n\n'+ajustesFimSemana.join('\n'));
 }
