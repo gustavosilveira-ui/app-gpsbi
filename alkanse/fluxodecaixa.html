@@ -878,7 +878,20 @@ async function fetchGvizSheet(sheetName){
   while(true){
     const query = `select * limit ${PAGE_SIZE} offset ${offset}`;
     const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}&headers=1&tq=${encodeURIComponent(query)}&_=${Date.now()}`;
-    const res = await fetch(url, { cache:'no-store' });
+    // Timeout de 15s — sem isso, se o Google não responder, a página fica
+    // presa na tela de carregando pra sempre e sem nenhum erro no Console
+    // (uma requisição pendente não gera log nenhum).
+    const controller = new AbortController();
+    const timeoutId = setTimeout(()=>controller.abort(), 15000);
+    let res;
+    try{
+      res = await fetch(url, { cache:'no-store', signal: controller.signal });
+    }catch(err){
+      if(err.name === 'AbortError') throw new Error(`Demorou demais pra carregar "${sheetName}" (mais de 15s sem resposta). Confira sua conexão ou tente recarregar.`);
+      throw err;
+    }finally{
+      clearTimeout(timeoutId);
+    }
     if(!res.ok) throw new Error(`Falha ao carregar ${sheetName}: HTTP ${res.status}`);
 
     const text = await res.text();
@@ -1230,31 +1243,41 @@ function renderFcAnaliseWhats(){
 }
 
 async function init(){
-  const { data } = await sb.auth.getSession();
-  if(!data.session){ window.location.replace(LOGIN_URL); return; }
-  currentUser = data.session.user;
-  const email = currentUser.email;
+  try{
+    const { data } = await sb.auth.getSession();
+    if(!data.session){ window.location.replace(LOGIN_URL); return; }
+    currentUser = data.session.user;
+    const email = currentUser.email;
 
-  if(!canAccessFluxo(email) || !podeVerFluxoCaixa(email)){
-    el('loadingScreen').style.display='none';
-    el('deniedScreen').style.display='block';
+    if(!canAccessFluxo(email) || !podeVerFluxoCaixa(email)){
+      el('loadingScreen').style.display='none';
+      el('deniedScreen').style.display='block';
+      document.documentElement.style.visibility='visible';
+      return;
+    }
+
+    gpsStaff = isGpsStaff(email);
+    if(!gpsStaff){ const card = el('fcAjustesGpsCard'); if(card) card.style.display='none'; }
+    document.documentElement.style.visibility='visible'; // mostra o spinner (ou erro) já de cara
+    aplicarBadgesNav(currentUser.email);
+
+    el('userChip').textContent = nameFromEmail(email);
+    el('empresaSelect').addEventListener('change', e=>{ selectedEmpresa = e.target.value; rebuildRowsNoEscopo(); buildAndRenderTable(); renderFcKpiStrip(); renderFcAnaliseWhats(); });
+    el('appLogoutBtn').addEventListener('click', doLogout);
+    el('appBtnDark').addEventListener('click', ()=>appApplyTheme('dark'));
+    el('appBtnLight').addEventListener('click', ()=>appApplyTheme('light'));
+    appApplyTheme(localStorage.getItem('alkanse_theme') || 'light', true);
+
+    await loadData();
+  }catch(e){
+    // Rede de segurança: qualquer erro inesperado aqui (fora do try/catch
+    // próprio do loadData) antes só deixava o spinner girando pra sempre,
+    // sem nenhuma pista visível. Agora sempre aparece algo na tela.
+    console.error('Erro inesperado no init():', e);
     document.documentElement.style.visibility='visible';
-    return;
+    const loadingMsg = el('loadingMsg');
+    if(loadingMsg) loadingMsg.textContent = 'Erro inesperado ao carregar a página: '+e.message+'. Tenta recarregar (Ctrl+Shift+R).';
   }
-
-  gpsStaff = isGpsStaff(email);
-  if(!gpsStaff){ const card = el('fcAjustesGpsCard'); if(card) card.style.display='none'; }
-  document.documentElement.style.visibility='visible'; // mostra o spinner (ou erro) já de cara
-  aplicarBadgesNav(currentUser.email);
-
-  el('userChip').textContent = nameFromEmail(email);
-  el('empresaSelect').addEventListener('change', e=>{ selectedEmpresa = e.target.value; rebuildRowsNoEscopo(); buildAndRenderTable(); renderFcKpiStrip(); renderFcAnaliseWhats(); });
-  el('appLogoutBtn').addEventListener('click', doLogout);
-  el('appBtnDark').addEventListener('click', ()=>appApplyTheme('dark'));
-  el('appBtnLight').addEventListener('click', ()=>appApplyTheme('light'));
-  appApplyTheme(localStorage.getItem('alkanse_theme') || 'light', true);
-
-  await loadData();
 }
 
 function appApplyTheme(t, skipSync){
