@@ -313,7 +313,16 @@ const CATEGORIA_GRUPO_PAGAMENTOS = {
   'Pagamento de Empréstimos': 'Despesas Financeiras',
 };
 const CATEGORIA_GRUPO_NORM = {};
-Object.entries(CATEGORIA_GRUPO_PAGAMENTOS).forEach(([k,v])=>{ CATEGORIA_GRUPO_NORM[normalizeTxt(k)] = v; });
+// grafia canônica automática: pra cada categoria normalizada, guarda a
+// PRIMEIRA grafia usada no mapa fixo acima — assim "Pro Labore" (sem
+// acento/hífen) cai automaticamente na mesma linha que "Pró-labore" sem
+// precisar cadastrar cada variante à mão em CATEGORIA_CANONICA.
+const CATEGORIA_CANONICA_AUTO = {};
+Object.entries(CATEGORIA_GRUPO_PAGAMENTOS).forEach(([k,v])=>{
+  const n = normalizeTxt(k);
+  CATEGORIA_GRUPO_NORM[n] = v;
+  if(!(n in CATEGORIA_CANONICA_AUTO)) CATEGORIA_CANONICA_AUTO[n] = k;
+});
 
 // Heurística de reserva pra categorias novas que ainda não estão no mapa acima.
 const REGRAS_FALLBACK_GRUPO = [
@@ -346,20 +355,24 @@ function resolveGrupoPagamento(categoria){
 }
 
 // Normaliza o NOME exibido da categoria (não só o grupo) — a planilha às
-// vezes tem a mesma categoria escrita com capitalização diferente entre
-// linhas (ex: "Equipe - Prestadores de serviços" vs "...Serviços"), o que
-// fazia aparecer como duas linhas separadas na tela mesmo sendo a mesma
-// coisa. Ajustado a pedido do Gustavo em 22/07/2026.
+// vezes tem a mesma categoria escrita com capitalização, acento ou hífen
+// diferente entre linhas/fontes (ex: "Equipe - Prestadores de serviços" vs
+// "...Serviços", ou "Pró-labore" vs "Pro Labore"), o que fazia aparecer como
+// duas linhas separadas na tela mesmo sendo a mesma coisa. Ajustado a pedido
+// do Gustavo em 22/07/2026 e reforçado em 14/08/2026 com a canonicalização
+// automática acima, que cobre esse tipo de variação sem precisar listar cada
+// caso à mão (a lista abaixo agora é só pra fusões que NÃO são a mesma
+// grafia normalizada — ex: "Pagamento de Empréstimos" é conceito diferente
+// mas deve contar junto com "Empréstimos de Bancos").
 const CATEGORIA_CANONICA = {};
 [
   ['Equipe - Prestadores de Serviços', 'Equipe - Prestadores de Serviços'],
   ['Pagamento de Empréstimos', 'Empréstimos de Bancos'],
   ['HOTMART', 'Hotmart'],
-  ['Pro Labore', 'Pró-labore'],
 ].forEach(([variante, canonico]) => { CATEGORIA_CANONICA[normalizeTxt(variante)] = canonico; });
 function canonicalizarCategoria(categoria){
   const key = normalizeTxt(categoria);
-  return CATEGORIA_CANONICA[key] || categoria;
+  return CATEGORIA_CANONICA[key] || CATEGORIA_CANONICA_AUTO[key] || categoria;
 }
 
 /* ================== Ingestão: CAP / CAR (Empoderamento — Conta Azul) ==================
