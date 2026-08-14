@@ -115,6 +115,8 @@ html.light body::before{background:radial-gradient(circle at 80% 6%,rgba(54,226,
 .pc-msg-reacao-btn:disabled{cursor:default;opacity:.85;}
 .pc-msg-leram{font-size:11px;color:var(--text3);cursor:help;}
 .pc-msg-edit-link{font-size:11px;color:var(--cyan);cursor:pointer;font-weight:700;white-space:nowrap;}
+.pc-msg-delete-btn{border:1px solid rgba(239,106,106,.28);background:rgba(239,106,106,.10);color:var(--red);border-radius:7px;padding:4px 8px;font-family:'Sora',sans-serif;font-size:10.5px;font-weight:700;cursor:pointer;white-space:nowrap;}
+.pc-msg-delete-btn:hover{background:rgba(239,106,106,.20);}
 .pc-msg-edit-box{margin-bottom:8px;}
 .pc-msg-edit-box textarea{width:100%;background:var(--field-bg,var(--navy3));border:1px solid var(--border2);border-radius:9px;padding:8px 10px;color:var(--text);font-family:'Sora',sans-serif;font-size:12.5px;outline:none;resize:vertical;min-height:60px;}
 .pc-msg-empty{text-align:center;padding:40px 20px;color:var(--text3);font-size:13px;}
@@ -2580,6 +2582,7 @@ function renderPcMsgs(msgsOriginais, reacoes, leituras){
         <span class="pc-msg-tipo ${m.tipo}">${tipoLabel[m.tipo]||m.tipo}</span>
         <span class="pc-msg-status ${m.status}">${statusLabel[m.status]||m.status}</span>
         <span class="pc-msg-date">${date}</span>
+        ${userRole==='owner' ? `<button class="pc-msg-delete-btn" onclick="excluirPcMsg(${m.id})" title="Excluir definitivamente">🗑 Excluir</button>` : ''}
       </div>
       ${textoMsgBloco}
       ${respostaBloco}
@@ -2630,6 +2633,15 @@ async function salvarEdicaoPcMsg(id, campo){
   const { error } = await sb.from('comercial_mensagens').update(payload).eq('id', id);
   if(!error){ pcEditando = null; await loadPcMsgs(); }
   else alert('Erro: '+error.message);
+}
+async function excluirPcMsg(id){
+  if(userRole!=='owner') return;
+  if(!confirm('Deseja excluir definitivamente esta publicação?')) return;
+  const { error } = await sb.from('comercial_mensagens').delete().eq('id',id);
+  if(error){ alert('Erro ao excluir: '+error.message); return; }
+  pcRespondendo=null;
+  pcEditando=null;
+  await loadPcMsgs();
 }
 
 initAuth();
