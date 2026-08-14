@@ -109,6 +109,7 @@ html{zoom:.8;}
 .fc-wrap{overflow:auto;max-height:80vh;border-radius:12px;border:1px solid var(--border2);}
 .fc-table{border-collapse:separate;border-spacing:0;font-size:11.5px;width:max-content;min-width:100%;}
 .fc-table th,.fc-table td{padding:7px 10px;white-space:nowrap;text-align:right;border-bottom:1px solid var(--border);}
+.fc-table th:not(:first-child),.fc-table td:not(:first-child){min-width:118px;}
 .fc-table th{position:sticky;top:0;background:var(--navy2);z-index:3;color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.03em;}
 .fc-table th.fc-today,.fc-table td.fc-today{background:rgba(45,112,184,.20) !important;}
 .fc-table th:first-child,.fc-table td:first-child{position:sticky;left:0;background:var(--navy2);z-index:4;text-align:left;min-width:220px;}
@@ -331,8 +332,6 @@ html.light .fc-day-num{color:#1f2a3d;}
     <nav class="app-nav">
       <a href="painel.html" id="navPainel">📊 Bi Comercial</a>
       <a href="fluxodecaixa.html" class="active" id="navFluxo">💰 Fluxo de Caixa</a>
-      <a href="painelproducao.html" id="navPainelProducao">📦 Painel</a>
-      <a href="depositos.html" id="navRoberto">🏦 Depósitos</a>
       <a href="agenda.html">🗓️ Agenda</a>
       <a href="mural.html" id="navMural">📣 Mural Corporativo</a>
       <a href="aprovacoes.html">✅ Aprovações</a>
@@ -364,11 +363,30 @@ html.light .fc-day-num{color:#1f2a3d;}
       <div id="fcDebugStats" style="font-size:11px;color:var(--text3);margin-top:8px;"></div>
     </div>
 
+    <!-- Modal: lançar o saldo do dia, banco a banco -->
+    <div class="modal-overlay" id="saldoDiaModal">
+      <div class="modal-box" style="width:460px;">
+        <div class="modal-title">💰 Saldo do dia</div>
+        <div class="modal-sub">Lance o saldo final de cada banco na data abaixo (pré-preenchida com ontem). O Saldo Acumulado passa a considerar o total a partir dessa data pra frente.</div>
+        <div class="field-group">
+          <label class="field-label">Data</label>
+          <input type="date" id="saldoDiaData">
+        </div>
+        <div id="saldoDiaBancosList" style="display:flex;flex-direction:column;gap:8px;margin:10px 0;"></div>
+        <button class="btn btn-ghost btn-sm" type="button" onclick="addSaldoDiaBancoRow()">+ Adicionar banco</button>
+        <div style="margin:14px 0;font-weight:800;font-size:15px;">Total: <span id="saldoDiaTotal">R$ 0,00</span></div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" onclick="closeSaldoDiaModal()">Cancelar</button>
+          <button class="btn btn-primary" onclick="salvarSaldoDia()">Salvar</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Modal: histórico do Saldo Inicial -->
     <div class="modal-overlay" id="saldoInicialModal">
       <div class="modal-box">
-        <div class="modal-title">🏁 Saldo Inicial</div>
-        <div class="modal-sub">Status atual do saldo inicial ativo no Fluxo de Caixa.</div>
+        <div class="modal-title">🏁 Histórico de Saldos</div>
+        <div class="modal-sub">Status atual do saldo ativo no Fluxo de Caixa.</div>
         <div class="fc-saldo-status" id="fcSaldoInicialStatus"></div>
         <div class="modal-actions"><button class="btn btn-ghost" onclick="closeSaldoInicialModal()">Fechar</button></div>
       </div>
@@ -452,31 +470,15 @@ html.light .fc-day-num{color:#1f2a3d;}
       </div>
     </div>
 
-    <!-- ============ NOVO: Simulador de impacto no saldo ============ -->
+    </div>
+
+    <!-- ============ Saldo do dia — visível pra quem tem acesso ao Fluxo de Caixa, não só GPS ============ -->
     <div class="card">
-      <div class="card-title">🧪 Simulador de Impacto no Saldo</div>
-      <div class="card-sub">Simule a entrada de uma receita ou despesa e veja como o saldo dos próximos dias mudaria — sem alterar nada na base real.</div>
-      <div class="fc-sim-form">
-        <div class="field-group" style="margin-bottom:0;">
-          <label class="field-label">Descrição</label>
-          <input type="text" id="fcSimDesc" placeholder="Ex: Recebimento cliente X, Pagamento fornecedor Y...">
-        </div>
-        <div class="field-group" style="margin-bottom:0;">
-          <label class="field-label">Valor (R$) — negativo se for despesa</label>
-          <input type="number" id="fcSimValor" placeholder="Ex: 15000 ou -8000">
-        </div>
-        <div class="field-group" style="margin-bottom:0;">
-          <label class="field-label">Data</label>
-          <input type="date" id="fcSimData">
-        </div>
-        <button class="btn btn-primary" onclick="addFcSimEntry()">Adicionar</button>
-      </div>
-      <div id="fcSimList" style="margin:14px 0;"></div>
-      <div class="fc-sim-table-wrap" id="fcSimTableWrap" style="display:none;">
-        <table class="fc-sim-table">
-          <thead><tr><th>Data</th><th>Saldo Real</th><th>Saldo Simulado</th><th>Diferença</th></tr></thead>
-          <tbody id="fcSimTableBody"></tbody>
-        </table>
+      <div class="fc-mini-title">💰 Saldo do dia</div>
+      <div class="fc-mini-sub" id="saldoDiaStatusResumo">Sem saldo lançado ainda.</div>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button class="btn btn-primary btn-sm" onclick="openSaldoDiaModal()">Lançar saldo do dia</button>
+        <button class="btn btn-ghost btn-sm" onclick="openSaldoInicialModal()">Ver histórico</button>
       </div>
     </div>
 
@@ -517,24 +519,6 @@ html.light .fc-day-num{color:#1f2a3d;}
     <div class="card" id="fcAjustesGpsCard">
       <div class="fc-ajustes-row">
         <div class="fc-ajustes-col">
-          <div class="fc-mini-title">🏁 Saldo Inicial</div>
-          <div class="fc-mini-sub">Define o saldo numa data — o Acumulado passa a respeitar isso a partir dali. Visível só pro time GPS.</div>
-          <div class="fc-mini-form">
-            <select id="fcSaldoEmpresa" style="display:none;"><option value="alkanse">Alkanse</option></select>
-            <input type="date" id="fcSaldoInicialData">
-            <input type="number" id="fcSaldoInicialValor" placeholder="Saldo (R$)">
-            <button class="btn btn-primary btn-sm" onclick="applySaldoInicial()">Salvar</button>
-          </div>
-          <button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="openSaldoInicialModal()">Ver detalhes</button>
-
-          <div class="fc-mini-title" style="margin-top:16px;">🚨 Limite da Conta</div>
-          <div class="fc-mini-sub">Marca no Saldo Acumulado o primeiro dia em que o fluxo ultrapassa o limite negativo da conta (por empresa).</div>
-          <div class="fc-mini-form">
-            <select id="fcLimiteContaEmpresa" style="display:none;"><option value="alkanse">Alkanse</option></select>
-            <input type="number" id="fcLimiteContaValor" placeholder="Limite (R$)">
-            <button class="btn btn-primary btn-sm" onclick="applyLimiteConta()">Salvar</button>
-          </div>
-        </div>
         <div class="fc-ajustes-divider"></div>
         <div class="fc-ajustes-col">
           <div class="fc-mini-title">🖊️ Lançamentos Manuais</div>
@@ -870,7 +854,7 @@ async function fetchGvizSheet(sheetName){
   // O endpoint GViz pode cortar respostas grandes. Isso fazia a pg_gymis
   // parar perto de 20/07 e os dias seguintes aparecerem zerados.
   // A leitura agora é paginada para garantir todas as linhas da aba.
-  const PAGE_SIZE = 500;
+  const PAGE_SIZE = 4000;
   let offset = 0;
   let cols = null;
   let allRows = [];
@@ -1320,13 +1304,15 @@ async function loadData(){
 
     await loadSaldoInicial();
     await loadAjustesManuais(); // injeta os lançamentos manuais como movimentação real
+    await loadAplicacoes();
+    await loadAplicacaoSaques(); // injeta os saques de aplicação como recebimento real
     loadLimiteConta();
     buildAndRenderTable();
     renderFcKpiStrip();
     renderFcAnaliseWhats();
     el('loadingScreen').style.display='none';
     el('mainContent').style.display='block';
-    el('fcSimData').value = dataLocalISO_(new Date());
+    if(el('fcSimData')) el('fcSimData').value = dataLocalISO_(new Date());
     await loadFcMsgs();
   }catch(e){
     console.error(e);
@@ -1654,26 +1640,12 @@ function buildAndRenderTable(){
   setTimeout(doScroll, 300);
 }
 
-// Diagnóstico rápido (só GPS): quantas linhas carregaram de cada tipo/conta.
-// Ajuda a identificar rápido se algo sumiu do fluxo sem precisar abrir o console.
+// Diagnóstico rápido — desativado a pedido do Gustavo (13/08/2026), texto
+// técnico demais pra aparecer na tela. Fica só a função vazia caso algum
+// dia a gente queira reativar como painel interno separado.
 function renderDebugStats(){
   const wrap = el('fcDebugStats');
-  if(!wrap) return;
-  if(!gpsStaff){ wrap.textContent = ''; return; }
-  const porEmpresa = EMPRESAS.map(e=>`${EMPRESA_LABEL[e]}: ${(rowsByEmpresa[e]||[]).length}`).join(' · ');
-  const pgDiag = EMPRESAS.map(e=>{
-    const lista = pagosRealizadosByEmpresa[e] || [];
-    const total = lista.reduce((s,r)=>s+Math.abs(r.valor||0),0);
-    return `${EMPRESA_LABEL[e]} PG: ${lista.length} itens / ${fmtBRL(total)}`;
-  }).join(' · ');
-  const totalRec = rows.filter(r=>r.grupo==='RECEBIMENTOS').length;
-  const totalAjustes = rows.filter(r=>r.grupo==='AJUSTES_MANUAIS').length;
-  const totalPag = rows.filter(isPagamento).length;
-  const categoriasNovas = Object.keys(debugCategoriasNovas);
-  const detalheCategoriasNovas = categoriasNovas.length
-    ? ` · Categorias novas incluídas automaticamente: ${categoriasNovas.map(c=>`${c}→${debugCategoriasNovas[c]}`).join(', ')}`
-    : '';
-  wrap.textContent = `✅ Versão GViz paginado 30/07 · 🔍 Diagnóstico (só GPS): ${rows.length} linhas no escopo atual (${selectedEmpresa?EMPRESA_LABEL[selectedEmpresa]:'Global'}) · ${porEmpresa} · ${pgDiag} · Recebimentos: ${totalRec} · Pagamentos: ${totalPag} · Lançamentos manuais: ${totalAjustes}${detalheCategoriasNovas}`;
+  if(wrap) wrap.textContent = '';
 }
 
 function renderColumnHeader(c){
@@ -1883,6 +1855,7 @@ let fcFichaAtual=null;
 // e exportação, sem precisar reconsultar/reabrir o modal.
 let fcFichaDetailRowsAtual = [];
 let fcFichaTotalAtual = 0;
+let fcFichaRowsParaTotalAtual = [];
 let fcFichaTituloAtual = '';
 let fcFichaPeriodoAtual = '';
 async function reabrirFichaAtual_(){ if(fcFichaAtual) await openFluxoFicha(fcFichaAtual.rowId,fcFichaAtual.colId); }
@@ -1929,15 +1902,16 @@ async function openFluxoFicha(rowId, colId){
   // Guarda o estado atual pra busca/impressão/exportação poderem reusar sem
   // precisar recalcular tudo de novo.
   fcFichaDetailRowsAtual = detailRows;
+  fcFichaRowsParaTotalAtual = rowsParaTotal;
   fcFichaTotalAtual = total;
   fcFichaTituloAtual = rNode.label;
   fcFichaPeriodoAtual = rangeLabel(range.start, range.end);
 
   el('fluxoFichaBody').innerHTML = `
     <div class="fc-detail-summary" id="fcFichaResumoKpis">
-      <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${fmtBRL(total)}</div><div class="fc-detail-kpi-lbl">Total no período</div></div>
-      <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${empresas.length}</div><div class="fc-detail-kpi-lbl">Empresas com movimento</div></div>
-      <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${qtd}</div><div class="fc-detail-kpi-lbl">Lançamentos</div></div>
+      <div class="fc-detail-kpi"><div class="fc-detail-kpi-val" id="fcFichaKpiTotal">${fmtBRL(total)}</div><div class="fc-detail-kpi-lbl">Total no período</div></div>
+      <div class="fc-detail-kpi"><div class="fc-detail-kpi-val" id="fcFichaKpiEmpresas">${empresas.length}</div><div class="fc-detail-kpi-lbl">Empresas com movimento</div></div>
+      <div class="fc-detail-kpi"><div class="fc-detail-kpi-val" id="fcFichaKpiQtd">${qtd}</div><div class="fc-detail-kpi-lbl">Lançamentos</div></div>
     </div>
     <div id="fcFichaPorEmpresaWrap">
       <div style="font-size:12.5px;font-weight:800;margin:12px 0 6px;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;">Por empresa</div>
@@ -2033,6 +2007,21 @@ function renderFichaLancamentosFiltrado(termoBusca){
   if(contagem) contagem.textContent = termo ? `${filtrados.length} de ${fcFichaDetailRowsAtual.length} lançamentos` : '';
   const aviso = el('fcFichaMostrandoAviso');
   if(aviso) aviso.textContent = filtrados.length>120 ? `Mostrando os primeiros 120 lançamentos${termo?' dessa busca':''}.` : '';
+
+  // Cards do topo (Total/Empresas/Lançamentos) acompanham a busca — pedido
+  // do Gustavo (13/08/2026): digitou um nome, os números já refletem só
+  // aquele nome, sem precisar fechar e reabrir a Ficha filtrada de outro jeito.
+  const rowsParaTotalFiltrado = termo
+    ? fcFichaRowsParaTotalAtual.filter(r => normalizeTxt(r.nome||'').includes(termo))
+    : fcFichaRowsParaTotalAtual;
+  const totalFiltrado = rowsParaTotalFiltrado.reduce((s,r)=>s+r.valor,0);
+  const empresasFiltradas = new Set(rowsParaTotalFiltrado.map(r=>r.empresa||'geral'));
+  const kpiTotal = el('fcFichaKpiTotal');
+  const kpiEmpresas = el('fcFichaKpiEmpresas');
+  const kpiQtd = el('fcFichaKpiQtd');
+  if(kpiTotal) kpiTotal.textContent = fmtBRL(totalFiltrado);
+  if(kpiEmpresas) kpiEmpresas.textContent = String(empresasFiltradas.size);
+  if(kpiQtd) kpiQtd.textContent = String(filtrados.length);
 }
 function closeFluxoFicha(){
   el('fluxoFichaModal').classList.remove('show');
@@ -2199,28 +2188,70 @@ async function loadSaldoInicial(){
 }
 function renderSaldoInicialStatus(){
   const wrap = el('fcSaldoInicialStatus');
-  if(!wrap) return;
-  wrap.innerHTML = EMPRESAS.map(emp=>{
+  const resumo = el('saldoDiaStatusResumo');
+  const linhas = EMPRESAS.map(emp=>{
     const o = saldoIniciais[emp];
-    if(!o) return `<div style="padding:8px 0;border-bottom:1px solid var(--border);">${EMPRESA_LABEL[emp]}: <span style="color:var(--text3);">sem saldo inicial definido</span></div>`;
+    if(!o) return { html: `<div style="padding:8px 0;border-bottom:1px solid var(--border);">${EMPRESA_LABEL[emp]}: <span style="color:var(--text3);">sem saldo definido ainda</span></div>`, o:null };
     const dataLabel = new Date(o.data_referencia+'T00:00:00').toLocaleDateString('pt-BR');
-    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);gap:10px;"><span>${EMPRESA_LABEL[emp]}: <b>${fmtBRL(o.valor)}</b> em <b>${dataLabel}</b></span><button class="btn btn-danger btn-sm" onclick="removeSaldoInicial('${emp}')">Remover</button></div>`;
-  }).join('');
+    const detalheTxt = o.detalhe ? ` <span style="color:var(--text3);font-size:11.5px;">(${o.detalhe})</span>` : '';
+    return { html: `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);gap:10px;"><span>${EMPRESA_LABEL[emp]}: <b>${fmtBRL(o.valor)}</b> em <b>${dataLabel}</b>${detalheTxt}</span><button class="btn btn-danger btn-sm" onclick="removeSaldoInicial('${emp}')">Remover</button></div>`, o };
+  });
+  if(wrap) wrap.innerHTML = linhas.map(l=>l.html).join('');
+  if(resumo){
+    const o = saldoIniciais['alkanse'];
+    if(!o){ resumo.textContent = 'Sem saldo lançado ainda.'; }
+    else{
+      const dataLabel = new Date(o.data_referencia+'T00:00:00').toLocaleDateString('pt-BR');
+      resumo.innerHTML = `Último saldo: <b>${fmtBRL(o.valor)}</b> em <b>${dataLabel}</b>${o.detalhe?` (${o.detalhe})`:''}`;
+    }
+  }
 }
-async function applySaldoInicial(){
-  const empresa = el('fcSaldoEmpresa').value;
-  const data_referencia = el('fcSaldoInicialData').value;
-  const valor = parseFloat(el('fcSaldoInicialValor').value);
-  if(!data_referencia || isNaN(valor)){ alert('Preencha a data e o saldo dessa data.'); return; }
+
+// ---- Modal "Saldo do dia" — banco a banco, pré-preenchido com ontem ----
+function openSaldoDiaModal(){
+  const ontem = new Date();
+  ontem.setDate(ontem.getDate()-1);
+  el('saldoDiaData').value = dataLocalISO_(ontem);
+  el('saldoDiaBancosList').innerHTML = '';
+  addSaldoDiaBancoRow();
+  addSaldoDiaBancoRow();
+  atualizarSaldoDiaTotal();
+  el('saldoDiaModal').classList.add('show');
+}
+function closeSaldoDiaModal(){ el('saldoDiaModal').classList.remove('show'); }
+function addSaldoDiaBancoRow(){
+  const wrap = el('saldoDiaBancosList');
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:8px;align-items:center;';
+  row.innerHTML = `<input type="text" placeholder="Banco (ex.: Itaú)" class="saldo-dia-banco" style="flex:1;">
+    <input type="text" inputmode="decimal" placeholder="Saldo (R$)" class="saldo-dia-valor" style="width:150px;" oninput="atualizarSaldoDiaTotal()">
+    <button class="btn btn-ghost btn-sm" type="button" title="Remover" onclick="this.parentElement.remove();atualizarSaldoDiaTotal();">✕</button>`;
+  wrap.appendChild(row);
+}
+function atualizarSaldoDiaTotal(){
+  const valores = Array.from(document.querySelectorAll('#saldoDiaBancosList .saldo-dia-valor')).map(i=>parseMoneyBR(i.value));
+  const total = valores.reduce((a,b)=>a+b,0);
+  el('saldoDiaTotal').textContent = fmtBRL(total);
+}
+async function salvarSaldoDia(){
+  const empresa = 'alkanse';
+  const data_referencia = el('saldoDiaData').value;
+  const linhasBanco = Array.from(document.querySelectorAll('#saldoDiaBancosList > div')).map(row=>({
+    banco: row.querySelector('.saldo-dia-banco').value.trim(),
+    valor: parseMoneyBR(row.querySelector('.saldo-dia-valor').value),
+  })).filter(l => l.banco || l.valor);
+  const valor = linhasBanco.reduce((s,l)=>s+l.valor,0);
+  if(!data_referencia || !linhasBanco.length){ alert('Preencha a data e ao menos um banco com saldo.'); return; }
+  const detalhe = linhasBanco.filter(l=>l.banco).map(l=>`${l.banco}: ${fmtBRL(l.valor)}`).join(' · ');
   await sb.from('fluxo_saldo_inicial').delete().eq('empresa', empresa);
-  const { error } = await sb.from('fluxo_saldo_inicial').insert({ empresa, data_referencia, valor, criado_por: nameFromEmail(currentUser.email) });
+  const { error } = await sb.from('fluxo_saldo_inicial').insert({ empresa, data_referencia, valor, detalhe, criado_por: nameFromEmail(currentUser.email) });
   if(error){ alert('Erro ao salvar: '+error.message); return; }
-  el('fcSaldoInicialData').value=''; el('fcSaldoInicialValor').value='';
+  closeSaldoDiaModal();
   await loadSaldoInicial();
   renderTable();
 }
 async function removeSaldoInicial(empresa){
-  if(!confirm('Remover o saldo inicial de '+EMPRESA_LABEL[empresa]+'?')) return;
+  if(!confirm('Remover o saldo lançado?')) return;
   await sb.from('fluxo_saldo_inicial').delete().eq('empresa', empresa);
   await loadSaldoInicial();
   renderTable();
