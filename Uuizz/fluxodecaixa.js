@@ -313,7 +313,16 @@ const CATEGORIA_GRUPO_PAGAMENTOS = {
   'Pagamento de Empréstimos': 'Despesas Financeiras',
 };
 const CATEGORIA_GRUPO_NORM = {};
-Object.entries(CATEGORIA_GRUPO_PAGAMENTOS).forEach(([k,v])=>{ CATEGORIA_GRUPO_NORM[normalizeTxt(k)] = v; });
+// grafia canônica automática: pra cada categoria normalizada, guarda a
+// PRIMEIRA grafia usada no mapa fixo acima — assim "Pro Labore" (sem
+// acento/hífen) cai automaticamente na mesma linha que "Pró-labore" sem
+// precisar cadastrar cada variante à mão em CATEGORIA_CANONICA.
+const CATEGORIA_CANONICA_AUTO = {};
+Object.entries(CATEGORIA_GRUPO_PAGAMENTOS).forEach(([k,v])=>{
+  const n = normalizeTxt(k);
+  CATEGORIA_GRUPO_NORM[n] = v;
+  if(!(n in CATEGORIA_CANONICA_AUTO)) CATEGORIA_CANONICA_AUTO[n] = k;
+});
 
 // Heurística de reserva pra categorias novas que ainda não estão no mapa acima.
 const REGRAS_FALLBACK_GRUPO = [
@@ -346,10 +355,15 @@ function resolveGrupoPagamento(categoria){
 }
 
 // Normaliza o NOME exibido da categoria (não só o grupo) — a planilha às
-// vezes tem a mesma categoria escrita com capitalização diferente entre
-// linhas (ex: "Equipe - Prestadores de serviços" vs "...Serviços"), o que
-// fazia aparecer como duas linhas separadas na tela mesmo sendo a mesma
-// coisa. Ajustado a pedido do Gustavo em 22/07/2026.
+// vezes tem a mesma categoria escrita com capitalização, acento ou hífen
+// diferente entre linhas/fontes (ex: "Equipe - Prestadores de serviços" vs
+// "...Serviços", ou "Pró-labore" vs "Pro Labore"), o que fazia aparecer como
+// duas linhas separadas na tela mesmo sendo a mesma coisa. Ajustado a pedido
+// do Gustavo em 22/07/2026 e reforçado em 14/08/2026 com a canonicalização
+// automática acima, que cobre esse tipo de variação sem precisar listar cada
+// caso à mão (a lista abaixo agora é só pra fusões que NÃO são a mesma
+// grafia normalizada — ex: "Pagamento de Empréstimos" é conceito diferente
+// mas deve contar junto com "Empréstimos de Bancos").
 const CATEGORIA_CANONICA = {};
 [
   ['Equipe - Prestadores de Serviços', 'Equipe - Prestadores de Serviços'],
@@ -358,7 +372,7 @@ const CATEGORIA_CANONICA = {};
 ].forEach(([variante, canonico]) => { CATEGORIA_CANONICA[normalizeTxt(variante)] = canonico; });
 function canonicalizarCategoria(categoria){
   const key = normalizeTxt(categoria);
-  return CATEGORIA_CANONICA[key] || categoria;
+  return CATEGORIA_CANONICA[key] || CATEGORIA_CANONICA_AUTO[key] || categoria;
 }
 
 /* ================== Ingestão: CAP / CAR (Empoderamento — Conta Azul) ==================
@@ -1143,11 +1157,16 @@ function renderFichaBody(){
     const nome = r.nome || r.historico || r.categoria || 'Sem nome';
     const obs = r.historico || '';
     const categoria = r.categoria || r.fonte || '';
-    // Programação Fornecedor / Apoio de Caixa já são simulações — não faz
-    // sentido abrir o popup de tirar/alterar em cima delas.
-    const editavel = r.fonte!=='Programação Fornecedor' && r.fonte!=='Apoio de Caixa';
+    // Apoio de Caixa é só uma simulação de saldo, não faz sentido abrir o
+    // popup em cima dela. Programação Fornecedor (rateio) já é editável, mas
+    // com um clique que remove o rateio inteiro (as parcelas não são
+    // lançamentos soltos, fazem parte de uma única programação).
+    const editavel = r.fonte!=='Apoio de Caixa';
+    const ehRateio = r.fonte==='Programação Fornecedor';
     const valorCls = 'valor-modal' + (editavel ? ' fc-valor-clicavel' : '');
-    const valorAttrs = editavel ? ` onclick="abrirTirarPopup(${i})" title="Clique pra tirar ou mudar a data desse lançamento"` : '';
+    const valorAttrs = editavel ? (ehRateio
+      ? ` onclick="removerRateioDaFicha(${i})" title="Clique pra remover esse rateio inteiro do fluxo"`
+      : ` onclick="abrirTirarPopup(${i})" title="Clique pra tirar ou mudar a data desse lançamento"`) : '';
     return `<tr>
       <td>${formatDateBR(r.date)}</td>
       <td>${escapeFichaHtml((r.empresa?r.empresa+' · ':'')+(r.conta||r.fonte||'Não informada'))}</td>
@@ -1410,7 +1429,7 @@ async function loadAjustesManuais(){
     const grupoDisplay = grupo==='PAGAMENTOS' ? 'Lançamentos Manuais (GPS)' : null;
     // valor fica sempre em módulo (soma certinho no TOTAL de Pagamentos/Recebimentos);
     // signedValor mantém o sinal original pro Saldo Acumulado.
-    rows.push({ date:a.data, categoria: a.descricao || 'Ajuste', grupoDisplay, grupo, valor:Math.abs(a.valor), signedValor:a.valor, conta:'Lançamentos manuais', nome:a.descricao, empresa:a.empresa, fonte:'Manual' });
+    rows.push({ date:a.data, categoria: a.descricao || 'Ajuste', grupoDisplay, grupo, valor:Math.abs(a.valor), signedValor:a.valor, conta:'Lançamentos manuais', nome:a.descricao, empresa:a.empresa, fonte:'Manual', ajusteManualId:a.id });
   });
   rows.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0);
   // loadAjustesManuais roda sempre por último antes de renderizar (tanto no
@@ -1646,7 +1665,8 @@ function injetarSimulacoesUuizz(){
     rows.push({
       date:parcela.data, categoria:p.fornecedor, grupoDisplay:'Programação Fornecedor (Simulação)', grupo:'PAGAMENTOS',
       valor:Math.abs(parcela.valor), signedValor:-Math.abs(parcela.valor),
-      conta:p.fornecedor, empresa:p.empresa, fonte:'Programação Fornecedor', nome:p.fornecedor, documento:'Rateio GPS'
+      conta:p.fornecedor, empresa:p.empresa, fonte:'Programação Fornecedor', nome:p.fornecedor, documento:'Rateio GPS',
+      programacaoId:p.id
     });
   }));
 
@@ -1878,7 +1898,7 @@ function renderExclusoes(){
 }
 
 /* ---------- Popup discreto: tirar/alterar direto da Ficha ---------- */
-let fcTirarPopupContext = null; // { empresa, nome, data, valor }
+let fcTirarPopupContext = null; // { empresa, nome, data, valor, documento, fonteOriginal, ajusteManualId, sinalOriginal }
 function abrirTirarPopup(i){
   if(!fichaExportContext) return;
   const r = fichaExportContext.linhas[i];
@@ -1887,15 +1907,183 @@ function abrirTirarPopup(i){
     empresa: r.empresa,
     nome: r.nome || r.categoria || r.conta || 'Sem nome',
     data: r.date,
-    valor: Math.abs(Number(r.valor)||0)
+    valor: Math.abs(Number(r.valor)||0),
+    documento: r.documento || '',
+    fonteOriginal: r.fonte || '',
+    ajusteManualId: r.ajusteManualId || null,
+    sinalOriginal: Number(r.signedValor ?? r.valor) < 0 ? -1 : 1
   };
   el('fcTirarPopupInfo').innerHTML = `<b>${escapeFichaHtml(fcTirarPopupContext.empresa||'')}</b> · ${escapeFichaHtml(fcTirarPopupContext.nome)} · ${formatDateBR(fcTirarPopupContext.data)} · ${fmtBRL(-fcTirarPopupContext.valor)}`;
   el('fcTirarPopupNovaData').value = '';
+  fcRateioPopupParcelas = null;
+  renderRateioPopup();
   el('fcTirarPopup').classList.add('show');
 }
 function fecharTirarPopup(){
   el('fcTirarPopup').classList.remove('show');
   fcTirarPopupContext = null;
+  fcRateioPopupParcelas = null;
+}
+// Remove o rateio inteiro (todas as parcelas de uma vez) direto da Ficha —
+// diferente do Tirar/Alterar normal, já que aqui as parcelas fazem parte de
+// uma "Programação de Pagamentos por Fornecedor" só, não lançamentos soltos.
+function removerRateioDaFicha(i){
+  if(!fichaExportContext) return;
+  const r = fichaExportContext.linhas[i];
+  if(!r || !r.programacaoId) return;
+  const prog = fcProgramacoesFornecedor.find(p=>p.id===r.programacaoId);
+  const desc = prog ? `${escapeFichaHtml(prog.empresa)} · ${prog.fornecedor} (${prog.parcelas.length} parcela(s), total ${fmtBRL(-Math.abs(prog.valor))})` : 'esse rateio';
+  if(!confirm(`Remover ${prog?desc.replace(/<[^>]+>/g,''):desc} do fluxo? Todas as parcelas desse rateio saem de uma vez — pra recriar, use "Gerar parcelas" de novo.`)) return;
+  removerProgramacaoFornecedor(r.programacaoId);
+  closeFluxoFicha();
+}
+
+/* ---------- Ratear em várias datas, direto do mesmo popup ---------- */
+// Diferente da Programação de Pagamentos por Fornecedor (que parte de um
+// fornecedor/valor digitados à mão), aqui já sabemos exatamente qual
+// lançamento é — então não precisa "adivinhar" o valor cheio original por
+// nome/valor: já exclui o lançamento certo e cria o rateio nas datas que o
+// usuário escolher, tudo dentro do mesmo popup.
+let fcRateioPopupParcelas = null; // [{data, valor}] enquanto edita o rateio
+function renderRateioPopup(){
+  const wrap = el('fcTirarPopupRateioWrap');
+  if(!wrap || !fcTirarPopupContext) return;
+  if(!fcRateioPopupParcelas){
+    wrap.innerHTML = `<button class="btn btn-ghost btn-sm" style="width:100%;" onclick="iniciarRateioNaFicha()">✂️ Ratear em várias datas</button>`;
+    return;
+  }
+  const linhas = fcRateioPopupParcelas.map((p,i)=>`
+    <div class="fc-sim-entry" style="gap:8px;">
+      <input type="date" value="${p.data}" onchange="ajustarParcelaRateioPopup(${i},'data',this.value)" style="flex:none;width:150px;">
+      <input type="text" inputmode="decimal" value="${(Number(p.valor)||0).toFixed(2).replace('.',',')}" onchange="ajustarParcelaRateioPopup(${i},'valor',this.value)" style="flex:1;min-width:0;">
+      <button class="del" onclick="removerParcelaRateioPopup(${i})" title="Remover essa parcela">✕</button>
+    </div>`).join('');
+  const total = fcRateioPopupParcelas.reduce((s,p)=>s+Number(p.valor||0),0);
+  const original = fcTirarPopupContext.valor;
+  const falta = Math.round((original-total)*100)/100;
+  const saldoTexto = Math.abs(falta)<=0.01 ? `<span style="color:var(--green,#4F8F3A);font-weight:800;">✓ Valor totalmente distribuído</span>` : falta>0 ? `<span style="color:var(--gold,#f5b942);font-weight:800;">Falta distribuir: ${fmtBRL(falta)}</span>` : `<span style="color:var(--red);font-weight:800;">Passou do total: ${fmtBRL(Math.abs(falta))}</span>`;
+  wrap.innerHTML = `
+    <div style="font-weight:700;font-size:12.5px;margin-bottom:4px;">✂️ Ratear em várias datas</div>
+    <div style="font-size:11.5px;color:var(--text3);margin-bottom:8px;">Distribua manualmente ou gere parcelas iguais de uma vez.</div>
+    <div style="background:var(--navy3);border-radius:10px;padding:9px;margin-bottom:9px;">
+      <div style="font-size:11px;font-weight:800;margin-bottom:6px;">GERAR PARCELAS IGUAIS</div>
+      <div style="display:grid;grid-template-columns:90px 130px 1fr;gap:8px;align-items:end;">
+        <div><label style="font-size:9.5px;color:var(--text3);font-weight:700;display:block;margin-bottom:3px;">QTD.</label><input type="number" id="fcRateioPopupQtd" min="2" max="60" value="${Math.max(2,fcRateioPopupParcelas.length)}" style="width:100%;"></div>
+        <div><label style="font-size:9.5px;color:var(--text3);font-weight:700;display:block;margin-bottom:3px;">TIPO DE DIAS</label><select id="fcRateioPopupTipo" style="width:100%;"><option value="uteis">Dias úteis</option><option value="corridos">Dias do mês</option></select></div>
+        <div><label style="font-size:9.5px;color:var(--text3);font-weight:700;display:block;margin-bottom:3px;">INÍCIO</label><input type="date" id="fcRateioPopupInicio" value="${fcRateioPopupParcelas[0]?.data||fcTirarPopupContext.data}" style="width:100%;"></div>
+      </div>
+      <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:6px;" onclick="gerarParcelasIguaisRateioPopup()">Gerar parcelas</button>
+    </div>
+    ${linhas}
+    <button class="btn btn-ghost btn-sm" style="width:100%;margin:6px 0;" onclick="adicionarParcelaRateioPopup()">+ Adicionar parcela</button>
+    <div style="background:var(--navy3);border-radius:9px;padding:8px 10px;font-size:12px;margin-bottom:8px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;"><span>Título: <b>${fmtBRL(original)}</b> · Distribuído: <b>${fmtBRL(total)}</b></span>${saldoTexto}</div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-ghost btn-sm" style="flex:1;" onclick="cancelarRateioNaFicha()">Cancelar rateio</button>
+      <button class="btn btn-primary btn-sm" style="flex:1;" onclick="confirmarRateioNaFicha()">Confirmar rateio</button>
+    </div>`;
+}
+function iniciarRateioNaFicha(){
+  if(!fcTirarPopupContext) return;
+  fcRateioPopupParcelas = [{ data: fcTirarPopupContext.data, valor: fcTirarPopupContext.valor }];
+  renderRateioPopup();
+}
+function gerarParcelasIguaisRateioPopup(){
+  if(!fcTirarPopupContext) return;
+  const qtd = Math.max(2, Math.min(60, parseInt(el('fcRateioPopupQtd')?.value,10)||2));
+  const tipo = el('fcRateioPopupTipo')?.value || 'uteis';
+  const inicio = el('fcRateioPopupInicio')?.value || fcTirarPopupContext.data;
+  const datas = tipo==='corridos' ? proximosDiasCorridosUuizz(inicio,qtd) : proximosDiasUteisUuizz(inicio,qtd);
+  const total = fcTirarPopupContext.valor;
+  const base = Math.floor((total/qtd)*100)/100;
+  let acumulado = 0;
+  fcRateioPopupParcelas = datas.map((data,i)=>{
+    const valor = i===datas.length-1 ? Math.round((total-acumulado)*100)/100 : base;
+    acumulado = Math.round((acumulado+valor)*100)/100;
+    return { data, valor };
+  });
+  renderRateioPopup();
+}
+function cancelarRateioNaFicha(){
+  fcRateioPopupParcelas = null;
+  renderRateioPopup();
+}
+function ajustarParcelaRateioPopup(i, campo, valor){
+  if(!fcRateioPopupParcelas || !fcRateioPopupParcelas[i]) return;
+  if(campo==='data') fcRateioPopupParcelas[i].data = valor;
+  else fcRateioPopupParcelas[i].valor = parseMoneyBR(valor);
+  renderRateioPopup();
+}
+function adicionarParcelaRateioPopup(){
+  if(!fcRateioPopupParcelas || !fcTirarPopupContext) return;
+  // Sugere o dia seguinte à última parcela (em vez de repetir a mesma data
+  // sempre) — evita o caso de esquecer de ajustar e todas ficarem empilhadas
+  // no mesmo dia sem querer.
+  const ultima = fcRateioPopupParcelas[fcRateioPopupParcelas.length-1];
+  const proximaData = ultima ? nextDateStr(ultima.data) : fcTirarPopupContext.data;
+  const distribuido = fcRateioPopupParcelas.reduce((s,p)=>s+Number(p.valor||0),0);
+  const restante = Math.max(0, Math.round((fcTirarPopupContext.valor-distribuido)*100)/100);
+  fcRateioPopupParcelas.push({ data: proximaData, valor: restante });
+  renderRateioPopup();
+}
+function removerParcelaRateioPopup(i){
+  if(!fcRateioPopupParcelas) return;
+  fcRateioPopupParcelas.splice(i,1);
+  renderRateioPopup();
+}
+function confirmarRateioNaFicha(){
+  if(!fcTirarPopupContext || !fcRateioPopupParcelas || !fcRateioPopupParcelas.length){ alert('Adicione ao menos uma parcela.'); return; }
+  if(fcRateioPopupParcelas.some(p=>!p.data || !p.valor)){ alert('Preencha data e valor de todas as parcelas.'); return; }
+  const totalRateado = Math.round(fcRateioPopupParcelas.reduce((s,p)=>s+Number(p.valor||0),0)*100)/100;
+  if(Math.abs(totalRateado-fcTirarPopupContext.valor)>0.01){ alert(`O rateio precisa fechar o valor do título. Diferença: ${fmtBRL(Math.abs(fcTirarPopupContext.valor-totalRateado))}.`); return; }
+
+  // Lançamento Manual: continua sendo Lançamento Manual — rateado em várias
+  // linhas, uma por parcela — em vez de virar uma "Programação Fornecedor"
+  // separada (que é só pra fornecedor/pagamento real).
+  if(fcTirarPopupContext.ajusteManualId){
+    confirmarRateioManualNaFicha();
+    return;
+  }
+
+  const { empresa, nome, data, valor } = fcTirarPopupContext;
+
+  fcExclusoes.push({ empresa, nome, data, valor:-Math.abs(valor), criadoEm:Date.now(), novaData:null, motivo:'Substituído por rateio' });
+  localStorage.setItem('uuizz_fc_exclusoes', JSON.stringify(fcExclusoes));
+
+  fcProgramacoesFornecedor.push({
+    id:Date.now(), empresa, fornecedor:nome, valor, dias:fcRateioPopupParcelas.length, tipoDias:'manual', inicio:data,
+    parcelas: fcRateioPopupParcelas.map(p=>({ data:p.data, valor:Number(p.valor)||0 }))
+  });
+  localStorage.setItem('uuizz_fc_programacoes_fornecedor', JSON.stringify(fcProgramacoesFornecedor));
+
+  fcRateioPopupParcelas = null;
+  fecharTirarPopup();
+  closeFluxoFicha();
+  buildAndRenderTable();
+}
+// Deleta o Lançamento Manual original e cria uma linha nova pra cada
+// parcela, todas como Lançamento Manual de verdade (mesma descrição, mesma
+// empresa, mesmo sinal do valor original) — mexe direto na base do Supabase.
+async function confirmarRateioManualNaFicha(){
+  const { empresa, nome, ajusteManualId, sinalOriginal } = fcTirarPopupContext;
+  const sinal = sinalOriginal || 1;
+  const parcelas = fcRateioPopupParcelas;
+
+  const { error: errorDel } = await sb.from('fluxo_ajustes_manuais').delete().eq('id', ajusteManualId);
+  if(errorDel){ alert('Erro ao ratear: '+errorDel.message); return; }
+
+  for(const p of parcelas){
+    const valorParcela = Math.abs(Number(p.valor)||0) * sinal;
+    const { error } = await sb.from('fluxo_ajustes_manuais').insert({
+      empresa, data:p.data, descricao: nome, valor: valorParcela, criado_por: nameFromEmail(currentUser.email)
+    });
+    if(error) alert('Erro ao criar uma das parcelas: '+error.message);
+  }
+
+  fcRateioPopupParcelas = null;
+  fecharTirarPopup();
+  closeFluxoFicha();
+  await loadAjustesManuais();
+  buildAndRenderTable();
 }
 // remover=true tira do fluxo; remover=false usa a "Nova data" pra só mudar
 // o dia. Cai automaticamente na mesma lista/histórico do card
