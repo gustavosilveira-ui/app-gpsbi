@@ -333,8 +333,11 @@ html.light .fc-day-num{color:#1f2a3d;}
   <div class="app-topbar">
     <div class="app-brand"><span class="dot"></span> Hub GPSBI</div>
     <nav class="app-nav">
-      <a href="painel.html" id="navPainel">📊 Bi Comercial</a>
+      <a href="index.html#dashboard" id="navPainel">🛠️ Serviços</a>
       <a href="fluxodecaixa.html" class="active" id="navFluxo">💰 Fluxo de Caixa</a>
+      <a href="index.html#agenda">🗓️ Agenda</a>
+      <a href="index.html#mural" id="navMural">📣 Mural Corporativo</a>
+      <a href="index.html#aprovacoes">✅ Aprovações</a>
     </nav>
     <select class="empresa-select" id="empresaSelect" style="background:var(--field-bg);border:1px solid var(--border2);border-radius:9px;padding:8px 12px;color:var(--text);font-family:'Sora',sans-serif;font-size:13px;margin-right:auto;display:none;">
       <option value="alkanse">Alkanse</option>
@@ -544,7 +547,7 @@ html.light .fc-day-num{color:#1f2a3d;}
   </div>
 </div>
 
-<!-- Menu do Alkanse: somente os dois módulos publicados no projeto. -->
+<!-- Agenda, Mural e Aprovações vivem como experiências internas do index.html. -->
 <script>
 const SUPABASE_URL = 'https://ikncdkgaefwzdveotvka.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_XtrW_VlYPu1bE7FNA1V2lA_Srq9c5T6';
@@ -2735,14 +2738,16 @@ async function salvarEdicaoFcMsg(id, campo){
   else alert('Erro: '+error.message);
 }
 
-// Notificação no menu: somente os módulos efetivamente publicados no Alkanse.
+// Notificação no menu: Fluxo de Caixa, Serviços e Mural Corporativo.
 async function aplicarBadgesNav(email){
   try{
-    const [fluxoQ, fluxoLidasQ, comercialQ, comercialLidasQ] = await Promise.all([
+    const [fluxoQ, fluxoLidasQ, comercialQ, comercialLidasQ, muralQ, muralLidasQ] = await Promise.all([
       sb.from('fluxo_mensagens').select('id').in('tipo',['observacao','aviso']),
       sb.from('fluxo_mensagens_leituras').select('mensagem_id').eq('usuario_email', email),
       sb.from('comercial_mensagens').select('id').in('tipo',['observacao','aviso']),
       sb.from('comercial_mensagens_leituras').select('mensagem_id').eq('usuario_email', email),
+      sb.from('comunicados').select('id'),
+      sb.from('comunicado_leituras').select('comunicado_id').eq('usuario_email', email),
     ]);
     const naoLidas = (todos, lidas, campoLido) => {
       const lidosSet = new Set((lidas||[]).map(l=>l[campoLido]));
@@ -2750,6 +2755,7 @@ async function aplicarBadgesNav(email){
     };
     pintarBadgeNav('navFluxo', naoLidas(fluxoQ.data, fluxoLidasQ.data, 'mensagem_id'));
     pintarBadgeNav('navPainel', naoLidas(comercialQ.data, comercialLidasQ.data, 'mensagem_id'));
+    pintarBadgeNav('navMural', naoLidas(muralQ.data, muralLidasQ.data, 'comunicado_id'));
   }catch(e){ console.error('Erro ao calcular notificações do menu:', e); }
 }
 function pintarBadgeNav(navId, count){
