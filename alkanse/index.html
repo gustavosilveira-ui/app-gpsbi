@@ -14,7 +14,8 @@
   --pos:#2fd6b8; --neg:#ef6a6a; --gold:#f5b942;
   --text:#eef2f8; --text2:#8d9ab3; --text3:#586a89;
   --border:rgba(255,255,255,0.07); --border2:rgba(255,255,255,0.12);
-  --radius:16px; --shadow:0 18px 42px rgba(0,0,0,.35);
+  --field-bg:rgba(255,255,255,0.045);
+  --radius:16px; --radius2:10px; --shadow:0 18px 42px rgba(0,0,0,.35);
 }
 html.light{
   --navy:#F6F9FC; --navy2:#FFFFFF; --navy3:#F1F6FB; --navy4:#E8FAF8;
@@ -22,6 +23,7 @@ html.light{
   --pos:#1f9e88; --neg:#d64545; --gold:#b5810f;
   --text:#071B33; --text2:#344054; --text3:#667085;
   --border:rgba(7,27,51,.06); --border2:#E6EAF0;
+  --field-bg:rgba(7,27,51,0.03);
   --shadow:0 18px 42px rgba(7,27,51,.06);
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -145,28 +147,66 @@ input,textarea,select{width:100%;background:var(--navy3);border:1px solid var(--
 @media(max-width:560px){.agenda-form-grid{grid-template-columns:1fr}.calendar-day{min-height:50px;padding:5px}.day-dots{display:none}.calendar-head{grid-template-columns:auto 1fr auto}.calendar-head #calToday{grid-column:1/-1}.calendar-weekdays,.calendar-grid{gap:3px}}
 
 
-/* ===== Login / Cadastro (enxertado) ===== */
-.auth-wrap{position:fixed;inset:0;z-index:2000;background:var(--navy);display:flex;align-items:center;justify-content:center;padding:24px;}
-.auth-card{width:400px;max-width:100%;background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius);padding:32px;box-shadow:var(--shadow);}
-.auth-logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:16px;margin-bottom:22px;}
-.auth-title{font-size:19px;font-weight:800;margin-bottom:6px;}
-.auth-sub{font-size:12.5px;color:var(--text3);margin-bottom:22px;}
+/* ===== Login / Cadastro — padrão "premium" com painel lateral (mesmo dos outros clientes) ===== */
+.auth-wrap{position:fixed;inset:0;z-index:2000;display:flex;align-items:center;justify-content:center;padding:24px;overflow:auto;}
+.auth-card{display:flex;width:920px;max-width:100%;min-height:560px;background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius);overflow:hidden;box-shadow:0 40px 90px rgba(0,0,0,0.45);}
+.auth-left{flex:1;padding:42px 38px;position:relative;background:linear-gradient(160deg, rgba(58,233,209,0.07), rgba(66,129,191,0.05));border-right:1px solid var(--border);display:flex;flex-direction:column;}
+.brand-mark{display:flex;align-items:center;gap:10px;font-weight:800;font-size:16px;margin-bottom:34px;}
+.auth-left .lf{background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:var(--radius2);padding:14px 16px;margin-bottom:10px;}
+.auth-left .lf h3{font-size:13px;font-weight:600;margin-bottom:3px;display:flex;align-items:center;gap:7px;}
+.auth-left .lf p{font-size:11.5px;color:var(--text2);line-height:1.55;}
+.lf-icon{width:22px;height:22px;border-radius:7px;flex:none;background:linear-gradient(135deg,var(--cyan),var(--blue));display:flex;align-items:center;justify-content:center;font-size:11px;}
+.auth-left-footer{margin-top:auto;padding-top:18px;font-size:10.5px;color:var(--text3);}
+.auth-right{width:400px;flex:none;padding:42px 38px;display:flex;flex-direction:column;justify-content:center;}
+.ar-eyebrow{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1.6px;margin-bottom:8px;}
+.ar-title{font-size:20px;font-weight:700;margin-bottom:4px;}
+.ar-sub{font-size:11.5px;color:var(--text3);margin-bottom:26px;line-height:1.5;}
 .auth-screen{display:none;}
 .auth-screen.active{display:block;}
-.fg{margin-bottom:14px;}
-.fg label{display:block;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin-bottom:6px;}
-.fg input{width:100%;background:var(--navy3);border:1px solid var(--border2);border-radius:9px;padding:10px 12px;color:var(--text);font:13px 'Sora',sans-serif;outline:none;}
-.fg-error-msg{display:none;color:var(--neg);font-size:11px;margin-top:5px;}
-.fg.error input{border-color:var(--neg);}
-.fg.error .fg-error-msg{display:block;}
-.auth-btn{width:100%;padding:11px;border-radius:9px;border:none;background:linear-gradient(90deg,var(--blue),var(--cyan));color:#fff;font:700 13px 'Sora',sans-serif;cursor:pointer;margin-top:4px;}
-.auth-btn:disabled{opacity:.6;cursor:default;}
-.auth-links{display:flex;justify-content:space-between;margin-top:16px;font-size:12px;}
-.auth-links a{color:var(--blue);cursor:pointer;text-decoration:none;}
-.auth-msg{font-size:12px;margin-top:12px;padding:10px 12px;border-radius:8px;display:none;}
-.auth-msg.show{display:block;}
-.auth-msg.ok{background:rgba(47,214,184,.12);color:var(--pos);}
-.auth-msg.err{background:rgba(239,106,106,.12);color:var(--neg);}
+.fg{margin-bottom:16px;position:relative;}
+.fg label{display:block;font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:7px;}
+.fg input{width:100%;padding:12px 14px;background:var(--field-bg);border:1px solid var(--border2);border-radius:var(--radius2);color:var(--text);font-family:'Sora',sans-serif;font-size:13.5px;outline:none;transition:border .2s,background .2s;}
+.fg input:focus{border-color:var(--blue);background:rgba(255,255,255,0.065);}
+.fg input::placeholder{color:var(--text3);}
+.fg.has-error input{border-color:var(--neg);}
+.fg-error-msg{display:none;font-size:11px;color:var(--neg);margin-top:6px;}
+.fg.has-error .fg-error-msg{display:block;}
+.pw-wrap{position:relative;}
+.pw-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--text3);display:flex;align-items:center;background:none;border:none;padding:2px;}
+.pw-toggle:hover{color:var(--text2);}
+.pw-toggle svg{width:16px;height:16px;}
+.row-between{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;margin-top:-4px;}
+.remember{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--text2);cursor:pointer;user-select:none;}
+.remember input{accent-color:var(--blue);width:13px;height:13px;cursor:pointer;}
+.link-btn{background:none;border:none;cursor:pointer;font-family:'Sora',sans-serif;font-size:11.5px;color:var(--blue);font-weight:600;padding:0;}
+.link-btn:hover{text-decoration:underline;color:var(--cyan);}
+.btn-primary{width:100%;padding:13px;margin-top:4px;background:linear-gradient(90deg,var(--blue),var(--cyan));border:none;border-radius:var(--radius2);color:#06161f;font-family:'Sora',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:8px;}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 10px 26px rgba(58,233,209,0.25);}
+.btn-primary:disabled{opacity:.55;cursor:not-allowed;transform:none;box-shadow:none;}
+.btn-secondary{width:100%;padding:12px;margin-top:10px;background:var(--field-bg);border:1px solid var(--border2);border-radius:var(--radius2);color:var(--text);font-family:'Sora',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;}
+.btn-secondary:hover{background:rgba(255,255,255,0.08);}
+.form-error{display:none;text-align:center;font-size:11.5px;color:var(--neg);margin-top:14px;padding:9px;background:rgba(239,106,106,0.08);border:1px solid rgba(239,106,106,0.2);border-radius:8px;}
+.form-error.show{display:block;}
+.form-success{display:none;text-align:center;font-size:11.5px;color:var(--pos);margin-top:14px;padding:9px;background:rgba(47,214,184,0.08);border:1px solid rgba(47,214,184,0.2);border-radius:8px;}
+.form-success.show{display:block;}
+.back-link{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;margin-bottom:20px;background:none;border:none;font-family:'Sora',sans-serif;}
+.back-link:hover{color:var(--text);}
+.back-link svg{width:14px;height:14px;}
+.pw-meter{display:flex;gap:4px;margin-top:9px;}
+.pw-meter .seg{height:4px;flex:1;border-radius:3px;background:var(--border2);transition:background .2s;}
+.pw-meter-label{font-size:10.5px;color:var(--text3);margin-top:6px;}
+.pw-rules{margin-top:10px;display:flex;flex-direction:column;gap:4px;}
+.pw-rule{display:flex;align-items:center;gap:6px;font-size:10.5px;color:var(--text3);transition:color .15s;}
+.pw-rule svg{width:11px;height:11px;flex:none;}
+.pw-rule.ok{color:var(--pos);}
+.icon-circle{width:54px;height:54px;border-radius:50%;margin:0 auto 18px;background:linear-gradient(135deg, rgba(58,233,209,0.18), rgba(66,129,191,0.18));display:flex;align-items:center;justify-content:center;}
+.icon-circle svg{width:26px;height:26px;color:var(--cyan);}
+.center-text{text-align:center;}
+.modal-overlay{position:fixed;inset:0;background:rgba(5,9,16,0.65);display:none;align-items:center;justify-content:center;z-index:2100;padding:20px;}
+.modal-overlay.show{display:flex;}
+.modal-box{width:380px;max-width:100%;background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius);padding:30px 28px;box-shadow:0 30px 70px rgba(0,0,0,0.5);position:relative;}
+.modal-close{position:absolute;top:16px;right:16px;background:none;border:none;color:var(--text3);cursor:pointer;}
+@media (max-width: 720px){.auth-card{flex-direction:column;min-height:auto;}.auth-right{width:100%;}.auth-left{border-right:none;border-bottom:1px solid var(--border);}}
 </style>
 </head>
 <body>
@@ -174,55 +214,153 @@ input,textarea,select{width:100%;background:var(--navy3);border:1px solid var(--
 <div class="auth-wrap" id="authWrap">
   <div class="auth-card">
 
-    <!-- LOGIN -->
-    <div class="auth-screen active" id="screen-login">
-      <div class="auth-logo"><span class="dot"></span> Hub Alkanse</div>
-      <div class="auth-title">Entrar</div>
-      <div class="auth-sub">Acesse com seu e-mail corporativo.</div>
-      <div class="fg" id="fg-login-email"><label>E-mail</label><input type="email" id="loginEmail" placeholder="voce@grupofb.com.br"><div class="fg-error-msg">E-mail inválido.</div></div>
-      <div class="fg" id="fg-login-senha"><label>Senha</label><input type="password" id="loginSenha"><div class="fg-error-msg">Preencha a senha.</div></div>
-      <button class="auth-btn" id="btnLogin">Entrar</button>
-      <div class="auth-msg" id="loginMsg"></div>
-      <div class="auth-links">
-        <a onclick="mostrarTela('signup')">Criar minha conta</a>
-        <a onclick="mostrarTela('forgot')">Esqueci minha senha</a>
+    <div class="auth-left">
+      <div class="brand-mark"><span class="dot"></span> Gpsbi</div>
+      <div class="lf"><h3><span class="lf-icon">🎯</span> Seja muito bem-vindo!</h3><p>Aqui seus números viram <strong style="color:var(--gold)">decisões que transformam</strong>.</p></div>
+      <div class="lf"><h3><span class="lf-icon">📊</span> Dados ao vivo</h3><p>Conectado direto à sua planilha ou base — sempre atualizado automaticamente.</p></div>
+      <div class="lf"><h3><span class="lf-icon">⚡</span> Experiência premium GPSBI</h3><p>Dashboards, relatórios e automações feitos sob medida pro seu negócio.</p></div>
+      <div class="lf"><h3><span class="lf-icon">🔒</span> Acesso seguro</h3><p>Cada pessoa acessa só os próprios dados, com senha pessoal e intransferível.</p></div>
+      <div class="auth-left-footer">© 2026 GPSBI · Business Intelligence</div>
+    </div>
+
+    <div class="auth-right">
+
+      <!-- ---------- LOGIN ---------- -->
+      <div class="auth-screen active" id="screen-login">
+        <div class="ar-eyebrow">Acesso do cliente</div>
+        <div class="ar-title">Entrar no Hub</div>
+        <div class="ar-sub">Use seu e-mail e senha para acessar o Hub Alkanse.</div>
+
+        <div class="fg" id="fg-login-email">
+          <label>E-mail de acesso</label>
+          <input type="email" id="loginEmail" placeholder="voce@grupofb.com.br" autocomplete="username">
+          <div class="fg-error-msg">Informe um e-mail válido.</div>
+        </div>
+        <div class="fg" id="fg-login-pass">
+          <label>Senha</label>
+          <div class="pw-wrap">
+            <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+            <button class="pw-toggle" type="button" onclick="togglePw('loginPass', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+          </div>
+          <div class="fg-error-msg">Digite sua senha.</div>
+        </div>
+
+        <div class="row-between">
+          <label class="remember"><input type="checkbox" id="rememberMe"> Lembrar de mim</label>
+          <button class="link-btn" onclick="showScreen('forgot')">Esqueci minha senha</button>
+        </div>
+
+        <button class="btn-primary" id="loginBtn" onclick="doLogin()">Entrar →</button>
+        <div class="form-error" id="loginError">Usuário ou senha incorretos.</div>
+
+        <div style="text-align:center;margin-top:18px;font-size:11px;color:var(--text3);">
+          Primeiro acesso? <button class="link-btn" onclick="showScreen('activate')">Criar minha conta</button>
+        </div>
       </div>
-    </div>
 
-    <!-- CADASTRO -->
-    <div class="auth-screen" id="screen-signup">
-      <div class="auth-logo"><span class="dot"></span> Hub Alkanse</div>
-      <div class="auth-title">Criar minha conta</div>
-      <div class="auth-sub">Use seu e-mail corporativo (@grupofb.com.br ou @gpsbi.com.br).</div>
-      <div class="fg" id="fg-signup-nome"><label>Nome</label><input type="text" id="signupNome"><div class="fg-error-msg">Preencha seu nome.</div></div>
-      <div class="fg" id="fg-signup-email"><label>E-mail</label><input type="email" id="signupEmail" placeholder="voce@grupofb.com.br"><div class="fg-error-msg">Use um e-mail @grupofb.com.br ou @gpsbi.com.br.</div></div>
-      <div class="fg" id="fg-signup-senha"><label>Senha</label><input type="password" id="signupSenha"><div class="fg-error-msg">Mínimo 6 caracteres.</div></div>
-      <button class="auth-btn" id="btnSignup">Criar conta</button>
-      <div class="auth-msg" id="signupMsg"></div>
-      <div class="auth-links"><a onclick="mostrarTela('login')">← Voltar pro login</a><span></span></div>
-    </div>
+      <!-- ---------- ESQUECI A SENHA ---------- -->
+      <div class="auth-screen" id="screen-forgot">
+        <button class="back-link" onclick="showScreen('login')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg> Voltar pro login</button>
+        <div class="ar-title">Esqueceu sua senha?</div>
+        <div class="ar-sub">Sem problema. Informe seu e-mail e mandamos um link pra você criar uma nova.</div>
 
-    <!-- ESQUECI SENHA -->
-    <div class="auth-screen" id="screen-forgot">
-      <div class="auth-logo"><span class="dot"></span> Hub Alkanse</div>
-      <div class="auth-title">Esqueci minha senha</div>
-      <div class="auth-sub">Enviamos um link de redefinição pro seu e-mail.</div>
-      <div class="fg" id="fg-forgot-email"><label>E-mail</label><input type="email" id="forgotEmail"><div class="fg-error-msg">E-mail inválido.</div></div>
-      <button class="auth-btn" id="btnForgot">Enviar link</button>
-      <div class="auth-msg" id="forgotMsg"></div>
-      <div class="auth-links"><a onclick="mostrarTela('login')">← Voltar pro login</a><span></span></div>
-    </div>
+        <div class="fg" id="fg-forgot-email">
+          <label>E-mail cadastrado</label>
+          <input type="email" id="forgotEmail" placeholder="voce@grupofb.com.br" autocomplete="username" onkeydown="if(event.key==='Enter')doForgot()">
+          <div class="fg-error-msg">Informe um e-mail válido.</div>
+        </div>
 
-    <!-- REDEFINIR SENHA (chega aqui pelo link do e-mail) -->
-    <div class="auth-screen" id="screen-reset">
-      <div class="auth-logo"><span class="dot"></span> Hub Alkanse</div>
-      <div class="auth-title">Nova senha</div>
-      <div class="auth-sub">Escolha uma nova senha pra sua conta.</div>
-      <div class="fg" id="fg-reset-senha"><label>Nova senha</label><input type="password" id="resetSenha"><div class="fg-error-msg">Mínimo 6 caracteres.</div></div>
-      <button class="auth-btn" id="btnReset">Salvar nova senha</button>
-      <div class="auth-msg" id="resetMsg"></div>
-    </div>
+        <button class="btn-primary" id="forgotBtn" onclick="doForgot()">Enviar link de redefinição</button>
+        <div class="form-error" id="forgotError"></div>
+      </div>
 
+      <!-- ---------- CONFIRMAÇÃO DE ENVIO ---------- -->
+      <div class="auth-screen" id="screen-forgot-sent">
+        <div class="icon-circle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 6l-10 7L2 6"/></svg></div>
+        <div class="ar-title center-text">Verifique seu e-mail</div>
+        <div class="ar-sub center-text">
+          Enviamos um link de redefinição para<br><b style="color:var(--text);" id="forgotSentEmail"></b>.
+        </div>
+        <button class="btn-secondary" onclick="doForgot(true)">Reenviar e-mail</button>
+        <div style="text-align:center;margin-top:16px;"><button class="link-btn" onclick="showScreen('login')">Voltar pro login</button></div>
+      </div>
+
+      <!-- ---------- REDEFINIR / CRIAR SENHA (compartilhada) ---------- -->
+      <div class="auth-screen" id="screen-reset">
+        <div class="ar-eyebrow" id="resetEyebrow">Redefinição de senha</div>
+        <div class="ar-title" id="resetTitle">Crie sua nova senha</div>
+        <div class="ar-sub" id="resetSub">Escolha uma senha forte, com pelo menos 8 caracteres.</div>
+
+        <div class="fg" id="fg-activate-email">
+          <label>E-mail de acesso</label>
+          <input type="email" id="activateEmail">
+          <div class="fg-error-msg" id="activateEmailError">E-mail corporativo inválido.</div>
+        </div>
+
+        <div class="fg" id="fg-reset-pass">
+          <label>Nova senha</label>
+          <div class="pw-wrap">
+            <input type="password" id="resetPass" placeholder="••••••••" autocomplete="new-password" oninput="checkPwStrength()">
+            <button class="pw-toggle" type="button" onclick="togglePw('resetPass', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+          </div>
+          <div class="pw-meter"><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div></div>
+          <div class="pw-meter-label" id="pwStrengthLabel">Força da senha</div>
+          <div class="pw-rules">
+            <div class="pw-rule" id="rule-len"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg> Mínimo de 8 caracteres</div>
+            <div class="pw-rule" id="rule-case"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg> Letra maiúscula e minúscula</div>
+            <div class="pw-rule" id="rule-num"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg> Pelo menos 1 número</div>
+          </div>
+        </div>
+        <div class="fg" id="fg-reset-confirm" style="margin-top:16px;">
+          <label>Confirmar nova senha</label>
+          <div class="pw-wrap">
+            <input type="password" id="resetConfirm" placeholder="••••••••" autocomplete="new-password" onkeydown="if(event.key==='Enter')doReset()">
+            <button class="pw-toggle" type="button" onclick="togglePw('resetConfirm', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+          </div>
+          <div class="fg-error-msg">As senhas não coincidem.</div>
+        </div>
+
+        <button class="btn-primary" id="resetBtn" onclick="doReset()">Salvar nova senha</button>
+        <div class="form-error" id="resetError"></div>
+      </div>
+
+      <!-- ---------- SUCESSO ---------- -->
+      <div class="auth-screen" id="screen-reset-success">
+        <div class="icon-circle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-6"/></svg></div>
+        <div class="ar-title center-text" id="resetSuccessTitle">Senha criada!</div>
+        <div class="ar-sub center-text" id="resetSuccessSub">Seu acesso foi atualizado com sucesso. Já pode entrar no Hub normalmente.</div>
+        <button class="btn-primary" onclick="showScreen('login')">Ir para o login →</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ---------- TROCAR SENHA (logado) ---------- -->
+<div class="modal-overlay" id="changePwOverlay">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeChangePassword()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+    <div class="ar-title">Trocar senha</div>
+    <div class="ar-sub">Por segurança, confirme sua senha atual antes de definir uma nova.</div>
+    <div class="fg" id="fg-cur-pass">
+      <label>Senha atual</label>
+      <div class="pw-wrap"><input type="password" id="curPass" placeholder="••••••••" autocomplete="current-password"><button class="pw-toggle" type="button" onclick="togglePw('curPass', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
+      <div class="fg-error-msg">Senha atual incorreta.</div>
+    </div>
+    <div class="fg" id="fg-new-pass">
+      <label>Nova senha</label>
+      <div class="pw-wrap"><input type="password" id="newPass" placeholder="••••••••" autocomplete="new-password" oninput="checkPwStrength('modal')"><button class="pw-toggle" type="button" onclick="togglePw('newPass', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
+      <div class="pw-meter"><div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div></div>
+      <div class="pw-meter-label" id="pwStrengthLabelModal">Força da senha</div>
+    </div>
+    <div class="fg" id="fg-new-confirm">
+      <label>Confirmar nova senha</label>
+      <div class="pw-wrap"><input type="password" id="newPassConfirm" placeholder="••••••••" autocomplete="new-password" onkeydown="if(event.key==='Enter')doChangePassword()"><button class="pw-toggle" type="button" onclick="togglePw('newPassConfirm', this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
+      <div class="fg-error-msg">As senhas não coincidem.</div>
+    </div>
+    <button class="btn-primary" onclick="doChangePassword()">Salvar nova senha</button>
+    <div class="form-error" id="changePwError"></div>
+    <div class="form-success" id="changePwSuccess">Senha alterada com sucesso!</div>
   </div>
 </div>
 
@@ -240,6 +378,7 @@ input,textarea,select{width:100%;background:var(--navy3);border:1px solid var(--
     <button id="btnDark" title="Escuro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg></button>
     <button id="btnLight" title="Claro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg></button>
   </div>
+  <button onclick="openChangePassword()" title="Trocar senha" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;margin-left:8px;">Trocar senha</button>
   <button id="btnLogout" title="Sair" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;margin-left:8px;">Sair</button>
   </div>
 </div>
@@ -429,7 +568,7 @@ input,textarea,select{width:100%;background:var(--navy3);border:1px solid var(--
 </div>
 
 <script>
-/* ================== LOGIN (enxertado) ================== */
+/* ================== LOGIN — padrão premium (mesmo dos outros clientes) ================== */
 const SUPABASE_URL = 'https://ikncdkgaefwzdveotvka.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_XtrW_VlYPu1bE7FNA1V2lA_Srq9c5T6';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -440,86 +579,360 @@ function podeVerFluxoCaixa(email){
   if(e.endsWith('@gpsbi.com.br')) return true;
   return ALLOWED_FLUXO_EMAILS.includes(e);
 }
-function dominioPermitido(email){
-  const e = (email||'').toLowerCase();
-  return ALLOWED_SIGNUP_DOMAINS.some(d => e.endsWith('@'+d));
+function isAllowedSignupEmail(email){
+  const domain = (email.split('@')[1] || '').toLowerCase();
+  return ALLOWED_SIGNUP_DOMAINS.includes(domain);
 }
-function el_(id){ return document.getElementById(id); }
-function mostrarTela(nome){
-  document.querySelectorAll('.auth-screen').forEach(s=>s.classList.remove('active'));
-  el_('screen-'+nome).classList.add('active');
-  document.querySelectorAll('.auth-msg').forEach(m=>m.classList.remove('show'));
-}
-function setAuthMsg(id, texto, ok){
-  const m = el_(id);
-  m.textContent = texto;
-  m.className = 'auth-msg show ' + (ok ? 'ok' : 'err');
-}
-function entrarNoApp(){
-  el_('authWrap').style.display = 'none';
-  const email = (currentAuthEmail || '').toLowerCase();
-  const linkFluxo = document.querySelector('a[href="fluxodecaixa.html"]');
-  if(linkFluxo) linkFluxo.style.display = podeVerFluxoCaixa(email) ? '' : 'none';
-}
-let currentAuthEmail = '';
 
-el_('btnLogin').addEventListener('click', async ()=>{
-  const email = el_('loginEmail').value.trim();
-  const senha = el_('loginSenha').value;
-  if(!email || !senha){ setAuthMsg('loginMsg','Preencha e-mail e senha.',false); return; }
-  const { data, error } = await sb.auth.signInWithPassword({ email, password: senha });
-  if(error){ setAuthMsg('loginMsg', error.message.includes('Invalid') ? 'E-mail ou senha incorretos.' : error.message, false); return; }
-  currentAuthEmail = data.user.email;
-  entrarNoApp();
-});
+let pendingResetEmail = null;
+let resetMode = 'reset'; // 'reset' (esqueci senha) | 'activate' (autocadastro)
+let currentUserEmail = null;
 
-el_('btnSignup').addEventListener('click', async ()=>{
-  const nome = el_('signupNome').value.trim();
-  const email = el_('signupEmail').value.trim();
-  const senha = el_('signupSenha').value;
-  if(!nome){ setAuthMsg('signupMsg','Preencha seu nome.',false); return; }
-  if(!dominioPermitido(email)){ setAuthMsg('signupMsg','Use um e-mail @grupofb.com.br ou @gpsbi.com.br.',false); return; }
-  if(!senha || senha.length<6){ setAuthMsg('signupMsg','A senha precisa ter pelo menos 6 caracteres.',false); return; }
-  const { data, error } = await sb.auth.signUp({ email, password: senha, options:{ data:{ nome } } });
-  if(error){ setAuthMsg('signupMsg', error.message, false); return; }
-  if(data.session){ currentAuthEmail = data.user.email; entrarNoApp(); return; }
-  setAuthMsg('signupMsg','Conta criada! Confira seu e-mail pra confirmar o cadastro antes de entrar.', true);
-});
-
-el_('btnForgot').addEventListener('click', async ()=>{
-  const email = el_('forgotEmail').value.trim();
-  if(!email){ setAuthMsg('forgotMsg','Preencha seu e-mail.',false); return; }
-  const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + window.location.pathname });
-  if(error){ setAuthMsg('forgotMsg', error.message, false); return; }
-  setAuthMsg('forgotMsg','Se esse e-mail tiver cadastro, enviamos um link de redefinição.', true);
-});
-
-el_('btnReset').addEventListener('click', async ()=>{
-  const senha = el_('resetSenha').value;
-  if(!senha || senha.length<6){ setAuthMsg('resetMsg','A senha precisa ter pelo menos 6 caracteres.',false); return; }
-  const { error } = await sb.auth.updateUser({ password: senha });
-  if(error){ setAuthMsg('resetMsg', error.message, false); return; }
-  setAuthMsg('resetMsg','Senha alterada! Redirecionando...', true);
-  setTimeout(()=>{ window.location.href = window.location.pathname; }, 1500);
-});
-
-el_('btnLogout').addEventListener('click', async ()=>{
-  await sb.auth.signOut();
-  window.location.reload();
-});
-
-(async function checkSessao(){
-  // Link de reset de senha do Supabase chega com #access_token=...&type=recovery
-  if(window.location.hash.includes('type=recovery')){
-    mostrarTela('reset');
+// ---------------- TROCA DE TELA ----------------
+function showScreen(name){
+  document.querySelectorAll('.auth-screen').forEach(el => el.classList.remove('active'));
+  clearAllErrors();
+  if(name === 'activate'){
+    resetMode = 'activate';
+    setupResetScreen();
+    document.getElementById('screen-reset').classList.add('active');
     return;
   }
-  const { data } = await sb.auth.getSession();
-  if(data.session){
-    currentAuthEmail = data.session.user.email;
-    entrarNoApp();
+  if(name === 'reset'){
+    setupResetScreen();
+    document.getElementById('screen-reset').classList.add('active');
+    return;
   }
+  const el = document.getElementById('screen-'+name);
+  if(el) el.classList.add('active');
+}
+
+function setupResetScreen(){
+  const eyebrow = document.getElementById('resetEyebrow');
+  const title = document.getElementById('resetTitle');
+  const sub = document.getElementById('resetSub');
+  const emailField = document.getElementById('activateEmail');
+  document.getElementById('resetPass').value = '';
+  document.getElementById('resetConfirm').value = '';
+  checkPwStrength();
+  if(resetMode === 'activate'){
+    eyebrow.textContent = 'Primeiro acesso';
+    title.textContent = 'Crie sua conta';
+    sub.textContent = `Use seu e-mail corporativo (${ALLOWED_SIGNUP_DOMAINS.map(d=>'@'+d).join(' ou ')}) e defina sua senha.`;
+    emailField.value = '';
+    emailField.readOnly = false;
+    emailField.placeholder = 'voce@grupofb.com.br';
+    document.getElementById('resetBtn').textContent = 'Criar minha conta';
+  } else {
+    eyebrow.textContent = 'Redefinição de senha';
+    title.textContent = 'Crie sua nova senha';
+    sub.textContent = 'Escolha uma senha forte, com pelo menos 8 caracteres.';
+    emailField.value = pendingResetEmail || '';
+    emailField.readOnly = true;
+    document.getElementById('resetBtn').textContent = 'Salvar nova senha';
+  }
+}
+
+function clearAllErrors(){
+  document.querySelectorAll('.fg').forEach(f=>f.classList.remove('has-error'));
+  document.querySelectorAll('.form-error').forEach(f=>f.classList.remove('show'));
+  document.querySelectorAll('.form-success').forEach(f=>f.classList.remove('show'));
+}
+
+function isValidEmail(v){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
+
+function translateAuthError(msg){
+  if(!msg) return 'Não foi possível concluir. Tente novamente.';
+  const m = msg.toLowerCase();
+  const map = [
+    [/new password should be different from the old password/, 'A nova senha precisa ser diferente da senha atual.'],
+    [/password should be at least/, 'A senha precisa ter pelo menos 8 caracteres.'],
+    [/password is too weak|weak password/, 'Essa senha é muito fraca. Tente uma combinação mais forte.'],
+    [/user already registered|already registered|email.*already.*use/, 'Esse e-mail já está cadastrado. Tente fazer login ou recuperar a senha.'],
+    [/invalid login credentials/, 'Usuário ou senha incorretos.'],
+    [/email not confirmed/, 'Confirme seu e-mail antes de entrar.'],
+    [/email rate limit exceeded|rate limit/, 'Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente de novo.'],
+    [/unable to validate email address|invalid email/, 'Informe um e-mail válido.'],
+    [/token has expired|expired|invalid.*token/, 'Esse link expirou ou já foi usado. Solicite um novo.'],
+    [/user not found/, 'Não encontramos uma conta com esse e-mail.'],
+    [/network|fetch failed|failed to fetch/, 'Falha de conexão. Verifique sua internet e tente novamente.'],
+  ];
+  for(const [re, pt] of map){ if(re.test(m)) return pt; }
+  return 'Não foi possível concluir. Tente novamente. (' + msg + ')';
+}
+function setFieldError(fgId, hasError){
+  const el = document.getElementById(fgId);
+  if(el) el.classList.toggle('has-error', hasError);
+}
+
+const EYE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+const EYE_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a18.6 18.6 0 0 1 5.06-5.94M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+function togglePw(inputId, btn){
+  const input = document.getElementById(inputId);
+  const isPw = input.type === 'password';
+  input.type = isPw ? 'text' : 'password';
+  btn.innerHTML = isPw ? EYE_OFF : EYE;
+}
+
+function checkPwStrength(scope){
+  const inputId = scope==='modal' ? 'newPass' : 'resetPass';
+  const labelId = scope==='modal' ? 'pwStrengthLabelModal' : 'pwStrengthLabel';
+  const pw = document.getElementById(inputId).value;
+  const wrap = document.getElementById(inputId).closest('.fg');
+  const segs = wrap.querySelectorAll('.pw-meter .seg');
+  const label = document.getElementById(labelId);
+
+  const hasLen = pw.length >= 8;
+  const hasCase = /[a-z]/.test(pw) && /[A-Z]/.test(pw);
+  const hasNum = /[0-9]/.test(pw);
+  const hasSpecial = /[^A-Za-z0-9]/.test(pw);
+
+  if(scope !== 'modal'){
+    setRule('rule-len', hasLen);
+    setRule('rule-case', hasCase);
+    setRule('rule-num', hasNum);
+  }
+
+  let score = 0;
+  if(pw.length>0) score=1;
+  if(hasLen) score=2;
+  if(hasLen && hasCase && hasNum) score=3;
+  if(hasLen && hasCase && hasNum && hasSpecial) score=4;
+
+  const colors = ['var(--border2)', 'var(--neg)', 'var(--gold)', 'var(--pos)', 'var(--cyan)'];
+  const labels = ['Força da senha', 'Fraca', 'Razoável', 'Boa', 'Excelente'];
+  segs.forEach((seg,i)=>{ seg.style.background = i < score ? colors[score] : 'var(--border2)'; });
+  label.textContent = labels[score];
+  label.style.color = score>0 ? colors[score] : 'var(--text3)';
+  return {hasLen, hasCase, hasNum, score};
+}
+function setRule(id, ok){
+  document.getElementById(id).classList.toggle('ok', ok);
+}
+
+function setButtonLoading(btn, isLoading, text){
+  if(!btn) return;
+  btn.disabled = isLoading;
+  btn.textContent = text;
+}
+
+// ---------------- LOGIN ----------------
+async function doLogin(){
+  clearAllErrors();
+  const emailEl = document.getElementById('loginEmail');
+  const passEl = document.getElementById('loginPass');
+  const btn = document.getElementById('loginBtn');
+  const err = document.getElementById('loginError');
+  const email = emailEl.value.trim().toLowerCase();
+  const pass = passEl.value;
+
+  let bad = false;
+  if(!isValidEmail(email)){ setFieldError('fg-login-email', true); bad = true; }
+  if(!pass){ setFieldError('fg-login-pass', true); bad = true; }
+  if(bad) return;
+
+  setButtonLoading(btn, true, 'Entrando...');
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+  setButtonLoading(btn, false, 'Entrar →');
+
+  if(error){
+    err.textContent = error.message.includes('Email not confirmed')
+      ? 'Confirme seu e-mail antes de entrar.'
+      : 'Usuário ou senha incorretos.';
+    err.classList.add('show');
+    passEl.value = '';
+    return;
+  }
+  enterApp(data.user);
+}
+
+function enterApp(user){
+  currentUserEmail = (user?.email || '').toLowerCase();
+  document.getElementById('authWrap').style.display = 'none';
+  const linkFluxo = document.querySelector('a[href="fluxodecaixa.html"]');
+  if(linkFluxo) linkFluxo.style.display = podeVerFluxoCaixa(currentUserEmail) ? '' : 'none';
+}
+
+async function doLogout(){
+  await sb.auth.signOut();
+  window.location.reload();
+}
+
+// ---------------- ESQUECI SENHA ----------------
+async function doForgot(isResend){
+  clearAllErrors();
+  const emailEl = document.getElementById('forgotEmail');
+  const btn = document.getElementById('forgotBtn');
+  const errEl = document.getElementById('forgotError');
+  const email = (emailEl.value.trim() || pendingResetEmail || '').toLowerCase();
+
+  if(!isResend && !isValidEmail(email)){ setFieldError('fg-forgot-email', true); return; }
+
+  setButtonLoading(btn, true, 'Enviando...');
+  const { error } = await sb.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin + window.location.pathname
+  });
+  setButtonLoading(btn, false, 'Enviar link de redefinição');
+
+  if(error){ errEl.textContent = translateAuthError(error.message); errEl.classList.add('show'); return; }
+
+  pendingResetEmail = email;
+  document.getElementById('forgotSentEmail').textContent = pendingResetEmail;
+  showScreen('forgot-sent');
+}
+
+// ---------------- CRIAR CONTA / REDEFINIR SENHA ----------------
+async function doReset(){
+  clearAllErrors();
+  const pass = document.getElementById('resetPass').value;
+  const confirm = document.getElementById('resetConfirm').value;
+  const errEl = document.getElementById('resetError');
+  const btn = document.getElementById('resetBtn');
+  const strength = checkPwStrength();
+  const email = document.getElementById('activateEmail').value.trim().toLowerCase();
+
+  let bad = false;
+  if(resetMode === 'activate'){
+    if(!isValidEmail(email)){
+      setFieldError('fg-activate-email', true);
+      document.getElementById('activateEmailError').textContent = 'Informe um e-mail válido.';
+      bad = true;
+    } else if(!isAllowedSignupEmail(email)){
+      setFieldError('fg-activate-email', true);
+      document.getElementById('activateEmailError').textContent =
+        `Cadastro permitido apenas para e-mails ${ALLOWED_SIGNUP_DOMAINS.map(d=>'@'+d).join(' ou ')}.`;
+      bad = true;
+    }
+  }
+  if(!strength.hasLen || !strength.hasCase || !strength.hasNum){
+    errEl.textContent = 'Sua senha precisa atender aos requisitos acima.';
+    errEl.classList.add('show');
+    bad = true;
+  }
+  if(pass !== confirm){ setFieldError('fg-reset-confirm', true); bad = true; }
+  if(bad) return;
+
+  const loadingLabel = resetMode === 'activate' ? 'Criando conta...' : 'Salvando...';
+  setButtonLoading(btn, true, loadingLabel);
+
+  let error, session;
+  if(resetMode === 'activate'){
+    const result = await sb.auth.signUp({ email, password: pass });
+    error = result.error;
+    session = result.data?.session;
+  } else {
+    const result = await sb.auth.updateUser({ password: pass });
+    error = result.error;
+  }
+
+  const idleLabel = resetMode === 'activate' ? 'Criar minha conta' : 'Salvar nova senha';
+  setButtonLoading(btn, false, idleLabel);
+
+  if(error){ errEl.textContent = translateAuthError(error.message); errEl.classList.add('show'); return; }
+
+  if(resetMode === 'activate'){
+    if(session){ enterApp(session.user); return; }
+    document.getElementById('resetSuccessTitle').textContent = 'Verifique seu e-mail';
+    document.getElementById('resetSuccessSub').textContent =
+      `Enviamos um link de confirmação para ${email}. Clique nele para concluir seu acesso.`;
+    showScreen('reset-success');
+    return;
+  }
+
+  document.getElementById('resetSuccessTitle').textContent = 'Senha redefinida!';
+  document.getElementById('resetSuccessSub').textContent = 'Seu acesso foi atualizado com sucesso. Já pode entrar no Hub normalmente.';
+  showScreen('reset-success');
+}
+
+// ---------------- TROCAR SENHA (já logado) ----------------
+function openChangePassword(){
+  document.getElementById('curPass').value = '';
+  document.getElementById('newPass').value = '';
+  document.getElementById('newPassConfirm').value = '';
+  clearAllErrors();
+  document.getElementById('changePwOverlay').classList.add('show');
+  checkPwStrength('modal');
+}
+function closeChangePassword(){
+  document.getElementById('changePwOverlay').classList.remove('show');
+}
+async function doChangePassword(){
+  clearAllErrors();
+  const cur = document.getElementById('curPass').value;
+  const next = document.getElementById('newPass').value;
+  const confirm = document.getElementById('newPassConfirm').value;
+  const errEl = document.getElementById('changePwError');
+  let bad = false;
+
+  if(!cur){ setFieldError('fg-cur-pass', true); bad = true; }
+  const strength = checkPwStrength('modal');
+  if(!strength.hasLen || !strength.hasCase || !strength.hasNum){
+    errEl.textContent = 'A nova senha precisa ter 8+ caracteres, com maiúsculas, minúsculas e números.';
+    errEl.classList.add('show');
+    bad = true;
+  }
+  if(next !== confirm){ setFieldError('fg-new-confirm', true); bad = true; }
+  if(bad) return;
+
+  if(currentUserEmail){
+    const reauth = await sb.auth.signInWithPassword({ email: currentUserEmail, password: cur });
+    if(reauth.error){
+      setFieldError('fg-cur-pass', true);
+      errEl.textContent = 'Senha atual incorreta.';
+      errEl.classList.add('show');
+      return;
+    }
+  }
+
+  const { error } = await sb.auth.updateUser({ password: next });
+  if(error){ errEl.textContent = translateAuthError(error.message); errEl.classList.add('show'); return; }
+
+  document.getElementById('changePwSuccess').classList.add('show');
+  setTimeout(()=>{ closeChangePassword(); }, 1400);
+}
+document.getElementById('btnLogout').addEventListener('click', doLogout);
+
+// ---------------- INICIALIZAÇÃO ----------------
+const _rawHash = window.location.hash || '';
+const _urlType = (() => {
+  try { return new URLSearchParams(_rawHash.replace(/^#/, '')).get('type') || null; }
+  catch(e){ return null; }
 })();
+
+async function initAuth(){
+  sb.auth.onAuthStateChange((event, session) => {
+    if(event === 'PASSWORD_RECOVERY' || _urlType === 'recovery'){
+      resetMode = 'reset';
+      pendingResetEmail = session?.user?.email || null;
+      document.getElementById('authWrap').style.display = 'flex';
+      setupResetScreen();
+      showScreen('reset');
+      return;
+    }
+    if(session?.user && event === 'SIGNED_IN'){
+      enterApp(session.user);
+    }
+  });
+
+  const { data } = await sb.auth.getSession();
+  const session = data?.session;
+
+  if(_urlType === 'recovery' && session?.user){
+    resetMode = 'reset';
+    pendingResetEmail = session.user.email;
+    setupResetScreen();
+    showScreen('reset');
+    return;
+  }
+
+  if(session?.user){
+    enterApp(session.user);
+  } else {
+    showScreen('login');
+  }
+}
+initAuth();
+
 
 // ---------- BLOCO 1 · TÉCNICOS ----------
 const junho = [
