@@ -335,9 +335,6 @@ html.light .fc-day-num{color:#1f2a3d;}
     <nav class="app-nav">
       <a href="painel.html" id="navPainel">📊 Bi Comercial</a>
       <a href="fluxodecaixa.html" class="active" id="navFluxo">💰 Fluxo de Caixa</a>
-      <a href="agenda.html">🗓️ Agenda</a>
-      <a href="mural.html" id="navMural">📣 Mural Corporativo</a>
-      <a href="aprovacoes.html">✅ Aprovações</a>
     </nav>
     <select class="empresa-select" id="empresaSelect" style="background:var(--field-bg);border:1px solid var(--border2);border-radius:9px;padding:8px 12px;color:var(--text);font-family:'Sora',sans-serif;font-size:13px;margin-right:auto;display:none;">
       <option value="alkanse">Alkanse</option>
@@ -547,7 +544,7 @@ html.light .fc-day-num{color:#1f2a3d;}
   </div>
 </div>
 
-<!-- nav.js do Alkanse ainda nao existe (Agenda/Mural/Aprovacoes vem depois) -->
+<!-- Menu do Alkanse: somente os dois módulos publicados no projeto. -->
 <script>
 const SUPABASE_URL = 'https://ikncdkgaefwzdveotvka.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_XtrW_VlYPu1bE7FNA1V2lA_Srq9c5T6';
@@ -2738,18 +2735,14 @@ async function salvarEdicaoFcMsg(id, campo){
   else alert('Erro: '+error.message);
 }
 
-// Notificação no menu: badge com a contagem de não lidas em Fluxo de Caixa,
-// BI Comercial e Mural Corporativo (Observação/Aviso e posts do mural) —
-// decisão de 24/07/2026.
+// Notificação no menu: somente os módulos efetivamente publicados no Alkanse.
 async function aplicarBadgesNav(email){
   try{
-    const [fluxoQ, fluxoLidasQ, comercialQ, comercialLidasQ, muralQ, muralLidasQ] = await Promise.all([
+    const [fluxoQ, fluxoLidasQ, comercialQ, comercialLidasQ] = await Promise.all([
       sb.from('fluxo_mensagens').select('id').in('tipo',['observacao','aviso']),
       sb.from('fluxo_mensagens_leituras').select('mensagem_id').eq('usuario_email', email),
       sb.from('comercial_mensagens').select('id').in('tipo',['observacao','aviso']),
       sb.from('comercial_mensagens_leituras').select('mensagem_id').eq('usuario_email', email),
-      sb.from('comunicados').select('id'),
-      sb.from('comunicado_leituras').select('comunicado_id').eq('usuario_email', email),
     ]);
     const naoLidas = (todos, lidas, campoLido) => {
       const lidosSet = new Set((lidas||[]).map(l=>l[campoLido]));
@@ -2757,7 +2750,6 @@ async function aplicarBadgesNav(email){
     };
     pintarBadgeNav('navFluxo', naoLidas(fluxoQ.data, fluxoLidasQ.data, 'mensagem_id'));
     pintarBadgeNav('navPainel', naoLidas(comercialQ.data, comercialLidasQ.data, 'mensagem_id'));
-    pintarBadgeNav('navMural', naoLidas(muralQ.data, muralLidasQ.data, 'comunicado_id'));
   }catch(e){ console.error('Erro ao calcular notificações do menu:', e); }
 }
 function pintarBadgeNav(navId, count){
