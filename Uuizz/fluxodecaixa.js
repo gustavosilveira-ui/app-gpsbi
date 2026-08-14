@@ -641,6 +641,9 @@ async function loadData(){
 
       await loadSaldoInicial();
       await loadAjustesManuais();
+      await fcMigrateLocalState();
+      await loadSharedFlowState();
+      subscribeSharedFlowState();
       buildAndRenderTable();
       el('loadingScreen').style.display='none';
       el('mainContent').style.display='block';
@@ -667,6 +670,9 @@ async function loadData(){
 
     await loadSaldoInicial();
     await loadAjustesManuais();
+    await fcMigrateLocalState();
+    await loadSharedFlowState();
+    subscribeSharedFlowState();
     buildAndRenderTable();
     el('loadingScreen').style.display='none';
     el('mainContent').style.display='block';
@@ -1549,13 +1555,81 @@ function preencherDatasPadraoAjustes(){
 window.addEventListener('DOMContentLoaded', preencherDatasPadraoAjustes);
 
 /* ================== APOIO DE CAIXA / NECESSIDADE DE CAIXA / FORNECEDORES / EXCLUSÃO ==================
-   Simulações locais (localStorage, por navegador) — nunca gravam no Supabase
-   nem mexem na base real. Sempre por empresa (Empoderamento / Mister Wiz),
-   já que o Global soma as duas. */
+   Ajustes operacionais compartilhados via Supabase. Assim, rateios,
+   alterações de data e exclusões feitos por um usuário aparecem para todos
+   os usuários autorizados. A simulação livre de impacto continua apenas em
+   memória, pois é um cenário temporário e não uma alteração confirmada. */
 const FC_EMPRESAS_SIM = ['Empoderamento', 'Mister Wiz'];
-let fcApoioCaixa = JSON.parse(localStorage.getItem('uuizz_fc_apoio_caixa')||'{}');
-let fcProgramacoesFornecedor = JSON.parse(localStorage.getItem('uuizz_fc_programacoes_fornecedor')||'[]');
-let fcExclusoes = JSON.parse(localStorage.getItem('uuizz_fc_exclusoes')||'[]');
+const FC_SHARED_TABLE = 'fluxo_uuizz_compartilhado';
+let fcApoioCaixa = {};
+let fcProgramacoesFornecedor = [];
+let fcExclusoes = [];
+let fcSaldosAtuais = {};
+let fcSharedChannel = null;
+
+function fcSharedRecord(tipo, empresa, chave, payload){
+  return {
+    tipo, empresa, chave, payload,
+    criado_por: nameFromEmail(currentUser?.email || '')
+  };
+}
+
+async function fcSaveShared(records){
+  const lista = Array.isArray(records) ? records : [records];
+  const { error } = await sb.from(FC_SHARED_TABLE).upsert(lista,{onConflict:'chave'});
+  if(error){
+    alert('Não consegui compartilhar essa alteração: '+error.message+'\n\nConfira se o SQL de configuração do fluxo compartilhado foi executado no Supabase.');
+    return false;
+  }
+  return true;
+}
+
+async function fcDeleteShared(chave){
+  const { error } = await sb.from(FC_SHARED_TABLE).delete().eq('chave',chave);
+  if(error){ alert('Não consegui remover essa alteração compartilhada: '+error.message); return false; }
+  return true;
+}
+
+async function fcMigrateLocalState(){
+  if(localStorage.getItem('uuizz_fc_shared_migrated_v1')==='1') return;
+  let apoio={}, programacoes=[], exclusoes=[];
+  try{ apoio=JSON.parse(localStorage.getItem('uuizz_fc_apoio_caixa')||'{}')||{}; }catch(e){}
+  try{ programacoes=JSON.parse(localStorage.getItem('uuizz_fc_programacoes_fornecedor')||'[]')||[]; }catch(e){}
+  try{ exclusoes=JSON.parse(localStorage.getItem('uuizz_fc_exclusoes')||'[]')||[]; }catch(e){}
+  const registros=[];
+  Object.entries(apoio).forEach(([empresa,payload])=>registros.push(fcSharedRecord('apoio_caixa',empresa,`apoio:${empresa}`,payload)));
+  programacoes.forEach(p=>registros.push(fcSharedRecord('programacao_fornecedor',p.empresa,`programacao:${p.id}`,p)));
+  exclusoes.forEach(ex=>registros.push(fcSharedRecord('exclusao',ex.empresa,`exclusao:${ex.criadoEm}`,ex)));
+  const permitidos=restritoMisterWiz ? registros.filter(r=>r.empresa==='Mister Wiz') : registros;
+  if(permitidos.length && !(await fcSaveShared(permitidos))) return;
+  localStorage.setItem('uuizz_fc_shared_migrated_v1','1');
+  localStorage.removeItem('uuizz_fc_apoio_caixa');
+  localStorage.removeItem('uuizz_fc_programacoes_fornecedor');
+  localStorage.removeItem('uuizz_fc_exclusoes');
+}
+
+async function loadSharedFlowState({render=false}={}){
+  let q=sb.from(FC_SHARED_TABLE).select('tipo,empresa,chave,payload').order('criado_em',{ascending:true});
+  if(restritoMisterWiz) q=q.eq('empresa','Mister Wiz');
+  const {data,error}=await q;
+  if(error) throw new Error('Configuração compartilhada do fluxo: '+error.message);
+  fcApoioCaixa={}; fcProgramacoesFornecedor=[]; fcExclusoes=[]; fcSaldosAtuais={};
+  (data||[]).forEach(item=>{
+    const payload=item.payload||{};
+    if(item.tipo==='apoio_caixa') fcApoioCaixa[item.empresa]=payload;
+    else if(item.tipo==='programacao_fornecedor') fcProgramacoesFornecedor.push(payload);
+    else if(item.tipo==='exclusao') fcExclusoes.push(payload);
+    else if(item.tipo==='saldo_atual') fcSaldosAtuais[item.empresa]=payload;
+  });
+  if(render) buildAndRenderTable();
+}
+
+function subscribeSharedFlowState(){
+  if(fcSharedChannel) return;
+  fcSharedChannel=sb.channel('fluxo-uuizz-compartilhado')
+    .on('postgres_changes',{event:'*',schema:'public',table:FC_SHARED_TABLE},()=>loadSharedFlowState({render:true}).catch(console.error))
+    .subscribe();
+}
 
 function fcEmpresaPadraoSim(){
   if(restritoMisterWiz) return 'Mister Wiz';
@@ -1686,15 +1760,16 @@ function injetarSimulacoesUuizz(){
 }
 
 /* ---------- Apoio de Caixa ---------- */
-function aplicarApoioCaixa(){
+async function aplicarApoioCaixa(){
   const empresa = el('fcApoioCaixaEmpresa').value;
   const disponivel = parseFloat(el('fcApoioCaixaDisponivel').value)||0;
   const valor = parseFloat(el('fcApoioCaixaValor').value)||0;
   const devolucao = el('fcApoioCaixaDevolucao').value;
   if(!empresa){ alert('Selecione a empresa.'); return; }
   if(valor<0 || valor>disponivel){ alert('O valor utilizado precisa estar entre zero e o saldo disponível.'); return; }
-  fcApoioCaixa[empresa] = {disponivel, valor, devolucao};
-  localStorage.setItem('uuizz_fc_apoio_caixa', JSON.stringify(fcApoioCaixa));
+  const payload={disponivel, valor, devolucao};
+  if(!(await fcSaveShared(fcSharedRecord('apoio_caixa',empresa,`apoio:${empresa}`,payload)))) return;
+  fcApoioCaixa[empresa] = payload;
   buildAndRenderTable();
 }
 function renderApoioCaixa(){
@@ -1710,18 +1785,20 @@ function renderApoioCaixa(){
 }
 
 /* ---------- Necessidade de Caixa Hoje (respeita a empresa filtrada no topo) ---------- */
-function fcSaldoAtualKey(){ return 'uuizz_fc_saldo_atual_hoje_' + normalizeTxt(empresaFiltro).replace(/\s+/g,'_'); }
-function calcularNecessidadeCaixa(){
+function fcSaldoAtualEmpresa(){ return empresaFiltro==='global' ? 'Global' : empresaFiltro; }
+async function calcularNecessidadeCaixa(){
   const saldoAtual = parseFloat(el('fcSaldoAtualInput').value);
   if(isNaN(saldoAtual)){ alert('Informe o saldo atual da conta.'); return; }
-  localStorage.setItem(fcSaldoAtualKey(), JSON.stringify({valor:saldoAtual, data:todayISO()}));
+  const empresa=fcSaldoAtualEmpresa(),payload={valor:saldoAtual,data:todayISO()};
+  if(!(await fcSaveShared(fcSharedRecord('saldo_atual',empresa,`saldo_atual:${empresa}`,payload)))) return;
+  fcSaldosAtuais[empresa]=payload;
   renderNecessidadeCaixa();
 }
 function renderNecessidadeCaixa(){
   const wrap = el('fcNecessidadeCaixaResumo'); if(!wrap) return;
   const hoje = todayISO();
   const pagamentosHoje = Math.abs(sumInRange(isPagamentoTotal, hoje, hoje));
-  const salvo = JSON.parse(localStorage.getItem(fcSaldoAtualKey())||'null');
+  const salvo = fcSaldosAtuais[fcSaldoAtualEmpresa()] || null;
   const empresaLabel = empresaFiltro==='global' ? 'Global (Uuizz)' : empresaFiltro;
 
   if(!salvo || salvo.data !== hoje){
@@ -1805,7 +1882,7 @@ function encontrarLancamentoValorCheioUuizz(empresa, fornecedor, valorTotal){
     return mesmoFornecedor && mesmoValor;
   }) || null;
 }
-function confirmarParcelasFornecedor(){
+async function confirmarParcelasFornecedor(){
   if(!fcParcelasEmEdicao || !fcParcelasEmEdicao.parcelas.length){ alert('Não há parcelas pra confirmar.'); return; }
   const {empresa, fornecedor, valor, dias, tipoDias, inicio, parcelas} = fcParcelasEmEdicao;
 
@@ -1813,22 +1890,25 @@ function confirmarParcelasFornecedor(){
   // mesma empresa), oferece esconder ele — senão o fluxo contaria o valor
   // cheio E o rateio ao mesmo tempo.
   const original = encontrarLancamentoValorCheioUuizz(empresa, fornecedor, valor);
-  let exclusaoCriada = false;
+  let exclusaoCriada = false, exclusao = null;
   if(original && confirm(`Encontrei um lançamento de ${fmtBRL(-Math.abs(original.valor))} em ${formatDateBR(original.date)} pra "${original.nome||fornecedor}" (${empresa}) — parece ser o valor cheio que você está rateando agora.\n\nQuer ocultar esse lançamento do fluxo (fica só o rateio)?`)){
-    fcExclusoes.push({empresa, nome:original.nome||fornecedor, data:original.date, valor:original.valor, criadoEm:Date.now(), motivo:'Substituído por rateio'});
-    localStorage.setItem('uuizz_fc_exclusoes', JSON.stringify(fcExclusoes));
+    exclusao={empresa, nome:original.nome||fornecedor, data:original.date, valor:original.valor, criadoEm:Date.now(), motivo:'Substituído por rateio'};
     exclusaoCriada = true;
   }
 
-  fcProgramacoesFornecedor.push({id:Date.now(), empresa, fornecedor, valor, dias, tipoDias, inicio, parcelas});
-  localStorage.setItem('uuizz_fc_programacoes_fornecedor', JSON.stringify(fcProgramacoesFornecedor));
+  const programacao={id:Date.now(), empresa, fornecedor, valor, dias, tipoDias, inicio, parcelas};
+  const registros=[fcSharedRecord('programacao_fornecedor',empresa,`programacao:${programacao.id}`,programacao)];
+  if(exclusao) registros.push(fcSharedRecord('exclusao',empresa,`exclusao:${exclusao.criadoEm}`,exclusao));
+  if(!(await fcSaveShared(registros))) return;
+  if(exclusao) fcExclusoes.push(exclusao);
+  fcProgramacoesFornecedor.push(programacao);
   fcParcelasEmEdicao = null;
   buildAndRenderTable();
   if(exclusaoCriada) alert('Rateio criado e o valor cheio original foi ocultado do fluxo.');
 }
-function removerProgramacaoFornecedor(id){
+async function removerProgramacaoFornecedor(id){
+  if(!(await fcDeleteShared(`programacao:${id}`))) return;
   fcProgramacoesFornecedor = fcProgramacoesFornecedor.filter(p=>p.id!==id);
-  localStorage.setItem('uuizz_fc_programacoes_fornecedor', JSON.stringify(fcProgramacoesFornecedor));
   buildAndRenderTable();
 }
 function renderProgramacoesFornecedor(){
@@ -1843,7 +1923,7 @@ function renderProgramacoesFornecedor(){
 }
 
 /* ---------- Tirar / Alterar a data de um Lançamento do Fluxo ---------- */
-function excluirLancamentoManual(){
+async function excluirLancamentoManual(){
   const empresa = el('fcExcluirEmpresa').value;
   const nome = el('fcExcluirNome').value.trim();
   const data = el('fcExcluirData').value;
@@ -1865,18 +1945,19 @@ function excluirLancamentoManual(){
     if(!confirm('Não encontrei um lançamento com esse nome, data e valor exatos no fluxo atual. Quer salvar mesmo assim? (a regra passa a valer automaticamente se ele aparecer depois com esses mesmos dados)')) return;
   }
 
-  fcExclusoes.push({
+  const exclusao={
     empresa, nome, data, valor:-Math.abs(valor), criadoEm:Date.now(),
     novaData: novaData || null,
     motivo: novaData ? 'Data alterada' : 'Removido manualmente'
-  });
-  localStorage.setItem('uuizz_fc_exclusoes', JSON.stringify(fcExclusoes));
+  };
+  if(!(await fcSaveShared(fcSharedRecord('exclusao',empresa,`exclusao:${exclusao.criadoEm}`,exclusao)))) return;
+  fcExclusoes.push(exclusao);
   el('fcExcluirNome').value=''; el('fcExcluirData').value=''; el('fcExcluirValor').value=''; el('fcExcluirNovaData').value='';
   buildAndRenderTable();
 }
-function removerExclusao(criadoEm){
+async function removerExclusao(criadoEm){
+  if(!(await fcDeleteShared(`exclusao:${criadoEm}`))) return;
   fcExclusoes = fcExclusoes.filter(ex=>ex.criadoEm!==criadoEm);
-  localStorage.setItem('uuizz_fc_exclusoes', JSON.stringify(fcExclusoes));
   buildAndRenderTable();
 }
 function renderExclusoes(){
@@ -2030,7 +2111,7 @@ function removerParcelaRateioPopup(i){
   fcRateioPopupParcelas.splice(i,1);
   renderRateioPopup();
 }
-function confirmarRateioNaFicha(){
+async function confirmarRateioNaFicha(){
   if(!fcTirarPopupContext || !fcRateioPopupParcelas || !fcRateioPopupParcelas.length){ alert('Adicione ao menos uma parcela.'); return; }
   if(fcRateioPopupParcelas.some(p=>!p.data || !p.valor)){ alert('Preencha data e valor de todas as parcelas.'); return; }
   const totalRateado = Math.round(fcRateioPopupParcelas.reduce((s,p)=>s+Number(p.valor||0),0)*100)/100;
@@ -2046,14 +2127,17 @@ function confirmarRateioNaFicha(){
 
   const { empresa, nome, data, valor } = fcTirarPopupContext;
 
-  fcExclusoes.push({ empresa, nome, data, valor:-Math.abs(valor), criadoEm:Date.now(), novaData:null, motivo:'Substituído por rateio' });
-  localStorage.setItem('uuizz_fc_exclusoes', JSON.stringify(fcExclusoes));
-
-  fcProgramacoesFornecedor.push({
+  const exclusao={ empresa, nome, data, valor:-Math.abs(valor), criadoEm:Date.now(), novaData:null, motivo:'Substituído por rateio' };
+  const programacao={
     id:Date.now(), empresa, fornecedor:nome, valor, dias:fcRateioPopupParcelas.length, tipoDias:'manual', inicio:data,
     parcelas: fcRateioPopupParcelas.map(p=>({ data:p.data, valor:Number(p.valor)||0 }))
-  });
-  localStorage.setItem('uuizz_fc_programacoes_fornecedor', JSON.stringify(fcProgramacoesFornecedor));
+  };
+  if(!(await fcSaveShared([
+    fcSharedRecord('exclusao',empresa,`exclusao:${exclusao.criadoEm}`,exclusao),
+    fcSharedRecord('programacao_fornecedor',empresa,`programacao:${programacao.id}`,programacao)
+  ]))) return;
+  fcExclusoes.push(exclusao);
+  fcProgramacoesFornecedor.push(programacao);
 
   fcRateioPopupParcelas = null;
   fecharTirarPopup();
@@ -2088,18 +2172,19 @@ async function confirmarRateioManualNaFicha(){
 // remover=true tira do fluxo; remover=false usa a "Nova data" pra só mudar
 // o dia. Cai automaticamente na mesma lista/histórico do card
 // "🚫 Tirar um Lançamento do Fluxo".
-function confirmarTirarDaFicha(remover){
+async function confirmarTirarDaFicha(remover){
   if(!fcTirarPopupContext) return;
   const novaData = remover ? '' : el('fcTirarPopupNovaData').value;
   if(!remover && !novaData){ alert('Informe a nova data, ou clique em "Remover do fluxo" pra só tirar.'); return; }
   if(!remover && novaData===fcTirarPopupContext.data){ alert('A nova data precisa ser diferente da data original.'); return; }
   const { empresa, nome, data, valor } = fcTirarPopupContext;
-  fcExclusoes.push({
+  const exclusao={
     empresa, nome, data, valor:-Math.abs(valor), criadoEm:Date.now(),
     novaData: remover ? null : novaData,
     motivo: remover ? 'Removido pela Ficha' : 'Data alterada pela Ficha'
-  });
-  localStorage.setItem('uuizz_fc_exclusoes', JSON.stringify(fcExclusoes));
+  };
+  if(!(await fcSaveShared(fcSharedRecord('exclusao',empresa,`exclusao:${exclusao.criadoEm}`,exclusao)))) return;
+  fcExclusoes.push(exclusao);
   // Sincroniza o select do card de baixo com a empresa desse lançamento, pra
   // ele já aparecer na lista (que agora é filtrada por empresa).
   const selExcluir = el('fcExcluirEmpresa');
