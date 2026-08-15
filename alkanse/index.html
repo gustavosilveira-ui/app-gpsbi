@@ -572,6 +572,10 @@ input,textarea,select{width:100%;background:var(--navy3);border:1px solid var(--
 const SUPABASE_URL = 'https://ikncdkgaefwzdveotvka.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_XtrW_VlYPu1bE7FNA1V2lA_Srq9c5T6';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// O retorno do Auth precisa apontar para o projeto que iniciou a ação.
+// Assim Alkanse e Assaí podem compartilhar o mesmo Supabase sem o reset
+// de senha cair no painel definido como "Site URL" do projeto.
+const AUTH_RETURN_URL = window.location.origin + window.location.pathname;
 const ALLOWED_SIGNUP_DOMAINS = ['gpsbi.com.br', 'grupofb.com.br'];
 const ALLOWED_FLUXO_EMAILS = ['daniel.morante@grupofb.com.br', 'karina@grupofb.com.br', 'fabiana@grupofb.com.br'];
 function podeVerFluxoCaixa(email){
@@ -770,7 +774,7 @@ async function doForgot(isResend){
 
   setButtonLoading(btn, true, 'Enviando...');
   const { error } = await sb.auth.resetPasswordForEmail(email, {
-    redirectTo: window.location.origin + window.location.pathname
+    redirectTo: AUTH_RETURN_URL
   });
   setButtonLoading(btn, false, 'Enviar link de redefinição');
 
@@ -817,7 +821,11 @@ async function doReset(){
 
   let error, session;
   if(resetMode === 'activate'){
-    const result = await sb.auth.signUp({ email, password: pass });
+    const result = await sb.auth.signUp({
+      email,
+      password: pass,
+      options: { emailRedirectTo: AUTH_RETURN_URL }
+    });
     error = result.error;
     session = result.data?.session;
   } else {
