@@ -491,6 +491,7 @@ function isAllowedSignupEmail(email){
 let pendingResetEmail = null;
 let resetMode = 'reset'; // 'reset' (esqueci senha) | 'invite' (convite admin) | 'activate' (autocadastro)
 let currentUserEmail = null;
+let enteringApp = false;
 
 // ---------------- SCREEN SWITCHING ----------------
 function showScreen(name){
@@ -652,7 +653,7 @@ async function doLogin(){
     passEl.value = '';
     return;
   }
-  enterApp(data.user);
+  await enterApp(data.user);
 }
 
 function getUserDisplay(user){
@@ -668,22 +669,39 @@ function getUserDisplay(user){
 }
 
 async function enterApp(user){
-  const allowed = await checkGpsbiAppAccess(supabaseClient, 'tangram');
-  if(!allowed){
-    await supabaseClient.auth.signOut();
-    document.getElementById('authWrap').style.display = 'block';
-    showScreen('login');
-    const err = document.getElementById('loginError');
-    err.textContent = 'Este usuário não possui acesso ao Hub Tangram.';
-    err.classList.add('show');
-    return;
+  if(enteringApp) return;
+  enteringApp = true;
+  try{
+    let allowed;
+    try{
+      allowed = await checkGpsbiAppAccess(supabaseClient, 'tangram');
+    }catch(error){
+      document.getElementById('authWrap').style.display = 'block';
+      showScreen('login');
+      const err = document.getElementById('loginError');
+      err.textContent = 'Não foi possível validar a sessão agora. Tente entrar novamente.';
+      err.classList.add('show');
+      return;
+    }
+    if(!allowed){
+      await supabaseClient.auth.signOut();
+      document.getElementById('authWrap').style.display = 'block';
+      showScreen('login');
+      const err = document.getElementById('loginError');
+      err.textContent = 'Este usuário não possui acesso ao Hub Tangram.';
+      err.classList.add('show');
+      return;
+    }
+    clearAllErrors();
+    const display = getUserDisplay(user);
+    currentUserEmail = display.email;
+    document.getElementById('authWrap').style.display = 'none';
+    document.getElementById('screen-app').style.display = 'flex';
+    document.getElementById('userAvatar').textContent = display.initials;
+    document.getElementById('userChipName').textContent = display.name;
+  }finally{
+    enteringApp = false;
   }
-  const display = getUserDisplay(user);
-  currentUserEmail = display.email;
-  document.getElementById('authWrap').style.display = 'none';
-  document.getElementById('screen-app').style.display = 'flex';
-  document.getElementById('userAvatar').textContent = display.initials;
-  document.getElementById('userChipName').textContent = display.name;
 }
 
 
