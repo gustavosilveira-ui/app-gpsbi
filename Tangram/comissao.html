@@ -6,6 +6,7 @@
 <title>Comissão e Premiação · Hub GPSBI</title>
 <link rel="stylesheet" href="theme.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="security.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 html{zoom:.8;}
@@ -674,9 +675,9 @@ function faturadaOk(r){
 }
 
 async function init(){
-  const{data}=await sb.auth.getSession();
-  if(!data.session){location.replace(LOGIN_URL);return}
-  currentUser=data.session.user;
+  const session=await requireGpsbiAppAccess(sb,'tangram',LOGIN_URL);
+  if(!session)return;
+  currentUser=session.user;
   if(!canAccess(currentUser.email)){
     el('loadingScreen').style.display='none';el('deniedScreen').style.display='block';
     document.documentElement.style.visibility='visible';return;
@@ -752,7 +753,13 @@ async function carregarTudo(){
     const nome=cleanVendorName(p.vendedor);
     (pedidosExcluidosMap[nome]=pedidosExcluidosMap[nome]||[]).push({...p,vendedor:nome});
   });
-  evidenciasCache=evidencias||[];
+  evidenciasCache=await Promise.all((evidencias||[]).map(async evidencia=>{
+    if(!evidencia.arquivo_path) return evidencia;
+    const {data:signed}=await sb.storage
+      .from('tangram-comissao-evidencias')
+      .createSignedUrl(evidencia.arquivo_path,3600);
+    return {...evidencia,_signedUrl:signed?.signedUrl||''};
+  }));
 
   metasMap={};
   (metas||[]).forEach(r=>{
@@ -1471,9 +1478,8 @@ async function salvarEvidencia(file,tipo){
   const path=`${mesAnoAtual}/${tipo}/${Date.now()}_${safeEmail}.${ext}`;
   const {error:upErr}=await sb.storage.from('tangram-comissao-evidencias').upload(path,file,{contentType:file.type,upsert:false});
   if(upErr){alert('Erro ao salvar imagem: '+upErr.message);return}
-  const {data:urlData}=sb.storage.from('tangram-comissao-evidencias').getPublicUrl(path);
   const {error:dbErr}=await sb.from('tangram_comissao_evidencias').insert({
-    mes_ano:mesAnoAtual,tipo,arquivo_path:path,arquivo_url:urlData.publicUrl,
+    mes_ano:mesAnoAtual,tipo,arquivo_path:path,arquivo_url:'',
     criado_por:currentUser.email
   });
   if(dbErr){alert('Imagem enviada, mas não consegui registrar: '+dbErr.message);return}
@@ -1487,7 +1493,7 @@ function renderEvidencias(){
     wrap.innerHTML=list.length?list.map(e=>`
       <div class="com-proof-item">
         <button class="com-proof-del" onclick="removerEvidencia(${e.id},'${(e.arquivo_path||'').replace(/'/g,"\\'")}')">✕</button>
-        <img src="${e.arquivo_url}" onclick="window.open('${e.arquivo_url}','_blank')" alt="Evidência">
+        <img src="${e._signedUrl||e.arquivo_url||''}" onclick="window.open('${e._signedUrl||e.arquivo_url||''}','_blank')" alt="Evidência">
         <div class="com-proof-meta">${new Date(e.criado_em).toLocaleString('pt-BR')}</div>
       </div>`).join(''):'';
   });

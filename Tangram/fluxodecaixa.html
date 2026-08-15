@@ -6,6 +6,7 @@
 <title>Fluxo de Caixa · Hub GPSBI</title>
 <link rel="stylesheet" href="theme.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="security.js"></script>
 <style>
 html{zoom:.8;}
 .fc-page-content{max-width:100% !important;padding:16px 14px !important;}
@@ -633,9 +634,9 @@ function rowsFromGvizTable(table, contaLabel){
 }
 
 async function init(){
-  const { data } = await sb.auth.getSession();
-  if(!data.session){ window.location.replace(LOGIN_URL); return; }
-  currentUser = data.session.user;
+  const session = await requireGpsbiAppAccess(sb, 'tangram', LOGIN_URL);
+  if(!session) return;
+  currentUser = session.user;
   const email = currentUser.email;
 
   if(!canAccessFluxo(email)){
@@ -1403,7 +1404,16 @@ async function loadFcMsgs(){
   if(error){ el('fcMsgList').innerHTML = '<div style="color:var(--gold);font-size:12px;">⚠️ Não consegui carregar. Verifique se a tabela fluxo_mensagens existe no Supabase.</div>'; return; }
   const { data: reacoes } = await sb.from('fluxo_mensagens_reacoes').select('*');
   const { data: leituras } = await sb.from('fluxo_mensagens_leituras').select('*');
-  fcMsgsCache = { msgs:data||[], reacoes:reacoes||[], leituras:leituras||[] };
+  const msgsComLinks=await Promise.all((data||[]).map(async mensagem=>{
+    if(!Array.isArray(mensagem.resposta_anexos)) return mensagem;
+    const anexos=await Promise.all(mensagem.resposta_anexos.map(async anexo=>{
+      if(!anexo.caminho) return anexo;
+      const {data:signed}=await sb.storage.from('fluxo-anexos').createSignedUrl(anexo.caminho,3600);
+      return {...anexo,_signedUrl:signed?.signedUrl||''};
+    }));
+    return {...mensagem,resposta_anexos:anexos};
+  }));
+  fcMsgsCache = { msgs:msgsComLinks, reacoes:reacoes||[], leituras:leituras||[] };
   renderFcMsgs(fcMsgsCache.msgs, fcMsgsCache.reacoes, fcMsgsCache.leituras);
   atualizarBadgeFluxoAberto();
   setTimeout(atualizarBadgeFluxoAberto, 250);
@@ -1468,7 +1478,7 @@ function renderFcMsgs(msgsOriginais, reacoes, leituras){
     const anexosResposta = Array.isArray(m.resposta_anexos) ? m.resposta_anexos : [];
     const anexosBloco = anexosResposta.length ? `<div class="fc-msg-anexos">${anexosResposta.map(a=>{
       const nome = escapeHtml(a.nome || 'Arquivo');
-      const url = escapeHtml(a.url || '#');
+      const url = escapeHtml(a._signedUrl || a.url || '#');
       const tipo = (a.tipo || '').toLowerCase();
       const ehImagem = tipo.startsWith('image/') || /\.(png|jpe?g|webp|gif)$/i.test(a.nome || '');
       return ehImagem
@@ -1565,8 +1575,7 @@ async function uploadFcArquivosDoInput(id, inputId, statusElId){
     const caminho = `${id}/${Date.now()}_${Math.random().toString(36).slice(2,8)}_${nomeSeguro}`;
     const { error } = await sb.storage.from('fluxo-anexos').upload(caminho, arq, { cacheControl:'3600', upsert:false, contentType:arq.type || undefined });
     if(error) throw new Error(`Erro ao enviar ${arq.name}: ${error.message}`);
-    const { data: urlData } = sb.storage.from('fluxo-anexos').getPublicUrl(caminho);
-    enviados.push({ nome: arq.name, url: urlData.publicUrl, tipo: arq.type || '', tamanho: arq.size, caminho });
+    enviados.push({ nome: arq.name, url: '', tipo: arq.type || '', tamanho: arq.size, caminho });
   }
   if(statusEl) statusEl.textContent = 'Arquivos enviados com sucesso.';
   return enviados;
@@ -1582,7 +1591,8 @@ async function excluirAnexoRespostaFc(id, indice){
       if(storageError) console.warn('Não foi possível remover do Storage:', storageError.message);
     }
     anexos.splice(indice,1);
-    const { error } = await sb.from('fluxo_mensagens').update({ resposta_anexos: anexos }).eq('id',id);
+    const anexosPersistidos=anexos.map(({_signedUrl,...a})=>a);
+    const { error } = await sb.from('fluxo_mensagens').update({ resposta_anexos: anexosPersistidos }).eq('id',id);
     if(error) throw error;
     await loadFcMsgs();
     fcEditando = { id, campo:'resposta' };
@@ -1636,7 +1646,7 @@ async function salvarEdicaoFcMsg(id, campo){
       if(error) throw error;
     }else{
       const msg = fcMsgsCache.msgs.find(m=>m.id===id);
-      const atuais = Array.isArray(msg?.resposta_anexos) ? msg.resposta_anexos : [];
+      const atuais = Array.isArray(msg?.resposta_anexos) ? msg.resposta_anexos.map(({_signedUrl,...a})=>a) : [];
       const novos = await uploadFcArquivosDoInput(id, 'fcEditArquivos_'+id, null);
       const { error } = await sb.from('fluxo_mensagens').update({ resposta: valor, resposta_anexos:[...atuais,...novos] }).eq('id', id);
       if(error) throw error;

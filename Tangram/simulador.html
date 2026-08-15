@@ -6,6 +6,7 @@
 <title>Simulador de Meta · Hub GPSBI</title>
 <link rel="stylesheet" href="theme.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="security.js"></script>
 <style>
 html{zoom:.8;}
 .sim-grid{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:12px;margin-bottom:18px;overflow-x:auto;}
@@ -175,9 +176,9 @@ let simVendedor = '';
 const mesAtual = `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`;
 
 async function init(){
-  const { data } = await sb.auth.getSession();
-  if(!data.session){ window.location.replace(LOGIN_URL); return; }
-  currentUser = data.session.user;
+  const session = await requireGpsbiAppAccess(sb, 'tangram', LOGIN_URL);
+  if(!session) return;
+  currentUser = session.user;
   userEmail = currentUser.email;
   userRole = isOwner(userEmail) ? 'owner' : 'viewer';
   userName = nameFromEmail(userEmail);

@@ -6,6 +6,7 @@
 <title>Aprovação de Comissão · Hub GPSBI</title>
 <link rel="stylesheet" href="theme.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="security.js"></script>
 <style>
 html{zoom:1;}
 body{padding-bottom:32px;}
@@ -172,10 +173,10 @@ async function init(){
   const token=params.get('token');
   if(!token){ mostrarErro('Link inválido — faltou o código de acesso.'); return; }
 
-  const{data,error}=await sb.from('tangram_comissao_aprovacoes').select('*').eq('token',token).limit(1);
-  if(error||!data||!data.length){ mostrarErro('Não encontrei esse link. Pode ter expirado ou o endereço veio incompleto — pede pro Gustavo gerar de novo.'); return; }
+  const{data,error}=await sb.rpc('get_tangram_comissao_aprovacao',{p_token:token});
+  if(error||!data){ mostrarErro('Não encontrei esse link. Pode ter expirado ou o endereço veio incompleto — pede pro Gustavo gerar de novo.'); return; }
 
-  registro=data[0];
+  registro=data;
   render();
   el('loadingScreen').style.display='none';
   el('mainContent').style.display='block';
@@ -363,11 +364,9 @@ async function aprovar(){
   const btn=el('apBtnAprovar');
   btn.disabled=true; btn.textContent='Enviando...';
   const nome=(el('apNome')&&el('apNome').value.trim())||null;
-  const{error}=await sb.from('tangram_comissao_aprovacoes').update({
-    status:'aprovado', aprovado_em:new Date().toISOString(), aprovado_por_nome:nome
-  }).eq('token',registro.token);
-  if(error){ alert('Não consegui registrar a aprovação: '+error.message); btn.disabled=false; btn.textContent='✅ Confirmar aprovação'; return; }
-  registro.status='aprovado'; registro.aprovado_em=new Date().toISOString(); registro.aprovado_por_nome=nome;
+  const{data,error}=await sb.rpc('approve_tangram_comissao',{p_token:registro.token,p_nome:nome});
+  if(error||!data){ alert('Não consegui registrar a aprovação. O link pode ter expirado ou já ter sido utilizado.'); btn.disabled=false; btn.textContent='✅ Confirmar aprovação'; return; }
+  registro.status=data.status; registro.aprovado_em=data.aprovado_em; registro.aprovado_por_nome=data.aprovado_por_nome;
   renderAcao();
 }
 
