@@ -55,4 +55,25 @@
     if(!sb || !rpc) return false;
     return verifyAccess(sb, rpc);
   };
+
+  window.fetchGpsbiSecureTable = async function(sb, source, gid){
+    if(!sb) throw new Error('Cliente de autenticação indisponível.');
+
+    const invoke = () => sb.functions.invoke('gpsbi-sheets', {
+      body: { source: String(source), gid: String(gid) }
+    });
+
+    let result = await invoke();
+    if(result.error){
+      const refreshed = await sb.auth.refreshSession();
+      if(refreshed.data?.session) result = await invoke();
+    }
+
+    if(result.error || !result.data?.ok || !result.data?.table){
+      console.error('Falha na leitura segura:', result.error || result.data?.error);
+      throw new Error('Não foi possível carregar a base protegida.');
+    }
+
+    return result.data.table;
+  };
 })();
