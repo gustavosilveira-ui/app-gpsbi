@@ -6,6 +6,7 @@
 <title>Minha Agenda · Hub GPSBI</title>
 <link rel="stylesheet" href="theme.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="security.js"></script>
 <style>
 html{zoom:.8;}
 .task-list{display:flex;flex-direction:column;gap:8px;}
@@ -134,9 +135,9 @@ let viewingName = '';
 let calYear, calMonth, calSelectedDay = null;
 
 async function init(){
-  const { data } = await sb.auth.getSession();
-  if(!data.session){ window.location.replace(LOGIN_URL); return; }
-  currentUser = data.session.user;
+  const session = await requireGpsbiAppAccess(sb, 'jambuzada', LOGIN_URL);
+  if(!session) return;
+  currentUser = session.user;
   userEmail = currentUser.email;
   userRole = isOwner(userEmail) ? 'owner' : 'vendor';
   userName = nameFromEmail(userEmail);

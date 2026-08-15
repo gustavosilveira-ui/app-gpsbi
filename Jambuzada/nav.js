@@ -80,12 +80,12 @@ async function aplicarBadgesNav(email){
   if(!_appNavSb) return;
   try{
     const [fluxoQ, fluxoLidasQ, comercialQ, comercialLidasQ, muralQ, muralLidasQ] = await Promise.all([
-      _appNavSb.from('fluxo_mensagens').select('id,mensagem').in('tipo',['observacao','aviso']),
-      _appNavSb.from('fluxo_mensagens_leituras').select('mensagem_id').eq('usuario_email', email),
-      _appNavSb.from('comercial_mensagens').select('id').in('tipo',['observacao','aviso']),
-      _appNavSb.from('comercial_mensagens_leituras').select('mensagem_id').eq('usuario_email', email),
-      _appNavSb.from('comunicados').select('id'),
-      _appNavSb.from('comunicado_leituras').select('comunicado_id').eq('usuario_email', email),
+      _appNavSb.from('jambuzada_fluxo_mensagens').select('id,mensagem').in('tipo',['observacao','aviso']),
+      _appNavSb.from('jambuzada_fluxo_mensagens_leituras').select('mensagem_id').eq('usuario_email', email),
+      _appNavSb.from('jambuzada_comercial_mensagens').select('id').in('tipo',['observacao','aviso']),
+      _appNavSb.from('jambuzada_comercial_mensagens_leituras').select('mensagem_id').eq('usuario_email', email),
+      _appNavSb.from('jambuzada_comunicados').select('id'),
+      _appNavSb.from('jambuzada_comunicado_leituras').select('comunicado_id').eq('usuario_email', email),
     ]);
     const naoLidas = (todos, lidas, campoLido) => {
       const lidosSet = new Set((lidas||[]).map(l=>l[campoLido]));

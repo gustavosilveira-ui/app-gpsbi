@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="security.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -906,7 +907,7 @@ function renderDebugStats(){
 }
 
 async function fetchMetas(){
-  const { data } = await sb.from('metas_tangram').select('*');
+  const { data } = await sb.from('jambuzada_metas').select('*');
   metasMap={};
   (data||[]).forEach(r=>{ if(!metasMap[r.mes_ano]) metasMap[r.mes_ano]={}; metasMap[r.mes_ano][r.vendedor]=r.meta_captada||0; });
 }
@@ -916,34 +917,34 @@ function getMeta(mes,vendedor){ return (metasMap[mes] && metasMap[mes][vendedor]
 let crmAvailable = true;
 async function fetchClientNote(cliente){
   try{
-    const { data, error } = await sb.from('client_notes').select('*').eq('cliente', cliente).order('criado_em',{ascending:false});
+    const { data, error } = await sb.from('jambuzada_client_notes').select('*').eq('cliente', cliente).order('criado_em',{ascending:false});
     if(error) throw error;
     return data||[];
   }catch(e){ crmAvailable=false; return []; }
 }
 async function saveClientNote(cliente, vendedor, nota){
   try{
-    const { error } = await sb.from('client_notes').insert({ cliente, vendedor, nota });
+    const { error } = await sb.from('jambuzada_client_notes').insert({ cliente, vendedor, nota });
     if(error) throw error;
     return true;
   }catch(e){ crmAvailable=false; return false; }
 }
 async function fetchFollowups(cliente){
   try{
-    const { data, error } = await sb.from('client_followups').select('*').eq('cliente', cliente).order('data_contato',{ascending:true});
+    const { data, error } = await sb.from('jambuzada_client_followups').select('*').eq('cliente', cliente).order('data_contato',{ascending:true});
     if(error) throw error;
     return data||[];
   }catch(e){ crmAvailable=false; return []; }
 }
 async function saveFollowup(cliente, vendedor, data_contato, observacao){
   try{
-    const { error } = await sb.from('client_followups').insert({ cliente, vendedor, data_contato, observacao, feito:false });
+    const { error } = await sb.from('jambuzada_client_followups').insert({ cliente, vendedor, data_contato, observacao, feito:false });
     if(error) throw error;
     return true;
   }catch(e){ crmAvailable=false; return false; }
 }
 async function toggleFollowupDone(id, feito){
-  try{ await sb.from('client_followups').update({feito}).eq('id', id); }catch(e){}
+  try{ await sb.from('jambuzada_client_followups').update({feito}).eq('id', id); }catch(e){}
 }
 
 /* ---- Sugestão de recompra: clientes "atrasados" no ciclo de compra deles ---- */
@@ -1005,9 +1006,9 @@ function toggleSuggestions(){
 }
 
 async function initAuth(){
-  const { data } = await sb.auth.getSession();
-  if(!data.session){ window.location.replace(LOGIN_URL); return; }
-  currentUser = data.session.user;
+  const session = await requireGpsbiAppAccess(sb, 'jambuzada', LOGIN_URL);
+  if(!session) return;
+  currentUser = session.user;
   const email = currentUser.email;
   // Três níveis de acesso:
   // 'owner'  -> admin de verdade (define metas, aprova desconto, publica mural) — lista fechada
@@ -2150,7 +2151,7 @@ async function saveMetas(){
   const inputs = el('metaTableBody').querySelectorAll('.meta-input');
   const upserts=[];
   inputs.forEach(inp=>{ const val=parseFloat(inp.value)||0; upserts.push({vendedor:inp.dataset.vendedor, mes_ano:mes, meta_captada:val}); });
-  const { error } = await sb.from('metas_tangram').upsert(upserts,{onConflict:'vendedor,mes_ano'});
+  const { error } = await sb.from('jambuzada_metas').upsert(upserts,{onConflict:'vendedor,mes_ano'});
   if(!error){ await fetchMetas(); el('saveFeedback').classList.add('show'); setTimeout(()=>{ closeModal(); render(); },1200); }
   else alert('Erro ao salvar: '+error.message);
 }
@@ -2277,10 +2278,10 @@ let pcMsgsCache = { msgs:[], reacoes:[], leituras:[] };
 let pcRespondendo = null; // { id, status }
 let pcEditando = null; // { id, campo: 'mensagem'|'resposta' }
 async function loadPcMsgs(){
-  const { data, error } = await sb.from('comercial_mensagens').select('*').order('criado_em',{ascending:false});
+  const { data, error } = await sb.from('jambuzada_comercial_mensagens').select('*').order('criado_em',{ascending:false});
   if(error){ el('pcMsgList').innerHTML = '<div style="color:var(--gold);font-size:12px;">⚠️ Não consegui carregar. Verifique se a tabela comercial_mensagens existe no Supabase.</div>'; return; }
-  const { data: reacoes } = await sb.from('comercial_mensagens_reacoes').select('*');
-  const { data: leituras } = await sb.from('comercial_mensagens_leituras').select('*');
+  const { data: reacoes } = await sb.from('jambuzada_comercial_mensagens_reacoes').select('*');
+  const { data: leituras } = await sb.from('jambuzada_comercial_mensagens_leituras').select('*');
   pcMsgsCache = { msgs:data||[], reacoes:reacoes||[], leituras:leituras||[] };
   renderPcMsgs(pcMsgsCache.msgs, pcMsgsCache.reacoes, pcMsgsCache.leituras);
 }
@@ -2379,7 +2380,7 @@ async function submitPcMsg(){
   const tipo = el('pcMsgTipo').value;
   const mensagem = el('pcMsgTexto').value.trim();
   if(!mensagem) return;
-  const { error } = await sb.from('comercial_mensagens').insert({
+  const { error } = await sb.from('jambuzada_comercial_mensagens').insert({
     autor_email: currentUser.email, autor_nome: nameFromEmail(currentUser.email), tipo, mensagem, status:'aberto'
   });
   if(!error){ el('pcMsgTexto').value=''; await loadPcMsgs(); }
@@ -2391,20 +2392,20 @@ async function confirmarRespostaPcMsg(id){
   const status = pcRespondendo.status;
   const campo = el('pcRespostaTexto_'+id);
   const resposta = campo ? campo.value.trim() : '';
-  const { error } = await sb.from('comercial_mensagens').update({
+  const { error } = await sb.from('jambuzada_comercial_mensagens').update({
     status, resposta, respondido_por: nameFromEmail(currentUser.email), respondido_em: new Date().toISOString()
   }).eq('id', id);
   if(!error){ pcRespondendo = null; await loadPcMsgs(); }
   else alert('Erro: '+error.message);
 }
 async function togglePcMsgReacao(mensagemId, tipo, already){
-  if(already) await sb.from('comercial_mensagens_reacoes').delete().eq('mensagem_id',mensagemId).eq('usuario_email',currentUser.email).eq('tipo',tipo);
-  else await sb.from('comercial_mensagens_reacoes').insert({ mensagem_id:mensagemId, usuario_email:currentUser.email, tipo });
+  if(already) await sb.from('jambuzada_comercial_mensagens_reacoes').delete().eq('mensagem_id',mensagemId).eq('usuario_email',currentUser.email).eq('tipo',tipo);
+  else await sb.from('jambuzada_comercial_mensagens_reacoes').insert({ mensagem_id:mensagemId, usuario_email:currentUser.email, tipo });
   await loadPcMsgs();
 }
 async function togglePcMsgLeitura(mensagemId, already){
   if(already) return;
-  const { error } = await sb.from('comercial_mensagens_leituras').insert({ mensagem_id:mensagemId, usuario_email:currentUser.email, usuario_nome:nameFromEmail(currentUser.email) });
+  const { error } = await sb.from('jambuzada_comercial_mensagens_leituras').insert({ mensagem_id:mensagemId, usuario_email:currentUser.email, usuario_nome:nameFromEmail(currentUser.email) });
   if(!error){ await loadPcMsgs(); aplicarBadgesNav(currentUser.email); }
   else alert('Erro: '+error.message);
 }
@@ -2414,7 +2415,7 @@ async function salvarEdicaoPcMsg(id, campo){
   const valor = (el('pcEdit_'+campo+'_'+id)?.value || '').trim();
   if(campo==='mensagem' && !valor) return;
   const payload = campo==='mensagem' ? { mensagem: valor } : { resposta: valor };
-  const { error } = await sb.from('comercial_mensagens').update(payload).eq('id', id);
+  const { error } = await sb.from('jambuzada_comercial_mensagens').update(payload).eq('id', id);
   if(!error){ pcEditando = null; await loadPcMsgs(); }
   else alert('Erro: '+error.message);
 }

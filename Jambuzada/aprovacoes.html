@@ -6,6 +6,7 @@
 <title>Aprovações · Hub GPSBI</title>
 <link rel="stylesheet" href="theme.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="security.js"></script>
 <style>
 html{zoom:.8;}
 .req-item{background:var(--navy3);border-radius:12px;padding:16px 18px;margin-bottom:12px;}
@@ -91,9 +92,9 @@ let currentTab = 'pendente';
 let requestsCache = [];
 
 async function init(){
-  const { data } = await sb.auth.getSession();
-  if(!data.session){ window.location.replace(LOGIN_URL); return; }
-  currentUser = data.session.user;
+  const session = await requireGpsbiAppAccess(sb, 'jambuzada', LOGIN_URL);
+  if(!session) return;
+  currentUser = session.user;
   userEmail = currentUser.email;
   userRole = isOwner(userEmail) ? 'owner' : 'vendor';
   userName = nameFromEmail(userEmail);

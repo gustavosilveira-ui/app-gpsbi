@@ -463,6 +463,7 @@ body{
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="security.js"></script>
 <script>
 /* ======================================================================
    GPSBI · Hub — Auth flow (front-end demo)
@@ -475,8 +476,8 @@ body{
 // ---- Supabase Auth ----
 const SUPABASE_URL = 'https://mczggrocmccvmyglnumv.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jemdncm9jbWNjdm15Z2xudW12Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMjM2NzcsImV4cCI6MjA5ODU5OTY3N30.XXzhDvxfNaUW61HvgE4xuqzSICoLEYjbJhd1X52Zp84';
-const APP_URL = window.location.origin;
-const PANEL_ABSOLUTE_URL = window.location.origin + '/painel.html';
+const APP_URL = new URL('/', window.location.origin).href;
+const PANEL_ABSOLUTE_URL = new URL('/painel.html', window.location.origin).href;
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // Domínios corporativos liberados pra autocadastro (validação client-side;
@@ -666,7 +667,17 @@ function getUserDisplay(user){
   return { email, name, initials };
 }
 
-function enterApp(user){
+async function enterApp(user){
+  const allowed = await checkGpsbiAppAccess(supabaseClient, 'jambuzada');
+  if(!allowed){
+    await supabaseClient.auth.signOut();
+    document.getElementById('authWrap').style.display = 'block';
+    showScreen('login');
+    const err = document.getElementById('loginError');
+    err.textContent = 'Este usuário não possui acesso ao Hub Jambuzada.';
+    err.classList.add('show');
+    return;
+  }
   const display = getUserDisplay(user);
   currentUserEmail = display.email;
   document.getElementById('authWrap').style.display = 'none';
@@ -678,7 +689,7 @@ function enterApp(user){
 
 // Link do painel do cliente.
 // Quando tiver o link real do Power BI, substitua o # abaixo pela URL do relatório.
-const CLIENT_PANEL_URL = '/painel.html';
+const CLIENT_PANEL_URL = PANEL_ABSOLUTE_URL;
 
 function openMainPanel(){
   if(CLIENT_PANEL_URL && CLIENT_PANEL_URL !== '#'){
