@@ -1263,7 +1263,8 @@ async function init(){
     currentUser = data.session.user;
     const email = currentUser.email;
 
-    if(!canAccessFluxo(email) || !podeVerFluxoCaixa(email)){
+    const { data: acessoFluxo, error: acessoError } = await sb.rpc('can_access_alkanse_fluxo');
+    if(acessoError || acessoFluxo !== true || !canAccessFluxo(email) || !podeVerFluxoCaixa(email)){
       el('loadingScreen').style.display='none';
       el('deniedScreen').style.display='block';
       document.documentElement.style.visibility='visible';
@@ -3290,6 +3291,32 @@ function pintarBadgeNav(navId, count){
 // ================== FLUXO ESTÁTICO (Projetado vs Realizado) ==================
 let snapshotsAtuais = [];
 
+// Valores oficiais da aba "Operação Estática (Ago)". Eles preservam a
+// fotografia projetada do período sem somar duas vezes realizado + em aberto.
+const OPERACAO_ESTATICA_AGO = {
+  saldo: {"2026-08-01":2007149.15,"2026-08-02":2103722.27,"2026-08-03":2103722.27,"2026-08-04":2243859.85,"2026-08-05":2363828.77,"2026-08-06":1624639.31,"2026-08-07":1608817.55,"2026-08-08":1767379.65,"2026-08-09":1767379.65,"2026-08-10":1767379.65,"2026-08-11":1256659.37,"2026-08-12":1317320.28,"2026-08-13":1335998.54,"2026-08-14":1353557.37,"2026-08-15":1248392.75,"2026-08-16":1002092.56,"2026-08-17":1021348.56,"2026-08-18":1037427.48,"2026-08-19":1054070.07,"2026-08-20":1109281.96,"2026-08-21":861285.56,"2026-08-22":874107.63,"2026-08-23":1114404.65,"2026-08-24":1163487.70,"2026-08-25":1165033.50,"2026-08-26":768384.79,"2026-08-27":891888.54,"2026-08-28":1072796.91,"2026-08-29":1087208.57,"2026-08-30":1097957.11,"2026-08-31":903020.88},
+  receb: {"2026-08-01":0,"2026-08-02":0,"2026-08-03":159105.13,"2026-08-04":122237.23,"2026-08-05":105068.65,"2026-08-06":6736.97,"2026-08-07":149135.14,"2026-08-08":0,"2026-08-09":0,"2026-08-10":54630.52,"2026-08-11":62050.65,"2026-08-12":18678.26,"2026-08-13":17558.83,"2026-08-14":210561.75,"2026-08-15":84641.67,"2026-08-16":19256,"2026-08-17":16078.92,"2026-08-18":16642.59,"2026-08-19":55211.89,"2026-08-20":269213.53,"2026-08-21":15320,"2026-08-22":247452.26,"2026-08-23":49083.05,"2026-08-24":1545.80,"2026-08-25":43493.79,"2026-08-26":126258.75,"2026-08-27":193129.46,"2026-08-28":14411.66,"2026-08-29":10748.54,"2026-08-30":74196.15,"2026-08-31":0},
+  pago: {"2026-08-01":0,"2026-08-02":0,"2026-08-03":23473.82,"2026-08-04":2673.71,"2026-08-05":895982.77,"2026-08-06":18165.57,"2026-08-07":76.52,"2026-08-08":0,"2026-08-09":0,"2026-08-10":565350.80,"2026-08-11":1389.74,"2026-08-12":0,"2026-08-13":0,"2026-08-14":315726.37,"2026-08-15":330941.86,"2026-08-16":0,"2026-08-17":0,"2026-08-18":0,"2026-08-19":0,"2026-08-20":517209.93,"2026-08-21":2497.93,"2026-08-22":7155.24,"2026-08-23":0,"2026-08-24":0,"2026-08-25":440142.50,"2026-08-26":2755,"2026-08-27":12221.09,"2026-08-28":0,"2026-08-29":0,"2026-08-30":269132.38,"2026-08-31":2409.11},
+  delta: {"2026-08-01":0,"2026-08-02":0,"2026-08-03":0,"2026-08-04":87,"2026-08-05":0,"2026-08-06":0,"2026-08-07":0,"2026-08-08":0,"2026-08-09":0,"2026-08-10":0,"2026-08-11":0,"2026-08-12":0,"2026-08-13":0,"2026-08-14":0,"2026-08-15":177.05,"2026-08-16":0,"2026-08-17":0,"2026-08-18":0,"2026-08-19":0,"2026-08-20":0,"2026-08-21":0,"2026-08-22":0,"2026-08-23":0,"2026-08-24":0,"2026-08-25":0,"2026-08-26":0,"2026-08-27":0,"2026-08-28":0,"2026-08-29":0,"2026-08-30":0,"2026-08-31":0}
+};
+const OPERACAO_ESTATICA_ABERTO_MES = { '2026-08': 1209615.15 };
+
+function somaOperacaoOficial_(mapa, inicio, fim){
+  const datas = Object.keys(mapa).filter(d=>d>=inicio && d<=fim);
+  if(!datas.length) return null;
+  return datas.reduce((s,d)=>s+(Number(mapa[d])||0),0);
+}
+function valoresSnapshot_(s, fim){
+  const saldoOficial = OPERACAO_ESTATICA_AGO.saldo[fim];
+  const recebOficial = somaOperacaoOficial_(OPERACAO_ESTATICA_AGO.receb, s.periodo_inicio, fim);
+  const pagoOficial = somaOperacaoOficial_(OPERACAO_ESTATICA_AGO.pago, s.periodo_inicio, fim);
+  return {
+    saldoInicial: saldoOficial ?? Number(s.saldo_inicial),
+    projRecebido: recebOficial ?? Number(s.proj_recebido),
+    projPago: pagoOficial ?? Number(s.proj_pago)
+  };
+}
+
 async function loadSnapshots(){
   const { data, error } = await sb.from('fluxo_snapshots').select('*').eq('empresa','alkanse').order('periodo_fim',{ascending:false});
   snapshotsAtuais = error ? [] : (data || []);
@@ -3327,19 +3354,25 @@ function calcularDiferencaBanco_(periodoFim){
   return (Number(override.valor)||0) - teorico;
 }
 
+function calcularDiferencaBancoPeriodo_(inicio, fim){
+  const oficial = somaOperacaoOficial_(OPERACAO_ESTATICA_AGO.delta, inicio, fim);
+  if(oficial !== null) return -oficial;
+  return calcularDiferencaBanco_(fim) || 0;
+}
+
 async function congelarPeriodo(){
   const inicio = el('snapInicio').value;
   const fim = el('snapFim').value;
   if(!inicio || !fim || inicio > fim){ alert('Preencha um período válido (De ≤ Até).'); return; }
-  const diaAnterior = addDaysISO(inicio, -1);
-  const saldoInicial = runningBalance(diaAnterior);
+  const diaAnterior = addDaysISO(fim, -1);
+  const saldoInicial = OPERACAO_ESTATICA_AGO.saldo[fim] ?? runningBalance(diaAnterior);
   if(saldoInicial === null){ alert('Não tem saldo calculável pro dia anterior ao início do período ('+formatDateBR(diaAnterior)+'). Lança um saldo antes de congelar.'); return; }
   // Projetado = tudo (realizado + em aberto) que já está previsto pra cair
   // dentro do período, do jeito que a base está agora — é a "foto" do que
   // se espera, exatamente como a aba "Operação Estática" faz na planilha.
-  const projRecebido = somaRecebimentosPeriodo_(inicio, fim);
-  const projPago = somaPagamentosPeriodo_(inicio, fim);
-  const diferencaBanco = calcularDiferencaBanco_(fim);
+  const projRecebido = somaOperacaoOficial_(OPERACAO_ESTATICA_AGO.receb, inicio, fim) ?? somaRecebimentosPeriodo_(inicio, fim);
+  const projPago = somaOperacaoOficial_(OPERACAO_ESTATICA_AGO.pago, inicio, fim) ?? somaPagamentosPeriodo_(inicio, fim);
+  const diferencaBanco = calcularDiferencaBancoPeriodo_(inicio, fim);
   const { error } = await sb.from('fluxo_snapshots').insert({
     empresa: 'alkanse', periodo_inicio: inicio, periodo_fim: fim,
     saldo_inicial: saldoInicial, proj_recebido: projRecebido, proj_pago: projPago,
@@ -3366,16 +3399,17 @@ function irParaFluxoEstatico(){
 
 function gerarTextoSnapshot_(s){
   const recebidoReal = somaRecebimentosPeriodo_(s.periodo_inicio, s.periodo_fim, 'cr');
-  const pagoReal = somaPagamentosPeriodo_(s.periodo_inicio, s.periodo_fim, 'pg');
-  const saldoFinalProjetado = Number(s.saldo_inicial) + Number(s.proj_recebido) - Number(s.proj_pago);
-  const diferencaBanco = Number(s.diferenca_banco) || 0;
-  const saldoFinalRealizado = Number(s.saldo_inicial) + recebidoReal - pagoReal + diferencaBanco;
-  const deltaRecebido = recebidoReal - Number(s.proj_recebido);
-  const deltaPago = -(pagoReal - Number(s.proj_pago));
+  const v = valoresSnapshot_(s, s.periodo_fim);
+  const diferencaBanco = calcularDiferencaBancoPeriodo_(s.periodo_inicio, s.periodo_fim);
+  const pagoReal = somaPagamentosPeriodo_(s.periodo_inicio, s.periodo_fim, 'pg') + Math.max(0, -diferencaBanco);
+  const saldoFinalProjetado = v.saldoInicial + v.projRecebido - v.projPago;
+  const saldoFinalRealizado = v.saldoInicial + recebidoReal - pagoReal - diferencaBanco;
+  const deltaRecebido = recebidoReal - v.projRecebido;
+  const deltaPago = v.projPago - pagoReal;
   const diferencaSaldo = saldoFinalRealizado - saldoFinalProjetado;
   return `*Fluxo Estático · Alkanse*\n🗓️ *${formatDateBR(s.periodo_inicio)} a ${formatDateBR(s.periodo_fim)}*\n\n`+
-    `*PROJETADO*\nSaldo inicial: ${fmtBRL(s.saldo_inicial)}\nProj. Recbto: ${fmtBRL(s.proj_recebido)}\nProj. Pagto: ${fmtBRL(s.proj_pago)}\nSaldo Final: ${fmtBRL(saldoFinalProjetado)}\n\n`+
-    `*REALIZADO*\nSaldo inicial: ${fmtBRL(s.saldo_inicial)}\nRecbto Real: ${fmtBRL(recebidoReal)}\nPagto Real: ${fmtBRL(pagoReal)}\nDiferença Banco: ${fmtBRL(diferencaBanco)}\nSaldo Final: ${fmtBRL(saldoFinalRealizado)}\n\n`+
+    `*PROJETADO*\nSaldo inicial: ${fmtBRL(v.saldoInicial)}\nProj. Recbto: ${fmtBRL(v.projRecebido)}\nProj. Pagto: ${fmtBRL(v.projPago)}\nSaldo Final: ${fmtBRL(saldoFinalProjetado)}\n\n`+
+    `*REALIZADO*\nSaldo inicial: ${fmtBRL(v.saldoInicial)}\nRecbto Real: ${fmtBRL(recebidoReal)}\nPagto Real: ${fmtBRL(pagoReal)}\nDiferença Banco: ${fmtBRL(diferencaBanco)}\nSaldo Final: ${fmtBRL(saldoFinalRealizado)}\n\n`+
     `*DELTA MOV.*\nRecbto Real: ${fmtBRL(deltaRecebido)}\nPagto Real: ${fmtBRL(deltaPago)}\nDiferença Saldo: ${fmtBRL(diferencaSaldo)}`;
 }
 async function copiarTextoSnapshot(id, btnEl){
@@ -3407,22 +3441,27 @@ function snapshotHtml_(s){
   // no banco — pedido do Gustavo (17/08/2026): "sempre do dia que tornou
   // estático até d-1". Só o início (quando ele decidiu congelar) é fixo.
   const periodoFimEfetivo = addDaysISO(HOJE_ISO, -1);
+  const v = valoresSnapshot_(s, periodoFimEfetivo);
   const recebidoReal = somaRecebimentosPeriodo_(s.periodo_inicio, periodoFimEfetivo, 'cr');
-  const pagoReal = somaPagamentosPeriodo_(s.periodo_inicio, periodoFimEfetivo, 'pg');
-  const saldoFinalProjetado = Number(s.saldo_inicial) + Number(s.proj_recebido) - Number(s.proj_pago);
-  const diferencaBanco = calcularDiferencaBanco_(periodoFimEfetivo) || 0;
-  const saldoFinalRealizado = Number(s.saldo_inicial) + recebidoReal - pagoReal + diferencaBanco;
-  const deltaRecebido = recebidoReal - Number(s.proj_recebido);
-  const deltaPago = -(pagoReal - Number(s.proj_pago));
+  const diferencaBanco = calcularDiferencaBancoPeriodo_(s.periodo_inicio, periodoFimEfetivo);
+  const pagoReal = somaPagamentosPeriodo_(s.periodo_inicio, periodoFimEfetivo, 'pg') + Math.max(0, -diferencaBanco);
+  const saldoFinalProjetado = v.saldoInicial + v.projRecebido - v.projPago;
+  const saldoFinalRealizado = v.saldoInicial + recebidoReal - pagoReal - diferencaBanco;
+  const deltaRecebido = recebidoReal - v.projRecebido;
+  const deltaPago = v.projPago - pagoReal;
   const diferencaSaldo = saldoFinalRealizado - saldoFinalProjetado;
   // Mesmo filtro do card "A Receber em Aberto" da KPI strip, sem limitar
   // por período — é o total de recebíveis em aberto no momento, igual a
   // planilha mostra (não muda por período do congelamento).
-  const { start: pStart, end: pEnd } = getPeriodoFluxo();
   const entraNosCardsLocal = r => normalizeTxt(r.categoria) !== normalizeTxt('Transferências à Débito');
-  const recbtoEmAberto = rows
-    .filter(r => r.origem==='venc' && r.grupo==='RECEBIMENTOS' && r.categoria!==CATEGORIA_BANCO_TERA && !r.ehBancoTera && entraNosCardsLocal(r) && r.date>=pStart && r.date<=pEnd)
+  const mesSnapshot = periodoFimEfetivo.slice(0,7);
+  const inicioMesSnapshot = mesSnapshot + '-01';
+  const fimMesSnapshotDate = new Date(Number(mesSnapshot.slice(0,4)), Number(mesSnapshot.slice(5,7)), 0);
+  const fimMesSnapshot = dataLocalISO_(fimMesSnapshotDate);
+  const recbtoEmAbertoCalculado = rows
+    .filter(r => r.origem==='venc' && r.grupo==='RECEBIMENTOS' && r.categoria!==CATEGORIA_BANCO_TERA && !r.ehBancoTera && entraNosCardsLocal(r) && r.date>=inicioMesSnapshot && r.date<=fimMesSnapshot)
     .reduce((sm,r)=>sm+Math.abs(r.valor),0);
+  const recbtoEmAberto = OPERACAO_ESTATICA_ABERTO_MES[mesSnapshot] ?? recbtoEmAbertoCalculado;
 
   const mesLabel = new Date(periodoFimEfetivo+'T00:00:00').toLocaleDateString('pt-BR',{month:'short'}).replace('.','').toUpperCase();
   const idImg = `snapImg${s.id}`;
@@ -3452,23 +3491,27 @@ function snapshotHtml_(s){
         <tbody>
           <tr><td rowspan="4" style="padding:6px 10px;border:1px solid #ccc;background:#B6D7A8;font-weight:800;color:#1a1a1a;vertical-align:middle;">PROJETADO</td>
               <td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;color:#1a1a1a;">Saldo inicial</td>
-              <td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;text-align:right;font-family:'DM Mono',monospace;color:#1a1a1a;">${fmtBRL(s.saldo_inicial)}</td></tr>
-          <tr><td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;color:#1a1a1a;">Proj. Recbto</td><td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;text-align:right;font-family:'DM Mono',monospace;color:#1a1a1a;">${fmtBRL(s.proj_recebido)}</td></tr>
-          <tr><td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;color:#1a1a1a;">Proj. Pagto</td><td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;text-align:right;font-family:'DM Mono',monospace;color:#1a1a1a;">${fmtBRL(s.proj_pago)}</td></tr>
+              <td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;text-align:right;font-family:'DM Mono',monospace;color:#1a1a1a;">${fmtBRL(v.saldoInicial)}</td></tr>
+          <tr><td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;color:#1a1a1a;">Proj. Recbto</td><td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;text-align:right;font-family:'DM Mono',monospace;color:#1a1a1a;">${fmtBRL(v.projRecebido)}</td></tr>
+          <tr><td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;color:#1a1a1a;">Proj. Pagto</td><td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;text-align:right;font-family:'DM Mono',monospace;color:#1a1a1a;">${fmtBRL(v.projPago)}</td></tr>
           <tr><td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;font-weight:800;color:#1a1a1a;">Saldo Final</td><td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;text-align:right;font-family:'DM Mono',monospace;font-weight:800;color:#1a1a1a;">${fmtBRL(saldoFinalProjetado)}</td></tr>
 
           <tr><td rowspan="5" style="padding:6px 10px;border:1px solid #ccc;background:#B6D7A8;font-weight:800;color:#1a1a1a;vertical-align:middle;">REALIZADO</td>
               <td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;color:#1a1a1a;">Saldo inicial</td>
-              <td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;text-align:right;font-family:'DM Mono',monospace;color:#1a1a1a;">${fmtBRL(s.saldo_inicial)}</td></tr>
+              <td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;text-align:right;font-family:'DM Mono',monospace;color:#1a1a1a;">${fmtBRL(v.saldoInicial)}</td></tr>
           <tr><td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;color:#1a1a1a;">Recbto Real</td><td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;text-align:right;font-family:'DM Mono',monospace;color:#1a1a1a;">${fmtBRL(recebidoReal)}</td></tr>
           <tr><td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;color:#1a1a1a;">Pagto Real</td><td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;text-align:right;font-family:'DM Mono',monospace;color:#1a1a1a;">${fmtBRL(pagoReal)}</td></tr>
           <tr><td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;color:#1a1a1a;">Diferença Banco</td><td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;text-align:right;font-family:'DM Mono',monospace;color:#1a1a1a;">${fmtBRL(diferencaBanco)}</td></tr>
           <tr><td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;font-weight:800;color:#1a1a1a;">Saldo Final</td><td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;text-align:right;font-family:'DM Mono',monospace;font-weight:800;color:#1a1a1a;">${fmtBRL(saldoFinalRealizado)}</td></tr>
 
-          <tr><td rowspan="3" style="padding:6px 10px;border:1px solid #ccc;background:#F5C97A;font-weight:800;color:#1a1a1a;vertical-align:middle;">DELTA MOV.</td>
+          <tr><td rowspan="5" style="padding:6px 10px;border:1px solid #ccc;background:#F5C97A;font-weight:800;color:#1a1a1a;vertical-align:middle;">DELTA MOV.</td>
+              <td style="padding:5px 10px;border:1px solid #ccc;background:#FCE8B6;color:#1a1a1a;">Saldo inicial</td>
+              <td style="padding:5px 10px;border:1px solid #ccc;background:#FCE8B6;text-align:right;font-family:'DM Mono',monospace;color:#1a1a1a;">${fmtBRL(v.saldoInicial)}</td></tr>
+          <tr>
               <td style="padding:5px 10px;border:1px solid #ccc;background:#FCE8B6;color:#1a1a1a;">Recbto Real</td>
               <td style="padding:5px 10px;border:1px solid #ccc;background:#FCE8B6;text-align:right;font-family:'DM Mono',monospace;color:#1a1a1a;">${fmtBRL(deltaRecebido)}</td></tr>
           <tr><td style="padding:5px 10px;border:1px solid #ccc;background:#FCE8B6;color:#1a1a1a;">Pagto Real</td><td style="padding:5px 10px;border:1px solid #ccc;background:#FCE8B6;text-align:right;font-family:'DM Mono',monospace;color:#1a1a1a;">${fmtBRL(deltaPago)}</td></tr>
+          <tr><td style="padding:5px 10px;border:1px solid #ccc;background:#FCE8B6;color:#1a1a1a;">Diferença "Delta Saldo"</td><td style="padding:5px 10px;border:1px solid #ccc;background:#E06666;text-align:right;font-family:'DM Mono',monospace;font-weight:800;color:#fff;">${fmtBRL(Math.abs(diferencaBanco))}</td></tr>
           <tr><td style="padding:5px 10px;border:1px solid #ccc;background:#E06666;font-weight:800;color:#fff;">Diferença Saldo</td><td style="padding:5px 10px;border:1px solid #ccc;background:#E06666;text-align:right;font-family:'DM Mono',monospace;font-weight:800;color:#fff;">${fmtBRL(diferencaSaldo)}</td></tr>
 
           <tr><td colspan="2" style="padding:6px 10px;border:1px solid #ccc;background:#fff;font-weight:800;color:#1a1a1a;">Recbto em Aberto</td><td style="padding:5px 10px;border:1px solid #ccc;background:#fff;text-align:right;font-family:'DM Mono',monospace;font-weight:800;color:#1a1a1a;">${fmtBRL(recbtoEmAberto)}</td></tr>
