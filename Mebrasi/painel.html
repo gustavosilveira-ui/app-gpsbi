@@ -867,6 +867,13 @@ function calcularFaturamento(r){
 async function loadData(){
   const table = await fetchGvizVendas();
   const raw = parseGvizRows(table);
+  // Diagnóstico temporário (14/08/2026): "Nome Cliente" (e as variantes
+  // já tentadas) estão vindo vazias pras linhas Online — pra achar o
+  // nome real da coluna sem precisar adivinhar de novo, isso lista no
+  // console todas as colunas de uma linha Online de verdade. Remover
+  // depois de confirmado.
+  const primeiroOnline = raw.find(r => normalizeTxt(getColNormalized(r,'fonte')) === 'online');
+  if(primeiroOnline) console.log('🔍 Colunas de uma linha Online:', primeiroOnline);
   const pendentes = [];
   rows = raw.map(r=>{
     const situacao = getColNormalized(r,'situacao') || '';
@@ -1151,7 +1158,7 @@ function renderKpis(){
   const pedidos = contarPedidos(scoped);
   // Quantidade do Online representa pedidos, não itens; fica fora dos itens.
   const itens = scoped.reduce((s,r)=>s+(r.empresa!=='Online' && !isProdutoGsl(r) ? (r.qtdFaturada||0) : 0),0);
-  const precoMedio = itens>0 ? faturamento/itens : 0;
+  const precoMedio = itens>0 ? faturamentoSemGsl(scoped.filter(r=>r.empresa!=='Online')) / itens : 0;
   // Ticket Médio não pode considerar o Online — o volume alto de pedidos
   // pequenos do canal Online distorce a média pra baixo. Usa só o físico
   // (Gymis/Ryngavi/Especial/Multicopos) tanto no faturamento quanto na
@@ -1544,20 +1551,30 @@ function rowsForPeriod(ano, mes, empresa){
   );
 }
 
+// Preço Médio = faturamento / itens, mas "itens" já exclui GSL/GSN
+// (padrão do painel). O faturamento usado aqui precisa do MESMO
+// recorte, senão o preço médio fica inflado artificialmente em
+// empresas com muita venda GSL (achado 14/08/2026: Especial mostrava
+// R$989,41 em vez de ~R$20, porque a maior parte do faturamento dela é
+// GSL — incluído no numerador mas excluído do denominador).
+function faturamentoSemGsl(rs){
+  return rs.reduce((s,r)=>s+(!isProdutoGsl(r) ? r.faturamento : 0),0);
+}
 // Preço Médio da Gymis passa a considerar também o faturamento e a
 // quantidade (sem GSL/GSN) da Especial — pedido da Elis (14/08/2026):
 // o preço médio da Gymis sozinha ficava artificialmente baixo (~R$16)
 // frente às outras empresas (acima de R$20). Mesmo padrão já usado no
 // farol/texto executivo, onde a Especial é reportada junto da Gymis.
 // Faturamento e Itens exibidos na linha da Gymis continuam só dela —
-// só o Preço Médio (faturamento/itens) passa a somar as duas.
-function precoMedioComEspecial(emp, scoped, faturamento, itens){
-  if(emp!=='Gymis') return itens>0 ? faturamento/itens : 0;
+// só o Preço Médio passa a somar as duas.
+function precoMedioComEspecial(emp, scoped, rs, itens){
+  const fatSemGsl = faturamentoSemGsl(rs);
+  if(emp!=='Gymis') return itens>0 ? fatSemGsl/itens : 0;
   const rsEspecial = scoped.filter(r=>r.empresa==='Especial');
   const itensEspecial = rsEspecial.reduce((s,r)=>s+(!isProdutoGsl(r) ? (r.qtdFaturada||0) : 0),0);
-  const faturamentoEspecial = rsEspecial.reduce((s,r)=>s+r.faturamento,0);
+  const fatEspecialSemGsl = faturamentoSemGsl(rsEspecial);
   const itensSoma = itens + itensEspecial;
-  return itensSoma>0 ? (faturamento+faturamentoEspecial)/itensSoma : 0;
+  return itensSoma>0 ? (fatSemGsl+fatEspecialSemGsl)/itensSoma : 0;
 }
 
 function renderTabelaEmpresas(){
@@ -1593,7 +1610,7 @@ function renderTabelaEmpresas(){
       const familia = normalizeTxt(r.familiaComercial).replace(/\s+/g,' ').trim();
       return s + (!isProdutoGsl(r) && familia==='copo' ? (r.qtdFaturada||0) : 0);
     },0);
-    const precoMedio = precoMedioComEspecial(emp, scoped, faturamento, itens);
+    const precoMedio = precoMedioComEspecial(emp, scoped, rs, itens);
     const participacao = totalFatEscopo ? faturamento/totalFatEscopo : 0;
 
     return { emp, faturamento, participacao, fatM1, difM1, pctM1, fatY1, difY1, pctY1, clientes, pedidos, ticket, precoMedio, itens, itensCopo };
@@ -1613,7 +1630,7 @@ function renderTabelaEmpresas(){
   const totalFatFisico = fisico.reduce((s,r)=>s+r.faturamento,0);
   const totalPedidosFisico = new Set(fisico.map(r=>r.codPedido).filter(Boolean)).size;
   const totalTicket = totalPedidosFisico ? totalFatFisico/totalPedidosFisico : 0;
-  const totalPreco = totalItens ? totalFatEscopo/totalItens : 0;
+  const totalPreco = totalItens ? faturamentoSemGsl(fisico)/totalItens : 0;
   const totalM1 = linhas.reduce((s,l)=>s+l.fatM1,0);
   const totalY1 = linhas.reduce((s,l)=>s+l.fatY1,0);
   const totalDifM1 = totalFatEscopo-totalM1;
