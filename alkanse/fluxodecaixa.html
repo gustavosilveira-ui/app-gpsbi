@@ -6,6 +6,7 @@
 <title>Fluxo de Caixa · Alkanse</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <style>
 /* ===== theme.css embutido (Mebrasi ainda não hospeda esse arquivo separado) ===== */
 /* ================================================================
@@ -366,7 +367,7 @@ html.light .fc-day-num{color:#1f2a3d;}
           <div class="card-title">💰 Fluxo de Caixa</div>
           <div class="card-sub">Clique nas setinhas pra abrir/fechar anos, meses e dias — e as categorias dentro de Recebimentos e Pagamentos. Saldo acumulado dia a dia.</div>
         </div>
-        <button class="btn btn-ghost btn-sm" style="flex:none;white-space:nowrap;" onclick="irParaFluxoEstatico()">🧊 Tornar Estático</button>
+        <button class="btn btn-ghost btn-sm" style="flex:none;white-space:nowrap;" onclick="irParaFluxoEstatico()">👁️ Ver Fluxo Estático</button>
       </div>
       <div class="card-sub" id="empresaLabelSub" style="margin-top:-8px;font-weight:700;"></div>
       <div class="fc-kpi-strip" id="fcKpiStrip"></div>
@@ -3406,37 +3407,97 @@ function snapshotHtml_(s){
   const deltaRecebido = recebidoReal - Number(s.proj_recebido);
   const deltaPago = -(pagoReal - Number(s.proj_pago));
   const diferencaSaldo = saldoFinalRealizado - saldoFinalProjetado;
-  const linha = (label, valor, destaque) => `<tr${destaque?' style="font-weight:800;background:var(--navy3);"':''}><td>${label}</td><td class="num">${fmtBRL(valor)}</td></tr>`;
+  // Mesmo filtro do card "A Receber em Aberto" da KPI strip, sem limitar
+  // por período — é o total de recebíveis em aberto no momento, igual a
+  // planilha mostra (não muda por período do congelamento).
+  const { start: pStart, end: pEnd } = getPeriodoFluxo();
+  const entraNosCardsLocal = r => normalizeTxt(r.categoria) !== normalizeTxt('Transferências à Débito');
+  const recbtoEmAberto = rows
+    .filter(r => r.origem==='venc' && r.grupo==='RECEBIMENTOS' && r.categoria!==CATEGORIA_BANCO_TERA && !r.ehBancoTera && entraNosCardsLocal(r) && r.date>=pStart && r.date<=pEnd)
+    .reduce((sm,r)=>sm+Math.abs(r.valor),0);
+
+  const mesLabel = new Date(s.periodo_fim+'T00:00:00').toLocaleDateString('pt-BR',{month:'short'}).replace('.','').toUpperCase();
+  const linha = (label, valor, opts) => {
+    const o = opts || {};
+    const cor = o.destaque ? (valor<0?'#C0342A':'#1B7A3D') : '#1a1a1a';
+    return `<tr style="${o.bg?`background:${o.bg};`:''}${o.destaque?'font-weight:800;':''}"><td style="padding:5px 10px;border:1px solid #ccc;color:#1a1a1a;">${label}</td><td style="padding:5px 10px;border:1px solid #ccc;text-align:right;color:${cor};font-family:'DM Mono',monospace;">${fmtBRL(valor)}</td></tr>`;
+  };
+  const idImg = `snapImg${s.id}`;
   return `
   <div class="card" style="background:var(--navy3);margin-bottom:14px;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
       <div class="card-title" style="margin-bottom:0;">Período: ${formatDateBR(s.periodo_inicio)} a ${formatDateBR(s.periodo_fim)}</div>
       <div style="display:flex;gap:6px;">
+        <button class="btn btn-primary btn-sm" onclick="copiarImagemSnapshot('${idImg}', this)">🖼️ Copiar Imagem</button>
         <button class="btn btn-ghost btn-sm" onclick="copiarTextoSnapshot(${s.id}, this)">📋 Copiar texto</button>
         <button class="btn btn-danger btn-sm" onclick="removerSnapshot(${s.id})">Remover</button>
       </div>
     </div>
-    <table class="fc-table" style="width:100%;">
-      <tbody>
-        <tr style="background:var(--navy4);"><td colspan="2" style="font-weight:800;">PROJETADO</td></tr>
-        ${linha('Saldo inicial', s.saldo_inicial)}
-        ${linha('Proj. Recbto', s.proj_recebido)}
-        ${linha('Proj. Pagto', s.proj_pago)}
-        ${linha('Saldo Final', saldoFinalProjetado, true)}
-        <tr style="background:var(--navy4);"><td colspan="2" style="font-weight:800;">REALIZADO</td></tr>
-        ${linha('Saldo inicial', s.saldo_inicial)}
-        ${linha('Recbto Real', recebidoReal)}
-        ${linha('Pagto Real', pagoReal)}
-        ${linha('Diferença Banco', diferencaBanco)}
-        ${linha('Saldo Final', saldoFinalRealizado, true)}
-        <tr style="background:var(--navy4);"><td colspan="2" style="font-weight:800;">DELTA MOV.</td></tr>
-        ${linha('Recbto Real', deltaRecebido)}
-        ${linha('Pagto Real', deltaPago)}
-        ${linha('Diferença Saldo', diferencaSaldo, true)}
-      </tbody>
-    </table>
+    <div id="${idImg}" style="background:#fff;width:420px;max-width:100%;font-family:'Sora',sans-serif;font-size:13px;">
+      <table style="width:100%;border-collapse:collapse;">
+        <tbody>
+          <tr>
+            <td style="padding:6px 10px;border:1px solid #ccc;background:#fff;font-weight:800;color:#1a1a1a;">${mesLabel}</td>
+            <td style="padding:6px 10px;border:1px solid #ccc;background:#2D70B8;color:#fff;font-weight:800;text-align:center;">Período</td>
+            <td style="padding:6px 10px;border:1px solid #ccc;background:#2D70B8;color:#fff;font-weight:800;text-align:center;">${formatDateBR(s.periodo_inicio).slice(0,5)} A ${formatDateBR(s.periodo_fim).slice(0,5)}</td>
+          </tr>
+        </tbody>
+      </table>
+      <table style="width:100%;border-collapse:collapse;margin-top:2px;">
+        <tbody>
+          <tr><td rowspan="4" style="padding:6px 10px;border:1px solid #ccc;background:#B6D7A8;font-weight:800;color:#1a1a1a;vertical-align:middle;">PROJETADO</td>
+              <td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;color:#1a1a1a;">Saldo inicial</td>
+              <td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;text-align:right;font-family:'DM Mono',monospace;color:#1a1a1a;">${fmtBRL(s.saldo_inicial)}</td></tr>
+          <tr><td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;color:#1a1a1a;">Proj. Recbto</td><td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;text-align:right;font-family:'DM Mono',monospace;color:#1a1a1a;">${fmtBRL(s.proj_recebido)}</td></tr>
+          <tr><td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;color:#1a1a1a;">Proj. Pagto</td><td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;text-align:right;font-family:'DM Mono',monospace;color:#1a1a1a;">${fmtBRL(s.proj_pago)}</td></tr>
+          <tr><td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;font-weight:800;color:#1a1a1a;">Saldo Final</td><td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;text-align:right;font-family:'DM Mono',monospace;font-weight:800;color:#1a1a1a;">${fmtBRL(saldoFinalProjetado)}</td></tr>
+
+          <tr><td rowspan="5" style="padding:6px 10px;border:1px solid #ccc;background:#B6D7A8;font-weight:800;color:#1a1a1a;vertical-align:middle;">REALIZADO</td>
+              <td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;color:#1a1a1a;">Saldo inicial</td>
+              <td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;text-align:right;font-family:'DM Mono',monospace;color:#1a1a1a;">${fmtBRL(s.saldo_inicial)}</td></tr>
+          <tr><td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;color:#1a1a1a;">Recbto Real</td><td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;text-align:right;font-family:'DM Mono',monospace;color:#1a1a1a;">${fmtBRL(recebidoReal)}</td></tr>
+          <tr><td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;color:#1a1a1a;">Pagto Real</td><td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;text-align:right;font-family:'DM Mono',monospace;color:#1a1a1a;">${fmtBRL(pagoReal)}</td></tr>
+          <tr><td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;color:#1a1a1a;">Diferença Banco</td><td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;text-align:right;font-family:'DM Mono',monospace;color:#1a1a1a;">${fmtBRL(diferencaBanco)}</td></tr>
+          <tr><td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;font-weight:800;color:#1a1a1a;">Saldo Final</td><td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;text-align:right;font-family:'DM Mono',monospace;font-weight:800;color:#1a1a1a;">${fmtBRL(saldoFinalRealizado)}</td></tr>
+
+          <tr><td rowspan="3" style="padding:6px 10px;border:1px solid #ccc;background:#F5C97A;font-weight:800;color:#1a1a1a;vertical-align:middle;">DELTA MOV.</td>
+              <td style="padding:5px 10px;border:1px solid #ccc;background:#FCE8B6;color:#1a1a1a;">Recbto Real</td>
+              <td style="padding:5px 10px;border:1px solid #ccc;background:#FCE8B6;text-align:right;font-family:'DM Mono',monospace;color:#1a1a1a;">${fmtBRL(deltaRecebido)}</td></tr>
+          <tr><td style="padding:5px 10px;border:1px solid #ccc;background:#FCE8B6;color:#1a1a1a;">Pagto Real</td><td style="padding:5px 10px;border:1px solid #ccc;background:#FCE8B6;text-align:right;font-family:'DM Mono',monospace;color:#1a1a1a;">${fmtBRL(deltaPago)}</td></tr>
+          <tr><td style="padding:5px 10px;border:1px solid #ccc;background:#E06666;font-weight:800;color:#fff;">Diferença Saldo</td><td style="padding:5px 10px;border:1px solid #ccc;background:#E06666;text-align:right;font-family:'DM Mono',monospace;font-weight:800;color:#fff;">${fmtBRL(diferencaSaldo)}</td></tr>
+
+          <tr><td colspan="2" style="padding:6px 10px;border:1px solid #ccc;background:#fff;font-weight:800;color:#1a1a1a;">Recbto em Aberto</td><td style="padding:5px 10px;border:1px solid #ccc;background:#fff;text-align:right;font-family:'DM Mono',monospace;font-weight:800;color:#1a1a1a;">${fmtBRL(recbtoEmAberto)}</td></tr>
+        </tbody>
+      </table>
+    </div>
     <div class="card-sub" style="margin-top:8px;margin-bottom:0;">Congelado por ${escapeHtml(s.criado_por||'—')} em ${new Date(s.criado_em).toLocaleDateString('pt-BR')}</div>
   </div>`;
+}
+
+async function copiarImagemSnapshot(elId, btnEl){
+  const node = el(elId);
+  if(!node || typeof html2canvas === 'undefined'){ alert('Não consegui gerar a imagem — recarrega a página e tenta de novo.'); return; }
+  const orig = btnEl.textContent;
+  btnEl.textContent = 'Gerando...';
+  try{
+    const canvas = await html2canvas(node, { backgroundColor:'#ffffff', scale:2 });
+    canvas.toBlob(async (blob)=>{
+      try{
+        await navigator.clipboard.write([ new ClipboardItem({ 'image/png': blob }) ]);
+        btnEl.textContent = '✅ Copiado!';
+      }catch(e){
+        // Clipboard de imagem pode falhar em alguns navegadores — abre a
+        // imagem numa aba nova como plano B, pra pelo menos dar pra salvar.
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+        btnEl.textContent = 'Abri numa aba';
+      }
+      setTimeout(()=>{ btnEl.textContent = orig; }, 1800);
+    }, 'image/png');
+  }catch(e){
+    btnEl.textContent = orig;
+    alert('Erro ao gerar imagem: '+e.message);
+  }
 }
 
 init();
