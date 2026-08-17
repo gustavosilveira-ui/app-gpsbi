@@ -657,7 +657,7 @@ function canAccessFluxo(email){
 function isGpsStaff(email){
   return (email||'').toLowerCase().endsWith('@gpsbi.com.br');
 }
-const ALLOWED_FLUXO_EMAILS = ['daniel.morante@grupofb.com.br','karina@grupofb.com.br','fabiana@grupofb.com.br'];
+const ALLOWED_FLUXO_EMAILS = ['daniel.morante@grupofb.com.br','karina@grupofb.com.br','juliana@grupofb.com.br','andressa@grupofb.com.br'];
 function podeVerFluxoCaixa(email){
   const e = (email||'').toLowerCase();
   return isGpsStaff(e) || ALLOWED_FLUXO_EMAILS.includes(e);
