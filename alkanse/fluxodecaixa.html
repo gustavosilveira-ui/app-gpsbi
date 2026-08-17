@@ -500,7 +500,7 @@ html.light .fc-day-num{color:#1f2a3d;}
     </div>
 
     <!-- ============ Fluxo Estático — Projetado vs Realizado por período ============ -->
-    <div class="card" id="cardFluxoEstatico">
+    <div class="card" id="cardFluxoEstatico" style="display:none;">
       <div class="fc-mini-title">📌 Fluxo Estático</div>
       <div class="fc-mini-sub">Congela o Projetado de um período pra comparar depois com o que foi Realizado de fato — igual você já faz na planilha, agora direto no Hub.</div>
       <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-top:10px;">
@@ -3354,10 +3354,14 @@ async function congelarPeriodo(){
 function irParaFluxoEstatico(){
   const card = el('cardFluxoEstatico');
   if(!card) return;
-  card.scrollIntoView({ behavior:'smooth', block:'start' });
-  card.style.transition = 'box-shadow .3s';
-  card.style.boxShadow = '0 0 0 3px var(--cyan)';
-  setTimeout(()=>{ card.style.boxShadow = ''; }, 1600);
+  const abrindo = card.style.display === 'none';
+  card.style.display = abrindo ? 'block' : 'none';
+  if(abrindo){
+    card.scrollIntoView({ behavior:'smooth', block:'start' });
+    card.style.transition = 'box-shadow .3s';
+    card.style.boxShadow = '0 0 0 3px var(--cyan)';
+    setTimeout(()=>{ card.style.boxShadow = ''; }, 1600);
+  }
 }
 
 function gerarTextoSnapshot_(s){
@@ -3399,10 +3403,14 @@ function renderFluxoEstaticoLista(){
 }
 
 function snapshotHtml_(s){
-  const recebidoReal = somaRecebimentosPeriodo_(s.periodo_inicio, s.periodo_fim, 'cr');
-  const pagoReal = somaPagamentosPeriodo_(s.periodo_inicio, s.periodo_fim, 'pg');
+  // Período sempre corre até ONTEM, não fica travado na data que foi salva
+  // no banco — pedido do Gustavo (17/08/2026): "sempre do dia que tornou
+  // estático até d-1". Só o início (quando ele decidiu congelar) é fixo.
+  const periodoFimEfetivo = addDaysISO(HOJE_ISO, -1);
+  const recebidoReal = somaRecebimentosPeriodo_(s.periodo_inicio, periodoFimEfetivo, 'cr');
+  const pagoReal = somaPagamentosPeriodo_(s.periodo_inicio, periodoFimEfetivo, 'pg');
   const saldoFinalProjetado = Number(s.saldo_inicial) + Number(s.proj_recebido) - Number(s.proj_pago);
-  const diferencaBanco = Number(s.diferenca_banco) || 0;
+  const diferencaBanco = calcularDiferencaBanco_(periodoFimEfetivo) || 0;
   const saldoFinalRealizado = Number(s.saldo_inicial) + recebidoReal - pagoReal + diferencaBanco;
   const deltaRecebido = recebidoReal - Number(s.proj_recebido);
   const deltaPago = -(pagoReal - Number(s.proj_pago));
@@ -3416,12 +3424,7 @@ function snapshotHtml_(s){
     .filter(r => r.origem==='venc' && r.grupo==='RECEBIMENTOS' && r.categoria!==CATEGORIA_BANCO_TERA && !r.ehBancoTera && entraNosCardsLocal(r) && r.date>=pStart && r.date<=pEnd)
     .reduce((sm,r)=>sm+Math.abs(r.valor),0);
 
-  const mesLabel = new Date(s.periodo_fim+'T00:00:00').toLocaleDateString('pt-BR',{month:'short'}).replace('.','').toUpperCase();
-  const linha = (label, valor, opts) => {
-    const o = opts || {};
-    const cor = o.destaque ? (valor<0?'#C0342A':'#1B7A3D') : '#1a1a1a';
-    return `<tr style="${o.bg?`background:${o.bg};`:''}${o.destaque?'font-weight:800;':''}"><td style="padding:5px 10px;border:1px solid #ccc;color:#1a1a1a;">${label}</td><td style="padding:5px 10px;border:1px solid #ccc;text-align:right;color:${cor};font-family:'DM Mono',monospace;">${fmtBRL(valor)}</td></tr>`;
-  };
+  const mesLabel = new Date(periodoFimEfetivo+'T00:00:00').toLocaleDateString('pt-BR',{month:'short'}).replace('.','').toUpperCase();
   const idImg = `snapImg${s.id}`;
   return `
   <div class="card" style="background:var(--navy3);margin-bottom:14px;">
@@ -3433,17 +3436,19 @@ function snapshotHtml_(s){
         <button class="btn btn-danger btn-sm" onclick="removerSnapshot(${s.id})">Remover</button>
       </div>
     </div>
-    <div id="${idImg}" style="background:#fff;width:420px;max-width:100%;font-family:'Sora',sans-serif;font-size:13px;">
-      <table style="width:100%;border-collapse:collapse;">
+    <div id="${idImg}" style="background:#fff;width:600px;max-width:100%;font-family:'Sora',sans-serif;font-size:13px;padding:2px;">
+      <table style="width:100%;border-collapse:collapse;table-layout:fixed;">
+        <colgroup><col style="width:150px;"><col style="width:200px;"><col style="width:250px;"></colgroup>
         <tbody>
           <tr>
-            <td style="padding:6px 10px;border:1px solid #ccc;background:#fff;font-weight:800;color:#1a1a1a;">${mesLabel}</td>
-            <td style="padding:6px 10px;border:1px solid #ccc;background:#2D70B8;color:#fff;font-weight:800;text-align:center;">Período</td>
-            <td style="padding:6px 10px;border:1px solid #ccc;background:#2D70B8;color:#fff;font-weight:800;text-align:center;">${formatDateBR(s.periodo_inicio).slice(0,5)} A ${formatDateBR(s.periodo_fim).slice(0,5)}</td>
+            <td style="padding:8px 12px;border:1px solid #ccc;background:#fff;font-weight:800;color:#1a1a1a;">${mesLabel}</td>
+            <td style="padding:8px 12px;border:1px solid #ccc;background:#2D70B8;color:#fff;font-weight:800;text-align:center;">Período</td>
+            <td style="padding:8px 12px;border:1px solid #ccc;background:#2D70B8;color:#fff;font-weight:800;text-align:center;white-space:nowrap;">${formatDateBR(s.periodo_inicio).slice(0,5)} A ${formatDateBR(periodoFimEfetivo).slice(0,5)}</td>
           </tr>
         </tbody>
       </table>
-      <table style="width:100%;border-collapse:collapse;margin-top:2px;">
+      <table style="width:100%;border-collapse:collapse;table-layout:fixed;margin-top:2px;">
+        <colgroup><col style="width:150px;"><col style="width:200px;"><col style="width:250px;"></colgroup>
         <tbody>
           <tr><td rowspan="4" style="padding:6px 10px;border:1px solid #ccc;background:#B6D7A8;font-weight:800;color:#1a1a1a;vertical-align:middle;">PROJETADO</td>
               <td style="padding:5px 10px;border:1px solid #ccc;background:#D9EAD3;color:#1a1a1a;">Saldo inicial</td>
