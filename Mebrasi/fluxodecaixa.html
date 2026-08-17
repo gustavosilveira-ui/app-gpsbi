@@ -228,7 +228,7 @@ html.light .fc-day-num{color:#1f2a3d;}
 .fc-detail-table td.small{font-size:11.5px;color:var(--text3);white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis;}
 .fc-detail-table td.valor-modal{white-space:nowrap;min-width:82px;text-align:right;font-family:'DM Mono',monospace;}
 .fc-detail-muted{font-size:11.5px;color:var(--text3);line-height:1.45;margin-top:8px;}
-.fc-detail-list{max-height:320px;overflow-y:auto;overflow-x:hidden;margin-top:10px;border-radius:10px;border:1px solid var(--border);} 
+.fc-detail-list{max-height:320px;overflow-y:auto;overflow-x:hidden;margin-top:10px;border-radius:10px;border:1px solid var(--border);}
 .fc-detail-list .fc-detail-table{table-layout:fixed;width:100%;}
 .fc-detail-list .fc-detail-table th:nth-child(1),.fc-detail-list .fc-detail-table td:nth-child(1){width:92px;}
 .fc-detail-list .fc-detail-table th:nth-child(2),.fc-detail-list .fc-detail-table td:nth-child(2){width:86px;}
@@ -626,6 +626,19 @@ function bancoValido(rowObj, empresa){
 // decisão de 22/07/2026, corrigindo a linha que tinha sumido do fluxo.
 function isChequeTerceiros(rowObj){
   return normalizeTxt(getColNormalized(rowObj,'forma pagto'))==='cheque terceiros';
+}
+
+// Desconto de Comissão existe nos dois lados do financeiro, mas a Shirley
+// pediu a exclusão somente no Contas a Receber. A checagem considera tanto
+// a Forma Pagto quanto o Banco e tolera acentos/maiúsculas/espaços.
+function isDescontoComissaoReceber(rowObj){
+  const forma = normalizeTxt(
+    getColNormalized(rowObj,'forma pagto') ??
+    getColNormalized(rowObj,'forma pagamento') ??
+    getColNormalized(rowObj,'forma de pagamento')
+  );
+  const banco = normalizeTxt(getColNormalized(rowObj,'banco'));
+  return forma === 'desconto de comissao' || banco === 'desconto de comissao';
 }
 
 function normalizeTxt(s){
@@ -1087,6 +1100,9 @@ function rowsFromCAP(table, empresa){
 function rowsFromVENC(table, empresa){
   const raw = parseGvizRows(table);
   return raw.filter(r=>!isSubtotalRow(r)).map(r=>{
+    // Títulos marcados para desconto do representante não são recebíveis da
+    // empresa e não devem aparecer em nenhuma visão do Hub.
+    if(isDescontoComissaoReceber(r)) return null;
     // Filtro de banco removido: todos os títulos em aberto entram no fluxo.
     if(!isTituloAbertoOuPrevisto(r)) return null;
     const dateRaw = getColNormalized(r, 'dt venc');
@@ -1151,6 +1167,9 @@ function rowsFromPG(table, empresa){
 function rowsFromCR(table, empresa){
   const raw = parseGvizRows(table);
   return raw.filter(r=>!isSubtotalRow(r)).map(r=>{
+    // A mesma exclusão vale caso o relatório de recebidos traga uma baixa com
+    // essa modalidade. CAP/PG não usam esta regra e permanecem inalterados.
+    if(isDescontoComissaoReceber(r)) return null;
     // Recebimentos já realizados precisam fechar com o relatório de Contas a Receber.
     // Por isso, cr_<empresa> considera todas as baixas recebidas, inclusive Carteira
     // e outros registros com Banco 0/vazio. O filtro de bancos fica apenas no venc_
@@ -1699,7 +1718,7 @@ function renderTable(){
     const cls = `fc-lvl-${rNode.level}${rNode.label==='Títulos em Aberto' ? ' fc-row-destaque' : ''}`;
     const hasChildren = rNode.children && rNode.children.length;
     const arrow = hasChildren ? `<span class="fc-toggle">${rNode.expanded?'▾':'▸'}</span> ` : (rNode.level>0 ? '<span class="fc-toggle"></span> ' : '');
-    const labelSafe = rNode.label.replace(/'/g,"\\'");
+    const labelSafe = rNode.label.replace(/'/g,"\\\'");
     const labelClick = hasChildren ? `toggleRowNode('${labelSafe}', ${rNode.level})` : ((rNode.special==='saldo'||rNode.special==='aplicacoes') ? '' : `openFluxoFicha('${rowId}', null)`);
     tbody += `<tr class="${cls}" data-key="${rNode._key||''}">`;
     tbody += `<td class="fc-row-label" onclick="${labelClick}">${arrow}${rNode.label}</td>`;
@@ -2055,7 +2074,7 @@ function exportarFichaExcel(){
   const ws = XLSX.utils.json_to_sheet(dados);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Ficha');
-  const nomeArquivo = ('Ficha - '+fcFichaTituloAtual+' - '+fcFichaPeriodoAtual).replace(/[\\/:*?"<>|]/g,'').slice(0,120) + '.xlsx';
+  const nomeArquivo = ('Ficha - '+fcFichaTituloAtual+' - '+fcFichaPeriodoAtual).replace(/[\\\/:*?"<>|]/g,'').slice(0,120) + '.xlsx';
   XLSX.writeFile(wb, nomeArquivo);
 }
 
@@ -2487,7 +2506,7 @@ function renderFcMsgs(msgsOriginais, reacoes, leituras){
     return true;
   });
   if(!msgsFiltradas.length){ el('fcMsgList').innerHTML = '<div class="empty-state"><div class="icon">🔎</div>Nenhum registro encontrado com esse filtro.</div>'; return; }
-  const msgs = msgsFiltradas; // a lista tem rolagem própria (mostra ~4-5 por vez), não precisa mais paginar
+  const msgs = msgsFiltradas; // a lista tem rolagem própria (mostra \~4-5 por vez), não precisa mais paginar
   const tipoLabel = { observacao:'📝 Observação', aviso:'⚠️ Aviso', solicitacao:'🙋 Solicitação' };
   const statusLabel = { aberto:'⏳ Aberto', resolvido:'✓ Resolvido', aprovado:'✓ Aprovado', recusado:'✕ Recusado' };
   el('fcMsgList').innerHTML = msgs.map(m=>{
@@ -2648,3 +2667,4 @@ init();
 </script>
 </body>
 </html>
+<script async data-explicit-opt-in="true" data-cookie-opt-in="true" data-deployment-id="dpl_6iLng2uGMVvEypY3y3MsvJMamJJg" src="https://vercel.live/_next-live/feedback/feedback.js"></script>
