@@ -384,6 +384,7 @@ html{zoom:.8;}
 const SUPABASE_URL='https://mczggrocmccvmyglnumv.supabase.co';
 const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jemdncm9jbWNjdm15Z2xudW12Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMjM2NzcsImV4cCI6MjA5ODU5OTY3N30.XXzhDvxfNaUW61HvgE4xuqzSICoLEYjbJhd1X52Zp84';
 const LOGIN_URL='index.html';
+const SHEET_ID='13pF1S6H59zcn53kW1-MYvIxQVT0-cIDPSB9QNugDfSo';
 const GID_CAPTADA='0';
 const GID_FATURADA='1703975608';
 const GID_SERVICOS='1035503870';
@@ -465,7 +466,12 @@ function canAccess(email){email=(email||'').toLowerCase();return email.endsWith(
 function nameFromEmail(email){return email.split('@')[0].split('.').map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' ')}
 
 async function fetchGviz(gid){
-  return fetchGpsbiSecureTable(sb, 'tangram_main', gid);
+  const url=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&gid=${gid}&headers=1&_=${Date.now()}`;
+  const res=await fetch(url,{cache:'no-store'});
+  if(!res.ok)throw new Error('Falha ao carregar a base');
+  const text=await res.text();
+  const clean=text.replace(/^[^{]*/,'').replace(/\s*\)\s*;?\s*$/,'');
+  return JSON.parse(clean).table;
 }
 function parseRows(table){
   if(!table||!table.rows)return[];

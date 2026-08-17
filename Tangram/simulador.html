@@ -100,6 +100,7 @@ html{zoom:.8;}
 /* ---- Config (mesma base de dados do painel principal) ---- */
 const SUPABASE_URL = 'https://mczggrocmccvmyglnumv.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jemdncm9jbWNjdm15Z2xudW12Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMjM2NzcsImV4cCI6MjA5ODU5OTY3N30.XXzhDvxfNaUW61HvgE4xuqzSICoLEYjbJhd1X52Zp84';
+const SHEET_ID = '1-EXmSsigKK3VP7C5BGoa2AYaPHCIgGmF8VJUwGBeGKg';
 const GID_CAPTADA = '0';
 const LOGIN_URL = 'index.html';
 const OWNER_EMAILS = ['anderson@tangrampersonalizados.com.br', 'gustavosilveira@gpsbi.com.br'];
@@ -126,7 +127,11 @@ function el(id){ return document.getElementById(id); }
 function fmtBRL(n){ if(!n && n!==0) return '—'; const sign=n<0?'-':''; return sign+'R$ '+Math.round(Math.abs(n)).toLocaleString('pt-BR'); }
 
 async function fetchGviz(gid){
-  return fetchGpsbiSecureTable(sb, 'tangram_simulator', gid);
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&gid=${gid}&headers=1`;
+  const res = await fetch(url);
+  const text = await res.text();
+  const clean = text.replace(/^[^{]*/, '').replace(/\s*\)\s*;?\s*$/, '');
+  return JSON.parse(clean).table;
 }
 function parseGvizRows(table){
   if(!table || !table.rows) return [];

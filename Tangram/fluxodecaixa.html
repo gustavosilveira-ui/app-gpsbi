@@ -330,6 +330,7 @@ html.light .fc-day-num{color:#1f2a3d;}
 <script>
 const SUPABASE_URL = 'https://mczggrocmccvmyglnumv.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1jemdncm9jbWNjdm15Z2xudW12Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwMjM2NzcsImV4cCI6MjA5ODU5OTY3N30.XXzhDvxfNaUW61HvgE4xuqzSICoLEYjbJhd1X52Zp84';
+const SHEET_ID = '13pF1S6H59zcn53kW1-MYvIxQVT0-cIDPSB9QNugDfSo';
 const GID_MOVIMENTACAO = '1937017421';
 // Aba "Movimentação da Conta Agência" — mesmo arquivo, aba separada.
 const GID_MOVIMENTACAO_AGENCIA = '1100809045';
@@ -480,7 +481,11 @@ function parseMoneyBR(v){
 }
 
 async function fetchGviz(gid){
-  return fetchGpsbiSecureTable(sb, 'tangram_main', gid);
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&gid=${gid}&headers=1`;
+  const res = await fetch(url);
+  const text = await res.text();
+  const clean = text.replace(/^[^{]*/, '').replace(/\s*\)\s*;?\s*$/, '');
+  return JSON.parse(clean).table;
 }
 function parseGvizRows(table){
   if(!table || !table.rows) return [];
