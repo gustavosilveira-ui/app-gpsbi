@@ -367,8 +367,9 @@ html.light #fcTitulosAbertoLista .fc-detail-table th:last-child,html.light #fcTi
 
 
     <div class="card" id="fcVisaoSemanalCard">
-      <div class="card-title">📅 Visão Semanal · Necessidade de Caixa</div>
-      <div class="card-sub">Semana atual e próximas semanas, com recebimentos, pagamentos, saldo final e necessidade de caixa.</div>
+      <div class="card-title">📅 Necessidade de Caixa · Rateio de Contas a Pagar</div>
+      <div class="card-sub">Cada conta a pagar em aberto até o fim do mês é rateada dia a dia, do hoje até o vencimento — assim dá pra ver quanto precisa ficar reservado por semana, em vez de só o susto no dia do vencimento.</div>
+      <div id="fcResumoRateioMes" class="fc-detail-summary" style="margin-bottom:14px;"></div>
       <div id="fcVisaoSemanal" class="fc-detail-summary"></div>
     </div>
 
@@ -2129,17 +2130,91 @@ function injetarProgramacoesFornecedor(){
   rows.sort((a,b)=>a.date.localeCompare(b.date));
 }
 
+/* ================== Rateio diário de Contas a Pagar até o vencimento ==================
+   Pedido do Gustavo (17/08/2026): em vez de só mostrar o saldo projetado no
+   fim de cada semana (que só "estoura" no dia exato do vencimento), cada
+   título a pagar em aberto até o fim do mês é distribuído em partes iguais
+   por todos os dias entre hoje e o vencimento dele. Somando essas parcelas
+   diárias de todos os títulos, dá pra enxergar quanto precisa ficar
+   reservado, semana a semana, pra dar conta de tudo que vence até o fim do
+   mês — não só o que cai bruscamente na semana do vencimento. */
+function diasEntreISO(aISO,bISO){
+  const a=new Date(aISO+'T00:00:00'), b=new Date(bISO+'T00:00:00');
+  return Math.round((b-a)/86400000);
+}
+function fimDoMesISO(baseDate){
+  const ultimo=new Date(baseDate.getFullYear(), baseDate.getMonth()+1, 0);
+  return isoLocal(ultimo);
+}
+function calcularRateioContasPagar(){
+  const hojeStr = todayISO();
+  const fimMesStr = fimDoMesISO(new Date());
+  // Só títulos a pagar ainda não realizados, vencendo entre hoje e o fim do mês.
+  const titulos = rows.filter(r=> isPagamento(r) && r.date>=hojeStr && r.date<=fimMesStr && Math.abs(r.valor||0)>0.009);
+  const provisaoPorDia = {}; // dataISO -> soma da provisão diária de todos os títulos
+  titulos.forEach(r=>{
+    const dias = Math.max(1, diasEntreISO(hojeStr, r.date) + 1); // inclui hoje e o dia do vencimento
+    const diario = Math.abs(r.valor) / dias;
+    for(let i=0;i<dias;i++){
+      const d = new Date(hojeStr+'T00:00:00'); d.setDate(d.getDate()+i);
+      const dStr = isoLocal(d);
+      provisaoPorDia[dStr] = (provisaoPorDia[dStr]||0) + diario;
+    }
+  });
+  const totalMes = titulos.reduce((s,r)=>s+Math.abs(r.valor),0);
+  return { provisaoPorDia, titulos, hojeStr, fimMesStr, totalMes };
+}
+function renderResumoRateioMes(){
+  const wrap = el('fcResumoRateioMes'); if(!wrap) return;
+  const { titulos, hojeStr, fimMesStr, totalMes } = calcularRateioContasPagar();
+  const diasRestantes = Math.max(1, diasEntreISO(hojeStr, fimMesStr) + 1);
+  const mediaDiaria = totalMes / diasRestantes;
+  wrap.innerHTML = `
+    <div class="fc-detail-kpi">
+      <div class="fc-detail-kpi-val" style="color:var(--red)">${fmtBRL(totalMes)}</div>
+      <div class="fc-detail-kpi-lbl">Total a pagar até ${formatDateBR(fimMesStr)} (${titulos.length} título(s))</div>
+    </div>
+    <div class="fc-detail-kpi">
+      <div class="fc-detail-kpi-val">${diasRestantes}</div>
+      <div class="fc-detail-kpi-lbl">Dias restantes no mês (a partir de hoje)</div>
+    </div>
+    <div class="fc-detail-kpi">
+      <div class="fc-detail-kpi-val" style="color:var(--gold)">${fmtBRL(mediaDiaria)}</div>
+      <div class="fc-detail-kpi-lbl">Provisão diária média necessária</div>
+    </div>`;
+}
 function renderVisaoSemanal(){
   const wrap=el('fcVisaoSemanal'); if(!wrap) return;
-  const base=inicioSemana(new Date()); const cards=[];
-  for(let i=0;i<4;i++){
+  renderResumoRateioMes();
+  const { provisaoPorDia, hojeStr, fimMesStr } = calcularRateioContasPagar();
+  const base=inicioSemana(new Date());
+  const fimMesDate = new Date(fimMesStr+'T00:00:00');
+  // Mostra semanas do início da semana atual até cobrir o fim do mês
+  // (em vez de sempre 4 semanas fixas) — assim o cliente vê exatamente o
+  // que pediu: tudo que vence até o fim do mês, rateado por semana.
+  const qtdSemanas = Math.max(1, Math.ceil((diasEntreISO(isoLocal(base), fimMesStr)+1)/7));
+  const cards=[]; let acumulado=0;
+  for(let i=0;i<qtdSemanas;i++){
     const ini=new Date(base); ini.setDate(ini.getDate()+i*7);
     const fim=fimSemana(ini); const iniStr=isoLocal(ini), fimStr=isoLocal(fim);
     const rec=sumInRange(isRecebimento,iniStr,fimStr);
     const pag=Math.abs(sumInRange(isPagamento,iniStr,fimStr));
     const saldoIni=runningBalance(prevDateStr(iniStr));
     const saldoFim=runningBalance(fimStr);
-    const necessidade=Math.max(0,-saldoFim);
+    const necessidadeBruta=Math.max(0,-saldoFim);
+
+    // Soma a provisão diária rateada (só os dias dessa semana que caem
+    // dentro da janela hoje->fim do mês) e acumula pra mostrar quanto
+    // precisa estar reservado até o fim de cada semana.
+    let provisaoSemana=0;
+    const cursor=new Date(Math.max(new Date(iniStr+'T00:00:00'), new Date(hojeStr+'T00:00:00')));
+    const limite=new Date(Math.min(new Date(fimStr+'T00:00:00'), fimMesDate));
+    while(cursor<=limite){
+      provisaoSemana += provisaoPorDia[isoLocal(cursor)]||0;
+      cursor.setDate(cursor.getDate()+1);
+    }
+    acumulado += provisaoSemana;
+
     cards.push(`<div class="fc-detail-kpi">
       <div class="fc-detail-kpi-val">${String(ini.getDate()).padStart(2,'0')}/${String(ini.getMonth()+1).padStart(2,'0')} a ${String(fim.getDate()).padStart(2,'0')}/${String(fim.getMonth()+1).padStart(2,'0')}</div>
       <div class="fc-detail-kpi-lbl">${i===0?'Semana atual':'Semana +'+i}</div>
@@ -2148,7 +2223,12 @@ function renderVisaoSemanal(){
         Recebimentos: <b style="color:#4F8F3A">${fmtBRL(rec)}</b><br>
         Pagamentos: <b style="color:var(--red)">${fmtBRL(pag)}</b><br>
         Saldo final: <b>${fmtBRL(saldoFim)}</b><br>
-        Necessidade de caixa: <b style="color:${necessidade?'var(--red)':'#4F8F3A'}">${fmtBRL(necessidade)}</b>
+        Necessidade de caixa (saldo projetado): <b style="color:${necessidadeBruta?'var(--red)':'#4F8F3A'}">${fmtBRL(necessidadeBruta)}</b>
+      </div>
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);font-size:12px;line-height:1.7;">
+        <div style="font-weight:800;color:var(--gold);margin-bottom:2px;">💡 Rateio de Contas a Pagar</div>
+        Reservar essa semana: <b style="color:var(--gold)">${fmtBRL(provisaoSemana)}</b><br>
+        Acumulado até o fim dessa semana: <b>${fmtBRL(acumulado)}</b>
       </div>
     </div>`);
   }
