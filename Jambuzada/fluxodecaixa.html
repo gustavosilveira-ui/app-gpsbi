@@ -71,7 +71,7 @@ html.light .fc-day-num{color:#1f2a3d;}
 .fc-plan-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:16px;}
 .fc-plan-head .card-sub{margin-bottom:0;max-width:820px;line-height:1.5;}
 .fc-plan-badge{display:inline-flex;align-items:center;gap:7px;border:1px solid rgba(54,226,201,.28);background:rgba(54,226,201,.09);color:var(--cyan);border-radius:999px;padding:7px 11px;font-size:10.5px;font-weight:800;white-space:nowrap;}
-.fc-plan-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px;}
+.fc-plan-kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:14px;}
 .fc-plan-kpi{background:var(--navy3);border:1px solid var(--border);border-radius:11px;padding:13px 14px;min-width:0;}
 .fc-plan-kpi-label{font-size:9.5px;text-transform:uppercase;letter-spacing:.055em;color:var(--text3);font-weight:800;}
 .fc-plan-kpi-value{font-family:'DM Mono',monospace;font-weight:900;font-size:17px;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -92,6 +92,24 @@ html.light .fc-day-num{color:#1f2a3d;}
 .fc-plan-footer{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:11px;color:var(--text3);font-size:10.5px;line-height:1.45;flex-wrap:wrap;}
 .fc-plan-footer strong{color:var(--text2);}
 .fc-plan-empty{padding:22px;text-align:center;border:1px dashed var(--border2);border-radius:11px;color:var(--text3);font-size:12.5px;}
+.fc-plan-section{margin-top:17px;}
+.fc-plan-section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin-bottom:9px;}
+.fc-plan-section-title{font-size:12.5px;font-weight:900;color:var(--text2);text-transform:uppercase;letter-spacing:.035em;}
+.fc-plan-section-sub{font-size:10.5px;color:var(--text3);}
+.fc-plan-week-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;}
+.fc-plan-week-card{border:1px solid var(--border2);border-radius:11px;padding:13px 14px;background:var(--navy3);position:relative;overflow:hidden;}
+.fc-plan-week-card.atual{border-color:rgba(54,226,201,.45);box-shadow:inset 3px 0 0 var(--cyan);}
+.fc-plan-week-name{font-size:10px;font-weight:900;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;}
+.fc-plan-week-period{font-size:11px;color:var(--text2);margin-top:4px;}
+.fc-plan-week-value{font-family:'DM Mono',monospace;font-size:20px;font-weight:900;color:var(--red);margin-top:12px;}
+.fc-plan-week-note{font-size:10.5px;color:var(--text3);margin-top:4px;}
+.fc-plan-reserva-alert{display:inline-flex;align-items:center;gap:6px;background:rgba(45,112,184,.09);color:var(--blue,#2D70B8);border:1px solid rgba(45,112,184,.22);border-radius:999px;padding:6px 10px;font-size:10px;font-weight:900;}
+.fc-plan-day-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:8px;}
+.fc-plan-day-card{border:1px solid var(--border);border-radius:10px;padding:11px 12px;background:var(--navy3);}
+.fc-plan-day-card.hoje{border-color:rgba(54,226,201,.45);background:rgba(54,226,201,.07);}
+.fc-plan-day-date{font-size:9.5px;font-weight:900;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;}
+.fc-plan-day-value{font-family:'DM Mono',monospace;font-size:14px;font-weight:900;margin-top:6px;color:var(--text2);}
+.fc-plan-day-note{font-size:9.5px;color:var(--text3);margin-top:3px;}
 html.light .fc-plan-table th:first-child,html.light .fc-plan-table td:first-child{background:#f4f7fb;}
 @media(max-width:900px){.fc-plan-head{flex-direction:column;}.fc-plan-kpis{grid-template-columns:1fr 1fr;}.fc-plan-badge{white-space:normal;}}
 @media(max-width:560px){.fc-plan-kpis{grid-template-columns:1fr;}}
@@ -2242,7 +2260,10 @@ function montarPlanejamentoCaixa_(){
       dias.push({date:ds,valor:(ds>=primeiroDiaUtil&&ds<=fimHorizonte)?(porDia[ds]||0):null});
     }
     const reserva=dias.reduce((s,d)=>s+(d.valor||0),0);
-    const titulosSemana=titulos.filter(t=>t.vencimentoCaixa>=iniStr&&t.vencimentoCaixa<=fimStr);
+    // O card semanal precisa bater com a linha PAGAMENTOS: usa a data de
+    // vencimento original do lançamento (segunda a domingo), sem confundir
+    // com a data útil usada apenas para calcular a sugestão de reserva.
+    const titulosSemana=titulos.filter(t=>t.date>=iniStr&&t.date<=fimStr);
     const vencimentos=titulosSemana.reduce((s,t)=>s+t.valor,0);
     acumulado+=reserva;
     semanas.push({iniStr,fimStr,dias,reserva,vencimentos,qtd:titulosSemana.length,acumulado,atual:iniStr===semanaAtualISO});
@@ -2251,7 +2272,8 @@ function montarPlanejamentoCaixa_(){
   const total=titulos.reduce((s,t)=>s+t.valor,0);
   const maiorSemana=semanas.slice().sort((a,b)=>b.reserva-a.reserva)[0]||null;
   const reservaSemanaAtual=semanas[0]?.reserva||0;
-  return {hoje,primeiroDiaUtil,fimMes,fimHorizonte,titulos,porDia,semanas,total,reservaSemanaAtual,maiorSemana};
+  const diasReserva=diasUteisPlanejamento_(primeiroDiaUtil,fimHorizonte).map(date=>({date,valor:porDia[date]||0}));
+  return {hoje,primeiroDiaUtil,fimMes,fimHorizonte,titulos,porDia,semanas,total,reservaSemanaAtual,maiorSemana,diasReserva};
 }
 function renderVisaoSemanal(){
   const wrap=el('fcVisaoSemanal'); if(!wrap)return;
@@ -2264,39 +2286,41 @@ function renderVisaoSemanal(){
   }
 
   const reservaHoje=p.porDia[p.hoje]||0;
-  const maiorLabel=p.maiorSemana?`${labelDiaMesPlanejamento_(p.maiorSemana.iniStr)} a ${labelDiaMesPlanejamento_(p.maiorSemana.fimStr)}`:'—';
   const kpis=`<div class="fc-plan-kpis">
     <div class="fc-plan-kpi"><div class="fc-plan-kpi-label">Total a pagar até ${labelDiaMesPlanejamento_(p.fimMes)}</div><div class="fc-plan-kpi-value" style="color:var(--red)">${fmtBRL(p.total)}</div><div class="fc-plan-kpi-note">${p.titulos.length} título${p.titulos.length===1?'':'s'} considerado${p.titulos.length===1?'':'s'}</div></div>
-    <div class="fc-plan-kpi"><div class="fc-plan-kpi-label">Reserva sugerida hoje</div><div class="fc-plan-kpi-value">${fmtBRL(reservaHoje)}</div><div class="fc-plan-kpi-note">Soma dos rateios diários</div></div>
-    <div class="fc-plan-kpi"><div class="fc-plan-kpi-label">Reserva nesta semana</div><div class="fc-plan-kpi-value">${fmtBRL(p.reservaSemanaAtual)}</div><div class="fc-plan-kpi-note">Somente títulos ainda no fluxo</div></div>
-    <div class="fc-plan-kpi"><div class="fc-plan-kpi-label">Maior necessidade semanal</div><div class="fc-plan-kpi-value">${fmtBRL(p.maiorSemana?.reserva||0)}</div><div class="fc-plan-kpi-note">${maiorLabel}</div></div>
+    <div class="fc-plan-kpi"><div class="fc-plan-kpi-label">Reserva sugerida hoje</div><div class="fc-plan-kpi-value">${fmtBRL(reservaHoje)}</div><div class="fc-plan-kpi-note">Valor para separar hoje · não é pagamento do dia</div></div>
   </div>`;
 
-  const maiorValor=p.maiorSemana?.reserva||0;
-  const linhas=p.semanas.map(s=>{
-    const classes=[s.atual?'fc-plan-semana-atual':'',s.reserva===maiorValor&&maiorValor>0?'fc-plan-semana-forte':''].filter(Boolean).join(' ');
-    const dias=s.dias.map(d=>d.valor===null
-      ? `<td class="fc-plan-dia-zero">—</td>`
-      : `<td class="${d.valor?'':'fc-plan-dia-zero'}" title="${formatDateBR(d.date)}">${d.valor?fmtBRLCompacto(d.valor):'R$ 0'}</td>`).join('');
-    return `<tr class="${classes}">
-      <td class="fc-plan-periodo">${labelDiaMesPlanejamento_(s.iniStr)} a ${labelDiaMesPlanejamento_(s.fimStr)}${s.atual?' · atual':''}</td>
-      ${dias}
-      <td class="fc-plan-total">${fmtBRL(s.reserva)}</td>
-      <td class="fc-plan-venc">${fmtBRL(s.vencimentos)}</td>
-      <td>${s.qtd}</td>
-      <td><strong>${fmtBRL(s.acumulado)}</strong></td>
-    </tr>`;
-  }).join('');
+  const nomesSemana=['Esta semana','Próxima semana','Semana seguinte'];
+  const cardsSemana=p.semanas.map((s,i)=>`<div class="fc-plan-week-card ${s.atual?'atual':''}">
+    <div class="fc-plan-week-name">${nomesSemana[i]||'Semana '+(i+1)}</div>
+    <div class="fc-plan-week-period">${labelDiaMesPlanejamento_(s.iniStr)} a ${labelDiaMesPlanejamento_(s.fimStr)}</div>
+    <div class="fc-plan-week-value">${fmtBRL(s.vencimentos)}</div>
+    <div class="fc-plan-week-note">${s.qtd} título${s.qtd===1?'':'s'} para pagar nesta semana</div>
+  </div>`).join('');
+  const semanasHtml=`<div class="fc-plan-section">
+    <div class="fc-plan-section-head"><div><div class="fc-plan-section-title">Quanto vence por semana</div><div class="fc-plan-section-sub">Valores que realmente estão programados na linha Pagamentos.</div></div></div>
+    <div class="fc-plan-week-grid">${cardsSemana}</div>
+  </div>`;
 
-  const tabela=`<div class="fc-plan-table-wrap"><table class="fc-plan-table">
-    <thead><tr><th>Semana</th><th>Seg</th><th>Ter</th><th>Qua</th><th>Qui</th><th>Sex</th><th>Caixa a reservar</th><th>Vence na semana</th><th>Títulos</th><th>Reserva acumulada</th></tr></thead>
-    <tbody>${linhas}</tbody>
-  </table></div>`;
+  const nomesDia=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+  const cardsDia=p.diasReserva.map(d=>{
+    const data=new Date(d.date+'T00:00:00');
+    return `<div class="fc-plan-day-card ${d.date===p.hoje?'hoje':''}">
+      <div class="fc-plan-day-date">${nomesDia[data.getDay()]} · ${labelDiaMesPlanejamento_(d.date)}${d.date===p.hoje?' · hoje':''}</div>
+      <div class="fc-plan-day-value">${fmtBRL(d.valor)}</div>
+      <div class="fc-plan-day-note">Valor sugerido para separar</div>
+    </div>`;
+  }).join('');
+  const diasHtml=`<div class="fc-plan-section">
+    <div class="fc-plan-section-head"><div><div class="fc-plan-section-title">Sugestão de reserva por dia útil</div><div class="fc-plan-section-sub">Cada título é dividido pelos dias úteis restantes até o próprio vencimento.</div></div><div class="fc-plan-reserva-alert">ⓘ Reserva · não é pagamento do dia</div></div>
+    <div class="fc-plan-day-grid">${cardsDia}</div>
+  </div>`;
   const rodape=`<div class="fc-plan-footer">
-    <span><strong>Como ler:</strong> cada conta é dividida igualmente entre os dias úteis de hoje até seu vencimento; a coluna “Caixa a reservar” mostra a necessidade de cada semana.</span>
+    <span><strong>Como ler:</strong> os cards semanais mostram o que vence; os cards diários mostram quanto separar para chegar a cada vencimento com o caixa provisionado.</span>
     <span><strong>Visão gerencial:</strong> não cria rateios nem altera os lançamentos do fluxo.</span>
   </div>`;
-  wrap.innerHTML=kpis+tabela+rodape;
+  wrap.innerHTML=kpis+semanasHtml+diasHtml+rodape;
 }
 
 function carregarFornecedoresDatalist(){
