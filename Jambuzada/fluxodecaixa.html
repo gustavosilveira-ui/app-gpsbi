@@ -2201,21 +2201,6 @@ function titulosPlanejamentoCaixa_(){
       documento:r.documento||'',
       atrasado:false
     }));
-
-  // Títulos vencidos ainda pendentes são caixa imediato. Como não estão em
-  // `rows`, entram separadamente e todo o valor é reservado no primeiro dia
-  // útil disponível, sem duplicar os que já foram recolocados no fluxo.
-  titulosAbertoPendentes()
-    .filter(r=>r&&Number(r.valor)<0&&r.date<=fimMes)
-    .forEach((r,i)=>titulos.push({
-      chave:`aberto-${i}-${r.chave||r.date}`,
-      date:r.date,
-      valor:Math.abs(Number(r.valor)||0),
-      nome:r.nome||r.categoria||'Sem nome',
-      documento:r.documento||'',
-      atrasado:r.date<hoje
-    }));
-
   return titulos.filter(t=>t.valor>0.009);
 }
 function montarPlanejamentoCaixa_(){
@@ -2264,9 +2249,9 @@ function montarPlanejamentoCaixa_(){
     cursor.setDate(cursor.getDate()+7);
   }
   const total=titulos.reduce((s,t)=>s+t.valor,0);
-  const imediatos=titulos.filter(t=>t.atrasado).reduce((s,t)=>s+t.valor,0);
   const maiorSemana=semanas.slice().sort((a,b)=>b.reserva-a.reserva)[0]||null;
-  return {hoje,primeiroDiaUtil,fimMes,fimHorizonte,titulos,porDia,semanas,total,imediatos,maiorSemana};
+  const reservaSemanaAtual=semanas[0]?.reserva||0;
+  return {hoje,primeiroDiaUtil,fimMes,fimHorizonte,titulos,porDia,semanas,total,reservaSemanaAtual,maiorSemana};
 }
 function renderVisaoSemanal(){
   const wrap=el('fcVisaoSemanal'); if(!wrap)return;
@@ -2283,7 +2268,7 @@ function renderVisaoSemanal(){
   const kpis=`<div class="fc-plan-kpis">
     <div class="fc-plan-kpi"><div class="fc-plan-kpi-label">Total a pagar até ${labelDiaMesPlanejamento_(p.fimMes)}</div><div class="fc-plan-kpi-value" style="color:var(--red)">${fmtBRL(p.total)}</div><div class="fc-plan-kpi-note">${p.titulos.length} título${p.titulos.length===1?'':'s'} considerado${p.titulos.length===1?'':'s'}</div></div>
     <div class="fc-plan-kpi"><div class="fc-plan-kpi-label">Reserva sugerida hoje</div><div class="fc-plan-kpi-value">${fmtBRL(reservaHoje)}</div><div class="fc-plan-kpi-note">Soma dos rateios diários</div></div>
-    <div class="fc-plan-kpi"><div class="fc-plan-kpi-label">Vencidos · caixa imediato</div><div class="fc-plan-kpi-value" style="color:${p.imediatos?'var(--red)':'#4F8F3A'}">${fmtBRL(p.imediatos)}</div><div class="fc-plan-kpi-note">Concentrados no primeiro dia útil</div></div>
+    <div class="fc-plan-kpi"><div class="fc-plan-kpi-label">Reserva nesta semana</div><div class="fc-plan-kpi-value">${fmtBRL(p.reservaSemanaAtual)}</div><div class="fc-plan-kpi-note">Somente títulos ainda no fluxo</div></div>
     <div class="fc-plan-kpi"><div class="fc-plan-kpi-label">Maior necessidade semanal</div><div class="fc-plan-kpi-value">${fmtBRL(p.maiorSemana?.reserva||0)}</div><div class="fc-plan-kpi-note">${maiorLabel}</div></div>
   </div>`;
 
