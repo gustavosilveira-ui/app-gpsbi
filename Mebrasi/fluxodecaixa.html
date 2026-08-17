@@ -629,8 +629,9 @@ function isChequeTerceiros(rowObj){
 }
 
 // Desconto de Comissão existe nos dois lados do financeiro, mas a Shirley
-// pediu a exclusão somente no Contas a Receber. A checagem considera tanto
-// a Forma Pagto quanto o Banco e tolera acentos/maiúsculas/espaços.
+// pediu o tratamento especial somente no Contas a Receber: fica visível em
+// linha própria, sem entrar nos totais. A checagem considera tanto a Forma
+// Pagto quanto o Banco e tolera acentos/maiúsculas/espaços.
 function isDescontoComissaoReceber(rowObj){
   const forma = normalizeTxt(
     getColNormalized(rowObj,'forma pagto') ??
@@ -793,6 +794,9 @@ function contaNoTotal_(r){
   // contrário o saldo cresce por um valor que não aparece na movimentação
   // do dia (ex.: R$ 61.609,50 em 07/08/2026).
   if(r.categoria === CATEGORIA_CHEQUE_TERCEIROS) return false;
+  // Desconto de Comissão no Contas a Receber é apenas informativo: o valor
+  // será descontado do representante e não representa entrada de caixa.
+  if(r.categoria === CATEGORIA_DESCONTO_COMISSAO) return false;
   // Banco Tera (título a receber ainda em aberto): mesma lógica — nunca
   // conta em nenhum total, independente do modo de validação.
   if(r.categoria === CATEGORIA_BANCO_TERA) return false;
@@ -819,6 +823,7 @@ const GRUPOS_PAGAMENTO = [
 // Terceiros (que não conta no Saldo Acumulado — decisão de 20/07/2026).
 const CATEGORIA_TITULOS_ABERTO = 'Títulos em Aberto';
 const CATEGORIA_CHEQUE_TERCEIROS = 'Cheque Terceiros (não conta no saldo)';
+const CATEGORIA_DESCONTO_COMISSAO = 'Desconto de Comissão (não conta no saldo)';
 const CATEGORIA_BANCO_TERA = 'Banco Tera (não conta no aberto)';
 // Decide categoria/grupo/contaNoSaldo final de uma linha, depois de já
 // termos a categoria "natural" (Desc Conta / Plano de Conta) e a origem
@@ -840,6 +845,14 @@ function addDaysISO(dateStr, days){
   const d = new Date(dateStr+'T00:00:00');
   d.setDate(d.getDate()+days);
   return d.toISOString().slice(0,10);
+}
+// Ajusta uma data de compensação que caiu no fim de semana para a
+// segunda-feira. O título só passa a ser considerado atrasado no dia
+// seguinte a esse primeiro dia útil (orientação Shirley/Roberto, 17/08/2026).
+function proximoDiaUtilISO(dateStr){
+  let d = new Date(dateStr+'T00:00:00');
+  while(d.getDay()===0 || d.getDay()===6) d.setDate(d.getDate()+1);
+  return dataLocalISO_(d);
 }
 // Período exibido no fluxo: de janeiro do ano vigente até o fim do
 // mês vigente + 2 meses futuros.
@@ -1100,9 +1113,6 @@ function rowsFromCAP(table, empresa){
 function rowsFromVENC(table, empresa){
   const raw = parseGvizRows(table);
   return raw.filter(r=>!isSubtotalRow(r)).map(r=>{
-    // Títulos marcados para desconto do representante não são recebíveis da
-    // empresa e não devem aparecer em nenhuma visão do Hub.
-    if(isDescontoComissaoReceber(r)) return null;
     // Filtro de banco removido: todos os títulos em aberto entram no fluxo.
     if(!isTituloAbertoOuPrevisto(r)) return null;
     const dateRaw = getColNormalized(r, 'dt venc');
@@ -1116,6 +1126,10 @@ function rowsFromVENC(table, empresa){
     // pra esses casos — troca por Dt Entrega Solicitada + 5 dias.
     const pedidoVenc = (getColNormalized(r,'pedido')||'').toString().trim();
     date = dataAjustadaPorPedido(empresa, pedidoVenc, date);
+    // Se o D+1 (ou a data ajustada do Depósito Antecipado) cair no fim de
+    // semana, leva a previsão para segunda. Na segunda ainda não é atraso;
+    // só entra em Títulos em Aberto na terça-feira.
+    date = proximoDiaUtilISO(date);
     const categoriaOriginal = (getColNormalized(r,'desc conta')||'Sem categoria').toString().trim();
     // "Saldo" é o que realmente falta receber (mesmo racional já aplicado
     // no cap_ pro pagamento parcial). Quando o Saldo vem negativo, é um
@@ -1128,7 +1142,10 @@ function rowsFromVENC(table, empresa){
     if(valorParsed < 0) return null;
     const valor = Math.abs(valorParsed);
     const formaPagto = getColNormalized(r,'forma pagto');
-    const { categoria, grupo, contaNoSaldo } = finalizarLinha(categoriaOriginal, valor, formaPagto, 'venc', date, empresa, getColNormalized(r,'banco'));
+    const descontoComissao = isDescontoComissaoReceber(r);
+    const { categoria, grupo, contaNoSaldo } = descontoComissao
+      ? { categoria: CATEGORIA_DESCONTO_COMISSAO, grupo: 'RECEBIMENTOS', contaNoSaldo:false }
+      : finalizarLinha(categoriaOriginal, valor, formaPagto, 'venc', date, empresa, getColNormalized(r,'banco'));
     return { date, categoria, grupo, valor, empresa, origem:'venc', contaNoSaldo, ehBancoTera: isBancoTera(getColNormalized(r,'banco'), empresa), ...rowMeta(r) };
   }).filter(Boolean);
 }
@@ -1167,9 +1184,6 @@ function rowsFromPG(table, empresa){
 function rowsFromCR(table, empresa){
   const raw = parseGvizRows(table);
   return raw.filter(r=>!isSubtotalRow(r)).map(r=>{
-    // A mesma exclusão vale caso o relatório de recebidos traga uma baixa com
-    // essa modalidade. CAP/PG não usam esta regra e permanecem inalterados.
-    if(isDescontoComissaoReceber(r)) return null;
     // Recebimentos já realizados precisam fechar com o relatório de Contas a Receber.
     // Por isso, cr_<empresa> considera todas as baixas recebidas, inclusive Carteira
     // e outros registros com Banco 0/vazio. O filtro de bancos fica apenas no venc_
@@ -1188,7 +1202,10 @@ function rowsFromCR(table, empresa){
     if(valorParsed < 0) return null;
     const valor = Math.abs(valorParsed);
     const formaPagto = getColNormalized(r,'forma pagto');
-    const { categoria, grupo, contaNoSaldo } = finalizarLinha(categoriaOriginal, valor, formaPagto, 'cr', date, empresa, getColNormalized(r,'banco'));
+    const descontoComissao = isDescontoComissaoReceber(r);
+    const { categoria, grupo, contaNoSaldo } = descontoComissao
+      ? { categoria: CATEGORIA_DESCONTO_COMISSAO, grupo: 'RECEBIMENTOS', contaNoSaldo:false }
+      : finalizarLinha(categoriaOriginal, valor, formaPagto, 'cr', date, empresa, getColNormalized(r,'banco'));
     return { date, categoria, grupo, valor, empresa, origem:'cr', contaNoSaldo, ehBancoTera: isBancoTera(getColNormalized(r,'banco'), empresa), ...rowMeta(r) };
   }).filter(Boolean);
 }
@@ -1501,7 +1518,7 @@ function buildRowTree(){
   const catsByGrupo = {};
   rows.forEach(r=>{ if(!catsByGrupo[r.grupo]) catsByGrupo[r.grupo]=new Set(); catsByGrupo[r.grupo].add(r.categoria); });
 
-  const PRIORIDADE_RECEBIMENTO = [CATEGORIA_TITULOS_ABERTO, CATEGORIA_CHEQUE_TERCEIROS, CATEGORIA_BANCO_TERA];
+  const PRIORIDADE_RECEBIMENTO = [CATEGORIA_TITULOS_ABERTO, CATEGORIA_CHEQUE_TERCEIROS, CATEGORIA_DESCONTO_COMISSAO, CATEGORIA_BANCO_TERA];
   const recebimentoCats = Array.from(catsByGrupo['RECEBIMENTOS']||[]).sort((a,b)=>{
     const pa = PRIORIDADE_RECEBIMENTO.indexOf(a), pb = PRIORIDADE_RECEBIMENTO.indexOf(b);
     if(pa!==-1 || pb!==-1) return (pa===-1?99:pa) - (pb===-1?99:pb);
@@ -1605,6 +1622,7 @@ function renderFcKpiStrip(){
       r.origem === 'cr' &&
       r.grupo === 'RECEBIMENTOS' &&
       r.categoria !== CATEGORIA_TITULOS_ABERTO &&
+      r.categoria !== CATEGORIA_DESCONTO_COMISSAO &&
       r.categoria !== CATEGORIA_BANCO_TERA &&
       !r.ehBancoTera &&
       entraNosCards(r) &&
@@ -1628,6 +1646,7 @@ function renderFcKpiStrip(){
     .filter(r =>
       r.origem === 'venc' &&
       r.grupo === 'RECEBIMENTOS' &&
+      r.categoria !== CATEGORIA_DESCONTO_COMISSAO &&
       r.categoria !== CATEGORIA_BANCO_TERA &&
       !r.ehBancoTera &&
       entraNosCards(r) &&
@@ -1753,7 +1772,7 @@ function renderTable(){
             const dataVisual = dataVisualTituloAberto_(r);
             return (dataVisual>=c.start && dataVisual<=c.end) ? s+r.valor : s;
           },0);
-        } else if(rNode.label === CATEGORIA_CHEQUE_TERCEIROS || rNode.label === CATEGORIA_BANCO_TERA){
+        } else if(rNode.label === CATEGORIA_CHEQUE_TERCEIROS || rNode.label === CATEGORIA_DESCONTO_COMISSAO || rNode.label === CATEGORIA_BANCO_TERA){
           // Mesmo tratamento do Títulos em Aberto: a linha é só pra
           // visibilidade (nunca conta no saldo/totais via contaNoTotal_),
           // mas precisa continuar mostrando os próprios valores dela —
@@ -1910,7 +1929,7 @@ async function openFluxoFicha(rowId, colId){
   // linhas que contam pra Saldo/totais (exclui Cheque Terceiros e Títulos em Aberto);
   // detailRows continua com tudo, porque a lista de lançamentos abaixo deve mostrar
   // esses lançamentos também — só não devem inflar o total nem o "por empresa".
-  const rowsParaTotal = (rNode.label === CATEGORIA_TITULOS_ABERTO || rNode.label === CATEGORIA_CHEQUE_TERCEIROS || rNode.label === CATEGORIA_BANCO_TERA) ? detailRows : detailRows.filter(contaNoTotal_);
+  const rowsParaTotal = (rNode.label === CATEGORIA_TITULOS_ABERTO || rNode.label === CATEGORIA_CHEQUE_TERCEIROS || rNode.label === CATEGORIA_DESCONTO_COMISSAO || rNode.label === CATEGORIA_BANCO_TERA) ? detailRows : detailRows.filter(contaNoTotal_);
   const total = rowsParaTotal.reduce((s,r)=>s+r.valor,0);
   const porEmpresa = {};
   rowsParaTotal.forEach(r=>{
@@ -1984,18 +2003,21 @@ function renderLinhaFicha_(r, idx, total){
   // que ainda é só previsão — nunca foi de fato pago/recebido). Antes só
   // cobria o primeiro caso, e um lançamento de hoje/futuro aparecia
   // incorretamente como "✓ Realizado" (bug encontrado em 13/08/2026).
-  const ehAberto = r.categoria === CATEGORIA_TITULOS_ABERTO || r.origem === 'cap' || r.origem === 'venc';
+  const ehDescontoComissao = r.categoria === CATEGORIA_DESCONTO_COMISSAO;
+  const ehAberto = !ehDescontoComissao && (r.categoria === CATEGORIA_TITULOS_ABERTO || r.origem === 'cap' || r.origem === 'venc');
   // Do lado de recebimento, cheque de terceiros vem com a categoria genérica
   // (CATEGORIA_CHEQUE_TERCEIROS). Do lado de pagamento, a categoria continua
   // sendo a real (ex: "Materia Prima") — o único jeito de identificar os dois
   // casos de forma consistente é pelo contaNoSaldo (que finalizarLinha já marca
   // como false nos dois), já que ele nunca é false por causa de Título em Aberto
   // sozinho sem também ser cheque (esse caso já foi tratado acima por ehAberto).
-  const ehCheque = !ehAberto && r.contaNoSaldo===false;
+  const ehCheque = !ehAberto && !ehDescontoComissao && r.contaNoSaldo===false;
   const tagCategoria = ehAberto
     ? (r.ehBancoTera
         ? `<span class="fc-tag-aberto" title="Vencido e Banco Tera — aparece aqui pra visibilidade, mas nunca conta em nenhum total (nem A Receber em Aberto, nem Saldo Acumulado)">⏳🏦 Tera</span>`
         : `<span class="fc-tag-aberto" title="Ainda não foi pago/recebido — só está previsto">⏳ Em aberto</span>`)
+    : ehDescontoComissao
+    ? `<span class="fc-tag-cheque" title="Apenas para visualização — não entra em nenhum total ou saldo">🚫 Desc. Comissão</span>`
     : ehCheque
     ? `<span class="fc-tag-cheque" title="Não entra no Saldo Acumulado">🚫 Cheque Terc.</span>`
     : `<span class="fc-tag-realizado" title="Já foi pago/recebido de verdade">✓ Realizado</span>`;
