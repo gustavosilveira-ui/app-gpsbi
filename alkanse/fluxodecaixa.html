@@ -493,6 +493,18 @@ html.light .fc-day-num{color:#1f2a3d;}
       </div>
     </div>
 
+    <!-- ============ Fluxo Estático — Projetado vs Realizado por período ============ -->
+    <div class="card">
+      <div class="fc-mini-title">📌 Fluxo Estático</div>
+      <div class="fc-mini-sub">Congela o Projetado de um período pra comparar depois com o que foi Realizado de fato — igual você já faz na planilha, agora direto no Hub.</div>
+      <div style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-top:10px;">
+        <div><label class="field-label" style="display:block;font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:5px;">De</label><input type="date" id="snapInicio"></div>
+        <div><label class="field-label" style="display:block;font-size:10px;color:var(--text3);text-transform:uppercase;margin-bottom:5px;">Até</label><input type="date" id="snapFim"></div>
+        <button class="btn btn-primary btn-sm" onclick="congelarPeriodo()">Congelar este período</button>
+      </div>
+      <div id="fluxoEstaticoLista" style="margin-top:16px;"></div>
+    </div>
+
     <!-- ============ NOVO: Observações, avisos e solicitações ============ -->
     <div class="card">
       <div class="card-title">📋 Observações, Avisos e Solicitações</div>
@@ -1534,6 +1546,249 @@ const HISTORICO_ALKANSE = [
 
 const HISTORICO_ULTIMA_DATA = HISTORICO_ALKANSE.length ? HISTORICO_ALKANSE[HISTORICO_ALKANSE.length-1][0] : null;
 const HISTORICO_SALDO_POR_DATA = {};
+
+// Linha "DELTA SALDO" da aba Fluxo de Caixa oficial (SALDO FINAL (SAN) −
+// SALDO FINAL BANCO) — usada pra calcular a "Diferença Banco" do Fluxo
+// Estático sem precisar de digitação manual (pedido do Gustavo, 17/08/2026).
+const HISTORICO_DELTA_POR_DATA = {
+  '2026-01-01':-1842.63,
+  '2026-01-02':-2064.09,
+  '2026-01-03':0.0,
+  '2026-01-04':0.0,
+  '2026-01-05':513470.33,
+  '2026-01-06':-517020.68,
+  '2026-01-07':-28724.39,
+  '2026-01-08':1198.36,
+  '2026-01-09':-6102.23,
+  '2026-01-10':0.0,
+  '2026-01-11':0.0,
+  '2026-01-12':-4389.17,
+  '2026-01-13':-423.88,
+  '2026-01-14':-26113.58,
+  '2026-01-15':1881.1,
+  '2026-01-16':-38333.54,
+  '2026-01-17':0.0,
+  '2026-01-18':0.0,
+  '2026-01-19':-49031.37,
+  '2026-01-20':-158.22,
+  '2026-01-21':-0.2,
+  '2026-01-22':-2295.9,
+  '2026-01-23':-2771.71,
+  '2026-01-24':0.0,
+  '2026-01-25':0.0,
+  '2026-01-26':-805.7,
+  '2026-01-27':0.0,
+  '2026-01-28':-29758.57,
+  '2026-01-29':-4503.45,
+  '2026-01-30':3223.12,
+  '2026-01-31':0.0,
+  '2026-02-01':0.0,
+  '2026-02-02':-2131.13,
+  '2026-02-03':-4198.19,
+  '2026-02-04':-365.17,
+  '2026-02-05':-595.78,
+  '2026-02-06':-4044.47,
+  '2026-02-07':0.0,
+  '2026-02-08':0.0,
+  '2026-02-09':-1987.89,
+  '2026-02-10':-45368.6,
+  '2026-02-11':-39822.16,
+  '2026-02-12':-860.09,
+  '2026-02-13':-9470.49,
+  '2026-02-14':0.0,
+  '2026-02-15':0.0,
+  '2026-02-16':0.0,
+  '2026-02-17':0.0,
+  '2026-02-18':-32654.07,
+  '2026-02-19':-1602.35,
+  '2026-02-20':-18462.82,
+  '2026-02-21':0.0,
+  '2026-02-22':0.0,
+  '2026-02-23':-2303.88,
+  '2026-02-24':-1330.88,
+  '2026-02-25':-249.77,
+  '2026-02-26':-60991.42,
+  '2026-02-27':-9479.67,
+  '2026-02-28':0.0,
+  '2026-03-01':0.0,
+  '2026-03-02':-8701.24,
+  '2026-03-03':-1372.68,
+  '2026-03-04':-805.2,
+  '2026-03-05':1448.39,
+  '2026-03-06':42970.01,
+  '2026-03-07':0.0,
+  '2026-03-08':0.0,
+  '2026-03-09':-711.9,
+  '2026-03-10':-6679.24,
+  '2026-03-11':-182.98,
+  '2026-03-12':-1430.21,
+  '2026-03-13':-6406.66,
+  '2026-03-14':0.0,
+  '2026-03-15':0.0,
+  '2026-03-16':-23106.77,
+  '2026-03-17':-1002.99,
+  '2026-03-18':-3281.09,
+  '2026-03-19':-0.0,
+  '2026-03-20':-4208.87,
+  '2026-03-21':0.0,
+  '2026-03-22':0.0,
+  '2026-03-23':-9901.82,
+  '2026-03-24':-12994.21,
+  '2026-03-25':2880.44,
+  '2026-03-26':-52.08,
+  '2026-03-27':837.72,
+  '2026-03-28':0.0,
+  '2026-03-29':0.0,
+  '2026-03-30':-6931.87,
+  '2026-03-31':-7532.81,
+  '2026-04-01':-157968.33,
+  '2026-04-02':-2915.55,
+  '2026-04-03':1308.28,
+  '2026-04-04':0.0,
+  '2026-04-05':0.0,
+  '2026-04-06':-1779.22,
+  '2026-04-07':0.0,
+  '2026-04-08':0.0,
+  '2026-04-09':-2009.01,
+  '2026-04-10':-214523.18,
+  '2026-04-11':0.0,
+  '2026-04-12':0.0,
+  '2026-04-13':-3990.41,
+  '2026-04-14':-5914.11,
+  '2026-04-15':-11437.97,
+  '2026-04-16':-218.57,
+  '2026-04-17':-1301.21,
+  '2026-04-18':0.0,
+  '2026-04-19':-2.64,
+  '2026-04-20':-9332.32,
+  '2026-04-21':0.0,
+  '2026-04-22':-254.9,
+  '2026-04-23':-1510.87,
+  '2026-04-24':-13970.52,
+  '2026-04-25':0.0,
+  '2026-04-26':0.0,
+  '2026-04-27':-1989.75,
+  '2026-04-28':-21598.54,
+  '2026-04-29':-3156.59,
+  '2026-04-30':3176.87,
+  '2026-05-01':425477.78,
+  '2026-05-02':0.0,
+  '2026-05-03':0.0,
+  '2026-05-04':-11117.51,
+  '2026-05-05':2190.12,
+  '2026-05-06':-58215.95,
+  '2026-05-07':531.46,
+  '2026-05-08':-4776.62,
+  '2026-05-09':0.0,
+  '2026-05-10':0.0,
+  '2026-05-11':6464.78,
+  '2026-05-12':-2472.79,
+  '2026-05-13':-2612.07,
+  '2026-05-14':-201734.12,
+  '2026-05-15':189749.66,
+  '2026-05-16':-177.05,
+  '2026-05-17':0.0,
+  '2026-05-18':-9709.74,
+  '2026-05-19':-97.65,
+  '2026-05-20':-1275.83,
+  '2026-05-21':-779.19,
+  '2026-05-22':-3679.8,
+  '2026-05-23':0.0,
+  '2026-05-24':0.0,
+  '2026-05-25':-4987.06,
+  '2026-05-26':-12497.26,
+  '2026-05-27':-27968.04,
+  '2026-05-28':-21591.98,
+  '2026-05-29':2737.77,
+  '2026-05-30':-826.44,
+  '2026-05-31':0.0,
+  '2026-06-01':-13445.26,
+  '2026-06-02':-799.75,
+  '2026-06-03':-898.34,
+  '2026-06-04':0.0,
+  '2026-06-05':-9801.09,
+  '2026-06-06':0.0,
+  '2026-06-07':0.0,
+  '2026-06-08':-280.36,
+  '2026-06-09':-4306.21,
+  '2026-06-10':-154237.11,
+  '2026-06-11':-25074.44,
+  '2026-06-12':-2056.48,
+  '2026-06-13':0.0,
+  '2026-06-14':0.0,
+  '2026-06-15':-5577.1,
+  '2026-06-16':-27.66,
+  '2026-06-17':-150.29,
+  '2026-06-18':-0.0,
+  '2026-06-19':-1542.21,
+  '2026-06-20':-756.97,
+  '2026-06-21':0.0,
+  '2026-06-22':-18332.63,
+  '2026-06-23':-0.0,
+  '2026-06-24':-245.27,
+  '2026-06-25':-1067.44,
+  '2026-06-26':-10593.74,
+  '2026-06-27':0.0,
+  '2026-06-28':0.0,
+  '2026-06-29':-31881.64,
+  '2026-06-30':-1796.1,
+  '2026-07-01':399632.35,
+  '2026-07-02':-1246.87,
+  '2026-07-03':-1133.99,
+  '2026-07-04':0.0,
+  '2026-07-05':0.0,
+  '2026-07-06':-759.04,
+  '2026-07-07':-3765.25,
+  '2026-07-08':-1049.88,
+  '2026-07-09':-210.15,
+  '2026-07-10':-346536.55,
+  '2026-07-11':-202.49,
+  '2026-07-12':0.0,
+  '2026-07-13':-1507.66,
+  '2026-07-14':-74.4,
+  '2026-07-15':-3028.89,
+  '2026-07-16':-7270.03,
+  '2026-07-17':-71.21,
+  '2026-07-18':0.0,
+  '2026-07-19':0.0,
+  '2026-07-20':-8644.58,
+  '2026-07-21':-21.82,
+  '2026-07-22':-18206.4,
+  '2026-07-23':-4353.96,
+  '2026-07-24':-10488.25,
+  '2026-07-25':0.0,
+  '2026-07-26':0.0,
+  '2026-07-27':-976.09,
+  '2026-07-28':-58260.94,
+  '2026-07-29':42435.82,
+  '2026-07-30':-1298.45,
+  '2026-07-31':-94467.13,
+  '2026-08-01':-96573.12,
+  '2026-08-02':0.0,
+  '2026-08-03':-4506.27,
+  '2026-08-04':-405.4,
+  '2026-08-05':-9523.27,
+  '2026-08-06':-2.26,
+  '2026-08-07':-9503.48,
+  '2026-08-08':0.0,
+  '2026-08-09':0.0,
+  '2026-08-10':-539666.96,
+  '2026-08-11':-3387.44,
+  '2026-08-12':-23.04,
+  '2026-08-13':-23501.71,
+  '2026-08-14':-22351.24,
+  '2026-08-15':1532255.3
+};
+
+// Um ou outro dia no fim do histórico importado veio com valor absurdo
+// (célula da planilha ainda vazia/incompleta na exportação) — ignora
+// qualquer delta fora de uma faixa plausível de conciliação bancária.
+function deltaSaldoHistoricoValido_(data){
+  const v = HISTORICO_DELTA_POR_DATA[data];
+  if(v === undefined) return null;
+  if(Math.abs(v) > 100000) return null;
+  return v;
+}
 HISTORICO_ALKANSE.forEach(([data, saldo]) => { HISTORICO_SALDO_POR_DATA[data] = saldo; });
 
 // Troca, pros dias cobertos pelo histórico oficial, os lançamentos
@@ -1586,6 +1841,9 @@ async function loadData(){
     el('mainContent').style.display='block';
     if(el('fcSimData')) el('fcSimData').value = dataLocalISO_(new Date());
     await loadFcMsgs();
+    await loadSnapshots();
+    if(el('snapFim')) el('snapFim').value = addDaysISO(HOJE_ISO, -1);
+    if(el('snapInicio')) el('snapInicio').value = addDaysISO(HOJE_ISO, -7);
   }catch(e){
     console.error(e);
     el('loadingMsg').textContent = 'Erro ao carregar a base: '+e.message+'. Confira se a aba "Financeiro" está compartilhada como "Qualquer pessoa com o link -> Leitor".';
@@ -1680,7 +1938,16 @@ function runningBalanceEmpresa(empresa, uptoDate){
   if(Object.prototype.hasOwnProperty.call(HISTORICO_SALDO_POR_DATA, uptoDate)){
     return HISTORICO_SALDO_POR_DATA[uptoDate];
   }
+  return rawRunningBalanceEmpresa(empresa, uptoDate);
+}
+// Cálculo "cru" — sempre soma a partir do último saldo lançado, sem os
+// atalhos de histórico/lançamento-exato acima. Usado tanto como último
+// passo do cálculo normal quanto pelo Fluxo Estático, que precisa saber
+// qual seria o saldo TEÓRICO (calculado) num dia, pra comparar com o que
+// foi de fato lançado manualmente naquele dia (isso é a "Diferença Banco").
+function rawRunningBalanceEmpresa(empresa, uptoDate){
   const rowsEmp = (rowsByEmpresa[empresa] || []).filter(contaNoTotal_);
+  const override = saldoIniciais[empresa];
   if(!override || uptoDate < override.data_referencia) return null;
 
   // O valor salvo é o saldo NA PRÓPRIA data de referência (já incluindo
@@ -3012,6 +3279,120 @@ function pintarBadgeNav(navId, count){
     span.textContent = count>99 ? '99+' : String(count);
     linkEl.appendChild(span);
   }
+}
+
+// ================== FLUXO ESTÁTICO (Projetado vs Realizado) ==================
+let snapshotsAtuais = [];
+
+async function loadSnapshots(){
+  const { data, error } = await sb.from('fluxo_snapshots').select('*').eq('empresa','alkanse').order('periodo_fim',{ascending:false});
+  snapshotsAtuais = error ? [] : (data || []);
+  renderFluxoEstaticoLista();
+}
+
+// Soma de recebimentos (grupo RECEBIMENTOS) dentro do período, com filtro
+// opcional por origem (realizado = 'cr', em aberto = 'venc'; sem filtro = ambos).
+function somaRecebimentosPeriodo_(inicio, fim, origem){
+  return rows.filter(r => r.grupo==='RECEBIMENTOS' && r.date>=inicio && r.date<=fim && (!origem || r.origem===origem))
+    .reduce((s,r)=>s+r.valor, 0);
+}
+// Soma de pagamentos (tudo que não é recebimento nem ajuste manual) dentro
+// do período — devolve valor POSITIVO (o quanto saiu), mesmo período/filtro
+// de origem que a função acima.
+function somaPagamentosPeriodo_(inicio, fim, origem){
+  return Math.abs(rows.filter(r => r.grupo!=='RECEBIMENTOS' && r.grupo!=='AJUSTES_MANUAIS' && r.date>=inicio && r.date<=fim && (!origem || r.origem===origem))
+    .reduce((s,r)=>s+r.valor, 0));
+}
+
+// "Diferença Banco" do período = o quanto o saldo calculado (teórico) do
+// último dia do período difere do que foi realmente lançado/observado
+// naquele dia. Pra período dentro do histórico oficial, usa a linha
+// "DELTA SALDO" importada direto da planilha (mais confiável). Fora dele,
+// calcula na hora: teórico (cálculo puro, sem o lançamento manual daquele
+// dia) menos o que foi lançado manualmente pra essa data — só dá pra
+// calcular se já existir um lançamento manual pra esse dia exato.
+function calcularDiferencaBanco_(periodoFim){
+  const histDelta = deltaSaldoHistoricoValido_(periodoFim);
+  if(histDelta !== null) return -histDelta;
+  const override = saldoIniciais['alkanse'];
+  if(!override || override.data_referencia !== periodoFim) return null;
+  const teorico = rawRunningBalanceEmpresa('alkanse', periodoFim);
+  if(teorico === null) return null;
+  return (Number(override.valor)||0) - teorico;
+}
+
+async function congelarPeriodo(){
+  const inicio = el('snapInicio').value;
+  const fim = el('snapFim').value;
+  if(!inicio || !fim || inicio > fim){ alert('Preencha um período válido (De ≤ Até).'); return; }
+  const diaAnterior = addDaysISO(inicio, -1);
+  const saldoInicial = runningBalance(diaAnterior);
+  if(saldoInicial === null){ alert('Não tem saldo calculável pro dia anterior ao início do período ('+formatDateBR(diaAnterior)+'). Lança um saldo antes de congelar.'); return; }
+  // Projetado = tudo (realizado + em aberto) que já está previsto pra cair
+  // dentro do período, do jeito que a base está agora — é a "foto" do que
+  // se espera, exatamente como a aba "Operação Estática" faz na planilha.
+  const projRecebido = somaRecebimentosPeriodo_(inicio, fim);
+  const projPago = somaPagamentosPeriodo_(inicio, fim);
+  const diferencaBanco = calcularDiferencaBanco_(fim);
+  const { error } = await sb.from('fluxo_snapshots').insert({
+    empresa: 'alkanse', periodo_inicio: inicio, periodo_fim: fim,
+    saldo_inicial: saldoInicial, proj_recebido: projRecebido, proj_pago: projPago,
+    diferenca_banco: diferencaBanco || 0, criado_por: nameFromEmail(currentUser.email)
+  });
+  if(error){ alert('Erro ao congelar: '+error.message); return; }
+  await loadSnapshots();
+}
+
+async function removerSnapshot(id){
+  if(!confirm('Remover esse período congelado?')) return;
+  await sb.from('fluxo_snapshots').delete().eq('id', id);
+  await loadSnapshots();
+}
+
+function renderFluxoEstaticoLista(){
+  const wrap = el('fluxoEstaticoLista');
+  if(!wrap) return;
+  if(!snapshotsAtuais.length){ wrap.innerHTML = '<div class="empty-state">Nenhum período congelado ainda.</div>'; return; }
+  wrap.innerHTML = snapshotsAtuais.map(snapshotHtml_).join('');
+}
+
+function snapshotHtml_(s){
+  const recebidoReal = somaRecebimentosPeriodo_(s.periodo_inicio, s.periodo_fim, 'cr');
+  const pagoReal = somaPagamentosPeriodo_(s.periodo_inicio, s.periodo_fim, 'pg');
+  const saldoFinalProjetado = Number(s.saldo_inicial) + Number(s.proj_recebido) - Number(s.proj_pago);
+  const diferencaBanco = Number(s.diferenca_banco) || 0;
+  const saldoFinalRealizado = Number(s.saldo_inicial) + recebidoReal - pagoReal + diferencaBanco;
+  const deltaRecebido = recebidoReal - Number(s.proj_recebido);
+  const deltaPago = -(pagoReal - Number(s.proj_pago));
+  const diferencaSaldo = saldoFinalRealizado - saldoFinalProjetado;
+  const linha = (label, valor, destaque) => `<tr${destaque?' style="font-weight:800;background:var(--navy3);"':''}><td>${label}</td><td class="num">${fmtBRL(valor)}</td></tr>`;
+  return `
+  <div class="card" style="background:var(--navy3);margin-bottom:14px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <div class="card-title" style="margin-bottom:0;">Período: ${formatDateBR(s.periodo_inicio)} a ${formatDateBR(s.periodo_fim)}</div>
+      <button class="btn btn-danger btn-sm" onclick="removerSnapshot(${s.id})">Remover</button>
+    </div>
+    <table class="fc-table" style="width:100%;">
+      <tbody>
+        <tr style="background:var(--navy4);"><td colspan="2" style="font-weight:800;">PROJETADO</td></tr>
+        ${linha('Saldo inicial', s.saldo_inicial)}
+        ${linha('Proj. Recbto', s.proj_recebido)}
+        ${linha('Proj. Pagto', s.proj_pago)}
+        ${linha('Saldo Final', saldoFinalProjetado, true)}
+        <tr style="background:var(--navy4);"><td colspan="2" style="font-weight:800;">REALIZADO</td></tr>
+        ${linha('Saldo inicial', s.saldo_inicial)}
+        ${linha('Recbto Real', recebidoReal)}
+        ${linha('Pagto Real', pagoReal)}
+        ${linha('Diferença Banco', diferencaBanco)}
+        ${linha('Saldo Final', saldoFinalRealizado, true)}
+        <tr style="background:var(--navy4);"><td colspan="2" style="font-weight:800;">DELTA MOV.</td></tr>
+        ${linha('Recbto Real', deltaRecebido)}
+        ${linha('Pagto Real', deltaPago)}
+        ${linha('Diferença Saldo', diferencaSaldo, true)}
+      </tbody>
+    </table>
+    <div class="card-sub" style="margin-top:8px;margin-bottom:0;">Congelado por ${escapeHtml(s.criado_por||'—')} em ${new Date(s.criado_em).toLocaleDateString('pt-BR')}</div>
+  </div>`;
 }
 
 init();
