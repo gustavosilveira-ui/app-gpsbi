@@ -754,6 +754,7 @@ const GRUPOS_PAGAMENTO = [
   { key:'LOGISTICA', label:'Despesas Logísticas' },
   { key:'TI', label:'Despesa com TI' },
   { key:'MARKETING', label:'Despesas Com Marketing' },
+  { key:'HIST_PAG', label:'Pagamentos (Histórico Oficial)' },
   { key:'OUTROS', label:'A Classificar (revisar)' },
 ];
 // Nome da categoria (linha única) usada tanto no lado Pagamentos quanto
@@ -1294,6 +1295,265 @@ function rebuildRowsNoEscopo(){
   if(label) label.textContent = 'Alkanse';
 }
 
+// ================== HISTÓRICO OFICIAL ALKANSE (importado da planilha "BI
+// Financeiro | Alkanse", pedido do Gustavo em 17/08/2026) ==================
+// Cada linha: [data ISO, Saldo (bate com a coluna "Saldo Acumulado"),
+// Recebido do dia, Pago do dia]. Cobre 01/01/2026 até 15/08/2026 — a partir
+// de 16/08/2026 o saldo passa a vir do lançamento manual "Saldo do dia" e
+// os recebimentos/pagamentos voltam a ser calculados normalmente a partir
+// da planilha Financeiro.
+const HISTORICO_ALKANSE = [
+  ['2026-01-01',3045691.62,0.0,0.0],
+  ['2026-01-02',3047534.25,231313.98,8038.99],
+  ['2026-01-03',3272873.33,0.0,0.0],
+  ['2026-01-04',3272873.33,0.0,0.0],
+  ['2026-01-05',3272873.33,424725.4,142973.49],
+  ['2026-01-06',3041154.91,57011.84,676484.78],
+  ['2026-01-07',2938702.65,356026.18,9246.35],
+  ['2026-01-08',3314206.87,79701.19,5900.85],
+  ['2026-01-09',3386808.85,135076.03,9607.76],
+  ['2026-01-10',3518379.35,0.0,0.0],
+  ['2026-01-11',3518379.35,0.0,0.0],
+  ['2026-01-12',3518379.35,257883.01,546810.7],
+  ['2026-01-13',3233840.83,27671.94,5357.88],
+  ['2026-01-14',3256578.77,220448.07,69.26],
+  ['2026-01-15',3503071.16,425272.78,291618.55],
+  ['2026-01-16',3634844.29,187789.74,21993.12],
+  ['2026-01-17',3838974.45,0.0,0.0],
+  ['2026-01-18',3838974.45,0.0,0.0],
+  ['2026-01-19',3838974.45,714027.2,500041.34],
+  ['2026-01-20',4101991.68,61453.4,554555.86],
+  ['2026-01-21',3609047.44,13105.74,200.0],
+  ['2026-01-22',3621953.38,45230.71,72.21],
+  ['2026-01-23',3669407.78,34203.95,1359.32],
+  ['2026-01-24',3705024.12,0.0,0.0],
+  ['2026-01-25',3705024.12,0.0,0.0],
+  ['2026-01-26',3705024.12,151905.25,692123.39],
+  ['2026-01-27',3165611.68,4990.18,3491.56],
+  ['2026-01-28',3167110.3,990678.74,2.72],
+  ['2026-01-29',4187544.89,38420.76,30.46],
+  ['2026-01-30',4230438.64,379950.53,420525.22],
+  ['2026-01-31',4186640.83,0.0,0.0],
+  ['2026-02-01',4186640.83,0.0,0.0],
+  ['2026-02-02',4186640.83,129990.22,9155.01],
+  ['2026-02-03',4309607.17,61766.57,31257.6],
+  ['2026-02-04',4344314.33,264339.64,32.88],
+  ['2026-02-05',4608986.26,81763.98,819040.42],
+  ['2026-02-06',3872305.6,118978.27,6724.84],
+  ['2026-02-07',3988603.5,0.0,0.0],
+  ['2026-02-08',3988603.5,0.0,0.0],
+  ['2026-02-09',3988603.5,150699.7,2884.57],
+  ['2026-02-10',4138406.52,229019.85,379331.3],
+  ['2026-02-11',4033463.67,399462.21,21.94],
+  ['2026-02-12',4472726.1,266142.77,301656.07],
+  ['2026-02-13',4438072.89,100860.14,647532.56],
+  ['2026-02-14',3900870.96,0.0,0.0],
+  ['2026-02-15',3900870.96,0.0,0.0],
+  ['2026-02-16',3900870.96,0.0,0.0],
+  ['2026-02-17',3900870.96,0.0,0.0],
+  ['2026-02-18',3900870.96,784639.31,17865.72],
+  ['2026-02-19',4700298.62,149066.98,1822.84],
+  ['2026-02-20',4849145.11,180371.12,510039.58],
+  ['2026-02-21',4537939.47,0.0,0.0],
+  ['2026-02-22',4537939.47,0.0,0.0],
+  ['2026-02-23',4537939.47,119093.98,235.1],
+  ['2026-02-24',4659102.23,25740.33,7488.29],
+  ['2026-02-25',4678685.15,576433.34,633280.35],
+  ['2026-02-26',4622087.91,4893.71,70219.03],
+  ['2026-02-27',4617754.01,107901.58,522370.6],
+  ['2026-02-28',4212764.66,0.0,0.0],
+  ['2026-03-01',4212764.66,0.0,0.0],
+  ['2026-03-02',4212764.66,233495.05,4073.22],
+  ['2026-03-03',4450887.73,46870.5,179.2],
+  ['2026-03-04',4498951.71,101887.55,42100.69],
+  ['2026-03-05',4559543.77,82268.78,965718.47],
+  ['2026-03-06',3674645.69,227386.95,43829.53],
+  ['2026-03-07',3815233.1,0.0,0.0],
+  ['2026-03-08',3815233.1,0.0,0.0],
+  ['2026-03-09',3815233.1,28042.53,4258.34],
+  ['2026-03-10',3839729.19,186081.45,553592.57],
+  ['2026-03-11',3478897.31,8844.63,16654.62],
+  ['2026-03-12',3471270.3,35403.8,4628.64],
+  ['2026-03-13',3503475.67,152040.61,10038.22],
+  ['2026-03-14',3651884.72,0.0,0.0],
+  ['2026-03-15',3651884.72,0.0,0.0],
+  ['2026-03-16',3651884.72,297664.69,258463.61],
+  ['2026-03-17',3714192.57,7341.18,51350.28],
+  ['2026-03-18',3671186.46,60679.8,20264.72],
+  ['2026-03-19',3714882.63,211855.57,291.12],
+  ['2026-03-20',3926447.08,113371.13,380414.52],
+  ['2026-03-21',3663612.56,0.0,0.0],
+  ['2026-03-22',3663612.56,0.0,0.0],
+  ['2026-03-23',3663612.56,229698.46,4931.36],
+  ['2026-03-24',3898281.48,79804.77,14824.75],
+  ['2026-03-25',3976255.71,194564.54,410402.37],
+  ['2026-03-26',3757537.44,35106.21,1940.72],
+  ['2026-03-27',3790755.01,54775.57,31281.64],
+  ['2026-03-28',3813411.22,0.0,0.0],
+  ['2026-03-29',3813411.22,0.0,0.0],
+  ['2026-03-30',3813411.22,349345.65,802255.27],
+  ['2026-03-31',3367433.47,154405.99,5801.26],
+  ['2026-04-01',3367433.47,305451.03,7264.4],
+  ['2026-04-02',3823588.43,129288.93,14577.27],
+  ['2026-04-03',3941215.64,1308.28,0.0],
+  ['2026-04-04',3941215.64,0.0,0.0],
+  ['2026-04-05',3941215.64,0.0,0.0],
+  ['2026-04-06',3941215.64,163242.64,900908.9],
+  ['2026-04-07',3205328.6,8285.39,2534.66],
+  ['2026-04-08',3211079.33,12826.12,1113.13],
+  ['2026-04-09',3222792.32,22915.4,7833.87],
+  ['2026-04-10',3239882.86,63027.33,277550.51],
+  ['2026-04-11',3025815.86,0.0,0.0],
+  ['2026-04-12',3025815.86,0.0,0.0],
+  ['2026-04-13',3025815.86,84621.12,2565.68],
+  ['2026-04-14',3111861.71,187260.36,9535.74],
+  ['2026-04-15',3295500.44,354062.2,272708.13],
+  ['2026-04-16',3388292.48,107297.6,3137.73],
+  ['2026-04-17',3492670.92,64057.01,506.78],
+  ['2026-04-18',3557522.36,0.0,0.0],
+  ['2026-04-19',3557522.36,0.0,0.0],
+  ['2026-04-20',3557525.0,216440.58,435937.14],
+  ['2026-04-21',3347360.76,0.0,0.0],
+  ['2026-04-22',3347360.76,94139.23,1743.21],
+  ['2026-04-23',3440011.68,58794.15,5162.27],
+  ['2026-04-24',3495154.43,111168.2,49709.79],
+  ['2026-04-25',3570583.36,0.0,0.0],
+  ['2026-04-26',3570583.36,0.0,0.0],
+  ['2026-04-27',3570583.36,83029.28,204321.16],
+  ['2026-04-28',3451281.23,103014.34,3243.75],
+  ['2026-04-29',3572650.36,99042.0,11501.87],
+  ['2026-04-30',3663347.08,145231.78,567532.69],
+  ['2026-05-01',3663347.08,0.0,0.0],
+  ['2026-05-02',3237869.3,0.0,0.0],
+  ['2026-05-03',3237869.3,0.0,0.0],
+  ['2026-05-04',3237869.3,130441.34,7214.79],
+  ['2026-05-05',3372213.36,45914.97,127101.4],
+  ['2026-05-06',3288836.81,685060.02,769755.2],
+  ['2026-05-07',3262357.58,85411.6,2823.12],
+  ['2026-05-08',3344414.6,142532.44,25422.08],
+  ['2026-05-09',3466301.58,0.0,0.0],
+  ['2026-05-10',3466301.58,0.0,0.0],
+  ['2026-05-11',3466301.58,120242.41,292965.84],
+  ['2026-05-12',3287113.37,34827.59,24616.31],
+  ['2026-05-13',3299797.44,79281.4,837.71],
+  ['2026-05-14',3380853.2,209656.24,9661.86],
+  ['2026-05-15',3782581.7,201095.21,214261.03],
+  ['2026-05-16',3579666.22,0.0,177.05],
+  ['2026-05-17',3579666.22,0.0,0.0],
+  ['2026-05-18',3579666.22,75117.77,9118.37],
+  ['2026-05-19',3655375.36,19445.98,44671.14],
+  ['2026-05-20',3630247.85,42429.21,464422.27],
+  ['2026-05-21',3209530.62,80141.61,948.41],
+  ['2026-05-22',3289503.01,48644.72,14143.78],
+  ['2026-05-23',3327683.75,0.0,0.0],
+  ['2026-05-24',3327683.75,0.0,0.0],
+  ['2026-05-25',3327683.75,124926.88,463698.06],
+  ['2026-05-26',2993899.63,81687.85,3901.87],
+  ['2026-05-27',3084182.87,237259.7,111904.8],
+  ['2026-05-28',3237505.81,177786.33,143190.85],
+  ['2026-05-29',3293693.27,27592.67,400661.03],
+  ['2026-05-30',2917887.14,0.0,826.44],
+  ['2026-05-31',2917887.14,0.0,0.0],
+  ['2026-06-01',2917887.14,832918.08,23522.22],
+  ['2026-06-02',3740728.26,52091.17,11835.5],
+  ['2026-06-03',3781783.68,123660.38,888828.71],
+  ['2026-06-04',3017513.69,0.0,0.0],
+  ['2026-06-05',3017513.69,182304.87,279.16],
+  ['2026-06-06',3209340.49,0.0,0.0],
+  ['2026-06-07',3209340.49,0.0,0.0],
+  ['2026-06-08',3209340.49,32253.8,6316.29],
+  ['2026-06-09',3235558.36,93599.68,4503.45],
+  ['2026-06-10',3328960.8,100033.48,254270.59],
+  ['2026-06-11',3177967.14,441737.63,14077.81],
+  ['2026-06-12',3630701.4,29396.08,0.0],
+  ['2026-06-13',3662153.96,0.0,0.0],
+  ['2026-06-14',3662153.96,0.0,0.0],
+  ['2026-06-15',3662153.96,233742.64,616798.51],
+  ['2026-06-16',3284675.19,21947.78,20212.92],
+  ['2026-06-17',3286437.71,42479.09,2413.78],
+  ['2026-06-18',3326653.31,3581.0,4391.1],
+  ['2026-06-19',3325843.21,106264.83,485570.18],
+  ['2026-06-20',2948080.07,0.0,756.97],
+  ['2026-06-21',2948080.07,0.0,0.0],
+  ['2026-06-22',2948080.07,107683.99,78047.4],
+  ['2026-06-23',2996049.29,1172.88,6919.97],
+  ['2026-06-24',2990302.2,27029.03,1964.52],
+  ['2026-06-25',3015611.98,77206.89,245551.86],
+  ['2026-06-26',2848334.45,59482.44,777.19],
+  ['2026-06-27',2917633.44,0.0,0.0],
+  ['2026-06-28',2917633.44,0.0,0.0],
+  ['2026-06-29',2917633.44,138138.65,3000.97],
+  ['2026-06-30',3084652.76,50581.14,484906.29],
+  ['2026-07-01',3084652.76,264666.32,4021.09],
+  ['2026-07-02',2945665.64,31595.29,17321.14],
+  ['2026-07-03',2961186.66,50249.97,8958.51],
+  ['2026-07-04',3003612.11,0.0,0.0],
+  ['2026-07-05',3003612.11,0.0,0.0],
+  ['2026-07-06',3003612.11,33070.64,969362.18],
+  ['2026-07-07',2068079.61,61888.58,15108.2],
+  ['2026-07-08',2118625.24,550649.97,94.34],
+  ['2026-07-09',2670230.75,21214.46,0.0],
+  ['2026-07-10',2691655.36,72897.37,419433.92],
+  ['2026-07-11',2345562.82,0.0,202.49],
+  ['2026-07-12',2345562.82,0.0,0.0],
+  ['2026-07-13',2345562.82,46491.75,4839.64],
+  ['2026-07-14',2388722.59,5514.59,8698.76],
+  ['2026-07-15',2385612.82,156057.94,290796.68],
+  ['2026-07-16',2253902.97,361807.55,4279.21],
+  ['2026-07-17',2618701.34,12577.9,33.18],
+  ['2026-07-18',2631317.27,0.0,0.0],
+  ['2026-07-19',2631317.27,0.0,0.0],
+  ['2026-07-20',2631317.27,98250.8,720349.02],
+  ['2026-07-21',2017863.63,2902.47,4704.38],
+  ['2026-07-22',2016083.54,154657.22,20499.18],
+  ['2026-07-23',2168447.98,266631.99,463.6],
+  ['2026-07-24',2438970.33,150677.36,42982.1],
+  ['2026-07-25',2557153.84,0.0,0.0],
+  ['2026-07-26',2557153.84,0.0,0.0],
+  ['2026-07-27',2557153.84,29944.51,242902.19],
+  ['2026-07-28',2345172.25,18678.76,9909.32],
+  ['2026-07-29',2412202.63,68575.09,126722.87],
+  ['2026-07-30',2311619.03,307209.34,612977.67],
+  ['2026-07-31',2007149.15,96802.98,94696.99],
+  ['2026-08-01',2007149.15,0.0,0.0],
+  ['2026-08-02',2103722.27,0.0,0.0],
+  ['2026-08-03',2103722.27,159105.13,23473.82],
+  ['2026-08-04',2243859.85,122237.23,2673.71],
+  ['2026-08-05',2363828.77,154647.64,903360.37],
+  ['2026-08-06',1624639.31,6736.97,22560.99],
+  ['2026-08-07',1608817.55,149135.14,76.52],
+  ['2026-08-08',1767379.65,0.0,0.0],
+  ['2026-08-09',1767379.65,0.0,0.0],
+  ['2026-08-10',1767379.65,44139.44,583806.4],
+  ['2026-08-11',1229118.95,20158.88,3527.28],
+  ['2026-08-12',1249137.99,69420.44,8998.49],
+  ['2026-08-13',1309582.98,505350.31,1202.72],
+  ['2026-08-14',1837232.28,189.05,15735.12],
+  ['2026-08-15',1844037.45,0.0,311782.15]
+];
+
+const HISTORICO_ULTIMA_DATA = HISTORICO_ALKANSE.length ? HISTORICO_ALKANSE[HISTORICO_ALKANSE.length-1][0] : null;
+const HISTORICO_SALDO_POR_DATA = {};
+HISTORICO_ALKANSE.forEach(([data, saldo]) => { HISTORICO_SALDO_POR_DATA[data] = saldo; });
+
+// Troca, pros dias cobertos pelo histórico oficial, os lançamentos
+// calculados (pg_/cr_) por duas linhas sintéticas por dia — Recebido e
+// Pago totais daquele dia, exatamente como na planilha oficial. Em Aberto
+// (cap_/venc_) não é tocado: título pendente continua pendente, tem data
+// de vencimento própria e pode cair em qualquer dia, passado ou futuro.
+function aplicarHistoricoOficial(pgRows, crRows, capRows, vencRows, empresa){
+  if(!HISTORICO_ALKANSE.length) return { pg: pgRows, cr: crRows, cap: capRows, venc: vencRows };
+  const dentroDoHistorico = d => d <= HISTORICO_ULTIMA_DATA;
+  const pgForaHist = pgRows.filter(r => !dentroDoHistorico(r.date));
+  const crForaHist = crRows.filter(r => !dentroDoHistorico(r.date));
+  const pgHist = [], crHist = [];
+  HISTORICO_ALKANSE.forEach(([data, , recebido, pago]) => {
+    if(recebido) crHist.push({ date: data, categoria:'Recebimentos (histórico oficial)', grupo:'RECEBIMENTOS', valor: recebido, empresa, origem:'cr', contaNoSaldo:true, titulo:'', nome:'Histórico oficial', cnpj:'', banco:'', forma:'', situacao:'Pago' });
+    if(pago) pgHist.push({ date: data, categoria:'Pagamentos (histórico oficial)', grupo:'HIST_PAG', valor: -pago, empresa, origem:'pg', contaNoSaldo:true, titulo:'', nome:'Histórico oficial', cnpj:'', banco:'', forma:'', situacao:'Pago' });
+  });
+  return { pg: pgForaHist.concat(pgHist), cr: crForaHist.concat(crHist), cap: capRows, venc: vencRows };
+}
+
 async function loadData(){
   try{
     rowsByEmpresa = {}; pagosRealizadosByEmpresa = {}; abertoByEmpresa = {};
@@ -1302,7 +1562,8 @@ async function loadData(){
     // pra esse cliente — loadLimiteConta() abaixo é só localStorage, sem risco).
     for(const empresa of EMPRESAS){
       const tFinanceiro = await fetchGvizSheet('Financeiro');
-      const { pg: pgRows, cr: crRows, cap: capRows, venc: vencRows } = rowsFromFinanceiro(tFinanceiro, empresa);
+      const { pg: pgRows0, cr: crRows0, cap: capRows, venc: vencRows } = rowsFromFinanceiro(tFinanceiro, empresa);
+      const { pg: pgRows, cr: crRows } = aplicarHistoricoOficial(pgRows0, crRows0, capRows, vencRows, empresa);
       pagosRealizadosByEmpresa[empresa] = pgRows.slice();
       // Tudo junto na mesma grade e no mesmo Saldo Acumulado — pg_/cr_
       // (realizado) + cap_/venc_ (previsto/aberto), cada um na sua data
@@ -1401,6 +1662,13 @@ let saldoIniciais = {}; // { empresa: {data_referencia, valor} }
 // nenhuma de estar certo (o "saldo acumulado" é só pro período com saldo
 // inicial de verdade por trás, não uma extrapolação indefinida pro passado).
 function runningBalanceEmpresa(empresa, uptoDate){
+  // Histórico oficial (jan a 15/08/2026): usa o valor exato importado da
+  // planilha, sem depender do saldo inicial cadastrado nem do cálculo
+  // cumulativo abaixo — pedido do Gustavo (17/08/2026) de bater exatamente
+  // com a planilha oficial pra esse período.
+  if(Object.prototype.hasOwnProperty.call(HISTORICO_SALDO_POR_DATA, uptoDate)){
+    return HISTORICO_SALDO_POR_DATA[uptoDate];
+  }
   const rowsEmp = (rowsByEmpresa[empresa] || []).filter(contaNoTotal_);
   const override = saldoIniciais[empresa];
   if(!override || uptoDate < override.data_referencia) return null;
@@ -1940,7 +2208,7 @@ async function openFluxoFicha(rowId, colId){
     </div>
     <div class="fc-detail-list" id="fcFichaListaImprimir">
       <table class="fc-detail-table" style="margin-top:0;">
-        <thead><tr><th>Data</th><th>Empresa</th><th>Nome</th><th>Documento</th><th>Status</th><th class="num">%</th><th>Observação</th><th class="num">Valor</th></tr></thead>
+        <thead><tr><th>Data</th><th>Empresa</th><th>Nome</th><th style="text-align:center;">Documento</th><th style="text-align:center;">Status</th><th class="num" style="text-align:center;">%</th><th style="text-align:center;">Observação</th><th class="num" style="text-align:center;">Valor</th></tr></thead>
         <tbody id="fcFichaLancamentosBody"></tbody>
       </table>
     </div>
@@ -1988,11 +2256,11 @@ function renderLinhaFicha_(r, idx, total){
     <td>${formatDateBR(dataExibida)}</td>
     <td>${escapeHtml(EMPRESA_LABEL[r.empresa] || r.empresa || 'Geral')}</td>
     <td class="wrap" title="${escapeHtml(r.nome || 'Sem nome')}">${escapeHtml(r.nome || 'Sem nome')}</td>
-    <td class="small" title="${escapeHtml(doc)}">${escapeHtml(doc)}</td>
-    <td>${tagCategoria}</td>
-    <td class="num">${pct.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%</td>
-    <td>${renderTituloObsHtml_(r,idx)}</td>
-    <td class="valor-modal" style="color:${r.valor>=0?'#4F8F3A':'var(--red)'}">${fmtNumeroFicha(r.valor)}</td>
+    <td class="small" style="text-align:center;" title="${escapeHtml(doc)}">${escapeHtml(doc)}</td>
+    <td style="text-align:center;">${tagCategoria}</td>
+    <td class="num" style="text-align:center;">${pct.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%</td>
+    <td style="text-align:center;">${renderTituloObsHtml_(r,idx)}</td>
+    <td class="valor-modal" style="text-align:center;color:${r.valor>=0?'#4F8F3A':'var(--red)'}">${fmtNumeroFicha(r.valor)}</td>
   </tr>`;
 }
 // Filtra os lançamentos da Ficha aberta por nome do cliente/fornecedor —
@@ -2205,7 +2473,7 @@ function renderSaldoInicialStatus(){
     if(!o) return { html: `<div style="padding:8px 0;border-bottom:1px solid var(--border);">${EMPRESA_LABEL[emp]}: <span style="color:var(--text3);">sem saldo definido ainda</span></div>`, o:null };
     const dataLabel = new Date(o.data_referencia+'T00:00:00').toLocaleDateString('pt-BR');
     const detalheTxt = o.detalhe ? ` <span style="color:var(--text3);font-size:11.5px;">(${o.detalhe})</span>` : '';
-    return { html: `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);gap:10px;"><span>${EMPRESA_LABEL[emp]}: <b>${fmtBRL(o.valor)}</b> em <b>${dataLabel}</b>${detalheTxt}</span><button class="btn btn-danger btn-sm" onclick="removeSaldoInicial('${emp}')">Remover</button></div>`, o };
+    return { html: `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);gap:10px;"><span>${EMPRESA_LABEL[emp]}: <b>${fmtBRL(o.valor)}</b> em <b>${dataLabel}</b>${detalheTxt}</span><span style="display:flex;gap:6px;"><button class="btn btn-ghost btn-sm" onclick="editarSaldoInicial('${emp}')">Editar</button><button class="btn btn-danger btn-sm" onclick="removeSaldoInicial('${emp}')">Remover</button></span></div>`, o };
   });
   if(wrap) wrap.innerHTML = linhas.map(l=>l.html).join('');
   if(resumo){
@@ -2218,23 +2486,62 @@ function renderSaldoInicialStatus(){
   }
 }
 
+// Reabre o MESMO modal usado pra lançar o saldo do dia, já preenchido com
+// o que está salvo — pedido do Gustavo (17/08/2026): "a janela de editar
+// precisa ser igual a que informa o saldo", não uma tela separada.
+function editarSaldoInicial(empresa){
+  const o = saldoIniciais[empresa];
+  if(!o) return;
+  closeSaldoInicialModal();
+  el('saldoDiaData').value = o.data_referencia;
+  el('saldoDiaBancosList').innerHTML = '';
+  const bancosSalvos = (o.detalhe || '')
+    .split('·')
+    .map(s => s.trim())
+    .filter(Boolean)
+    .map(par => {
+      const [nome, valorTxt] = par.split(':').map(s => (s || '').trim());
+      return { nome, valor: parseMoneyBR((valorTxt || '').replace(/^R\$\s*/, '')) };
+    });
+  if(bancosSalvos.length){
+    bancosSalvos.forEach(b => addSaldoDiaBancoRow(b.nome));
+    // preenche os valores depois de criar as linhas (addSaldoDiaBancoRow só aceita o nome)
+    const inputsValor = document.querySelectorAll('#saldoDiaBancosList .saldo-dia-valor');
+    bancosSalvos.forEach((b, i) => { if(inputsValor[i]) inputsValor[i].value = fmtBRL(b.valor).replace('R$','').trim(); });
+  } else {
+    SALDO_DIA_BANCOS_PADRAO.forEach(nome => addSaldoDiaBancoRow(nome));
+  }
+  atualizarSaldoDiaTotal();
+  el('saldoDiaModal').classList.add('show');
+}
+
 // ---- Modal "Saldo do dia" — banco a banco, pré-preenchido com ontem ----
+const SALDO_DIA_BANCOS_PADRAO = [
+  'Itaú - Alkanse',
+  'Banco do Brasil (Alkanse)',
+  'Banco do Brasil (Alkanse - Projeto Colban)',
+  'Itaú Compromissada',
+  'Banco do Brasil (Alkanse - Projeto Coese)',
+  'Bradesco',
+  'Mercado Pago',
+  'Banco do Brasil (Alkanse)',
+];
 function openSaldoDiaModal(){
   const ontem = new Date();
   ontem.setDate(ontem.getDate()-1);
   el('saldoDiaData').value = dataLocalISO_(ontem);
   el('saldoDiaBancosList').innerHTML = '';
-  addSaldoDiaBancoRow();
-  addSaldoDiaBancoRow();
+  SALDO_DIA_BANCOS_PADRAO.forEach(nome => addSaldoDiaBancoRow(nome));
   atualizarSaldoDiaTotal();
   el('saldoDiaModal').classList.add('show');
 }
 function closeSaldoDiaModal(){ el('saldoDiaModal').classList.remove('show'); }
-function addSaldoDiaBancoRow(){
+function addSaldoDiaBancoRow(nomeBanco){
   const wrap = el('saldoDiaBancosList');
   const row = document.createElement('div');
   row.style.cssText = 'display:flex;gap:8px;align-items:center;';
-  row.innerHTML = `<input type="text" placeholder="Banco (ex.: Itaú)" class="saldo-dia-banco" style="flex:1;">
+  const nomeAttr = nomeBanco ? ` value="${escapeHtml(nomeBanco)}"` : '';
+  row.innerHTML = `<input type="text" placeholder="Banco (ex.: Itaú)" class="saldo-dia-banco"${nomeAttr} style="flex:1;">
     <input type="text" inputmode="decimal" placeholder="Saldo (R$)" class="saldo-dia-valor" style="width:150px;" oninput="atualizarSaldoDiaTotal()">
     <button class="btn btn-ghost btn-sm" type="button" title="Remover" onclick="this.parentElement.remove();atualizarSaldoDiaTotal();">✕</button>`;
   wrap.appendChild(row);
