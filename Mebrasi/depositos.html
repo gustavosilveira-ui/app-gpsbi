@@ -650,13 +650,18 @@ function indicadoresEmpresa(empresa){
 
 // Ryngavi fica limitada a R$ 400 mil no Farol. O excedente é somado
 // ao Total Farol da Multicopos, sem alterar os indicadores contábeis de origem.
-function aplicarExcedenteRyngaviNoFarol(dados){
+// Pedido do Sr. Roberto (14/08/2026): o Farol da Multicopos também passa a
+// somar o faturamento do canal Online do mesmo período — "fat acumulado +
+// pedidos pendente + online".
+function aplicarExcedenteRyngaviNoFarol(dados, onlineTotal){
   const ryngavi = dados.Ryngavi;
   const multicopos = dados.Multicopos;
   if(!ryngavi || !multicopos) return;
   const excedente = Math.max(0, ryngavi.totalFarol - 400000);
   ryngavi.totalFarol -= excedente;
   multicopos.totalFarol += excedente;
+  multicopos.online = onlineTotal || 0;
+  multicopos.totalFarol += multicopos.online;
   ryngavi.pctPend = ryngavi.totalFarol / tetoFarol('Ryngavi');
   multicopos.pctPend = multicopos.totalFarol / tetoFarol('Multicopos');
 }
@@ -665,11 +670,11 @@ function renderTabelaIndicadores(){
   const empresas = EMPRESAS_ROBERTO.map(k=>EMPRESA_LABEL[k]).concat(['Online']);
   const dados = {};
   EMPRESAS_ROBERTO.forEach(k=>{ dados[EMPRESA_LABEL[k]] = indicadoresEmpresa(EMPRESA_LABEL[k]); });
-  aplicarExcedenteRyngaviNoFarol(dados);
   // Online só entra na linha "Total" (com o faturamento real dele) — as
   // demais linhas (NF/F/Pend/Cheque/Pend M+1) não fazem sentido pro
   // Online (não usa Situação NF, não tem pendente/cheque terceiros).
   const onlineTotal = vendasRows.filter(r=>r.empresa==='Online' && filtroAnoMes(r.data)).reduce((s,r)=>s+r.faturamento,0);
+  aplicarExcedenteRyngaviNoFarol(dados, onlineTotal);
 
   let html = '<thead><tr><th style="text-align:left">Indicador</th>' + empresas.map(e=>`<th>${e}</th>`).join('') + '<th>Total</th></tr></thead><tbody>';
 

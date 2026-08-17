@@ -914,7 +914,7 @@ async function loadData(){
       data, dataEntrega, dataFaturamento,
       situacao, situacaoNf,
       codPedido: (getColNormalized(r,'cod pedido')||'').toString().trim(),
-      cliente: (getColNormalized(r,'nome cliente')||'').toString().trim(),
+      cliente: (getColNormalized(r,'nome cliente') || getColNormalized(r,'cliente') || getColNormalized(r,'nome do cliente') || getColNormalized(r,'comprador') || getColNormalized(r,'e-mail cliente') || getColNormalized(r,'email cliente') || getColNormalized(r,'email') || '').toString().trim(),
       estado: (getColNormalized(r,'estado')||'').toString().trim(),
       grupoCliente: (getColNormalized(r,'grupo cliente')||'').toString().trim(),
       tipoContribuinte: (getColNormalized(r,'tipo de contribuinte')||'').toString().trim(),
@@ -1544,6 +1544,22 @@ function rowsForPeriod(ano, mes, empresa){
   );
 }
 
+// Preço Médio da Gymis passa a considerar também o faturamento e a
+// quantidade (sem GSL/GSN) da Especial — pedido da Elis (14/08/2026):
+// o preço médio da Gymis sozinha ficava artificialmente baixo (~R$16)
+// frente às outras empresas (acima de R$20). Mesmo padrão já usado no
+// farol/texto executivo, onde a Especial é reportada junto da Gymis.
+// Faturamento e Itens exibidos na linha da Gymis continuam só dela —
+// só o Preço Médio (faturamento/itens) passa a somar as duas.
+function precoMedioComEspecial(emp, scoped, faturamento, itens){
+  if(emp!=='Gymis') return itens>0 ? faturamento/itens : 0;
+  const rsEspecial = scoped.filter(r=>r.empresa==='Especial');
+  const itensEspecial = rsEspecial.reduce((s,r)=>s+(!isProdutoGsl(r) ? (r.qtdFaturada||0) : 0),0);
+  const faturamentoEspecial = rsEspecial.reduce((s,r)=>s+r.faturamento,0);
+  const itensSoma = itens + itensEspecial;
+  return itensSoma>0 ? (faturamento+faturamentoEspecial)/itensSoma : 0;
+}
+
 function renderTabelaEmpresas(){
   const scoped = rowsInScope();
   const anoAtual = selectedAno || (scoped[0]?.data || '').slice(0,4);
@@ -1577,7 +1593,7 @@ function renderTabelaEmpresas(){
       const familia = normalizeTxt(r.familiaComercial).replace(/\s+/g,' ').trim();
       return s + (!isProdutoGsl(r) && familia==='copo' ? (r.qtdFaturada||0) : 0);
     },0);
-    const precoMedio = itens>0 ? faturamento/itens : 0;
+    const precoMedio = precoMedioComEspecial(emp, scoped, faturamento, itens);
     const participacao = totalFatEscopo ? faturamento/totalFatEscopo : 0;
 
     return { emp, faturamento, participacao, fatM1, difM1, pctM1, fatY1, difY1, pctY1, clientes, pedidos, ticket, precoMedio, itens, itensCopo };
@@ -1858,12 +1874,20 @@ function dadosFarolEmpresa(empresa){
 
 // Regra comercial vigente: Ryngavi fica limitada a R$ 400 mil no Farol;
 // tudo que ultrapassar esse valor é transferido para o Farol da Multicopos.
+// Pedido do Sr. Roberto (14/08/2026): o Farol da Multicopos também passa a
+// somar o faturamento do canal Online do mesmo período — "fat acumulado +
+// pedidos pendente + online" — já que as vendas online são dela.
 function dadosFarolRyngaviMulticopos(){
   const ryngavi = {...dadosFarolEmpresa('Ryngavi')};
   const multicopos = {...dadosFarolEmpresa('Multicopos')};
   const excedenteRyngavi = Math.max(0, ryngavi.totalFarol - 400000);
   ryngavi.totalFarol -= excedenteRyngavi;
   multicopos.totalFarol += excedenteRyngavi;
+
+  const online = rows.filter(r=>r.empresa==='Online' && filtroAnoMes(r)).reduce((s,r)=>s+r.faturamento,0);
+  multicopos.online = online;
+  multicopos.totalFarol += online;
+
   return { Ryngavi:ryngavi, Multicopos:multicopos, excedenteRyngavi };
 }
 
@@ -1981,6 +2005,7 @@ function gerarAnaliseTexto(){
     `*Multicopos:* ${fmtBRLFull(porEmpresa['Multicopos'])}`,
     `> F: ${fmtBRLFull(farolMulticopos.fidelidade)}`,
     `> Pend: ${fmtBRLFull(farolMulticopos.pendente)}`,
+    `> On: ${fmtBRLFull(farolMulticopos.online||0)}`,
     `${faroEmoji(pctMulticopos)} Total farol: ${fmtBRLFull(farolMulticopos.totalFarol)}`,
   ].join('\n') : '';
 
@@ -2258,15 +2283,22 @@ function montarHierarquiaClientes(scoped){
     const grupoNome = r.grupoCliente || 'Clientes sem Grupo';
     const clienteNome = r.cliente || 'Cliente não informado';
     const itemNome = r.descComercial || 'Item sem descrição';
+    const itemCodigo = r.codProduto || '(sem código)';
+    const itemChave = `${itemCodigo}\u001f${itemNome}`;
     const mes = r.data.slice(0,7);
-    if(!grupos.has(grupoNome)) grupos.set(grupoNome,{nome:grupoNome,valores:{},clientes:new Map()});
+    const qtd = r.qtdFaturada || 0;
+    if(!grupos.has(grupoNome)) grupos.set(grupoNome,{nome:grupoNome,valores:{},qtd:0,clientes:new Map()});
     const grupo = grupos.get(grupoNome);
     acumularMesMatriz(grupo.valores,mes,r.faturamento);
-    if(!grupo.clientes.has(clienteNome)) grupo.clientes.set(clienteNome,{nome:clienteNome,valores:{},itens:new Map()});
+    grupo.qtd += qtd;
+    if(!grupo.clientes.has(clienteNome)) grupo.clientes.set(clienteNome,{nome:clienteNome,valores:{},qtd:0,itens:new Map()});
     const cliente = grupo.clientes.get(clienteNome);
     acumularMesMatriz(cliente.valores,mes,r.faturamento);
-    if(!cliente.itens.has(itemNome)) cliente.itens.set(itemNome,{nome:itemNome,valores:{}});
-    acumularMesMatriz(cliente.itens.get(itemNome).valores,mes,r.faturamento);
+    cliente.qtd += qtd;
+    if(!cliente.itens.has(itemChave)) cliente.itens.set(itemChave,{nome:itemNome,codigo:itemCodigo,valores:{},qtd:0});
+    const item = cliente.itens.get(itemChave);
+    acumularMesMatriz(item.valores,mes,r.faturamento);
+    item.qtd += qtd;
   });
   return [...grupos.values()].map(g=>({
     ...g,
@@ -2307,20 +2339,21 @@ function renderMatrizClientes(){
   matrizHierarquiaAtual.forEach(grupo=>{
     const grupoAberto = buscaAtiva || matrizGruposAbertos.has(grupo.nome);
     const gid = registrar({tipo:'grupo',grupo:grupo.nome});
-    body += `<tr class="hier-group hierarchy-row-toggle" data-matriz-id="${gid}"><td><div class="hier-label"><span class="hier-chevron">${grupoAberto?'−':'+'}</span><span>${escapeHtml(grupo.nome)}</span></div></td>${celulasValoresMatriz(grupo.valores,meses)}</tr>`;
+    body += `<tr class="hier-group hierarchy-row-toggle" data-matriz-id="${gid}"><td><div class="hier-label"><span class="hier-chevron">${grupoAberto?'−':'+'}</span><span>${escapeHtml(grupo.nome)}</span></div></td>${celulasValoresMatriz(grupo.valores,meses)}<td>${fmtNum(grupo.qtd)}</td></tr>`;
     if(!grupoAberto) return;
     grupo.clientes.forEach(cliente=>{
       const chave = chaveClienteMatriz(grupo.nome,cliente.nome);
       const clienteAberto = buscaAtiva || matrizClientesAbertos.has(chave);
       const cid = registrar({tipo:'cliente',chave});
-      body += `<tr class="hier-client hierarchy-row-toggle" data-matriz-id="${cid}"><td><div class="hier-label hier-indent-1"><span class="hier-chevron">${clienteAberto?'−':'+'}</span><span>${escapeHtml(cliente.nome)}</span></div></td>${celulasValoresMatriz(cliente.valores,meses)}</tr>`;
+      body += `<tr class="hier-client hierarchy-row-toggle" data-matriz-id="${cid}"><td><div class="hier-label hier-indent-1"><span class="hier-chevron">${clienteAberto?'−':'+'}</span><span>${escapeHtml(cliente.nome)}</span></div></td>${celulasValoresMatriz(cliente.valores,meses)}<td>${fmtNum(cliente.qtd)}</td></tr>`;
       if(clienteAberto) cliente.itens.forEach(item=>{
-        body += `<tr class="hier-item"><td><div class="hier-label hier-indent-2"><span class="hier-chevron">•</span><span>${escapeHtml(item.nome)}</span></div></td>${celulasValoresMatriz(item.valores,meses)}</tr>`;
+        body += `<tr class="hier-item"><td><div class="hier-label hier-indent-2"><span class="hier-chevron">•</span><span>${escapeHtml(item.codigo)} — ${escapeHtml(item.nome)}</span></div></td>${celulasValoresMatriz(item.valores,meses)}<td>${fmtNum(item.qtd)}</td></tr>`;
       });
     });
   });
   const totais={}; scoped.forEach(r=>acumularMesMatriz(totais,r.data.slice(0,7),r.faturamento));
-  tabela.innerHTML = `<thead><tr><th>Grupo Cliente / Nome Cliente / Desc Comercial</th>${meses.map(m=>`<th>${mesLabelCurto(m)}</th>`).join('')}<th>Total</th></tr></thead><tbody>${body}<tr class="hier-total-row"><td>Total</td>${celulasValoresMatriz(totais,meses)}</tr></tbody>`;
+  const qtdTotal = scoped.reduce((s,r)=>s+(r.qtdFaturada||0),0);
+  tabela.innerHTML = `<thead><tr><th>Grupo Cliente / Nome Cliente / Desc Comercial</th>${meses.map(m=>`<th>${mesLabelCurto(m)}</th>`).join('')}<th>Total</th><th>Qtd</th></tr></thead><tbody>${body}<tr class="hier-total-row"><td>Total</td>${celulasValoresMatriz(totais,meses)}<td>${fmtNum(qtdTotal)}</td></tr></tbody>`;
   tabela.querySelectorAll('[data-matriz-id]').forEach(tr=>tr.addEventListener('click',()=>{
     const info=ids.get(tr.dataset.matrizId);
     const set=info.tipo==='grupo'?matrizGruposAbertos:matrizClientesAbertos;
