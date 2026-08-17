@@ -1662,15 +1662,25 @@ let saldoIniciais = {}; // { empresa: {data_referencia, valor} }
 // nenhuma de estar certo (o "saldo acumulado" é só pro período com saldo
 // inicial de verdade por trás, não uma extrapolação indefinida pro passado).
 function runningBalanceEmpresa(empresa, uptoDate){
+  const override = saldoIniciais[empresa];
+  // Se o usuário lançou manualmente um saldo pra ESSA data exata, esse
+  // valor sempre vence — mesmo se cair dentro do período coberto pelo
+  // histórico oficial importado. Corrigido 17/08/2026: antes o histórico
+  // sempre ganhava, e um saldo lançado pra 14/08 sumia (o dia 14 continuava
+  // mostrando o valor da planilha antiga, escondendo o que o usuário
+  // acabou de digitar).
+  if(override && override.data_referencia === uptoDate){
+    return Number(override.valor) || 0;
+  }
   // Histórico oficial (jan a 15/08/2026): usa o valor exato importado da
   // planilha, sem depender do saldo inicial cadastrado nem do cálculo
   // cumulativo abaixo — pedido do Gustavo (17/08/2026) de bater exatamente
-  // com a planilha oficial pra esse período.
+  // com a planilha oficial pra esse período, EXCETO nos dias em que o
+  // usuário já lançou o valor manualmente (checado acima).
   if(Object.prototype.hasOwnProperty.call(HISTORICO_SALDO_POR_DATA, uptoDate)){
     return HISTORICO_SALDO_POR_DATA[uptoDate];
   }
   const rowsEmp = (rowsByEmpresa[empresa] || []).filter(contaNoTotal_);
-  const override = saldoIniciais[empresa];
   if(!override || uptoDate < override.data_referencia) return null;
 
   // O valor salvo é o saldo NA PRÓPRIA data de referência (já incluindo
