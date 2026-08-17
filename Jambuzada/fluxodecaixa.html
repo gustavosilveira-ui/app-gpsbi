@@ -103,6 +103,11 @@ html.light .fc-day-num{color:#1f2a3d;}
 .fc-plan-week-period{font-size:11px;color:var(--text2);margin-top:4px;}
 .fc-plan-week-value{font-family:'DM Mono',monospace;font-size:20px;font-weight:900;color:var(--red);margin-top:12px;}
 .fc-plan-week-note{font-size:10.5px;color:var(--text3);margin-top:4px;}
+.fc-plan-week-breakdown{display:grid;gap:6px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);}
+.fc-plan-week-row{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:10.5px;color:var(--text3);}
+.fc-plan-week-row strong{font-family:'DM Mono',monospace;color:var(--text2);font-size:11px;white-space:nowrap;}
+.fc-plan-week-row.fc-plan-week-need{margin-top:2px;padding-top:7px;border-top:1px dashed var(--border2);font-weight:900;color:var(--text2);}
+.fc-plan-week-row.fc-plan-week-need strong{color:var(--cyan);font-size:12px;}
 .fc-plan-reserva-alert{display:inline-flex;align-items:center;gap:6px;background:rgba(45,112,184,.09);color:var(--blue,#2D70B8);border:1px solid rgba(45,112,184,.22);border-radius:999px;padding:6px 10px;font-size:10px;font-weight:900;}
 .fc-plan-day-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:8px;}
 .fc-plan-day-card{border:1px solid var(--border);border-radius:10px;padding:11px 12px;background:var(--navy3);}
@@ -415,9 +420,9 @@ html.light #fcTitulosAbertoLista .fc-detail-table th:last-child,html.light #fcTi
       <div class="fc-plan-head">
         <div>
           <div class="card-title">📅 Planejamento de Caixa · Contas a Pagar</div>
-          <div class="card-sub" id="fcVisaoSemanalPeriodo">Todos os vencimentos até o fim do mês, distribuídos pelos dias úteis disponíveis até cada data de pagamento.</div>
+          <div class="card-sub" id="fcVisaoSemanalPeriodo">Pagamentos até o fim do mês comparados com o caixa disponível e os recebimentos previstos.</div>
         </div>
-        <div class="fc-plan-badge">✓ Rateio gerencial automático · não altera o fluxo</div>
+        <div class="fc-plan-badge">✓ Planejamento automático · não altera o fluxo</div>
       </div>
       <div id="fcVisaoSemanal"></div>
     </div>
@@ -2179,10 +2184,10 @@ function injetarProgramacoesFornecedor(){
   rows.sort((a,b)=>a.date.localeCompare(b.date));
 }
 
-// A visão semanal abaixo é uma leitura gerencial: pega todos os pagamentos
-// com vencimento até o fim do mês e divide cada título igualmente entre os
-// dias úteis disponíveis de hoje até o respectivo vencimento. Não cria
-// parcelas, não altera datas e não modifica o Saldo Acumulado.
+// A visão abaixo é uma leitura gerencial. Ela compara o saldo disponível e
+// os recebimentos previstos com os pagamentos do fluxo. Só sugere reserva
+// quando o saldo projetado ficaria negativo; não cria parcelas, não altera
+// datas e não modifica o Saldo Acumulado.
 function fimMesPlanejamentoISO_(dateStr){
   const d=new Date(dateStr+'T00:00:00');
   return isoLocal(new Date(d.getFullYear(),d.getMonth()+1,0));
@@ -2201,6 +2206,23 @@ function diasUteisPlanejamento_(inicioStr,fimStr){
     d.setDate(d.getDate()+1);
   }
   return out;
+}
+function diasCorridosPlanejamento_(inicioStr,fimStr){
+  const out=[];
+  const d=new Date(inicioStr+'T00:00:00');
+  const fim=new Date(fimStr+'T00:00:00');
+  while(d<=fim){out.push(isoLocal(d));d.setDate(d.getDate()+1);}
+  return out;
+}
+function distribuirReservaPlanejamento_(valor,dias,porDia){
+  if(valor<=0.009||!dias.length)return;
+  const totalCentavos=Math.round(valor*100);
+  const parcelaBase=Math.floor(totalCentavos/dias.length);
+  const resto=totalCentavos-(parcelaBase*dias.length);
+  dias.forEach((dia,i)=>{
+    const centavos=parcelaBase+(i===dias.length-1?resto:0);
+    porDia[dia]=(porDia[dia]||0)+(centavos/100);
+  });
 }
 function labelDiaMesPlanejamento_(dateStr){
   const d=new Date(dateStr+'T00:00:00');
@@ -2228,67 +2250,84 @@ function montarPlanejamentoCaixa_(){
   const titulos=titulosPlanejamentoCaixa_();
   const porDia={};
 
-  titulos.forEach(t=>{
-    const dataBase=t.atrasado||t.date<hoje?primeiroDiaUtil:t.date;
-    t.vencimentoCaixa=proximoDiaUtilPlanejamentoISO_(dataBase);
-    let dias=diasUteisPlanejamento_(primeiroDiaUtil,t.vencimentoCaixa);
-    if(!dias.length)dias=[primeiroDiaUtil];
-    t.diasRateio=dias.length;
-    const totalCentavos=Math.round(t.valor*100);
-    const parcelaBase=Math.floor(totalCentavos/dias.length);
-    const resto=totalCentavos-(parcelaBase*dias.length);
-    dias.forEach((dia,i)=>{
-      const centavos=parcelaBase+(i===dias.length-1?resto:0);
-      porDia[dia]=(porDia[dia]||0)+(centavos/100);
-    });
+  // Necessidade acumulada = maior falta de caixa projetada encontrada até
+  // cada dia. Assim um recebimento futuro nunca "paga" um déficit anterior.
+  const saldoPorDia={};
+  const necessidadePorDia={};
+  const incrementosNecessidade=[];
+  let necessidadeAcumulada=0;
+  diasCorridosPlanejamento_(hoje,fimMes).forEach(date=>{
+    const saldo=Number(runningBalance(date))||0;
+    const necessidadeNaData=Math.max(0,-saldo);
+    saldoPorDia[date]=saldo;
+    if(necessidadeNaData>necessidadeAcumulada+0.004){
+      const delta=necessidadeNaData-necessidadeAcumulada;
+      necessidadeAcumulada=necessidadeNaData;
+      incrementosNecessidade.push({date,valor:delta});
+    }
+    necessidadePorDia[date]=necessidadeAcumulada;
   });
 
-  const fimHorizonte=titulos.reduce((maior,t)=>t.vencimentoCaixa>maior?t.vencimentoCaixa:maior,proximoDiaUtilPlanejamentoISO_(fimMes));
+  // Cada aumento da falta real de caixa é dividido pelos dias úteis ainda
+  // disponíveis até a data em que o dinheiro será necessário.
+  incrementosNecessidade.forEach(n=>{
+    let dias=diasUteisPlanejamento_(primeiroDiaUtil,n.date);
+    if(!dias.length)dias=[primeiroDiaUtil];
+    distribuirReservaPlanejamento_(n.valor,dias,porDia);
+  });
+
+  const fimHorizonte=fimMes;
   const semanaInicial=inicioSemana(new Date(hoje+'T00:00:00'));
   const semanaAtualISO=isoLocal(semanaInicial);
   const semanas=[];
-  let acumulado=0;
+  let necessidadeAnterior=0;
   const cursor=new Date(semanaInicial);
   for(let seguranca=0;seguranca<8&&isoLocal(cursor)<=fimHorizonte;seguranca++){
     const ini=new Date(cursor);
     const fim=fimSemana(ini);
     const iniStr=isoLocal(ini),fimStr=isoLocal(fim);
-    const dias=[];
-    for(let i=0;i<5;i++){
-      const d=new Date(ini);d.setDate(d.getDate()+i);
-      const ds=isoLocal(d);
-      dias.push({date:ds,valor:(ds>=primeiroDiaUtil&&ds<=fimHorizonte)?(porDia[ds]||0):null});
-    }
-    const reserva=dias.reduce((s,d)=>s+(d.valor||0),0);
-    // O card semanal precisa bater com a linha PAGAMENTOS: usa a data de
-    // vencimento original do lançamento (segunda a domingo), sem confundir
-    // com a data útil usada apenas para calcular a sugestão de reserva.
+    const periodoInicio=iniStr<hoje?hoje:iniStr;
+    const periodoFim=fimStr>fimMes?fimMes:fimStr;
     const titulosSemana=titulos.filter(t=>t.date>=iniStr&&t.date<=fimStr);
     const vencimentos=titulosSemana.reduce((s,t)=>s+t.valor,0);
-    acumulado+=reserva;
-    semanas.push({iniStr,fimStr,dias,reserva,vencimentos,qtd:titulosSemana.length,acumulado,atual:iniStr===semanaAtualISO});
+    const recebimentos=Math.max(0,sumInRange(isRecebimento,periodoInicio,periodoFim));
+    const saldoFim=Number(runningBalance(periodoFim))||0;
+    const necessidadeAteFim=necessidadePorDia[periodoFim]??necessidadeAcumulada;
+    const necessidadeSemana=Math.max(0,necessidadeAteFim-necessidadeAnterior);
+    necessidadeAnterior=necessidadeAteFim;
+    semanas.push({
+      iniStr,fimStr,vencimentos,recebimentos,saldoFim,
+      necessidadeSemana,necessidadeAteFim,qtd:titulosSemana.length,
+      atual:iniStr===semanaAtualISO
+    });
     cursor.setDate(cursor.getDate()+7);
   }
   const total=titulos.reduce((s,t)=>s+t.valor,0);
-  const maiorSemana=semanas.slice().sort((a,b)=>b.reserva-a.reserva)[0]||null;
-  const reservaSemanaAtual=semanas[0]?.reserva||0;
+  const saldoHoje=saldoPorDia[hoje]||0;
+  const necessidadeHoje=Math.max(0,-saldoHoje);
+  const reservaHoje=porDia[hoje]||0;
   const diasReserva=diasUteisPlanejamento_(primeiroDiaUtil,fimHorizonte).map(date=>({date,valor:porDia[date]||0}));
-  return {hoje,primeiroDiaUtil,fimMes,fimHorizonte,titulos,porDia,semanas,total,reservaSemanaAtual,maiorSemana,diasReserva};
+  return {
+    hoje,primeiroDiaUtil,fimMes,fimHorizonte,titulos,porDia,semanas,total,
+    saldoHoje,necessidadeHoje,necessidadeMes:necessidadeAcumulada,
+    reservaHoje,diasReserva
+  };
 }
 function renderVisaoSemanal(){
   const wrap=el('fcVisaoSemanal'); if(!wrap)return;
   const p=montarPlanejamentoCaixa_();
   const periodo=el('fcVisaoSemanalPeriodo');
-  if(periodo)periodo.textContent=`Vencimentos mapeados de hoje até ${formatDateBR(p.fimMes)}, rateados pelos dias úteis disponíveis até cada data.`;
+  if(periodo)periodo.textContent=`Pagamentos de hoje até ${formatDateBR(p.fimMes)}, comparados com o saldo disponível e os recebimentos previstos.`;
   if(!p.titulos.length){
     wrap.innerHTML=`<div class="fc-plan-empty">Nenhum vencimento de Contas a Pagar encontrado entre hoje e ${formatDateBR(p.fimMes)}.</div>`;
     return;
   }
 
-  const reservaHoje=p.porDia[p.hoje]||0;
   const kpis=`<div class="fc-plan-kpis">
     <div class="fc-plan-kpi"><div class="fc-plan-kpi-label">Total a pagar até ${labelDiaMesPlanejamento_(p.fimMes)}</div><div class="fc-plan-kpi-value" style="color:var(--red)">${fmtBRL(p.total)}</div><div class="fc-plan-kpi-note">${p.titulos.length} título${p.titulos.length===1?'':'s'} considerado${p.titulos.length===1?'':'s'}</div></div>
-    <div class="fc-plan-kpi"><div class="fc-plan-kpi-label">Reserva sugerida hoje</div><div class="fc-plan-kpi-value">${fmtBRL(reservaHoje)}</div><div class="fc-plan-kpi-note">Valor para separar hoje · não é pagamento do dia</div></div>
+    <div class="fc-plan-kpi"><div class="fc-plan-kpi-label">Caixa adicional até ${labelDiaMesPlanejamento_(p.fimMes)}</div><div class="fc-plan-kpi-value" style="color:${p.necessidadeMes>0?'var(--red)':'var(--green)'}">${fmtBRL(p.necessidadeMes)}</div><div class="fc-plan-kpi-note">Só o valor não coberto pelo saldo e pelos recebimentos</div></div>
+    <div class="fc-plan-kpi"><div class="fc-plan-kpi-label">Caixa adicional necessário hoje</div><div class="fc-plan-kpi-value">${fmtBRL(p.necessidadeHoje)}</div><div class="fc-plan-kpi-note">Saldo projetado de hoje: ${fmtBRL(p.saldoHoje)}</div></div>
+    <div class="fc-plan-kpi"><div class="fc-plan-kpi-label">Reserva sugerida hoje</div><div class="fc-plan-kpi-value">${fmtBRL(p.reservaHoje)}</div><div class="fc-plan-kpi-note">Antecipação para déficits futuros · não é pagamento do dia</div></div>
   </div>`;
 
   const nomesSemana=['Esta semana','Próxima semana','Semana seguinte'];
@@ -2297,9 +2336,14 @@ function renderVisaoSemanal(){
     <div class="fc-plan-week-period">${labelDiaMesPlanejamento_(s.iniStr)} a ${labelDiaMesPlanejamento_(s.fimStr)}</div>
     <div class="fc-plan-week-value">${fmtBRL(s.vencimentos)}</div>
     <div class="fc-plan-week-note">${s.qtd} título${s.qtd===1?'':'s'} para pagar nesta semana</div>
+    <div class="fc-plan-week-breakdown">
+      <div class="fc-plan-week-row"><span>Recebimentos previstos</span><strong>${fmtBRL(s.recebimentos)}</strong></div>
+      <div class="fc-plan-week-row"><span>Saldo projetado no fim</span><strong style="color:${s.saldoFim<0?'var(--red)':'var(--green)'}">${fmtBRL(s.saldoFim)}</strong></div>
+      <div class="fc-plan-week-row fc-plan-week-need"><span>Caixa adicional necessário</span><strong>${fmtBRL(s.necessidadeSemana)}</strong></div>
+    </div>
   </div>`).join('');
   const semanasHtml=`<div class="fc-plan-section">
-    <div class="fc-plan-section-head"><div><div class="fc-plan-section-title">Quanto vence por semana</div><div class="fc-plan-section-sub">Valores que realmente estão programados na linha Pagamentos.</div></div></div>
+    <div class="fc-plan-section-head"><div><div class="fc-plan-section-title">Planejamento por semana</div><div class="fc-plan-section-sub">Quanto vence e quanto ainda falta de caixa depois do saldo e dos recebimentos previstos.</div></div></div>
     <div class="fc-plan-week-grid">${cardsSemana}</div>
   </div>`;
 
@@ -2313,11 +2357,11 @@ function renderVisaoSemanal(){
     </div>`;
   }).join('');
   const diasHtml=`<div class="fc-plan-section">
-    <div class="fc-plan-section-head"><div><div class="fc-plan-section-title">Sugestão de reserva por dia útil</div><div class="fc-plan-section-sub">Cada título é dividido pelos dias úteis restantes até o próprio vencimento.</div></div><div class="fc-plan-reserva-alert">ⓘ Reserva · não é pagamento do dia</div></div>
+    <div class="fc-plan-section-head"><div><div class="fc-plan-section-title">Sugestão de reserva por dia útil</div><div class="fc-plan-section-sub">Somente a falta real de caixa é dividida pelos dias úteis até a data em que será necessária.</div></div><div class="fc-plan-reserva-alert">ⓘ Reserva · não é pagamento do dia</div></div>
     <div class="fc-plan-day-grid">${cardsDia}</div>
   </div>`;
   const rodape=`<div class="fc-plan-footer">
-    <span><strong>Como ler:</strong> os cards semanais mostram o que vence; os cards diários mostram quanto separar para chegar a cada vencimento com o caixa provisionado.</span>
+    <span><strong>Como ler:</strong> total a pagar não significa dinheiro adicional. A necessidade considera o saldo projetado, os recebimentos e os pagamentos de cada data.</span>
     <span><strong>Visão gerencial:</strong> não cria rateios nem altera os lançamentos do fluxo.</span>
   </div>`;
   wrap.innerHTML=kpis+semanasHtml+diasHtml+rodape;
