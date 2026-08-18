@@ -160,8 +160,8 @@ function renderWhatsAnalysis(){
     `💰 Vendas realizadas: ${fmt(revenue)}`,
     `📆 Vendas D-1: ${fmt(d1)}`,
   ];
-  if(selectedGroup==='ALL')lines.push(`🟦 Receita EA: ${fmt(ea)}`,`🧙 Receita CW: ${fmt(cw)}`,`📦 Receita MW: ${fmt(mw)}`);
-  lines.push('',`📈 Mês anterior até D-1: ${fmt(prevRev)} (${fmtPct(pctChange(revenue,prevRev))})`,`🗓️ Ano anterior até D-1: ${fmt(aaRev)} (${fmtPct(pctChange(revenue,aaRev))})`,'',`📅 Dias com venda: ${daysWithSales}`,`⏳ Dias restantes: ${remaining}`,'',`📊 Média diária: ${fmt(avg)}`,'',`🔮 Se continuar nesse ritmo: ${fmt(projection)}`,`💵 Último dia com venda: ${fmt(lastDayValue)}`,'',`🧠 Insight: Venda é hábito diário`,'',`🔗 ${link}`);
+  if(selectedGroup==='ALL')lines.push(`🟦 Receita EA: ${fmt(ea)}`,`🟩 Receita CW: ${fmt(cw)}`,`📦 Receita MW: ${fmt(mw)}`);
+  lines.push('',`📈 Mês anterior até D-1: ${fmt(prevRev)} (${fmtPct(pctChange(revenue,prevRev))})`,`🗓️ Ano anterior até D-1: ${fmt(aaRev)} (${fmtPct(pctChange(revenue,aaRev))})`,'',`📅 Dias com venda: ${daysWithSales}`,`⏳ Dias restantes: ${remaining}`,'',`📊 Média diária: ${fmt(avg)}`,'',`📈 Projeção no ritmo atual: ${fmt(projection)}`,`💵 Último dia com venda: ${fmt(lastDayValue)}`,'',`🧠 Insight: Venda é hábito diário`,'',`🔗 ${link}`);
   out.textContent=lines.join('\n');
 }
 function render(){baseCache=null;expandedComparisonChannels.clear();if(renderFrame)cancelAnimationFrame(renderFrame);renderFrame=requestAnimationFrame(()=>{renderFrame=0;renderNow()})}
