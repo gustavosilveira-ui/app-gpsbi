@@ -415,15 +415,6 @@ html.light .fc-day-num{color:#1f2a3d;}
         <div class="modal-actions"><button class="btn btn-ghost" onclick="closeSaldoInicialModal()">Fechar</button></div>
       </div>
     </div>
-
-    <!-- Modal: histórico dos Lançamentos Manuais -->
-    <div class="modal-overlay" id="ajustesManuaisModal">
-      <div class="modal-box" style="width:520px;">
-        <div class="modal-title">🖊️ Lançamentos Manuais</div>
-        <div class="modal-sub">Todos os valores lançados à mão que estão entrando no Saldo Acumulado hoje.</div>
-        <div id="fcAjusteList"></div>
-        <div class="modal-actions"><button class="btn btn-ghost" onclick="closeAjustesManuaisModal()">Fechar</button></div>
-      </div>
     </div>
 
     <!-- Modal: ficha do item do Fluxo -->
@@ -550,27 +541,6 @@ html.light .fc-day-num{color:#1f2a3d;}
       <div id="fcMsgList" class="fc-msg-scroll"></div>
     </div>
 
-    <!-- A partir daqui: visões só do time GPS. Ficam sempre por último na
-         página, independente de outras mudanças futuras. -->
-    <div class="card" id="fcAjustesGpsCard">
-      <div class="fc-ajustes-row">
-        <div class="fc-ajustes-col">
-        <div class="fc-ajustes-divider"></div>
-        <div class="fc-ajustes-col">
-          <div class="fc-mini-title">🖊️ Lançamentos Manuais</div>
-          <div class="fc-mini-sub">Valor lançado à mão (despesa sem categoria ainda, etc). Entra de verdade no Saldo Acumulado. Visível só pro time GPS.</div>
-          <div class="fc-mini-form fc-mini-form-4">
-            <select id="fcAjusteEmpresa" style="display:none;"><option value="alkanse">Alkanse</option></select>
-            <input type="text" id="fcAjusteDesc" placeholder="Descrição">
-            <input type="number" id="fcAjusteValor" placeholder="Valor (R$)">
-            <input type="date" id="fcAjusteData">
-            <button class="btn btn-primary btn-sm" onclick="addAjusteManual()">Adicionar</button>
-          </div>
-          <button class="btn btn-ghost btn-sm" style="margin-top:10px;" onclick="openAjustesManuaisModal()">Ver lançamentos <span id="fcAjusteCount"></span></button>
-        </div>
-      </div>
-    </div>
-
     <div class="card" id="fcAnaliseWhatsCard" style="display:none;">
       <div class="card-title">📋 Análise pronta pra WhatsApp</div>
       <div class="card-sub">Texto pronto com o saldo e a previsão do fluxo — cole direto no grupo do cliente. Visível só pro time GPS.</div>
@@ -657,14 +627,12 @@ function canAccessFluxo(email){
   email = (email||'').toLowerCase();
   return email.endsWith('@gpsbi.com.br') || email.endsWith('@grupofb.com.br');
 }
-// Saldo Inicial e Lançamentos Manuais: aqui o financeiro do cliente TAMBÉM
-// lança (diferente do Mebrasi) — decisão do Gustavo de 13/08/2026, porque
-// eles não têm acesso automatizado ao banco e preenchem manualmente todo
-// dia. isGpsStaff() continua existindo só pra outras travas futuras.
+// Saldo do dia: usuários autorizados do cliente também podem informar os bancos.
+// Lançamentos Manuais foram removidos deste cliente em 18/08/2026.
 function isGpsStaff(email){
   return (email||'').toLowerCase().endsWith('@gpsbi.com.br');
 }
-const ALLOWED_FLUXO_EMAILS = ['daniel.morante@grupofb.com.br','karina@grupofb.com.br','juliana@grupofb.com.br','andressa@grupofb.com.br'];
+const ALLOWED_FLUXO_EMAILS = ['daniel.morante@grupofb.com.br','karina@grupofb.com.br','juliana@grupofb.com.br','andressa@grupofb.com.br','pedro.kim@grupofb.com.br'];
 function podeVerFluxoCaixa(email){
   const e = (email||'').toLowerCase();
   return isGpsStaff(e) || ALLOWED_FLUXO_EMAILS.includes(e);
@@ -1353,7 +1321,6 @@ async function init(){
     }
 
     gpsStaff = isGpsStaff(email);
-    if(!gpsStaff){ const card = el('fcAjustesGpsCard'); if(card) card.style.display='none'; }
     document.documentElement.style.visibility='visible'; // mostra o spinner (ou erro) já de cara
     aplicarBadgesNav(currentUser.email);
 
@@ -1691,7 +1658,6 @@ async function loadData(){
     rebuildRowsNoEscopo();
 
     await loadSaldoInicial();
-    await loadAjustesManuais(); // injeta os lançamentos manuais como movimentação real
     await loadAplicacoes();
     await loadAplicacaoSaques(); // injeta os saques de aplicação como recebimento real
     loadLimiteConta();
@@ -1935,16 +1901,9 @@ function buildRowTree(){
 
   // Lançamentos manuais (GPS): entram como uma linha própria, pra ficar claro
   // que é um valor lançado à mão e não vindo direto da planilha do cliente.
-  const ajustesCats = Array.from(catsByGrupo['AJUSTES_MANUAIS']||[]).sort((a,b)=>a.localeCompare(b,'pt-BR'));
-  if(ajustesCats.length){
-    nodes.push({
-      type:'ajustes', level:0, label:'LANÇAMENTOS MANUAIS (GPS)', histKey:normalizeTxt('AJUSTES MANUAIS'), filter:r=>r.grupo==='AJUSTES_MANUAIS', expanded:false,
-      children: ajustesCats.map(c=>({ type:'cat', level:2, label:c, filter:isCategoria(c,'AJUSTES_MANUAIS'), expanded:false, children:[] }))
-    });
-  }
 
   // Fechamento / conciliação — mesmas três linhas do BI Financeiro.
-  // SALDO FINAL (SAN) = Saldo inicial do dia + Recebimentos - Pagamentos + Ajustes Manuais.
+  // SALDO FINAL (SAN) = Saldo inicial do dia + Recebimentos - Pagamentos.
   // DELTA SALDO = SALDO FINAL (SAN) - SALDO FINAL BANCO.
   // SALDO FINAL BANCO = soma dos bancos informada pelo usuário interno para aquela data.
   nodes.push(
@@ -1988,10 +1947,6 @@ function pagamentosRealizadosDia_(data){
   return rows.filter(r => r.date===data && isPagamentoResumo(r))
     .reduce((s,r)=>s + Math.abs(Number(r.valor)||0), 0);
 }
-function ajustesManuaisDia_(data){
-  return rows.filter(r => r.date===data && r.grupo==='AJUSTES_MANUAIS')
-    .reduce((s,r)=>s + (Number(r.valor)||0), 0);
-}
 
 function saldoFinalSanData_(data){
   if(!selectedEmpresa && data <= HISTORICO_OFICIAL_ATE){
@@ -2001,8 +1956,7 @@ function saldoFinalSanData_(data){
   if(inicio===null) return null;
   return inicio
     + recebimentosRealizadosDia_(data)
-    - pagamentosRealizadosDia_(data)
-    + ajustesManuaisDia_(data);
+    - pagamentosRealizadosDia_(data);
 }
 
 function deltaSaldoData_(data){
@@ -2875,9 +2829,8 @@ function sumAplicacoesRange(empresa, start, end){
   return total;
 }
 // Saques: cada um vira uma linha real de RECEBIMENTOS em rowsByEmpresa,
-// na data do saque — assim o Saldo Acumulado passa a contar com ele a
-// partir dali automaticamente, pelo mesmo mecanismo que já existe pros
-// Lançamentos Manuais.
+// na data do saque — assim o Saldo Acumulado passa a contar com ele
+// a partir dali automaticamente.
 let aplicacaoSaques = [];
 async function loadAplicacaoSaques(){
   const { data, error } = await sb.from('fluxo_aplicacoes_saques').select('*').order('data',{ascending:true});
@@ -2986,54 +2939,6 @@ async function confirmarSaquePopup(){
 
   await loadAplicacaoSaques();
   fecharAplicacaoPopup();
-  buildAndRenderTable();
-}
-
-/* ================== NOVO: Lançamentos Manuais (por empresa) ================== */
-// Diferente do "Simulador de Impacto" (que é só um "e se"), isso aqui vira
-// movimentação de verdade: entra em rowsByEmpresa e é somado no Saldo Acumulado real.
-let ajustesManuais = [];
-async function loadAjustesManuais(){
-  const { data, error } = await sb.from('fluxo_ajustes_manuais').select('*').order('data',{ascending:true});
-  ajustesManuais = (!error && data) ? data : [];
-  EMPRESAS.forEach(emp=>{ rowsByEmpresa[emp] = (rowsByEmpresa[emp]||[]).filter(r=>r.grupo!=='AJUSTES_MANUAIS'); });
-  ajustesManuais.forEach(a=>{
-    if(!rowsByEmpresa[a.empresa]) rowsByEmpresa[a.empresa] = [];
-    rowsByEmpresa[a.empresa].push({ date:a.data, categoria: a.descricao || 'Lançamento manual', grupo:'AJUSTES_MANUAIS', valor:a.valor, empresa:a.empresa });
-  });
-  EMPRESAS.forEach(emp=>{ (rowsByEmpresa[emp]||[]).sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:0); });
-  rebuildRowsNoEscopo();
-  renderAjustesManuaisList();
-}
-function renderAjustesManuaisList(){
-  const wrap = el('fcAjusteList');
-  if(!wrap) return;
-  wrap.innerHTML = ajustesManuais.length ? ajustesManuais.map(a=>`
-    <div class="fc-sim-entry">
-      <span class="desc">${EMPRESA_LABEL[a.empresa]||a.empresa} · ${a.descricao}</span>
-      <span class="data">${new Date(a.data+'T00:00:00').toLocaleDateString('pt-BR')}</span>
-      <span class="valor" style="color:${a.valor>=0?'#98C47C':'var(--red)'}">${fmtBRL(a.valor)}</span>
-      <button class="del" onclick="removeAjusteManual(${a.id})">✕</button>
-    </div>`).join('') : '<div style="color:var(--text3);font-size:12.5px;">Nenhum lançamento manual ativo.</div>';
-  const countEl = el('fcAjusteCount');
-  if(countEl) countEl.textContent = ajustesManuais.length ? `(${ajustesManuais.length})` : '';
-}
-async function addAjusteManual(){
-  const empresa = el('fcAjusteEmpresa').value;
-  const descricao = el('fcAjusteDesc').value.trim();
-  const valor = parseFloat(el('fcAjusteValor').value);
-  const data = el('fcAjusteData').value;
-  if(!descricao || isNaN(valor) || !data){ alert('Preencha descrição, valor e data.'); return; }
-  const { error } = await sb.from('fluxo_ajustes_manuais').insert({ empresa, data, descricao, valor, criado_por: nameFromEmail(currentUser.email) });
-  if(error){ alert('Erro ao salvar: '+error.message); return; }
-  el('fcAjusteDesc').value=''; el('fcAjusteValor').value=''; el('fcAjusteData').value='';
-  await loadAjustesManuais();
-  buildAndRenderTable();
-}
-async function removeAjusteManual(id){
-  if(!confirm('Remover esse lançamento manual? Ele deixa de contar no Saldo Acumulado.')) return;
-  await sb.from('fluxo_ajustes_manuais').delete().eq('id', id);
-  await loadAjustesManuais();
   buildAndRenderTable();
 }
 
