@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Fluxo de Caixa · Alkanse</title>
+<!-- v2026-08-18-base-direta: PlanodeContas direto; BI Financeiro descontinuável -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
@@ -577,7 +578,7 @@ html.light .fc-day-num{color:#1f2a3d;}
 <script>
 const SUPABASE_URL = 'https://ikncdkgaefwzdveotvka.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_XtrW_VlYPu1bE7FNA1V2lA_Srq9c5T6';
-const SHEET_ID = '1YbJeKx7X2MuDbOhY-SPSYPmM1RfyFzHeL4OyBhn9fpo';
+const SHEET_ID = '18O09LgCB1eWcxdABAzYUPGW2rYc0GHGp8eOOn9xM_VI'; // fonte direta: planoContas.xls / PlanodeContas
 // Planilha comercial (FatoVendas) — mesma usada no BI Comercial e no
 // depositos.html — usada só pra cruzar Pedido -> Cond Pagto/Dt Entrega
 // Solicitada (decisão de 27/07/2026, pra tratar "Depósito Antecipado"/
@@ -1170,28 +1171,61 @@ function rowsFromCR(table, empresa){
 // código (KPI strip, árvore de categorias, Saldo Acumulado etc.) não precisa
 // saber a diferença entre as duas fontes.
 function rowsFromFinanceiro(table, empresa){
+  // Fonte DIRETA: aba PlanodeContas que recebe o planoContas.xls.
+  // Racional reproduzido da aba "Fluxo de Caixa" do BI Financeiro:
+  //   Data Real = Data Caixa, quando preenchida; senão Data Vencimento.
+  //   Recebimentos: passado = somente "Recebido"; hoje/futuro = somente "EM ABERTO".
+  //   Pagamentos: Débito por Data Real + Conta (a fórmula do Excel não filtra Situação).
   const raw = parseGvizRows(table);
   const out = { pg:[], cr:[], cap:[], venc:[] };
+
   raw.forEach(r=>{
-    const conta = (getColNormalized(r,'conta')||'').toString().trim();
-    const nome = (getColNormalized(r,'nome')||'').toString().trim();
-    if(!conta && !nome) return; // linha vazia
-    const situacao = normalizeTxt(getColNormalized(r,'situacao'));
-    const debito = parseMoneyBR(getColNormalized(r,'debito'));
-    const credito = parseMoneyBR(getColNormalized(r,'credito'));
-    const valor = credito - debito;
-    if(!valor) return;
-    const realizado = situacao === 'pago' || situacao === 'recebido';
-    const dateCaixa = parseDateCell(getColNormalized(r,'data caixa'));
-    const dateVenc = parseDateCell(getColNormalized(r,'data vencimento'));
-    const date = realizado ? (dateCaixa || dateVenc) : dateVenc;
+    const conta = cleanCell(getColNormalized(r,'conta'));
+    const nome = cleanCell(getColNormalized(r,'nome'));
+    if(!conta && !nome) return;
+
+    const situacaoOriginal = cleanCell(getColNormalized(r,'situacao'));
+    const situacao = normalizeTxt(situacaoOriginal);
+    const debito = Math.abs(parseMoneyBR(getColNormalized(r,'debito')));
+    const credito = Math.abs(parseMoneyBR(getColNormalized(r,'credito')));
+
+    const dataCaixa = parseDateCell(getColNormalized(r,'data caixa'));
+    const dataVenc = parseDateCell(getColNormalized(r,'data vencimento'));
+    const date = dataCaixa || dataVenc; // exatamente a coluna "Data Real" do BI
     if(!date) return;
-    const origem = realizado ? (valor < 0 ? 'pg' : 'cr') : (valor < 0 ? 'cap' : 'venc');
-    const { categoria, grupo, contaNoSaldo } = finalizarLinha(conta, valor, null, origem, date, empresa, null);
-    const doc = (getColNormalized(r,'documento/nf')||'').toString().trim();
-    const linha = { date, categoria, grupo, valor, empresa, origem, contaNoSaldo, titulo: doc, nome, cnpj:'', banco:'', forma:'', situacao: (getColNormalized(r,'situacao')||'').toString() };
-    out[origem].push(linha);
+
+    const doc = cleanCell(getColNormalized(r,'documento/nf')) || cleanCell(getColNormalized(r,'documento'));
+
+    // PAGAMENTOS — mesma lógica dos SUMIFS da aba Fluxo de Caixa:
+    // soma Débito por Conta + Data Real, sem filtro de Situação.
+    if(debito > 0){
+      const valor = -debito;
+      const realizado = situacao === 'pago';
+      const origem = realizado ? 'pg' : 'cap';
+      const { categoria, grupo, contaNoSaldo } = finalizarLinha(conta, valor, null, origem, date, empresa, null);
+      out[origem].push({
+        date, categoria, grupo, valor, empresa, origem, contaNoSaldo,
+        titulo: doc, nome, cnpj:'', banco:'', forma:'', situacao:situacaoOriginal
+      });
+    }
+
+    // RECEBIMENTOS — fórmula do BI muda a Situação conforme TODAY():
+    // datas anteriores: "Recebido"; hoje e futuras: "EM ABERTO".
+    if(credito > 0){
+      const ehPassado = date < HOJE_ISO;
+      const deveEntrar = ehPassado ? (situacao === 'recebido') : (situacao === 'em aberto');
+      if(!deveEntrar) return;
+
+      const origem = ehPassado ? 'cr' : 'venc';
+      const valor = credito;
+      const { categoria, grupo, contaNoSaldo } = finalizarLinha(conta, valor, null, origem, date, empresa, null);
+      out[origem].push({
+        date, categoria, grupo, valor, empresa, origem, contaNoSaldo,
+        titulo: doc, nome, cnpj:'', banco:'', forma:'', situacao:situacaoOriginal
+      });
+    }
   });
+
   return out;
 }
 
@@ -1823,9 +1857,10 @@ async function loadData(){
     // e sem Aplicações Financeiras/Limite por Empresa (ainda não construídos
     // pra esse cliente — loadLimiteConta() abaixo é só localStorage, sem risco).
     for(const empresa of EMPRESAS){
-      const tFinanceiro = await fetchGvizSheet('Financeiro');
+      const tFinanceiro = await fetchGvizSheet('PlanodeContas');
       const { pg: pgRows0, cr: crRows0, cap: capRows, venc: vencRows } = rowsFromFinanceiro(tFinanceiro, empresa);
-      const { pg: pgRows, cr: crRows } = aplicarHistoricoOficial(pgRows0, crRows0, capRows, vencRows, empresa);
+      const pgRows = pgRows0;
+      const crRows = crRows0; // sem histórico embutido: tudo vem da base direta
       pagosRealizadosByEmpresa[empresa] = pgRows.slice();
       // Tudo junto na mesma grade e no mesmo Saldo Acumulado — pg_/cr_
       // (realizado) + cap_/venc_ (previsto/aberto), cada um na sua data
@@ -1853,7 +1888,7 @@ async function loadData(){
     if(el('snapInicio')) el('snapInicio').value = addDaysISO(HOJE_ISO, -7);
   }catch(e){
     console.error(e);
-    el('loadingMsg').textContent = 'Erro ao carregar a base: '+e.message+'. Confira se a aba "Financeiro" está compartilhada como "Qualquer pessoa com o link -> Leitor".';
+    el('loadingMsg').textContent = 'Erro ao carregar a base: '+e.message+'. Confira se a aba "PlanodeContas" está compartilhada como "Qualquer pessoa com o link -> Leitor".';
   }
 }
 
@@ -1937,14 +1972,7 @@ function runningBalanceEmpresa(empresa, uptoDate){
   if(override && override.data_referencia === uptoDate){
     return Number(override.valor) || 0;
   }
-  // Histórico oficial (jan a 15/08/2026): usa o valor exato importado da
-  // planilha, sem depender do saldo inicial cadastrado nem do cálculo
-  // cumulativo abaixo — pedido do Gustavo (17/08/2026) de bater exatamente
-  // com a planilha oficial pra esse período, EXCETO nos dias em que o
-  // usuário já lançou o valor manualmente (checado acima).
-  if(Object.prototype.hasOwnProperty.call(HISTORICO_SALDO_POR_DATA, uptoDate)){
-    return HISTORICO_SALDO_POR_DATA[uptoDate];
-  }
+  // Sem histórico congelado no HTML: o saldo é calculado da base a partir do último 'Saldo do dia' cadastrado.
   return rawRunningBalanceEmpresa(empresa, uptoDate);
 }
 // Cálculo "cru" — sempre soma a partir do último saldo lançado, sem os
@@ -3293,13 +3321,8 @@ let snapshotsAtuais = [];
 
 // Valores oficiais da aba "Operação Estática (Ago)". Eles preservam a
 // fotografia projetada do período sem somar duas vezes realizado + em aberto.
-const OPERACAO_ESTATICA_AGO = {
-  saldo: {"2026-08-01":2007149.15,"2026-08-02":2103722.27,"2026-08-03":2103722.27,"2026-08-04":2243859.85,"2026-08-05":2363828.77,"2026-08-06":1624639.31,"2026-08-07":1608817.55,"2026-08-08":1767379.65,"2026-08-09":1767379.65,"2026-08-10":1767379.65,"2026-08-11":1256659.37,"2026-08-12":1317320.28,"2026-08-13":1335998.54,"2026-08-14":1353557.37,"2026-08-15":1248392.75,"2026-08-16":1002092.56,"2026-08-17":1021348.56,"2026-08-18":1037427.48,"2026-08-19":1054070.07,"2026-08-20":1109281.96,"2026-08-21":861285.56,"2026-08-22":874107.63,"2026-08-23":1114404.65,"2026-08-24":1163487.70,"2026-08-25":1165033.50,"2026-08-26":768384.79,"2026-08-27":891888.54,"2026-08-28":1072796.91,"2026-08-29":1087208.57,"2026-08-30":1097957.11,"2026-08-31":903020.88},
-  receb: {"2026-08-01":0,"2026-08-02":0,"2026-08-03":159105.13,"2026-08-04":122237.23,"2026-08-05":105068.65,"2026-08-06":6736.97,"2026-08-07":149135.14,"2026-08-08":0,"2026-08-09":0,"2026-08-10":54630.52,"2026-08-11":62050.65,"2026-08-12":18678.26,"2026-08-13":17558.83,"2026-08-14":210561.75,"2026-08-15":84641.67,"2026-08-16":19256,"2026-08-17":16078.92,"2026-08-18":16642.59,"2026-08-19":55211.89,"2026-08-20":269213.53,"2026-08-21":15320,"2026-08-22":247452.26,"2026-08-23":49083.05,"2026-08-24":1545.80,"2026-08-25":43493.79,"2026-08-26":126258.75,"2026-08-27":193129.46,"2026-08-28":14411.66,"2026-08-29":10748.54,"2026-08-30":74196.15,"2026-08-31":0},
-  pago: {"2026-08-01":0,"2026-08-02":0,"2026-08-03":23473.82,"2026-08-04":2673.71,"2026-08-05":895982.77,"2026-08-06":18165.57,"2026-08-07":76.52,"2026-08-08":0,"2026-08-09":0,"2026-08-10":565350.80,"2026-08-11":1389.74,"2026-08-12":0,"2026-08-13":0,"2026-08-14":315726.37,"2026-08-15":330941.86,"2026-08-16":0,"2026-08-17":0,"2026-08-18":0,"2026-08-19":0,"2026-08-20":517209.93,"2026-08-21":2497.93,"2026-08-22":7155.24,"2026-08-23":0,"2026-08-24":0,"2026-08-25":440142.50,"2026-08-26":2755,"2026-08-27":12221.09,"2026-08-28":0,"2026-08-29":0,"2026-08-30":269132.38,"2026-08-31":2409.11},
-  delta: {"2026-08-01":0,"2026-08-02":0,"2026-08-03":0,"2026-08-04":87,"2026-08-05":0,"2026-08-06":0,"2026-08-07":0,"2026-08-08":0,"2026-08-09":0,"2026-08-10":0,"2026-08-11":0,"2026-08-12":0,"2026-08-13":0,"2026-08-14":0,"2026-08-15":177.05,"2026-08-16":0,"2026-08-17":0,"2026-08-18":0,"2026-08-19":0,"2026-08-20":0,"2026-08-21":0,"2026-08-22":0,"2026-08-23":0,"2026-08-24":0,"2026-08-25":0,"2026-08-26":0,"2026-08-27":0,"2026-08-28":0,"2026-08-29":0,"2026-08-30":0,"2026-08-31":0}
-};
-const OPERACAO_ESTATICA_ABERTO_MES = { '2026-08': 1209615.15 };
+const OPERACAO_ESTATICA_AGO = { saldo:{}, receb:{}, pago:{}, delta:{} };
+const OPERACAO_ESTATICA_ABERTO_MES = {};
 
 function somaOperacaoOficial_(mapa, inicio, fim){
   const datas = Object.keys(mapa).filter(d=>d>=inicio && d<=fim);
