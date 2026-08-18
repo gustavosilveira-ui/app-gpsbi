@@ -1,0 +1,8 @@
+{
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@vercel/oidc": "3.8.2",
+    "google-auth-library": "11.0.0"
+  }
+}
