@@ -554,7 +554,7 @@ html.light .fc-day-num{color:#1f2a3d;}
 <script>
 const SUPABASE_URL = 'https://ikncdkgaefwzdveotvka.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_XtrW_VlYPu1bE7FNA1V2lA_Srq9c5T6';
-const SHEET_ID = '1YbJeKx7X2MuDbOhY-SPSYPmM1RfyFzHeL4OyBhn9fpo'; // BaseDadosAlkanse > aba Financeiro
+const SHEET_ID = ''; // fonte protegida no backend /api/alkanse-financeiro
 // Planilha comercial (FatoVendas) — mesma usada no BI Comercial e no
 // depositos.html — usada só pra cruzar Pedido -> Cond Pagto/Dt Entrega
 // Solicitada (decisão de 27/07/2026, pra tratar "Depósito Antecipado"/
@@ -949,49 +949,34 @@ function parseMoneyBR(v){
 }
 
 async function fetchGvizSheet(sheetName){
-  // O endpoint GViz pode cortar respostas grandes. Isso fazia a pg_gymis
-  // parar perto de 20/07 e os dias seguintes aparecerem zerados.
-  // A leitura agora é paginada para garantir todas as linhas da aba.
-  const PAGE_SIZE = 4000;
-  let offset = 0;
-  let cols = null;
-  let allRows = [];
-
-  while(true){
-    const query = `select * limit ${PAGE_SIZE} offset ${offset}`;
-    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}&headers=1&tq=${encodeURIComponent(query)}&_=${Date.now()}`;
-    // Timeout de 15s — sem isso, se o Google não responder, a página fica
-    // presa na tela de carregando pra sempre e sem nenhum erro no Console
-    // (uma requisição pendente não gera log nenhum).
-    const controller = new AbortController();
-    const timeoutId = setTimeout(()=>controller.abort(), 15000);
-    let res;
-    try{
-      res = await fetch(url, { cache:'no-store', signal: controller.signal });
-    }catch(err){
-      if(err.name === 'AbortError') throw new Error(`Demorou demais pra carregar "${sheetName}" (mais de 15s sem resposta). Confira sua conexão ou tente recarregar.`);
-      throw err;
-    }finally{
-      clearTimeout(timeoutId);
-    }
-    if(!res.ok) throw new Error(`Falha ao carregar ${sheetName}: HTTP ${res.status}`);
-
-    const text = await res.text();
-    const clean = text.replace(/^[^{]*/, '').replace(/\s*\)\s*;?\s*$/, '');
-    const table = JSON.parse(clean).table;
-
-    if(!cols) cols = table.cols || [];
-    const pageRows = table.rows || [];
-    allRows = allRows.concat(pageRows);
-
-    if(pageRows.length < PAGE_SIZE) break;
-    offset += PAGE_SIZE;
-
-    // Proteção contra loop infinito em caso de resposta anormal.
-    if(offset > 50000) throw new Error(`Paginação excedeu o limite em ${sheetName}`);
+  if(sheetName !== 'Financeiro'){
+    throw new Error('Fonte não autorizada no frontend');
   }
 
-  return { cols: cols || [], rows: allRows };
+  const { data: sessData } = await sb.auth.getSession();
+  const token = sessData && sessData.session ? sessData.session.access_token : null;
+  if(!token) throw new Error('Sessão expirada');
+
+  const res = await fetch('/api/alkanse-financeiro', {
+    method:'GET',
+    headers:{ 'Authorization': `Bearer ${token}` },
+    cache:'no-store'
+  });
+
+  if(!res.ok){
+    let msg = `HTTP ${res.status}`;
+    try{
+      const e = await res.json();
+      if(e && e.error) msg = e.error;
+    }catch(_){}
+    throw new Error(msg);
+  }
+
+  const payload = await res.json();
+  if(!payload || !Array.isArray(payload.cols) || !Array.isArray(payload.rows)){
+    throw new Error('Resposta inválida da fonte protegida');
+  }
+  return payload;
 }
 async function fetchGvizByGid(sheetId, gid){
   const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&gid=${gid}&headers=1`;
@@ -1692,7 +1677,7 @@ async function loadData(){
     if(el('snapInicio')) el('snapInicio').value = addDaysISO(HOJE_ISO, -7);
   }catch(e){
     console.error(e);
-    el('loadingMsg').textContent = 'Erro ao carregar a BaseDadosAlkanse: '+e.message+'. Confira se a planilha e a aba "Financeiro" estão acessíveis como "Qualquer pessoa com o link -> Leitor".';
+    el('loadingMsg').textContent = 'Erro ao carregar a BaseDadosAlkanse: '+e.message+'. A fonte financeira protegida não respondeu.';
   }
 }
 
@@ -3475,5 +3460,19 @@ async function copiarImagemSnapshot(elId, btnEl){
 
 init();
 </script>
+
+<script>
+// Apenas desestimula inspeção casual; a proteção real está no backend.
+// Não é usado como mecanismo de segurança.
+document.addEventListener('contextmenu', e => e.preventDefault());
+document.addEventListener('keydown', e => {
+  const k = (e.key || '').toLowerCase();
+  if(k === 'f12' || (e.ctrlKey && ['u','s'].includes(k)) ||
+     (e.ctrlKey && e.shiftKey && ['i','j','c'].includes(k))){
+    e.preventDefault();
+  }
+});
+</script>
+
 </body>
 </html>
