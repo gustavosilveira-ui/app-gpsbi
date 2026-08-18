@@ -487,11 +487,10 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
 // ASSUNÇÃO A CONFIRMAR COM GUSTAVO/DANIELA: domínio de e-mail usado pelas duas empresas do grupo.
 // Hoje só temos o domínio da Daniela (gestora principal). Se Mister Wiz usar outro domínio,
 // adicionar aqui antes do deploy.
-const ALLOWED_SIGNUP_DOMAINS = ['empoderamentoadolescente.com.br', 'gpsbi.com.br'];
-// Acessos externos liberados individualmente. Não abrimos os domínios inteiros
-// da Mister Wiz/Sforza: somente estas contas podem se cadastrar e, depois do
-// login, continuam restritas exclusivamente à visão Mister Wiz.
-const ALLOWED_SIGNUP_EMAILS = ['miria@misterwiz.com.br', 'custodio@sforza.com.br'];
+const ALLOWED_SIGNUP_DOMAINS = ['empoderamentoadolescente.com.br', 'misterwiz.com.br', 'sforza.com.br', 'gpsbi.com.br'];
+// Domínios do grupo liberados para autocadastro. Miria e Custodio mantêm
+// a regra especial de acesso ao Fluxo somente na visão Mister Wiz.
+const ALLOWED_SIGNUP_EMAILS = [];
 function isAllowedSignupEmail(email){
   const normalizedEmail = (email || '').trim().toLowerCase();
   const domain = (normalizedEmail.split('@')[1] || '').toLowerCase();
@@ -700,7 +699,9 @@ function enterApp(user){
   const btnComercial = document.getElementById('btnComercialHome');
   if(btnComercial){
     const somenteMw = EMAILS_SOMENTE_MISTERWIZ.includes(display.email);
-    btnComercial.style.display = canAccessFluxo(display.email) ? '' : 'none';
+    // Todo usuário autorizado pode acessar o BI Comercial. Miria/Custodio
+    // entram na visão MW; os demais entram no consolidado do Grupo UUIZZ.
+    btnComercial.style.display = '';
     btnComercial.onclick = ()=>window.location.href = somenteMw ? 'painel.html' : 'painelgrupo.html';
     document.getElementById('comercialHomeTitle').textContent = somenteMw ? 'BI Comercial · Mister Wiz' : 'BI Comercial · Grupo UUIZZ';
     document.getElementById('comercialHomeSub').textContent = somenteMw

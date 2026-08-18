@@ -48,9 +48,17 @@ function renderAppNav({ activePage, userLabel, userRole, onLogout, sb, currentUs
   const navEmail = ((currentUser && currentUser.email)||'').toLowerCase();
   const comercialPage = _NAV_EMAILS_SOMENTE_MISTERWIZ.includes(navEmail)
     ? APP_PAGE_COMERCIAL_MW : APP_PAGE_COMERCIAL_GRUPO;
-  const pages = _navCanSeeFluxo(navEmail)
+  // Regra UUIZZ: todos os usuários autorizados veem o BI Comercial.
+  // Daniela/GPS veem também as áreas internas e o Fluxo; Miria/Custodio
+  // veem BI MW + Fluxo MW; os demais ficam somente no BI Comercial.
+  const isGps = navEmail.endsWith('@gpsbi.com.br');
+  const isDaniela = navEmail === 'daniela@empoderamentoadolescente.com.br';
+  const isMwRestrito = _NAV_EMAILS_SOMENTE_MISTERWIZ.includes(navEmail);
+  const pages = (isGps || isDaniela)
     ? [comercialPage, ...APP_PAGES, APP_PAGE_FLUXO]
-    : APP_PAGES;
+    : isMwRestrito
+      ? [comercialPage, APP_PAGE_FLUXO]
+      : [comercialPage];
   const navLinks = pages.map(p=>{
     const cls = p.href===activePage ? 'active' : '';
     return `<a class="${cls}" href="${p.href}">${p.label}</a>`;
