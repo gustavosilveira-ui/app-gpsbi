@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v2026-08-18-basedados-financeiro: fonte única BaseDadosAlkanse > aba Financeiro; sem histórico do BI Financeiro -->
+<!-- v2026-08-18-saldos-finais: BaseDadosAlkanse > Financeiro + SALDO FINAL SAN / DELTA / BANCO no fim do fluxo -->
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -128,6 +128,12 @@ html.light .fc-lvl-0 td{background:#eef1f6;}
 .fc-lvl-1{font-weight:700;padding-left:14px;}
 .fc-row-destaque td{background:rgba(245,185,66,.10);}
 .fc-row-destaque .fc-row-label{font-weight:800;}
+.fc-row-fechamento td{background:rgba(113,174,84,.18) !important;font-weight:800;}
+html.light .fc-row-fechamento td{background:#D9EAD3 !important;color:#1f2a1f;}
+.fc-row-delta td{background:rgba(113,174,84,.10) !important;font-weight:700;}
+html.light .fc-row-delta td{background:#EAF4E4 !important;color:#1f2a1f;}
+.fc-row-fechamento .fc-row-label,.fc-row-delta .fc-row-label{cursor:default;}
+
 .fc-kpi-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;}
 .fc-kpi-mini{background:var(--navy3);border:1px solid var(--border2);border-radius:10px;padding:10px 12px;}
 .fc-kpi-mini-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.03em;font-weight:700;margin-bottom:3px;}
@@ -1690,7 +1696,8 @@ function sumInRange(catFilterFn, start, end){
 // Se houver um saldo inicial definido (ver seção "Saldo Inicial" mais abaixo),
 // datas a partir dele passam a somar em cima desse valor em vez do zero absoluto;
 // datas anteriores continuam com o cálculo normal (soma de todo o histórico).
-let saldoIniciais = {}; // { empresa: {data_referencia, valor} }
+let saldoIniciais = {}; // último saldo lançado por empresa — continua sendo a âncora do saldo acumulado
+let saldosBancoPorData = {}; // histórico: { empresa: { 'YYYY-MM-DD': row } } — alimenta SALDO FINAL BANCO e DELTA
 
 // Saldo acumulado de UMA empresa até uma data, respeitando o saldo inicial
 // dela (se houver). Os lançamentos manuais já estão dentro de rowsByEmpresa.
@@ -1854,6 +1861,16 @@ function buildRowTree(){
     });
   }
 
+  // Fechamento / conciliação — mesmas três linhas do BI Financeiro.
+  // SALDO FINAL (SAN) = Saldo inicial do dia + Recebimentos - Pagamentos + Ajustes Manuais.
+  // DELTA SALDO = SALDO FINAL (SAN) - SALDO FINAL BANCO.
+  // SALDO FINAL BANCO = soma dos bancos informada pelo usuário interno para aquela data.
+  nodes.push(
+    { type:'saldoFinalSan', level:0, label:'SALDO FINAL (SAN)', special:'saldoFinalSan', expanded:false, children:[] },
+    { type:'deltaSaldo', level:0, label:'DELTA SALDO', special:'deltaSaldo', expanded:false, children:[] },
+    { type:'saldoFinalBanco', level:0, label:'SALDO FINAL BANCO', special:'saldoFinalBanco', expanded:false, children:[] }
+  );
+
   return nodes;
 }
 function flattenRows(nodes){
@@ -1863,6 +1880,57 @@ function flattenRows(nodes){
     if(n.expanded && n.children && n.children.length) out = out.concat(flattenRows(n.children));
   }
   return out;
+}
+
+
+// ================== FECHAMENTO / CONCILIAÇÃO ==================
+// Valor de banco informado manualmente para uma data exata.
+// Ausência de lançamento = 0, exatamente como a planilha atual mostra.
+function saldoFinalBancoData_(data){
+  const empresasNoEscopo = selectedEmpresa ? [selectedEmpresa] : EMPRESAS;
+  return empresasNoEscopo.reduce((s, emp)=>{
+    const row = saldosBancoPorData[emp] && saldosBancoPorData[emp][data];
+    return s + (row ? (Number(row.valor)||0) : 0);
+  }, 0);
+}
+
+function recebimentosRealizadosDia_(data){
+  return rows
+    .filter(r => r.date===data && isRecebimentoResumo(r))
+    .reduce((s,r)=>s + Math.abs(Number(r.valor)||0), 0);
+}
+function pagamentosRealizadosDia_(data){
+  return rows
+    .filter(r => r.date===data && isPagamentoResumo(r))
+    .reduce((s,r)=>s + Math.abs(Number(r.valor)||0), 0);
+}
+function ajustesManuaisDia_(data){
+  return rows
+    .filter(r => r.date===data && r.grupo==='AJUSTES_MANUAIS')
+    .reduce((s,r)=>s + (Number(r.valor)||0), 0);
+}
+
+// Reproduz UK7 + UK9 - UK23 + UK177:
+// saldo inicial (fechamento do dia anterior) + recebimentos - pagamentos + ajustes.
+// O saldo do dia anterior usa a mesma âncora bancária/cálculo já utilizada pelo Hub.
+function saldoFinalSanData_(data){
+  const diaAnterior = addDaysISO(data, -1);
+  const saldoInicialDia = runningBalance(diaAnterior);
+
+  // Se não houver base anterior calculável, mas existir banco informado no próprio dia,
+  // ainda não inventamos um SAN: sem saldo inicial confiável, o resultado é indisponível.
+  if(saldoInicialDia === null) return null;
+
+  return saldoInicialDia
+    + recebimentosRealizadosDia_(data)
+    - pagamentosRealizadosDia_(data)
+    + ajustesManuaisDia_(data);
+}
+
+function deltaSaldoData_(data){
+  const san = saldoFinalSanData_(data);
+  if(san === null) return null;
+  return san - saldoFinalBancoData_(data);
 }
 
 /* ================== RENDER ================== */
@@ -2016,11 +2084,13 @@ function renderTable(){
   visibleRows.forEach((rNode, rowIdx)=>{
     const rowId = 'r'+rowIdx;
     fcRowDetailRefs[rowId] = rNode;
-    const cls = `fc-lvl-${rNode.level}${rNode.label==='Títulos em Aberto' ? ' fc-row-destaque' : ''}`;
+    const fechamentoCls = (rNode.special==='saldoFinalSan' || rNode.special==='saldoFinalBanco') ? ' fc-row-fechamento' : (rNode.special==='deltaSaldo' ? ' fc-row-delta' : '');
+    const cls = `fc-lvl-${rNode.level}${rNode.label==='Títulos em Aberto' ? ' fc-row-destaque' : ''}${fechamentoCls}`;
     const hasChildren = rNode.children && rNode.children.length;
     const arrow = hasChildren ? `<span class="fc-toggle">${rNode.expanded?'▾':'▸'}</span> ` : (rNode.level>0 ? '<span class="fc-toggle"></span> ' : '');
     const labelSafe = rNode.label.replace(/'/g,"\\'");
-    const labelClick = hasChildren ? `toggleRowNode('${labelSafe}', ${rNode.level})` : ((rNode.special==='saldo'||rNode.special==='aplicacoes') ? '' : `openFluxoFicha('${rowId}', null)`);
+    const ehLinhaFechamento = ['saldoFinalSan','deltaSaldo','saldoFinalBanco'].includes(rNode.special);
+    const labelClick = hasChildren ? `toggleRowNode('${labelSafe}', ${rNode.level})` : ((rNode.special==='saldo'||rNode.special==='aplicacoes'||ehLinhaFechamento) ? '' : `openFluxoFicha('${rowId}', null)`);
     tbody += `<tr class="${cls}" data-key="${rNode._key||''}">`;
     tbody += `<td class="fc-row-label" onclick="${labelClick}">${arrow}${rNode.label}</td>`;
     cols.forEach((c, colIdx)=>{
@@ -2036,6 +2106,23 @@ function renderTable(){
           const cellCls = (val>=0?'fc-saldo-pos':'fc-saldo-neg') + (c.isToday?' fc-today':'');
           tbody += `<td class="${cellCls}">${fmtBRL(val)}</td>`;
         }
+      } else if(rNode.special==='saldoFinalSan'){
+        val = saldoFinalSanData_(c.end);
+        if(val===null){
+          tbody += `<td class="fc-saldo-indisponivel${c.isToday?' fc-today':''}" title="Sem saldo inicial confiável para calcular o fechamento SAN.">—</td>`;
+        }else{
+          tbody += `<td class="${c.isToday?'fc-today':''}">${fmtBRL(val)}</td>`;
+        }
+      } else if(rNode.special==='deltaSaldo'){
+        val = deltaSaldoData_(c.end);
+        if(val===null){
+          tbody += `<td class="fc-saldo-indisponivel${c.isToday?' fc-today':''}">—</td>`;
+        }else{
+          tbody += `<td class="${c.isToday?'fc-today':''}">${fmtBRL(val)}</td>`;
+        }
+      } else if(rNode.special==='saldoFinalBanco'){
+        val = saldoFinalBancoData_(c.end);
+        tbody += `<td class="${c.isToday?'fc-today':''}" title="Soma dos saldos bancários informados pelo usuário interno para esta data.">${fmtBRL(val)}</td>`;
       } else if(rNode.special==='aplicacoes'){
         // Editável célula a célula só quando uma empresa específica está
         // selecionada e é uma coluna de dia (não faz sentido editar um
@@ -2520,7 +2607,17 @@ function renderLimiteContaHeaderAlert(info){
 async function loadSaldoInicial(){
   const { data, error } = await sb.from('fluxo_saldo_inicial').select('*').order('criado_em',{ascending:false});
   saldoIniciais = {};
-  if(!error && data){ data.forEach(row=>{ if(!saldoIniciais[row.empresa]) saldoIniciais[row.empresa] = row; }); }
+  saldosBancoPorData = {};
+  if(!error && data){
+    data.forEach(row=>{
+      if(!saldoIniciais[row.empresa]) saldoIniciais[row.empresa] = row; // mais recente = âncora atual
+      if(!saldosBancoPorData[row.empresa]) saldosBancoPorData[row.empresa] = {};
+      // como veio em criado_em desc, preserva o lançamento mais novo caso exista duplicidade na mesma data
+      if(!saldosBancoPorData[row.empresa][row.data_referencia]){
+        saldosBancoPorData[row.empresa][row.data_referencia] = row;
+      }
+    });
+  }
   renderSaldoInicialStatus();
 }
 function renderSaldoInicialStatus(){
@@ -2619,7 +2716,9 @@ async function salvarSaldoDia(){
   const valor = linhasBanco.reduce((s,l)=>s+l.valor,0);
   if(!data_referencia || !linhasBanco.length){ alert('Preencha a data e ao menos um banco com saldo.'); return; }
   const detalhe = linhasBanco.filter(l=>l.banco).map(l=>`${l.banco}: ${fmtBRL(l.valor)}`).join(' · ');
-  await sb.from('fluxo_saldo_inicial').delete().eq('empresa', empresa);
+  // Guarda histórico por data. Ao salvar novamente a MESMA data, substitui só aquele dia;
+  // saldos de dias anteriores permanecem disponíveis para SALDO FINAL BANCO / DELTA SALDO.
+  await sb.from('fluxo_saldo_inicial').delete().eq('empresa', empresa).eq('data_referencia', data_referencia);
   const { error } = await sb.from('fluxo_saldo_inicial').insert({ empresa, data_referencia, valor, detalhe, criado_por: nameFromEmail(currentUser.email) });
   if(error){ alert('Erro ao salvar: '+error.message); return; }
   closeSaldoDiaModal();
@@ -2627,8 +2726,13 @@ async function salvarSaldoDia(){
   renderTable();
 }
 async function removeSaldoInicial(empresa){
-  if(!confirm('Remover o saldo lançado?')) return;
-  await sb.from('fluxo_saldo_inicial').delete().eq('empresa', empresa);
+  const o = saldoIniciais[empresa];
+  if(!o || !confirm('Remover este saldo lançado?')) return;
+  if(o.id){
+    await sb.from('fluxo_saldo_inicial').delete().eq('id', o.id);
+  }else{
+    await sb.from('fluxo_saldo_inicial').delete().eq('empresa', empresa).eq('data_referencia', o.data_referencia);
+  }
   await loadSaldoInicial();
   renderTable();
 }
