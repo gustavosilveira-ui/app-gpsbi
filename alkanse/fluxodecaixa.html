@@ -406,7 +406,7 @@ html.light .fc-day-num{color:#1f2a3d;}
       </div>
     </div>
 
-    <!-- Modal: histórico do Saldo Inicial -->
+    <!-- Modal: histórico do Saldo Bancário -->
     <div class="modal-overlay" id="saldoInicialModal">
       <div class="modal-box">
         <div class="modal-title">🏁 Histórico de Saldos</div>
@@ -823,24 +823,43 @@ function historicoSomaRange_(histKey, start, end){
 }
 
 function saldoInicioFluxo_(data){
-  // Global: até 17/08 copia literalmente a linha SALDO INICIAL do CSV.
+  // Até 17/08/2026 preservamos literalmente o histórico oficial do CSV antigo.
   if(!selectedEmpresa && data <= HISTORICO_OFICIAL_ATE){
     return historicoDia_(normalizeTxt('SALDO INICIAL'), data);
   }
-  // Global: de 18/08 em diante parte do fechamento oficial de 17/08 e
-  // acumula somente os movimentos calculados pela BaseDadosAlkanse.
+
+  // De 18/08/2026 em diante reproduz a fórmula da planilha:
+  // =SE(data_do_dia < HOJE; saldo_final_banco_do_dia_anterior; saldo_final_SAN_do_dia_anterior)
+  //
+  // Como o período dinâmico começa em 18/08:
+  // 18/08 (hoje) parte do SALDO FINAL (SAN) oficial de 17/08;
+  // 19/08 parte do SALDO FINAL (SAN) calculado de 18/08;
+  // e assim sucessivamente.
   if(!selectedEmpresa && data >= HISTORICO_DINAMICO_DESDE){
-    let s = 1180201.97;
-    const diaAnterior = addDaysISO(data, -1);
-    if(diaAnterior >= HISTORICO_DINAMICO_DESDE){
-      for(const r of rows){
-        if(!contaNoTotal_(r)) continue;
-        if(r.date >= HISTORICO_DINAMICO_DESDE && r.date <= diaAnterior) s += Number(r.valor)||0;
+    let dia = HISTORICO_DINAMICO_DESDE;
+    let saldoAbertura = historicoDia_(normalizeTxt('SALDO FINAL (SAN)'), HISTORICO_OFICIAL_ATE);
+
+    while(dia < data){
+      const sanDia = saldoAbertura
+        + recebimentosRealizadosDia_(dia)
+        - pagamentosRealizadosDia_(dia);
+
+      const proximoDia = addDaysISO(dia, 1);
+
+      // Fórmula do Excel para o SALDO ACUMULADO da coluna seguinte:
+      // se a coluna seguinte já estiver no passado, usa o banco do dia anterior;
+      // se for hoje ou futuro, usa o SAN do dia anterior.
+      if(proximoDia < HOJE_ISO){
+        saldoAbertura = saldoFinalBancoData_(dia);
+      }else{
+        saldoAbertura = sanDia;
       }
+      dia = proximoDia;
     }
-    return s;
+    return saldoAbertura;
   }
-  // Visão por empresa continua usando o saldo cadastrado de cada empresa.
+
+  // Visão por empresa mantém o mecanismo próprio.
   return runningBalance(addDaysISO(data,-1));
 }
 
@@ -1733,11 +1752,11 @@ function sumInRange(catFilterFn, start, end){
   for(const r of rows){ if(r.date>=start && r.date<=end && catFilterFn(r)) s += r.valor; }
   return s;
 }
-// Se houver um saldo inicial definido (ver seção "Saldo Inicial" mais abaixo),
+// Se houver um saldo inicial definido (ver seção "Saldo Bancário" mais abaixo),
 // datas a partir dele passam a somar em cima desse valor em vez do zero absoluto;
 // datas anteriores continuam com o cálculo normal (soma de todo o histórico).
-let saldoIniciais = {}; // último saldo lançado por empresa — continua sendo a âncora do saldo acumulado
-let saldosBancoPorData = {}; // histórico: { empresa: { 'YYYY-MM-DD': row } } — alimenta SALDO FINAL BANCO e DELTA
+let saldoIniciais = {}; // último saldo bancário lançado por empresa — usado no formulário/status
+let saldosBancoPorData = {}; // histórico: { empresa: { 'YYYY-MM-DD': row } } — fonte manual de SALDO FINAL BANCO e DELTA
 
 // Saldo acumulado de UMA empresa até uma data, respeitando o saldo inicial
 // dela (se houver). Os lançamentos manuais já estão dentro de rowsByEmpresa.
@@ -1781,7 +1800,7 @@ function rawRunningBalanceEmpresa(empresa, uptoDate){
   // O valor salvo é o saldo NA PRÓPRIA data de referência (já incluindo
   // os lançamentos REAIS da planilha — cap_/pg_/cr_/fc_/venc_ — daquele
   // dia) — é exatamente o número que aparece na coluna daquele dia,
-  // batendo com o que o formulário promete ("Define o saldo numa data").
+  // batendo com o que o formulário promete ("Informa o saldo final dos bancos numa data").
   // Por isso, pra esses dados reais, só soma a partir do dia SEGUINTE à
   // referência.
   // Lançamentos Manuais e Saques de Aplicação são diferentes: são
@@ -1928,15 +1947,28 @@ function flattenRows(nodes){
 // Valor de banco informado manualmente para uma data exata.
 // Ausência de lançamento = 0, exatamente como a planilha atual mostra.
 function saldoFinalBancoData_(data){
+  const empresasNoEscopo = selectedEmpresa ? [selectedEmpresa] : EMPRESAS;
+
+  // O saldo informado pelo usuário pertence SEMPRE à linha SALDO FINAL BANCO
+  // da data escolhida. Se houver lançamento manual para a data, ele vence
+  // inclusive sobre o snapshot histórico.
+  const lancado = empresasNoEscopo.reduce((s, emp)=>{
+    const row = saldosBancoPorData[emp] && saldosBancoPorData[emp][data];
+    return s + (row ? (Number(row.valor)||0) : 0);
+  }, 0);
+  const temLancamento = empresasNoEscopo.some(emp =>
+    !!(saldosBancoPorData[emp] && saldosBancoPorData[emp][data])
+  );
+  if(temLancamento) return lancado;
+
+  // Sem lançamento do usuário, até 17/08 mantém exatamente o documento antigo.
   if(!selectedEmpresa && data <= HISTORICO_OFICIAL_ATE){
     const v = historicoDia_(normalizeTxt('SALDO FINAL BANCO'), data);
     return v===null ? 0 : v;
   }
-  const empresasNoEscopo = selectedEmpresa ? [selectedEmpresa] : EMPRESAS;
-  return empresasNoEscopo.reduce((s, emp)=>{
-    const row = saldosBancoPorData[emp] && saldosBancoPorData[emp][data];
-    return s + (row ? (Number(row.valor)||0) : 0);
-  }, 0);
+
+  // Hoje/futuro sem saldo informado = zero.
+  return 0;
 }
 
 function recebimentosRealizadosDia_(data){
@@ -1960,9 +1992,18 @@ function saldoFinalSanData_(data){
 }
 
 function deltaSaldoData_(data){
-  if(!selectedEmpresa && data <= HISTORICO_OFICIAL_ATE){
+  const empresasNoEscopo = selectedEmpresa ? [selectedEmpresa] : EMPRESAS;
+  const temLancamentoBanco = empresasNoEscopo.some(emp =>
+    !!(saldosBancoPorData[emp] && saldosBancoPorData[emp][data])
+  );
+
+  // Histórico até 17/08 continua igual ao CSV enquanto ninguém informar
+  // um saldo bancário para aquela data. Se informar, o Delta passa a ser
+  // recalculado imediatamente: SAN - Banco.
+  if(!selectedEmpresa && data <= HISTORICO_OFICIAL_ATE && !temLancamentoBanco){
     return historicoDia_(normalizeTxt('DELTA SALDO'), data);
   }
+
   const san = saldoFinalSanData_(data);
   if(san === null) return null;
   return san - saldoFinalBancoData_(data);
@@ -2658,7 +2699,7 @@ function renderLimiteContaHeaderAlert(info){
   return `<span class="fc-limit-dot ${info.severidade || (info.tipo==='alerta'?'alert':'previo')}"></span><span class="fc-limit-tooltip"><b>${escapeHtml(info.titulo)}</b><div class="row"><span>Data</span><strong>${dataLabel}</strong></div><div class="row"><span>Limite</span><strong>${fmtBRL(limiteConta)}</strong></div><div class="row"><span>Saldo previsto</span><strong>${fmtBRL(info.saldo)}</strong></div><div class="row"><span>Excesso</span><strong>${fmtBRL(info.excesso)}</strong></div><div class="muted">${escapeHtml(info.mensagem)}<br>💡 Sugestão: antecipar recebimentos, rever pagamentos ou solicitar aumento do limite.</div></span>`;
 }
 
-/* ================== NOVO: Saldo Inicial (por empresa) ================== */
+/* ================== NOVO: Saldo Bancário (por empresa) ================== */
 async function loadSaldoInicial(){
   const { data, error } = await sb.from('fluxo_saldo_inicial').select('*').order('criado_em',{ascending:false});
   saldoIniciais = {};
