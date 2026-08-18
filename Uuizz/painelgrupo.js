@@ -146,21 +146,22 @@ function renderWhatsAnalysis(){
   const saleDates=[...new Set(cur.filter(r=>r.revenue>0).map(r=>r.date))].sort();
   const daysWithSales=saleDates.length,remaining=isCurrent?Math.max(0,maxDay-cutoffDay):0;
   const avg=daysWithSales?revenue/daysWithSales:0;
-  const meta=totalGoal(ym),att=meta?revenue/meta*100:0,missing=Math.max(0,meta-revenue),needed=remaining?missing/remaining:0;
   const projection=avg*maxDay;
-  const lastDate=saleDates[saleDates.length-1]||'',lastDayValue=lastDate?sum(cur.filter(r=>r.date===lastDate)):0;
+  const firstDate=saleDates[0]||'',lastDate=saleDates[saleDates.length-1]||'',lastDayValue=lastDate?sum(cur.filter(r=>r.date===lastDate)):0;
   const groupLabel=selectedGroup==='ALL'?'Grupo UUIZZ':selectedGroup==='EA'?'Emp. Adolescente':selectedGroup;
   const periodo=monthName(ym).toLowerCase();
-  const link=`${location.origin}${location.pathname}`;
+  const periodoFaturamento=firstDate&&lastDate?`${dateBR(firstDate)} a ${dateBR(lastDate)}`:'Sem faturamento no período';
+  const link='uuizz.gpsbi.com.br';
   const lines=[
-    `📊 Performance Comercial - ${periodo}`,
-    `🌟  > ${groupLabel}`,
+    `📊 Análise de Resultados de Vendas – ${periodo}`,
+    `🌟 ${groupLabel}`,
+    `📅 Período c/ faturamento: ${periodoFaturamento}`,
     '',
     `💰 Vendas realizadas: ${fmt(revenue)}`,
     `📆 Vendas D-1: ${fmt(d1)}`,
   ];
   if(selectedGroup==='ALL')lines.push(`🟦 Receita EA: ${fmt(ea)}`,`🧙 Receita CW: ${fmt(cw)}`,`📦 Receita MW: ${fmt(mw)}`);
-  lines.push('',`📈 Mês anterior até D-1: ${fmt(prevRev)} (${fmtPct(pctChange(revenue,prevRev))})`,`🗓️ Ano anterior até D-1: ${fmt(aaRev)} (${fmtPct(pctChange(revenue,aaRev))})`,'',`🎯 Meta do mês: ${meta?fmt(meta):'—'}`,`📊 Atingimento: ${meta?att.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%':'—'}`,`📉 Falta para meta: ${meta?fmt(missing):'—'}`,'',`📅 Dias com venda: ${daysWithSales}`,`⏳ Dias restantes: ${remaining}`,'',`📊 Média diária: ${fmt(avg)}`,`🎯 Meta diária necessária: ${meta&&remaining?fmt(needed):'—'}`,'',`🔮 Se continuar nesse ritmo: ${fmt(projection)}`,`💵 Último dia com venda: ${fmt(lastDayValue)}`,'',`🧠 Insight: Venda é hábito diário`,'',`🔗 ${link}`);
+  lines.push('',`📈 Mês anterior até D-1: ${fmt(prevRev)} (${fmtPct(pctChange(revenue,prevRev))})`,`🗓️ Ano anterior até D-1: ${fmt(aaRev)} (${fmtPct(pctChange(revenue,aaRev))})`,'',`📅 Dias com venda: ${daysWithSales}`,`⏳ Dias restantes: ${remaining}`,'',`📊 Média diária: ${fmt(avg)}`,'',`🔮 Se continuar nesse ritmo: ${fmt(projection)}`,`💵 Último dia com venda: ${fmt(lastDayValue)}`,'',`🧠 Insight: Venda é hábito diário`,'',`🔗 ${link}`);
   out.textContent=lines.join('\n');
 }
 function render(){baseCache=null;expandedComparisonChannels.clear();if(renderFrame)cancelAnimationFrame(renderFrame);renderFrame=requestAnimationFrame(()=>{renderFrame=0;renderNow()})}
