@@ -58,12 +58,28 @@ async function googleAccessToken(){
 
 function valuesToTable(values){
   const data=Array.isArray(values)?values:[];
-  const width=data.reduce((m,r)=>Math.max(m,Array.isArray(r)?r.length:0),0);
-  const cols=Array.from({length:width},(_,i)=>({id:`C${i}`,label:'',type:'string'}));
-  const rows=data.map(r=>({c:Array.from({length:width},(_,i)=>{
-    const v=Array.isArray(r)?r[i]:null;
-    return v===undefined||v===null||v===''?null:{v};
-  })}));
+  if(!data.length) return {cols:[],rows:[]};
+
+  // A primeira linha da aba Financeiro contém os cabeçalhos.
+  // O HTML do fluxo usa table.cols[].label para descobrir "Data Caixa",
+  // "Data Vencimento", "Conta", "Débito", "Crédito", "Situação" etc.
+  const headers=Array.isArray(data[0])?data[0]:[];
+  const width=headers.length;
+
+  const cols=Array.from({length:width},(_,i)=>({
+    id:`C${i}`,
+    label:String(headers[i]??'').trim(),
+    type:'string'
+  }));
+
+  // A primeira linha é cabeçalho; não pode entrar como lançamento.
+  const rows=data.slice(1).map(r=>({
+    c:Array.from({length:width},(_,i)=>{
+      const v=Array.isArray(r)?r[i]:null;
+      return v===undefined||v===null||v===''?null:{v};
+    })
+  }));
+
   return {cols,rows};
 }
 
@@ -82,7 +98,7 @@ export default async function handler(req,res){
     const sheetId=env('ALKANSE_SHEET_ID');
     const accessToken=await googleAccessToken();
     const range=encodeURIComponent("'Financeiro'");
-    const url=`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}/values/${range}?majorDimension=ROWS&valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=SERIAL_NUMBER`;
+    const url=`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}/values/${range}?majorDimension=ROWS&valueRenderOption=FORMATTED_VALUE`;
     const r=await fetch(url,{headers:{Authorization:`Bearer ${accessToken}`}});
     if(!r.ok){
       const detail=await r.text().catch(()=>'');
