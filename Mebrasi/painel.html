@@ -727,6 +727,24 @@ function extrairCodigoProduto(rowObj){
   }
   return '';
 }
+function extrairCodigoCliente(rowObj){
+  const direto = getFirstCol(rowObj,[
+    'Cod Cliente','Cód Cliente','Codigo Cliente','Código Cliente',
+    'Codigo do Cliente','Código do Cliente','Cod. Cliente','cod_cliente'
+  ]);
+  if(String(direto ?? '').trim() !== '') return String(direto).trim();
+
+  for(const chave in rowObj){
+    const nk = normalizeTxt(chave).replace(/[^a-z0-9]+/g,' ');
+    if(nk.includes('cod') && nk.includes('cliente')){
+      const valor = rowObj[chave];
+      if(valor !== undefined && valor !== null && String(valor).trim() !== ''){
+        return String(valor).trim();
+      }
+    }
+  }
+  return '';
+}
 
 function codigoContemGsl(codigo){
   const texto = String(codigo ?? '')
@@ -922,6 +940,7 @@ async function loadData(){
       situacao, situacaoNf,
       codPedido: (getColNormalized(r,'cod pedido')||'').toString().trim(),
       cliente: (getColNormalized(r,'nome cliente') || getColNormalized(r,'cliente') || getColNormalized(r,'nome do cliente') || getColNormalized(r,'comprador') || getColNormalized(r,'e-mail cliente') || getColNormalized(r,'email cliente') || getColNormalized(r,'email') || '').toString().trim(),
+      codCliente: extrairCodigoCliente(r),
       estado: (getColNormalized(r,'estado')||'').toString().trim(),
       grupoCliente: (getColNormalized(r,'grupo cliente')||'').toString().trim(),
       tipoContribuinte: (getColNormalized(r,'tipo de contribuinte')||'').toString().trim(),
@@ -2308,8 +2327,9 @@ function montarHierarquiaClientes(scoped){
     const grupo = grupos.get(grupoNome);
     acumularMesMatriz(grupo.valores,mes,r.faturamento);
     grupo.qtd += qtd;
-    if(!grupo.clientes.has(clienteNome)) grupo.clientes.set(clienteNome,{nome:clienteNome,valores:{},qtd:0,itens:new Map()});
+    if(!grupo.clientes.has(clienteNome)) grupo.clientes.set(clienteNome,{nome:clienteNome,codigo:r.codCliente||'',valores:{},qtd:0,itens:new Map()});
     const cliente = grupo.clientes.get(clienteNome);
+    if(!cliente.codigo && r.codCliente) cliente.codigo = r.codCliente;
     acumularMesMatriz(cliente.valores,mes,r.faturamento);
     cliente.qtd += qtd;
     if(!cliente.itens.has(itemChave)) cliente.itens.set(itemChave,{nome:itemNome,codigo:itemCodigo,valores:{},qtd:0});
@@ -2362,7 +2382,8 @@ function renderMatrizClientes(){
       const chave = chaveClienteMatriz(grupo.nome,cliente.nome);
       const clienteAberto = buscaAtiva || matrizClientesAbertos.has(chave);
       const cid = registrar({tipo:'cliente',chave});
-      body += `<tr class="hier-client hierarchy-row-toggle" data-matriz-id="${cid}"><td><div class="hier-label hier-indent-1"><span class="hier-chevron">${clienteAberto?'−':'+'}</span><span>${escapeHtml(cliente.nome)}</span></div></td>${celulasValoresMatriz(cliente.valores,meses)}<td>${fmtNum(cliente.qtd)}</td></tr>`;
+      const clienteLabel = cliente.codigo ? `${escapeHtml(cliente.codigo)} — ${escapeHtml(cliente.nome)}` : escapeHtml(cliente.nome);
+      body += `<tr class="hier-client hierarchy-row-toggle" data-matriz-id="${cid}"><td><div class="hier-label hier-indent-1"><span class="hier-chevron">${clienteAberto?'−':'+'}</span><span>${clienteLabel}</span></div></td>${celulasValoresMatriz(cliente.valores,meses)}<td>${fmtNum(cliente.qtd)}</td></tr>`;
       if(clienteAberto) cliente.itens.forEach(item=>{
         body += `<tr class="hier-item"><td><div class="hier-label hier-indent-2"><span class="hier-chevron">•</span><span>${escapeHtml(item.codigo)} — ${escapeHtml(item.nome)}</span></div></td>${celulasValoresMatriz(item.valores,meses)}<td>${fmtNum(item.qtd)}</td></tr>`;
       });
