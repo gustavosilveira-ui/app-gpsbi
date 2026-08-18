@@ -11,7 +11,6 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="base_comercial_misterwiz.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
@@ -898,21 +897,25 @@ function setLoading(msg){ document.getElementById('loadingMsg').textContent = ms
 function el(id){ return document.getElementById(id); }
 
 async function fetchCommercialRows(){
-  if(Array.isArray(window.MISTER_WIZ_COMMERCIAL_DATA) && window.MISTER_WIZ_COMMERCIAL_DATA.length){
-    return window.MISTER_WIZ_COMMERCIAL_DATA;
-  }
-  const res = await fetch(`${COMMERCIAL_XLSX_URL}?v=${Date.now()}`, { cache:'no-store' });
-  if(!res.ok) throw new Error(`Não foi possível abrir ${COMMERCIAL_XLSX_URL} (${res.status})`);
-  const buffer = await res.arrayBuffer();
-  const workbook = XLSX.read(buffer, { type:'array', cellDates:true });
-  const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  if(!sheet) throw new Error('A planilha comercial não possui nenhuma aba.');
-  // O relatório do Omie traz um título na linha 1 e os cabeçalhos na linha 2.
-  const matrix = XLSX.utils.sheet_to_json(sheet, { header:1, defval:null, raw:true });
-  const headers = (matrix[1] || []).map(v=>String(v||'').trim());
-  return matrix.slice(2).map(values=>{
-    const obj={}; headers.forEach((header,i)=>{ if(header) obj[header]=values[i]; }); return obj;
-  });
+  const sheetId='1hOQWFBPXU-xN_pz60wqCuU3iRC88mQyjdjgfweltnJA';
+  const url=`https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&gid=0&headers=1&_=${Date.now()}`;
+  const res=await fetch(url,{cache:'no-store'});
+  if(!res.ok) throw new Error(`Não foi possível abrir a Basegerencial (${res.status})`);
+  const text=await res.text();
+  const clean=text.replace(/^[^{]*/,'').replace(/\s*\)\s*;?\s*$/,'');
+  const payload=JSON.parse(clean), table=payload && payload.table;
+  if(!table || !table.rows || !table.cols) throw new Error('Resposta inválida da aba Comercial da Basegerencial.');
+  const headers=table.cols.map(c=>String(c.label||'').trim());
+  return table.rows.map(row=>{
+    const obj={};
+    headers.forEach((header,i)=>{
+      if(!header) return;
+      const cell=row.c && row.c[i];
+      if(!cell) return;
+      obj[header]=(cell.v!==null && cell.v!==undefined) ? cell.v : (cell.f ?? null);
+    });
+    return obj;
+  }).filter(r=>r['Data de Inclusão (completa)']);
 }
 function parseDate(v){
   if(!v) return null;

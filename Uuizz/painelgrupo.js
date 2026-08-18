@@ -6,6 +6,78 @@ if(window.Chart)Chart.register(chartZoomEventFix);
 const RESTRICTED=['miria@misterwiz.com.br','custodio@sforza.com.br'];
 const ACTIVE=new Set(['completo','aprovado','paga','faturado','aguardando pagto','pendente','ag. pagamento','boleto impresso','pending','iniciada','aguardando faturamento','atrasado','faturamento atrasado']);
 const BASEGERAL_APPROVED=new Set(['aprovado','completo']);
+const BASEDADOS_SHEET_ID='1Sogmal61I8sXO4G4ZyrOmrWhfhPW8Sngq8lSNON5cdg';
+const BASEDADOS_BASEGERAL_GID='1935171959';
+const BASEGERENCIAL_SHEET_ID='1hOQWFBPXU-xN_pz60wqCuU3iRC88mQyjdjgfweltnJA';
+const BASEGERENCIAL_COMERCIAL_GID='0';
+
+function normalizeSheetDate(value){
+  if(value===null||value===undefined||value==='')return'';
+  if(typeof value==='number'&&Number.isFinite(value)){
+    const d=new Date(Date.UTC(1899,11,30)+Math.round(value)*86400000);
+    return d.toISOString().slice(0,10);
+  }
+  const raw=String(value).trim();
+  let m=raw.match(/^Date\((\d+),(\d+),(\d+)\)$/);
+  if(m)return `${m[1]}-${String(Number(m[2])+1).padStart(2,'0')}-${String(Number(m[3])).padStart(2,'0')}`;
+  m=raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(m)return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
+  m=raw.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})/);
+  if(m)return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+  return raw.slice(0,10);
+}
+async function fetchBaseDadosCommercial(){
+  const url=`https://docs.google.com/spreadsheets/d/${BASEDADOS_SHEET_ID}/gviz/tq?tqx=out:json&gid=${BASEDADOS_BASEGERAL_GID}&headers=1&_=${Date.now()}`;
+  const res=await fetch(url,{cache:'no-store'});
+  if(!res.ok)throw new Error(`BaseDados respondeu HTTP ${res.status}`);
+  const text=await res.text();
+  const clean=text.replace(/^[^{]*/,'').replace(/\s*\)\s*;?\s*$/,'');
+  const payload=JSON.parse(clean),table=payload?.table;
+  if(!table?.rows||!table?.cols)throw new Error('Resposta inválida da aba BaseGeral');
+  const headers=table.cols.map(c=>String(c.label||'').trim());
+  const data=table.rows.map(row=>{
+    const obj={};
+    headers.forEach((header,i)=>{
+      if(!header)return;
+      const cell=row.c?.[i];
+      if(!cell)return;
+      let value=cell.v!==null&&cell.v!==undefined?cell.v:(cell.f??null);
+      if(header==='Data de venda')value=normalizeSheetDate(value);
+      obj[header]=value;
+    });
+    return obj;
+  }).filter(r=>{
+    const g=String(r['Grupo']||'').trim().toUpperCase();
+    return (g==='EA'||g==='CW')&&Boolean(r['Data de venda']);
+  });
+  if(!data.length)throw new Error('Nenhum registro EA/CW encontrado em BaseDados · BaseGeral');
+  return data;
+}
+async function fetchBaseGerencialCommercial(){
+  const url=`https://docs.google.com/spreadsheets/d/${BASEGERENCIAL_SHEET_ID}/gviz/tq?tqx=out:json&gid=${BASEGERENCIAL_COMERCIAL_GID}&headers=1&_=${Date.now()}`;
+  const res=await fetch(url,{cache:'no-store'});
+  if(!res.ok)throw new Error(`Basegerencial respondeu HTTP ${res.status}`);
+  const text=await res.text();
+  const clean=text.replace(/^[^{]*/,'').replace(/\s*\)\s*;?\s*$/,'');
+  const payload=JSON.parse(clean),table=payload?.table;
+  if(!table?.rows||!table?.cols)throw new Error('Resposta inválida da aba Comercial da Basegerencial');
+  const headers=table.cols.map(c=>String(c.label||'').trim());
+  const data=table.rows.map(row=>{
+    const obj={};
+    headers.forEach((header,i)=>{
+      if(!header)return;
+      const cell=row.c?.[i];
+      if(!cell)return;
+      let value=cell.v!==null&&cell.v!==undefined?cell.v:(cell.f??null);
+      if(header.includes('Data')||header.includes('Previsão')) value=normalizeSheetDate(value);
+      else if(cell.f && typeof cell.v==='number' && ['Total da Nota Fiscal','Total de Mercadoria','Valor Unitário'].includes(header)) value=cell.v;
+      obj[header]=value;
+    });
+    return obj;
+  }).filter(r=>Boolean(r['Data de Inclusão (completa)']));
+  if(!data.length)throw new Error('Nenhum registro encontrado em Basegerencial · Comercial');
+  return data;
+}
 const UF_COORDS={AC:[-9.97,-67.81],AL:[-9.62,-36.82],AP:[.03,-51.05],AM:[-3.10,-60.02],BA:[-12.97,-38.50],CE:[-3.73,-38.52],DF:[-15.79,-47.88],ES:[-20.31,-40.31],GO:[-16.68,-49.25],MA:[-2.53,-44.30],MT:[-15.60,-56.10],MS:[-20.45,-54.62],MG:[-19.92,-43.94],PA:[-1.45,-48.49],PB:[-7.12,-34.86],PR:[-25.43,-49.27],PE:[-8.05,-34.90],PI:[-5.09,-42.80],RJ:[-22.91,-43.17],RN:[-5.79,-35.21],RS:[-30.03,-51.23],RO:[-8.76,-63.90],RR:[2.82,-60.67],SC:[-27.59,-48.55],SP:[-23.55,-46.63],SE:[-10.91,-37.07],TO:[-10.18,-48.33]};
 const STATE_NAMES={acre:'AC',alagoas:'AL',amapa:'AP',amazonas:'AM',bahia:'BA',ceara:'CE','distrito federal':'DF','espirito santo':'ES',goias:'GO',maranhao:'MA','mato grosso':'MT','mato grosso do sul':'MS','minas gerais':'MG',para:'PA',paraiba:'PB',parana:'PR',pernambuco:'PE',piaui:'PI','rio de janeiro':'RJ','rio grande do norte':'RN','rio grande do sul':'RS',rondonia:'RO',roraima:'RR','santa catarina':'SC','sao paulo':'SP',sergipe:'SE',tocantins:'TO'};
 let rows=[],selectedGroup='ALL',selectedMonth='',dateFrom='',dateTo='',selectedChannel='',selectedSeller='',searchClient='',searchProduct='';
@@ -76,5 +148,5 @@ function queueSearch(kind,value){clearTimeout(searchTimer);searchTimer=setTimeou
 function populate(){const months=[...new Set(rows.map(r=>r.month).filter(Boolean))].sort().reverse(),current=`${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`;el('monthFilter').innerHTML='<option value="">Todos os meses</option>'+months.map(m=>`<option value="${m}">${monthName(m)}</option>`).join('');selectedMonth=months.includes(current)?current:(months[0]||'');el('monthFilter').value=selectedMonth;const channels=[...new Set(rows.map(r=>r.channel).filter(Boolean))].sort(),sellers=[...new Set(rows.map(r=>r.seller).filter(Boolean))].sort();el('channelFilter').innerHTML='<option value="">Todos</option>'+channels.map(v=>`<option>${esc(v)}</option>`).join('');el('sellerFilter').innerHTML='<option value="">Todos</option>'+sellers.map(v=>`<option>${esc(v)}</option>`).join('')}
 function bind(){document.querySelectorAll('[data-group]').forEach(b=>b.addEventListener('click',()=>{selectedGroup=b.dataset.group;selectedSeller=selectedChannel='';expandedComparisonChannels.clear();el('sellerFilter').value=el('channelFilter').value='';document.querySelectorAll('[data-group]').forEach(x=>x.classList.toggle('active',x===b));el('groupBadge').textContent=selectedGroup==='ALL'?'Grupo UUIZZ':selectedGroup;render()}));el('monthFilter').addEventListener('change',e=>{selectedMonth=e.target.value;dateFrom=dateTo='';el('dateFrom').value=el('dateTo').value='';render()});el('dateFrom').addEventListener('change',e=>{dateFrom=e.target.value;selectedMonth='';el('monthFilter').value='';render()});el('dateTo').addEventListener('change',e=>{dateTo=e.target.value;selectedMonth='';el('monthFilter').value='';render()});el('channelFilter').addEventListener('change',e=>{selectedChannel=e.target.value;render()});el('sellerFilter').addEventListener('change',e=>{selectedSeller=e.target.value;render()});el('searchClient').addEventListener('input',e=>queueSearch('client',e.target.value));el('searchProduct').addEventListener('input',e=>queueSearch('product',e.target.value));el('clearDates').addEventListener('click',()=>{dateFrom=dateTo='';el('dateFrom').value=el('dateTo').value='';render()});el('capturedCard').addEventListener('click',()=>openDetails(visibleRows(),'Receita Captada'));el('modalClose').addEventListener('click',()=>el('statusModal').classList.remove('show'));el('statusModal').addEventListener('click',e=>{if(e.target===el('statusModal'))el('statusModal').classList.remove('show')});el('openGoals').addEventListener('click',openGoals);el('goalsMonth').addEventListener('change',renderGoalInputs);el('goalsSave').addEventListener('click',saveGoals);el('goalsClose').addEventListener('click',()=>el('goalsModal').classList.remove('show'));el('goalsCancel').addEventListener('click',()=>el('goalsModal').classList.remove('show'));el('goalsModal').addEventListener('click',e=>{if(e.target===el('goalsModal'))el('goalsModal').classList.remove('show')});el('productModalClose').addEventListener('click',()=>el('productModal').classList.remove('show'));el('productModal').addEventListener('click',e=>{if(e.target===el('productModal'))el('productModal').classList.remove('show')})}
 async function logout(){await sb.auth.signOut();location.href='index.html'}
-async function init(){const {data:{session}}=await sb.auth.getSession();if(!session){location.href='index.html';return}currentUser=session.user;const email=(currentUser.email||'').toLowerCase();if(RESTRICTED.includes(email)){location.replace('painel.html');return}if(!(email.endsWith('@gpsbi.com.br')||email==='daniela@empoderamentoadolescente.com.br')){location.href='index.html';return}const eaCw=(window.UUIZZ_GROUP_COMMERCIAL_DATA||[]).map(toRecord).filter(r=>r.group==='EA'||r.group==='CW'),mw=(window.MISTER_WIZ_COMMERCIAL_DATA||[]).map(toMwRecord).filter(Boolean);rows=[...eaCw,...mw];renderAppNav({activePage:'painelgrupo.html',userLabel:email.split('@')[0]||'Usuário',userRole:'owner',onLogout:logout,sb,currentUser});populate();const requested=(new URLSearchParams(location.search).get('grupo')||'').toUpperCase();if(requested==='EA'||requested==='CW')selectedGroup=requested;await fetchGoals();bind();document.querySelectorAll('[data-group]').forEach(b=>b.classList.toggle('active',b.dataset.group===selectedGroup));el('groupBadge').textContent=selectedGroup==='ALL'?'Grupo UUIZZ':selectedGroup;el('loadingScreen').style.display='none';el('mainContent').style.display='block';render()}
-init();
+async function init(){const {data:{session}}=await sb.auth.getSession();if(!session){location.href='index.html';return}currentUser=session.user;const email=(currentUser.email||'').toLowerCase();if(RESTRICTED.includes(email)){location.replace('painel.html');return}if(!(email.endsWith('@gpsbi.com.br')||email==='daniela@empoderamentoadolescente.com.br')){location.href='index.html';return}const [liveBase,liveMw]=await Promise.all([fetchBaseDadosCommercial(),fetchBaseGerencialCommercial()]),eaCw=liveBase.map(toRecord).filter(r=>r.group==='EA'||r.group==='CW'),mw=liveMw.map(toMwRecord).filter(Boolean);rows=[...eaCw,...mw];renderAppNav({activePage:'painelgrupo.html',userLabel:email.split('@')[0]||'Usuário',userRole:'owner',onLogout:logout,sb,currentUser});populate();const requested=(new URLSearchParams(location.search).get('grupo')||'').toUpperCase();if(requested==='EA'||requested==='CW')selectedGroup=requested;await fetchGoals();bind();document.querySelectorAll('[data-group]').forEach(b=>b.classList.toggle('active',b.dataset.group===selectedGroup));el('groupBadge').textContent=selectedGroup==='ALL'?'Grupo UUIZZ':selectedGroup;el('loadingScreen').style.display='none';el('mainContent').style.display='block';render()}
+init().catch(err=>{console.error('Falha ao carregar BI Comercial UUIZZ:',err);const loading=el('loadingScreen');if(loading)loading.innerHTML=`<div style="max-width:620px;text-align:center;padding:24px"><h3 style="margin-bottom:10px">Não foi possível carregar a BaseDados</h3><p style="color:#9aa6b5;line-height:1.5">${esc(err?.message||err)}. Verifique se a planilha BaseDados está compartilhada para leitura por link e tente atualizar a página.</p></div>`;});
