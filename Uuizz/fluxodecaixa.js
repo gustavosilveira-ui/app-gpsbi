@@ -690,6 +690,57 @@ function setEmpresaFiltro(v){
     b.classList.toggle('active', b.dataset.empresa===v);
   });
   buildAndRenderTable();
+  renderBuscaGlobalNome();
+}
+
+/* ================== BUSCA GLOBAL POR NOME ==================
+   Pesquisa todas as linhas carregadas da empresa selecionada, sem limitar por
+   ano/mês/dia exibido no fluxo. Útil para localizar fornecedor/cliente
+   rapidamente e enxergar data, categoria, observação e valor. */
+function textoBuscaGlobal(r){
+  return normalizeTxt([r.nome,r.historico,r.categoria,r.conta,r.documento,r.fonte].filter(Boolean).join(' '));
+}
+function limparBuscaGlobalNome(){
+  const inp=el('fcBuscaGlobalNome');
+  if(inp) inp.value='';
+  renderBuscaGlobalNome();
+  if(inp) inp.focus();
+}
+function renderBuscaGlobalNome(){
+  const inp=el('fcBuscaGlobalNome');
+  const wrap=el('fcBuscaGlobalResultados');
+  const count=el('fcBuscaGlobalContagem');
+  const clear=el('fcBuscaGlobalLimpar');
+  if(!inp || !wrap || !count) return;
+
+  const termo=normalizeTxt(inp.value.trim());
+  if(clear) clear.style.display=termo?'inline-flex':'none';
+  if(!termo){ wrap.classList.remove('show'); wrap.innerHTML=''; count.textContent=''; return; }
+
+  const encontrados=rowsInScope()
+    .filter(r=>Math.abs(Number(r.valor||0))>0 && textoBuscaGlobal(r).includes(termo))
+    .sort((a,b)=>a.date===b.date ? Math.abs(b.valor||0)-Math.abs(a.valor||0) : (a.date<b.date?1:-1));
+
+  count.textContent=`${encontrados.length} lançamento(s) encontrado(s) em qualquer data`;
+  const exibidos=encontrados.slice(0,150);
+  const linhas=exibidos.map(r=>{
+    const sinal=Number(r.signedValor ?? (r.grupo==='PAGAMENTOS'?-Math.abs(r.valor):Math.abs(r.valor)));
+    const cor=sinal<0?'var(--red)':'#4F8F3A';
+    return `<tr>
+      <td>${formatDateBR(r.date)}</td>
+      <td class="ellipsis" title="${escapeFichaHtml((r.empresa?r.empresa+' · ':'')+(r.conta||r.fonte||'Não informada'))}">${escapeFichaHtml((r.empresa?r.empresa+' · ':'')+(r.conta||r.fonte||'Não informada'))}</td>
+      <td title="${escapeFichaHtml(r.nome||'')}">${escapeFichaHtml(r.nome||r.categoria||'Sem nome')}</td>
+      <td class="ellipsis" title="${escapeFichaHtml(r.categoria||r.fonte||'')}">${escapeFichaHtml(r.categoria||r.fonte||'')}</td>
+      <td title="${escapeFichaHtml(r.historico||'')}">${escapeFichaHtml(r.historico||'')}</td>
+      <td class="num" style="color:${cor}">${fmtBRLCentavos(sinal)}</td>
+    </tr>`;
+  }).join('');
+
+  wrap.innerHTML=`<div class="fc-global-search-scroll"><table class="fc-global-search-table">
+    <thead><tr><th>Data</th><th>Conta</th><th>Nome</th><th>Categoria</th><th>Observação</th><th class="num">Valor</th></tr></thead>
+    <tbody>${linhas||'<tr><td colspan="6" style="color:var(--text3);padding:14px;">Nenhum lançamento encontrado.</td></tr>'}</tbody>
+  </table></div>${encontrados.length>150?`<div class="fc-detail-muted" style="padding:8px 10px;">Mostrando os 150 mais recentes de ${encontrados.length} resultados.</div>`:''}`;
+  wrap.classList.add('show');
 }
 
 /* ================== ÁRVORE DE COLUNAS (Ano > Mês > Dia) ================== */
@@ -1176,8 +1227,9 @@ function renderFichaBody(){
     return `<tr>
       <td>${formatDateBR(r.date)}</td>
       <td>${escapeFichaHtml((r.empresa?r.empresa+' · ':'')+(r.conta||r.fonte||'Não informada'))}</td>
-      <td class="wrap" title="${obs ? escapeFichaHtml(obs) : escapeFichaHtml(nome)}">${escapeFichaHtml(nome)}</td>
+      <td class="wrap" title="${escapeFichaHtml(nome)}">${escapeFichaHtml(nome)}</td>
       <td class="small" title="${escapeFichaHtml(categoria)}">${escapeFichaHtml(categoria)}</td>
+      <td class="wrap" title="${escapeFichaHtml(obs)}">${escapeFichaHtml(obs)}</td>
       <td class="num">${pct.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%</td>
       <td class="${valorCls}" style="color:${corValor}"${valorAttrs}>${fmtNumeroFicha(r.valor*sinal)}</td>
     </tr>`;
@@ -1194,7 +1246,7 @@ function renderFichaBody(){
       <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${qtd}</div><div class="fc-detail-kpi-lbl">📄 Lançamentos</div></div>
     </div>
     <table class="fc-detail-table"><thead><tr><th>Conta</th><th class="num">Valor</th><th class="num">%</th><th class="num">Itens</th></tr></thead><tbody>${contasHtml}</tbody></table>
-    <div class="fc-detail-list"><table class="fc-detail-table" style="margin-top:0;"><thead><tr><th>Data</th><th>Conta</th><th>Nome</th><th>Categoria</th><th class="num">%</th><th class="num">Valor</th></tr></thead><tbody>${detalheHtml||`<tr><td colspan="6" style="color:var(--text3);">Sem lançamentos.</td></tr>`}</tbody></table></div>
+    <div class="fc-detail-list"><table class="fc-detail-table" style="margin-top:0;"><thead><tr><th>Data</th><th>Conta</th><th>Nome</th><th>Categoria</th><th>Observação</th><th class="num">%</th><th class="num">Valor</th></tr></thead><tbody>${detalheHtml||`<tr><td colspan="7" style="color:var(--text3);">Sem lançamentos.</td></tr>`}</tbody></table></div>
     ${linhas.length>120?`<div class="fc-detail-muted">Mostrando os primeiros 120 lançamentos.</div>`:''}
   `;
 }

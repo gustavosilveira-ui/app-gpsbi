@@ -99,6 +99,26 @@ html.light .fc-empresa-btn{background:#eef1f6;}
 .fc-sim-table td{text-align:right;padding:8px 10px;font-family:'DM Mono',monospace;border-bottom:1px solid var(--border);white-space:nowrap;}
 @media(max-width:760px){.fc-sim-form{grid-template-columns:1fr;}}
 
+/* Busca global por nome — ignora mês/data e pesquisa todo o histórico carregado da empresa selecionada */
+.fc-global-search{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:4px 0 12px;}
+.fc-global-search input{width:min(460px,100%);padding:9px 12px;border-radius:8px;border:1px solid var(--border2);background:var(--field-bg);color:var(--text);font-size:12.5px;}
+.fc-global-search-count{font-size:11px;color:var(--text3);}
+.fc-global-search-results{display:none;margin:-2px 0 12px;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--navy3);}
+.fc-global-search-results.show{display:block;}
+.fc-global-search-scroll{max-height:300px;overflow:auto;}
+.fc-global-search-table{width:100%;border-collapse:collapse;font-size:11.5px;table-layout:fixed;}
+.fc-global-search-table th{position:sticky;top:0;z-index:1;background:var(--navy2);color:var(--text3);text-transform:uppercase;font-size:9.5px;text-align:left;padding:8px;border-bottom:1px solid var(--border2);}
+.fc-global-search-table td{padding:8px;border-bottom:1px solid var(--border);vertical-align:top;line-height:1.3;}
+.fc-global-search-table .num{text-align:right;font-family:'DM Mono',monospace;white-space:nowrap;}
+.fc-global-search-table .ellipsis{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.fc-global-search-table th:nth-child(1),.fc-global-search-table td:nth-child(1){width:86px;}
+.fc-global-search-table th:nth-child(2),.fc-global-search-table td:nth-child(2){width:150px;}
+.fc-global-search-table th:nth-child(3),.fc-global-search-table td:nth-child(3){width:230px;}
+.fc-global-search-table th:nth-child(4),.fc-global-search-table td:nth-child(4){width:145px;}
+.fc-global-search-table th:nth-child(5),.fc-global-search-table td:nth-child(5){width:auto;}
+.fc-global-search-table th:nth-child(6),.fc-global-search-table td:nth-child(6){width:105px;}
+html.light .fc-global-search-results{background:#fff;}
+
 /* Ficha detalhada ao clicar nos valores do fluxo */
 .fc-clickable-cell{cursor:pointer;transition:background .14s,color .14s,font-weight .14s;}
 .fc-clickable-cell:hover{font-weight:700;}
@@ -117,12 +137,13 @@ html.light .fc-empresa-btn{background:#eef1f6;}
 .fc-detail-table td.small{font-size:11.5px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .fc-detail-table td.valor-modal{white-space:nowrap;text-align:right;font-family:'DM Mono',monospace;}
 .fc-detail-list{max-height:340px;overflow-y:auto;overflow-x:hidden;margin-top:10px;border-radius:10px;border:1px solid var(--border);}
-.fc-detail-list .fc-detail-table th:nth-child(1),.fc-detail-list .fc-detail-table td:nth-child(1){width:95px;}
-.fc-detail-list .fc-detail-table th:nth-child(2),.fc-detail-list .fc-detail-table td:nth-child(2){width:180px;white-space:normal;line-height:1.35;overflow-wrap:anywhere;}
-.fc-detail-list .fc-detail-table th:nth-child(3),.fc-detail-list .fc-detail-table td:nth-child(3){width:auto;}
-.fc-detail-list .fc-detail-table th:nth-child(4),.fc-detail-list .fc-detail-table td:nth-child(4){width:125px;}
-.fc-detail-list .fc-detail-table th:nth-child(5),.fc-detail-list .fc-detail-table td:nth-child(5){width:75px;}
-.fc-detail-list .fc-detail-table th:nth-child(6),.fc-detail-list .fc-detail-table td:nth-child(6){width:95px;}
+.fc-detail-list .fc-detail-table th:nth-child(1),.fc-detail-list .fc-detail-table td:nth-child(1){width:88px;}
+.fc-detail-list .fc-detail-table th:nth-child(2),.fc-detail-list .fc-detail-table td:nth-child(2){width:155px;white-space:normal;line-height:1.35;overflow-wrap:anywhere;}
+.fc-detail-list .fc-detail-table th:nth-child(3),.fc-detail-list .fc-detail-table td:nth-child(3){width:190px;}
+.fc-detail-list .fc-detail-table th:nth-child(4),.fc-detail-list .fc-detail-table td:nth-child(4){width:120px;}
+.fc-detail-list .fc-detail-table th:nth-child(5),.fc-detail-list .fc-detail-table td:nth-child(5){width:auto;}
+.fc-detail-list .fc-detail-table th:nth-child(6),.fc-detail-list .fc-detail-table td:nth-child(6){width:62px;}
+.fc-detail-list .fc-detail-table th:nth-child(7),.fc-detail-list .fc-detail-table td:nth-child(7){width:95px;}
 .fc-detail-muted{font-size:11.5px;color:var(--text3);line-height:1.45;margin-top:8px;}
 @media(max-width:760px){.fc-detail-summary,.fc-detail-summary-5{grid-template-columns:1fr;}}
 @media(min-width:761px) and (max-width:1000px){.fc-detail-summary-5{grid-template-columns:repeat(3,1fr);}}
@@ -180,6 +201,13 @@ html.light .fc-empresa-btn{background:#eef1f6;}
         <button class="fc-empresa-btn" data-empresa="Empoderamento" onclick="setEmpresaFiltro('Empoderamento')">Empoderamento</button>
         <button class="fc-empresa-btn" data-empresa="Mister Wiz" onclick="setEmpresaFiltro('Mister Wiz')">Mister Wiz</button>
       </div>
+
+      <div class="fc-global-search">
+        <input type="text" id="fcBuscaGlobalNome" placeholder="🔎 Buscar nome em qualquer data (completo ou parte)..." oninput="renderBuscaGlobalNome()">
+        <button class="btn btn-ghost btn-sm" id="fcBuscaGlobalLimpar" onclick="limparBuscaGlobalNome()" style="display:none;">Limpar</button>
+        <span id="fcBuscaGlobalContagem" class="fc-global-search-count"></span>
+      </div>
+      <div id="fcBuscaGlobalResultados" class="fc-global-search-results"></div>
 
       <div class="fc-wrap"><table class="fc-table" id="fcTable"></table></div>
       <div class="fc-legend">
