@@ -800,6 +800,14 @@ function contaNoTotal_(r){
   // Banco Tera (título a receber ainda em aberto): mesma lógica — nunca
   // conta em nenhum total, independente do modo de validação.
   if(r.categoria === CATEGORIA_BANCO_TERA) return false;
+  // Banco Tera do lado Pagamentos e Desconto de Comissão do lado Pagamentos
+  // (19/08/2026, confirmado com o Gustavo batendo contra o extrato real da
+  // Ryngavi): mantêm a categoria original na tela, então não caem no check
+  // acima — por isso checados aqui via flag própria, também independente
+  // do modo de validação (senão VALIDACAO_BATER_COM_BASE=true engole a
+  // exclusão de novo, já que r.contaNoSaldo===false cairia no fallback).
+  if(r.ehBancoTera) return false;
+  if(r.ehDescontoComissaoPago) return false;
   if(r.contaNoSaldo === false) return VALIDACAO_BATER_COM_BASE;
   return true;
 }
@@ -1128,7 +1136,7 @@ function rowsFromCAP(table, empresa){
     const formaPagto = getColNormalized(r,'forma pagto');
     const bancoCodigo = getColNormalized(r,'banco');
     const { categoria, grupo, contaNoSaldo } = finalizarLinha(categoriaOriginal, valor, formaPagto, 'cap', date, empresa, bancoCodigo);
-    return { date, categoria, grupo, valor, empresa, origem:'cap', contaNoSaldo, ehBancoTera: isBancoTera(bancoCodigo, empresa), ...rowMeta(r) };
+    return { date, categoria, grupo, valor, empresa, origem:'cap', contaNoSaldo, ehBancoTera: isBancoTera(bancoCodigo, empresa), ehDescontoComissaoPago: normalizeTxt(formaPagto)==='desconto de comissao', ...rowMeta(r) };
   }).filter(Boolean);
 }
 // venc_<empresa> = contas a receber por vencimento (projetado/futuro)
@@ -1197,7 +1205,7 @@ function rowsFromPG(table, empresa){
     const formaPagto = getColNormalized(r,'forma pagto');
     const bancoCodigo = getColNormalized(r,'banco');
     const { categoria, grupo, contaNoSaldo } = finalizarLinha(categoriaOriginal, valor, formaPagto, 'pg', date, empresa, bancoCodigo);
-    return { date, categoria, grupo, valor, empresa, origem:'pg', contaNoSaldo, ehBancoTera: isBancoTera(bancoCodigo, empresa), ...rowMeta(r) };
+    return { date, categoria, grupo, valor, empresa, origem:'pg', contaNoSaldo, ehBancoTera: isBancoTera(bancoCodigo, empresa), ehDescontoComissaoPago: normalizeTxt(formaPagto)==='desconto de comissao', ...rowMeta(r) };
   }).filter(Boolean);
 }
 // cr_<empresa> = contas a receber JÁ RECEBIDAS — mesma estrutura do venc_,
