@@ -809,6 +809,7 @@ function contaNoTotal_(r){
   if(r.ehBancoTera) return false;
   if(r.ehDescontoComissaoPago) return false;
   if(r.ehChequeTerceirosPago) return false;
+  if(r.ehCarteira) return false;
   if(r.contaNoSaldo === false) return VALIDACAO_BATER_COM_BASE;
   return true;
 }
@@ -915,6 +916,16 @@ function finalizarLinha(categoriaOriginal, valor, formaPagto, origem, date, empr
   // valor já embutido no pagamento do título principal). Categoria/grupo
   // real mantidos, igual ao padrão do Banco Tera acima.
   if((origem === 'pg' || origem === 'cap') && fp === 'desconto de comissao'){
+    return { categoria: categoriaOriginal, grupo: resolveGrupoCategoria(categoriaOriginal, valor), contaNoSaldo:false };
+  }
+
+  // Forma Pagto "Carteira", em QUALQUER base (venc_/cr_/cap_/pg_): confirmado
+  // com o Gustavo (19/08/2026) — título com baixa em Carteira não é uma
+  // movimentação bancária real (ex: "PAGAMENTO SERÁ EFETUADO DIRETAMENTE AO
+  // FORNECEDOR", título 173778/1 da Ryngavi). Fica na categoria/grupo real,
+  // aparecendo normal na tela, mas nunca conta no Saldo Acumulado nem nos
+  // cards do topo (Pago/Recebido/A Pagar em Aberto/A Receber em Aberto).
+  if(fp === 'carteira'){
     return { categoria: categoriaOriginal, grupo: resolveGrupoCategoria(categoriaOriginal, valor), contaNoSaldo:false };
   }
 
@@ -1141,7 +1152,7 @@ function rowsFromCAP(table, empresa){
     const formaPagto = getColNormalized(r,'forma pagto');
     const bancoCodigo = getColNormalized(r,'banco');
     const { categoria, grupo, contaNoSaldo } = finalizarLinha(categoriaOriginal, valor, formaPagto, 'cap', date, empresa, bancoCodigo);
-    return { date, categoria, grupo, valor, empresa, origem:'cap', contaNoSaldo, ehBancoTera: isBancoTera(bancoCodigo, empresa), ehDescontoComissaoPago: normalizeTxt(formaPagto)==='desconto de comissao', ehChequeTerceirosPago: normalizeTxt(formaPagto)==='cheque terceiros', ...rowMeta(r) };
+    return { date, categoria, grupo, valor, empresa, origem:'cap', contaNoSaldo, ehBancoTera: isBancoTera(bancoCodigo, empresa), ehDescontoComissaoPago: normalizeTxt(formaPagto)==='desconto de comissao', ehChequeTerceirosPago: normalizeTxt(formaPagto)==='cheque terceiros', ehCarteira: normalizeTxt(formaPagto)==='carteira', ...rowMeta(r) };
   }).filter(Boolean);
 }
 // venc_<empresa> = contas a receber por vencimento (projetado/futuro)
@@ -1181,7 +1192,7 @@ function rowsFromVENC(table, empresa){
     const { categoria, grupo, contaNoSaldo } = descontoComissao
       ? { categoria: CATEGORIA_DESCONTO_COMISSAO, grupo: 'RECEBIMENTOS', contaNoSaldo:false }
       : finalizarLinha(categoriaOriginal, valor, formaPagto, 'venc', date, empresa, getColNormalized(r,'banco'));
-    return { date, categoria, grupo, valor, empresa, origem:'venc', contaNoSaldo, ehBancoTera: isBancoTera(getColNormalized(r,'banco'), empresa), ...rowMeta(r) };
+    return { date, categoria, grupo, valor, empresa, origem:'venc', contaNoSaldo, ehBancoTera: isBancoTera(getColNormalized(r,'banco'), empresa), ehCarteira: normalizeTxt(formaPagto)==='carteira', ...rowMeta(r) };
   }).filter(Boolean);
 }
 
@@ -1210,7 +1221,7 @@ function rowsFromPG(table, empresa){
     const formaPagto = getColNormalized(r,'forma pagto');
     const bancoCodigo = getColNormalized(r,'banco');
     const { categoria, grupo, contaNoSaldo } = finalizarLinha(categoriaOriginal, valor, formaPagto, 'pg', date, empresa, bancoCodigo);
-    return { date, categoria, grupo, valor, empresa, origem:'pg', contaNoSaldo, ehBancoTera: isBancoTera(bancoCodigo, empresa), ehDescontoComissaoPago: normalizeTxt(formaPagto)==='desconto de comissao', ehChequeTerceirosPago: normalizeTxt(formaPagto)==='cheque terceiros', ...rowMeta(r) };
+    return { date, categoria, grupo, valor, empresa, origem:'pg', contaNoSaldo, ehBancoTera: isBancoTera(bancoCodigo, empresa), ehDescontoComissaoPago: normalizeTxt(formaPagto)==='desconto de comissao', ehChequeTerceirosPago: normalizeTxt(formaPagto)==='cheque terceiros', ehCarteira: normalizeTxt(formaPagto)==='carteira', ...rowMeta(r) };
   }).filter(Boolean);
 }
 // cr_<empresa> = contas a receber JÁ RECEBIDAS — mesma estrutura do venc_,
@@ -1242,7 +1253,7 @@ function rowsFromCR(table, empresa){
     const { categoria, grupo, contaNoSaldo } = descontoComissao
       ? { categoria: CATEGORIA_DESCONTO_COMISSAO, grupo: 'RECEBIMENTOS', contaNoSaldo:false }
       : finalizarLinha(categoriaOriginal, valor, formaPagto, 'cr', date, empresa, getColNormalized(r,'banco'));
-    return { date, categoria, grupo, valor, empresa, origem:'cr', contaNoSaldo, ehBancoTera: isBancoTera(getColNormalized(r,'banco'), empresa), ...rowMeta(r) };
+    return { date, categoria, grupo, valor, empresa, origem:'cr', contaNoSaldo, ehBancoTera: isBancoTera(getColNormalized(r,'banco'), empresa), ehCarteira: normalizeTxt(formaPagto)==='carteira', ...rowMeta(r) };
   }).filter(Boolean);
 }
 
@@ -1642,6 +1653,7 @@ function renderFcKpiStrip(){
       r.categoria !== CATEGORIA_TITULOS_ABERTO &&
       !r.ehBancoTera &&
       !r.ehDescontoComissaoPago &&
+      !r.ehCarteira &&
       entraNoCardPago(r) &&
       r.date &&
       r.date.slice(0,7) === mesAtual &&
@@ -1669,6 +1681,7 @@ function renderFcKpiStrip(){
       r.categoria !== CATEGORIA_DESCONTO_COMISSAO &&
       r.categoria !== CATEGORIA_BANCO_TERA &&
       !r.ehBancoTera &&
+      !r.ehCarteira &&
       entraNosCards(r) &&
       r.date &&
       r.date.slice(0,7) === mesAtual &&
@@ -1680,6 +1693,7 @@ function renderFcKpiStrip(){
     .filter(r =>
       r.origem === 'cap' &&
       isPagamento(r) &&
+      !r.ehCarteira &&
       entraNosCards(r) &&
       r.date >= periodoStart &&
       r.date <= periodoEnd
@@ -1693,6 +1707,7 @@ function renderFcKpiStrip(){
       r.categoria !== CATEGORIA_DESCONTO_COMISSAO &&
       r.categoria !== CATEGORIA_BANCO_TERA &&
       !r.ehBancoTera &&
+      !r.ehCarteira &&
       entraNosCards(r) &&
       r.date >= periodoStart &&
       r.date <= periodoEnd
