@@ -1232,9 +1232,13 @@ function rowsFromCR(table, empresa){
   const raw = parseGvizRows(table);
   return raw.filter(r=>!isSubtotalRow(r)).map(r=>{
     // Recebimentos já realizados precisam fechar com o relatório de Contas a Receber.
-    // Por isso, cr_<empresa> considera todas as baixas recebidas, inclusive Carteira
-    // e outros registros com Banco 0/vazio. O filtro de bancos fica apenas no venc_
+    // Por isso, cr_<empresa> considera todas as baixas recebidas, inclusive
+    // registros com Banco 0/vazio. O filtro de bancos fica apenas no venc_
     // (projetado), assim como já ocorre entre pg_ (realizado) e cap_ (projetado).
+    // Carteira é EXCEÇÃO a essa regra (revisto em 19/08/2026): mesmo sendo a
+    // forma normal de baixa de vários títulos aqui, o Gustavo confirmou que
+    // ela não pode contar no Saldo Acumulado nem nos cards — tratada em
+    // finalizarLinha via fp==='carteira', igual no lado Pagamento.
     const situacao = normalizeTxt(getColNormalized(r,'situacao'));
     if(situacao.includes('cancel')) return null;
     const dateRaw = getColNormalized(r, 'dt pagto');
