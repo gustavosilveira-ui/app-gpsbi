@@ -808,6 +808,7 @@ function contaNoTotal_(r){
   // exclusão de novo, já que r.contaNoSaldo===false cairia no fallback).
   if(r.ehBancoTera) return false;
   if(r.ehDescontoComissaoPago) return false;
+  if(r.ehChequeTerceirosPago) return false;
   if(r.contaNoSaldo === false) return VALIDACAO_BATER_COM_BASE;
   return true;
 }
@@ -923,11 +924,15 @@ function finalizarLinha(categoriaOriginal, valor, formaPagto, origem, date, empr
       // conta), com linha própria separada — decisão original confirmada com a Shirley.
       return { categoria: CATEGORIA_CHEQUE_TERCEIROS, grupo: 'RECEBIMENTOS', contaNoSaldo:false };
     }
-    // Pagamento via cheque de terceiros: a Shirley confirmou (27/07/2026) que esse
-    // valor é uma despesa real (vamos pagar, só que com cheque) e precisa aparecer
-    // na categoria de verdade (ex: Matéria Prima), não escondido numa categoria
-    // genérica — só não entra no saldo, porque essa conta não é conciliada com o banco.
-    return { categoria: categoriaOriginal, grupo: resolveGrupoCategoria(categoriaOriginal, valor), contaNoSaldo:false };
+    // Pagamento via cheque de terceiros: confirmado com o Gustavo (19/08/2026)
+    // — mesma regra do lado Recebimentos, fica numa linha própria só pra
+    // visualização (grupo CHEQUE_TERCEIROS, categoria real dentro dela pra
+    // saber do que se trata), mas nunca conta no Saldo Acumulado nem em
+    // nenhum outro total (a conta usada pro cheque não é conciliada com o
+    // banco). Substitui a versão anterior, que mantinha a categoria real no
+    // grupo normal e por isso a flag VALIDACAO_BATER_COM_BASE acabava
+    // deixando o valor contar de novo.
+    return { categoria: categoriaOriginal, grupo: 'CHEQUE_TERCEIROS', contaNoSaldo:false };
   }
 
   if(origem === 'cap' || origem === 'venc'){
@@ -1136,7 +1141,7 @@ function rowsFromCAP(table, empresa){
     const formaPagto = getColNormalized(r,'forma pagto');
     const bancoCodigo = getColNormalized(r,'banco');
     const { categoria, grupo, contaNoSaldo } = finalizarLinha(categoriaOriginal, valor, formaPagto, 'cap', date, empresa, bancoCodigo);
-    return { date, categoria, grupo, valor, empresa, origem:'cap', contaNoSaldo, ehBancoTera: isBancoTera(bancoCodigo, empresa), ehDescontoComissaoPago: normalizeTxt(formaPagto)==='desconto de comissao', ...rowMeta(r) };
+    return { date, categoria, grupo, valor, empresa, origem:'cap', contaNoSaldo, ehBancoTera: isBancoTera(bancoCodigo, empresa), ehDescontoComissaoPago: normalizeTxt(formaPagto)==='desconto de comissao', ehChequeTerceirosPago: normalizeTxt(formaPagto)==='cheque terceiros', ...rowMeta(r) };
   }).filter(Boolean);
 }
 // venc_<empresa> = contas a receber por vencimento (projetado/futuro)
@@ -1205,7 +1210,7 @@ function rowsFromPG(table, empresa){
     const formaPagto = getColNormalized(r,'forma pagto');
     const bancoCodigo = getColNormalized(r,'banco');
     const { categoria, grupo, contaNoSaldo } = finalizarLinha(categoriaOriginal, valor, formaPagto, 'pg', date, empresa, bancoCodigo);
-    return { date, categoria, grupo, valor, empresa, origem:'pg', contaNoSaldo, ehBancoTera: isBancoTera(bancoCodigo, empresa), ehDescontoComissaoPago: normalizeTxt(formaPagto)==='desconto de comissao', ...rowMeta(r) };
+    return { date, categoria, grupo, valor, empresa, origem:'pg', contaNoSaldo, ehBancoTera: isBancoTera(bancoCodigo, empresa), ehDescontoComissaoPago: normalizeTxt(formaPagto)==='desconto de comissao', ehChequeTerceirosPago: normalizeTxt(formaPagto)==='cheque terceiros', ...rowMeta(r) };
   }).filter(Boolean);
 }
 // cr_<empresa> = contas a receber JÁ RECEBIDAS — mesma estrutura do venc_,
@@ -1624,11 +1629,19 @@ function renderFcKpiStrip(){
   // O card Pago passa a usar as mesmas linhas já classificadas pelo fluxo:
   // origem PG + lado PAGAMENTOS + regras de total. Assim ele acompanha
   // automaticamente categorias novas e não depende de uma lista fixa de contas.
+  // Cheque Terceiros PAGO entra normal aqui (confirmado com o Gustavo,
+  // 19/08/2026 — mesmo padrão do Recebido: conta no card Pago, só não no
+  // Saldo Acumulado). Por isso NÃO usa contaNoTotal_ direto (ele agora
+  // bloqueia Cheque Terceiros Pago também) — replica a mesma lista de
+  // exclusões do card Recebido, trocando só Banco Tera/Desconto Comissão
+  // pelas flags do lado Pagamento.
   const pago = rows
     .filter(r =>
       r.origem === 'pg' &&
       isPagamento(r) &&
-      contaNoTotal_(r) &&
+      r.categoria !== CATEGORIA_TITULOS_ABERTO &&
+      !r.ehBancoTera &&
+      !r.ehDescontoComissaoPago &&
       entraNoCardPago(r) &&
       r.date &&
       r.date.slice(0,7) === mesAtual &&
