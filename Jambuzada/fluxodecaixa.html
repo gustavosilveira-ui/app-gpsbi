@@ -206,8 +206,16 @@ html.light .fc-plan-table th:first-child,html.light .fc-plan-table td:first-chil
 .fc-detail-list .fc-detail-table th:nth-child(5),.fc-detail-list .fc-detail-table td:nth-child(5){width:75px;}
 .fc-detail-list .fc-detail-table th:nth-child(6),.fc-detail-list .fc-detail-table td:nth-child(6){width:95px;}
 .fc-detail-muted{font-size:11.5px;color:var(--text3);line-height:1.45;margin-top:8px;}
-.fc-ficha-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:16px 0 6px;}
-.fc-ficha-search{width:290px;max-width:100%;padding:8px 11px;border:1px solid var(--border2);border-radius:9px;background:var(--navy3);color:var(--text);font-size:12.5px;}
+.fc-ficha-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:4px 0 14px;flex-wrap:wrap;}
+.fc-ficha-search-wrap{display:flex;align-items:center;gap:10px;min-width:0;flex:1;}
+.fc-ficha-search{width:360px;max-width:100%;padding:9px 12px;border:1px solid var(--border2);border-radius:9px;background:var(--navy3);color:var(--text);font-size:12.5px;}
+.fc-ficha-actions{display:flex;align-items:center;gap:8px;flex:none;}
+.fc-ficha-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px;}
+.fc-ficha-kpi{background:var(--navy3);border:1px solid var(--border);border-radius:10px;padding:12px 14px;}
+.fc-ficha-kpi-label{font-size:10px;text-transform:uppercase;letter-spacing:.045em;color:var(--text3);font-weight:800;}
+.fc-ficha-kpi-value{font-family:'DM Mono',monospace;font-size:15px;font-weight:900;margin-top:5px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.fc-ficha-kpi-value.total{color:var(--red);}
+@media(max-width:760px){.fc-ficha-toolbar{align-items:stretch}.fc-ficha-search-wrap{width:100%}.fc-ficha-search{width:100%}.fc-ficha-actions{width:100%}.fc-ficha-actions .btn{flex:1}.fc-ficha-kpis{grid-template-columns:1fr;}}
 .fc-titulos-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:16px 0 8px;}
 .fc-titulos-search{width:290px;max-width:100%;padding:8px 11px;border:1px solid var(--border2);border-radius:9px;background:var(--navy3);color:var(--text);font-size:12.5px;}
 .fc-tag-aberto,.fc-tag-fluxo,.fc-tag-removido{display:inline-flex;align-items:center;padding:4px 9px;border-radius:999px;font-size:10.5px;font-weight:800;white-space:nowrap;}
@@ -1466,6 +1474,8 @@ function rowsForFicha(rNode,start,end){
 }
 let fcFichaLinhasBase=[];
 let fcFichaTotalAtual=0;
+let fcFichaTituloAtual='Ficha do Fluxo';
+let fcFichaPeriodoAtual='';
 function renderFichaLancamentosFiltrado(termoBusca=''){
   const termo=normalizeTxt(termoBusca).trim();
   const filtradas=termo?fcFichaLinhasBase.filter(r=>normalizeTxt(r.nome||r.historico||r.categoria||'').includes(termo)):fcFichaLinhasBase;
@@ -1482,7 +1492,10 @@ function renderFichaLancamentosFiltrado(termoBusca=''){
   }).join('');
   const body=el('fcFichaLancamentosBody');if(body)body.innerHTML=html||`<tr><td colspan="6" style="color:var(--text3);">Nenhum lançamento encontrado para esse nome.</td></tr>`;
   const cont=el('fcFichaBuscaContagem');if(cont)cont.textContent=termo?`${filtradas.length} de ${fcFichaLinhasBase.length}`:'';
-  const aviso=el('fcFichaMostrandoAviso');if(aviso)aviso.textContent=filtradas.length>120?'Mostrando os primeiros 120 lançamentos.':'';
+  const qtdKpi=el('fcFichaQtdKpi');if(qtdKpi)qtdKpi.textContent=filtradas.length.toLocaleString('pt-BR');
+  const totalFiltrado=filtradas.reduce((s,r)=>s+(Number(r.valor)||0),0);
+  const totalKpi=el('fcFichaTotalKpi');if(totalKpi)totalKpi.textContent=fmtBRL(totalFiltrado);
+  const aviso=el('fcFichaMostrandoAviso');if(aviso)aviso.textContent=filtradas.length>120?'Mostrando os primeiros 120 lançamentos. A exportação considera todos os resultados filtrados.':'';
 }
 function openFluxoFicha(rowId,colId){
   const rNode = fcRowDetailRefs[rowId];
@@ -1504,8 +1517,10 @@ function openFluxoFicha(rowId,colId){
   const contas = Object.entries(porConta).sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]));
   const qtd = detailRows.length + ((histVal!==null && Math.abs(histVal)>0)?1:0);
 
-  el('fluxoFichaTitulo').textContent = 'Ficha · '+rNode.label;
-  el('fluxoFichaSub').textContent = 'Período: '+rangeLabel(col.start,col.end);
+  fcFichaTituloAtual = 'Ficha · '+rNode.label;
+  fcFichaPeriodoAtual = rangeLabel(col.start,col.end);
+  el('fluxoFichaTitulo').textContent = fcFichaTituloAtual;
+  el('fluxoFichaSub').textContent = 'Período: '+fcFichaPeriodoAtual;
 
   const contasHtml = contas.length ? contas.map(([conta,val])=>{
     const pct = total ? Math.abs(val)/Math.abs(total)*100 : 0;
@@ -1525,19 +1540,59 @@ function openFluxoFicha(rowId,colId){
   fcFichaTotalAtual=total;
 
   el('fluxoFichaBody').innerHTML = `
-    <div class="fc-detail-summary">
-      <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${fmtBRL(total)}</div><div class="fc-detail-kpi-lbl">Total no período</div></div>
-      <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${contas.length}</div><div class="fc-detail-kpi-lbl">Contas com movimento</div></div>
-      <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${qtd}</div><div class="fc-detail-kpi-lbl">Lançamentos</div></div>
+    <div class="fc-ficha-toolbar">
+      <div class="fc-ficha-search-wrap">
+        <input class="fc-ficha-search" id="fcFichaBuscaInput" placeholder="🔎 Buscar por nome..." oninput="renderFichaLancamentosFiltrado(this.value)">
+        <span id="fcFichaBuscaContagem" style="font-size:11px;color:var(--text3);white-space:nowrap;"></span>
+      </div>
+      <div class="fc-ficha-actions">
+        <button class="btn btn-ghost btn-sm" onclick="imprimirFluxoFicha()">🖨️ Imprimir</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportarFluxoFichaExcel()">📊 Exportar Excel</button>
+      </div>
     </div>
-    <div style="font-size:12.5px;font-weight:800;margin:12px 0 6px;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;">Por conta</div>
-    <table class="fc-detail-table"><thead><tr><th>Conta</th><th class="num">Valor</th><th class="num">%</th><th class="num">Itens</th></tr></thead><tbody>${contasHtml}</tbody></table>
-    <div class="fc-ficha-toolbar"><div style="font-size:12.5px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;">Lançamentos</div><div><input class="fc-ficha-search" placeholder="🔎 Buscar por nome..." oninput="renderFichaLancamentosFiltrado(this.value)"> <span id="fcFichaBuscaContagem" style="font-size:11px;color:var(--text3);"></span></div></div>
-    <div class="fc-detail-list"><table class="fc-detail-table" style="margin-top:0;"><thead><tr><th>Data</th><th>Conta</th><th>Nome</th><th>Documento</th><th class="num">%</th><th class="num">Valor</th></tr></thead><tbody id="fcFichaLancamentosBody"></tbody></table></div>
+    <div class="fc-ficha-kpis">
+      <div class="fc-ficha-kpi"><div class="fc-ficha-kpi-label">Quantidade</div><div class="fc-ficha-kpi-value" id="fcFichaQtdKpi">${linhas.length.toLocaleString('pt-BR')}</div></div>
+      <div class="fc-ficha-kpi"><div class="fc-ficha-kpi-label">Total</div><div class="fc-ficha-kpi-value total" id="fcFichaTotalKpi">${fmtBRL(total)}</div></div>
+      <div class="fc-ficha-kpi"><div class="fc-ficha-kpi-label">Data</div><div class="fc-ficha-kpi-value">${escapeFichaHtml(fcFichaPeriodoAtual)}</div></div>
+    </div>
+    <div class="fc-detail-list" style="max-height:470px;"><table class="fc-detail-table" style="margin-top:0;"><thead><tr><th>Data</th><th>Conta</th><th>Nome</th><th>Documento</th><th class="num">%</th><th class="num">Valor</th></tr></thead><tbody id="fcFichaLancamentosBody"></tbody></table></div>
     <div class="fc-detail-muted" id="fcFichaMostrandoAviso"></div>
   `;
   renderFichaLancamentosFiltrado('');
   el('fluxoFichaModal').classList.add('show');
+}
+function fichaRowsParaExportar_(){
+  return Array.isArray(fcFichaLinhasAtual)?fcFichaLinhasAtual:[];
+}
+function imprimirFluxoFicha(){
+  const lista=fichaRowsParaExportar_();
+  if(!lista.length){alert('Não há lançamentos para imprimir.');return;}
+  const total=lista.reduce((s,r)=>s+(Number(r.valor)||0),0);
+  const linhas=lista.map(r=>`<tr><td>${formatDateBR(r.date)}</td><td>${escapeFichaHtml(r.conta||r.fonte||'Não informada')}</td><td>${escapeFichaHtml(r.nome||r.historico||r.categoria||'Sem nome')}</td><td>${escapeFichaHtml(r.documento||r.fonte||'')}</td><td style="text-align:right">${fmtNumeroFicha(r.valor)}</td></tr>`).join('');
+  const w=window.open('','_blank','width=1100,height=760');
+  if(!w){alert('O navegador bloqueou a janela de impressão. Libere pop-ups e tente novamente.');return;}
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeFichaHtml(fcFichaTituloAtual)}</title><style>body{font-family:Arial,sans-serif;color:#1b2430;margin:28px}h1{font-size:20px;margin:0 0 4px}.sub{font-size:12px;color:#667085;margin-bottom:18px}.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px}.kpi{border:1px solid #d8dee8;border-radius:8px;padding:10px 12px}.lbl{font-size:9px;text-transform:uppercase;color:#667085;font-weight:700}.val{font-size:15px;font-weight:800;margin-top:4px}table{width:100%;border-collapse:collapse;font-size:10px}th,td{padding:7px 6px;border-bottom:1px solid #e6e9ef;text-align:left}th{font-size:9px;text-transform:uppercase;background:#f5f7fa}td:last-child,th:last-child{text-align:right}@page{size:landscape;margin:10mm}</style></head><body><h1>${escapeFichaHtml(fcFichaTituloAtual)}</h1><div class="sub">Período: ${escapeFichaHtml(fcFichaPeriodoAtual)}</div><div class="kpis"><div class="kpi"><div class="lbl">Quantidade</div><div class="val">${lista.length.toLocaleString('pt-BR')}</div></div><div class="kpi"><div class="lbl">Total</div><div class="val">${fmtBRL(total)}</div></div><div class="kpi"><div class="lbl">Data</div><div class="val">${escapeFichaHtml(fcFichaPeriodoAtual)}</div></div></div><table><thead><tr><th>Data</th><th>Conta</th><th>Nome</th><th>Documento</th><th>Valor</th></tr></thead><tbody>${linhas}</tbody></table><script>window.onload=()=>{window.print();window.onafterprint=()=>window.close();}<\/script></body></html>`);
+  w.document.close();
+}
+function exportarFluxoFichaExcel(){
+  if(typeof XLSX==='undefined'){alert('Não consegui carregar a biblioteca de Excel. Recarregue a página e tente novamente.');return;}
+  const lista=fichaRowsParaExportar_();
+  if(!lista.length){alert('Não há lançamentos para exportar.');return;}
+  const total=lista.reduce((s,r)=>s+(Number(r.valor)||0),0);
+  const dados=lista.map(r=>({
+    'Data':formatDateBR(r.date),
+    'Conta':r.conta||r.fonte||'Não informada',
+    'Nome':r.nome||r.historico||r.categoria||'Sem nome',
+    'Documento':r.documento||r.fonte||'',
+    'Valor':Number(r.valor)||0
+  }));
+  dados.push({'Data':'','Conta':'','Nome':'TOTAL','Documento':'','Valor':total});
+  const ws=XLSX.utils.json_to_sheet(dados);
+  ws['!cols']=[{wch:12},{wch:24},{wch:42},{wch:24},{wch:16}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Ficha Pagamentos');
+  const nomeBase=(fcFichaTituloAtual||'Ficha').replace(/[^a-z0-9]+/gi,'_').replace(/^_+|_+$/g,'');
+  XLSX.writeFile(wb,`${nomeBase}_${new Date().toISOString().slice(0,10)}.xlsx`);
 }
 function closeFluxoFicha(){ el('fluxoFichaModal').classList.remove('show'); }
 el('fluxoFichaModal').addEventListener('click', e=>{ if(e.target.id==='fluxoFichaModal') closeFluxoFicha(); });
