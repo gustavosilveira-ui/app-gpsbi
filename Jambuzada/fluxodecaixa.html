@@ -1026,6 +1026,7 @@ async function loadData(){
     await loadSaldoInicial();
     await loadAjustesManuais(); // injeta os lançamentos manuais como movimentação real
     loadLimiteConta();
+    await loadSharedState_();
     buildAndRenderTable();
     el('loadingScreen').style.display='none';
     el('mainContent').style.display='block';
@@ -1790,7 +1791,7 @@ async function loadFcMsgs(){
   if(error){ el('fcMsgList').innerHTML = '<div style="color:var(--gold);font-size:12px;">⚠️ Não consegui carregar. Verifique se a tabela fluxo_mensagens existe no Supabase.</div>'; return; }
   const { data: reacoes } = await sb.from('jambuzada_fluxo_mensagens_reacoes').select('*');
   const { data: leituras } = await sb.from('jambuzada_fluxo_mensagens_leituras').select('*');
-  const msgsCliente = (data||[]).filter(m=>isClientMarked(m.mensagem)).map(m=>({ ...m, mensagem: stripClientMarker(m.mensagem) }));
+  const msgsCliente = (data||[]).filter(m=>isClientMarked(m.mensagem) && !stripClientMarker(m.mensagem).startsWith(FC_SHARED_STATE_TAG)).map(m=>({ ...m, mensagem: stripClientMarker(m.mensagem) }));
   const idsCliente = new Set(msgsCliente.map(m=>m.id));
   fcMsgsCache = {
     msgs: msgsCliente,
@@ -1936,6 +1937,73 @@ async function salvarEdicaoFcMsg(id, campo){
 
 
 /* ================== VISÃO SEMANAL / PRONAMPE / FORNECEDORES ================== */
+
+// Estado compartilhado do planejamento do fluxo (Supabase).
+// Antes, rateios/exclusões e Necessidade de Caixa ficavam apenas no localStorage
+// de cada navegador. Agora todos os usuários do fluxo enxergam o mesmo estado.
+const FC_SHARED_STATE_TAG = '[[FC_SHARED_STATE_V1]]';
+let fcSaldoAtualHojeCompartilhado = null;
+let fcSharedStateRowId = null;
+let fcSharedStateLoaded = false;
+
+function fcSharedStatePayload_(){
+  return {
+    programacoesFornecedor: fcProgramacoesFornecedor || [],
+    exclusoes: fcExclusoes || [],
+    saldoAtualHoje: fcSaldoAtualHojeCompartilhado || null,
+    atualizadoEm: new Date().toISOString(),
+    atualizadoPor: currentUser?.email || ''
+  };
+}
+
+async function persistSharedState_(){
+  if(!currentUser) return;
+  const mensagem = withClientMarker(FC_SHARED_STATE_TAG + JSON.stringify(fcSharedStatePayload_()));
+  const payload = {
+    autor_email: currentUser.email,
+    autor_nome: nameFromEmail(currentUser.email),
+    tipo:'observacao', mensagem, status:'resolvido'
+  };
+  try{
+    if(fcSharedStateRowId){
+      const { error } = await sb.from('jambuzada_fluxo_mensagens').update(payload).eq('id',fcSharedStateRowId);
+      if(error) throw error;
+    }else{
+      const { data, error } = await sb.from('jambuzada_fluxo_mensagens').insert(payload).select('id').single();
+      if(error) throw error;
+      fcSharedStateRowId = data?.id || null;
+    }
+  }catch(e){ console.error('Erro ao salvar estado compartilhado do fluxo:',e); }
+}
+
+async function loadSharedState_(){
+  try{
+    const { data, error } = await sb.from('jambuzada_fluxo_mensagens').select('*').order('criado_em',{ascending:false});
+    if(error) throw error;
+    const prefix = CLIENTE_MARKER + FC_SHARED_STATE_TAG;
+    const stateRow = (data||[]).find(m => (m.mensagem||'').startsWith(prefix));
+    if(stateRow){
+      fcSharedStateRowId = stateRow.id;
+      const raw = (stateRow.mensagem||'').slice(prefix.length);
+      const st = JSON.parse(raw||'{}');
+      fcProgramacoesFornecedor = Array.isArray(st.programacoesFornecedor) ? st.programacoesFornecedor : [];
+      fcExclusoes = Array.isArray(st.exclusoes) ? st.exclusoes : [];
+      fcSaldoAtualHojeCompartilhado = st.saldoAtualHoje || null;
+    }else{
+      // Migração automática: aproveita o que já existia no navegador de quem
+      // abrir primeiro após esta correção (normalmente o Gustavo) e publica para todos.
+      fcSaldoAtualHojeCompartilhado = JSON.parse(localStorage.getItem('jambuzada_fc_saldo_atual_hoje')||'null');
+      if((fcProgramacoesFornecedor||[]).length || (fcExclusoes||[]).length || fcSaldoAtualHojeCompartilhado){
+        await persistSharedState_();
+      }
+    }
+    fcSharedStateLoaded = true;
+  }catch(e){
+    console.error('Erro ao carregar estado compartilhado do fluxo:',e);
+    fcSharedStateLoaded = true; // mantém fallback local sem travar o fluxo
+  }
+}
+
 let fcProgramacoesFornecedor = JSON.parse(localStorage.getItem('jambuzada_fc_programacoes_fornecedor')||'[]');
 let fcPronampe = JSON.parse(localStorage.getItem('jambuzada_fc_pronampe')||'{"disponivel":0,"valor":0,"devolucao":""}');
 /* ================== NOVO: Aplicações (registro diário + saque) ==================
@@ -1994,6 +2062,7 @@ function deduplicarFcExclusoes(){
   if(limpas.length !== fcExclusoes.length){
     fcExclusoes = limpas;
     localStorage.setItem('jambuzada_fc_exclusoes', JSON.stringify(fcExclusoes));
+  void persistSharedState_();
   }
 }
 function adicionarFcExclusao(ex){
@@ -2001,6 +2070,7 @@ function adicionarFcExclusao(ex){
   if(fcExclusoes.some(atual=>fcExclusaoKey(atual)===chave)) return false;
   fcExclusoes.push(ex);
   localStorage.setItem('jambuzada_fc_exclusoes', JSON.stringify(fcExclusoes));
+  void persistSharedState_();
   return true;
 }
 deduplicarFcExclusoes();
@@ -2085,6 +2155,7 @@ function sincronizarRateiosComSaldoOmie_(){
     if(saldo>0 && Math.abs(saldo-saldoAnterior)>0.01){ajustarParcelasAoSaldoOmie_(prog,saldo);mudou=true;}
   });
   if(mudou)localStorage.setItem('jambuzada_fc_programacoes_fornecedor',JSON.stringify(fcProgramacoesFornecedor));
+  void persistSharedState_();
 }
 function injetarProgramacoesFornecedor(){
   // Sempre recomeça da base pristina (nunca acumula em cima do resultado da
@@ -2441,6 +2512,7 @@ function confirmarParcelasFornecedor(){
     exclusaoId = Date.now();
     fcExclusoes.push({nome:original.nome||fornecedor, data:original.date, valor:original.valor, criadoEm:exclusaoId, motivo:'Substituído por rateio'});
     localStorage.setItem('jambuzada_fc_exclusoes', JSON.stringify(fcExclusoes));
+  void persistSharedState_();
     exclusaoCriada = true;
   }
 
@@ -2453,6 +2525,7 @@ function confirmarParcelasFornecedor(){
     saldoOmieAtual:valor,valorOriginal:valor
   });
   localStorage.setItem('jambuzada_fc_programacoes_fornecedor',JSON.stringify(fcProgramacoesFornecedor));
+  void persistSharedState_();
   fcParcelasEmEdicao = null;
   buildAndRenderTable();
   if(exclusaoCriada) alert('Rateio criado e o valor cheio original foi ocultado do fluxo.');
@@ -2500,6 +2573,7 @@ function excluirLancamentoManual(){
 function removerExclusao(criadoEm){
   fcExclusoes = fcExclusoes.filter(ex=>ex.criadoEm!==criadoEm);
   localStorage.setItem('jambuzada_fc_exclusoes', JSON.stringify(fcExclusoes));
+  void persistSharedState_();
   buildAndRenderTable();
 }
 function renderExclusoes(){
@@ -2741,6 +2815,7 @@ function confirmarRateioNaFicha(){
   const exclusaoId = Date.now();
   fcExclusoes.push({ nome, data, valor:-Math.abs(valor), criadoEm:exclusaoId, novaData:null, motivo:'Substituído por rateio' });
   localStorage.setItem('jambuzada_fc_exclusoes', JSON.stringify(fcExclusoes));
+  void persistSharedState_();
 
   // Guarda o id da exclusão junto da programação — mesma correção do fluxo
   // de rateio pelo card (11/08/2026): sem isso, desfazer o rateio não
@@ -2752,6 +2827,7 @@ function confirmarRateioNaFicha(){
     chaveLancamento:[normalizeTxt(nome),data||'',normalizeTxt(documento||''),normalizeTxt(fonteOriginal||'')].join('|')
   });
   localStorage.setItem('jambuzada_fc_programacoes_fornecedor', JSON.stringify(fcProgramacoesFornecedor));
+  void persistSharedState_();
 
   fcRateioPopupParcelas = null;
   fecharTirarPopup();
@@ -2866,6 +2942,7 @@ function removerProgramacaoFornecedor(id){
   const prog = fcProgramacoesFornecedor.find(p=>p.id===id);
   fcProgramacoesFornecedor=fcProgramacoesFornecedor.filter(p=>p.id!==id);
   localStorage.setItem('jambuzada_fc_programacoes_fornecedor',JSON.stringify(fcProgramacoesFornecedor));
+  void persistSharedState_();
   // Se esse rateio tinha escondido um lançamento original (fluxo "ratear em
   // cima do valor cheio"), devolve ele pro fluxo — senão a despesa some pra
   // sempre em vez de voltar à data e valor normais (bug encontrado em
@@ -2873,6 +2950,7 @@ function removerProgramacaoFornecedor(id){
   if(prog && prog.exclusaoId){
     fcExclusoes = fcExclusoes.filter(ex=>ex.criadoEm!==prog.exclusaoId);
     localStorage.setItem('jambuzada_fc_exclusoes', JSON.stringify(fcExclusoes));
+  void persistSharedState_();
   }
   buildAndRenderTable();
 }
@@ -2907,14 +2985,16 @@ function renderPronampe(){
 function calcularNecessidadeCaixa(){
   const saldoAtual = parseFloat(el('fcSaldoAtualInput').value);
   if(isNaN(saldoAtual)){ alert('Informe o saldo atual da conta.'); return; }
-  localStorage.setItem('jambuzada_fc_saldo_atual_hoje', JSON.stringify({valor:saldoAtual, data:todayISO()}));
+  fcSaldoAtualHojeCompartilhado = {valor:saldoAtual, data:todayISO()};
+  localStorage.setItem('jambuzada_fc_saldo_atual_hoje', JSON.stringify(fcSaldoAtualHojeCompartilhado)); // fallback local
+  void persistSharedState_();
   renderNecessidadeCaixa();
 }
 function renderNecessidadeCaixa(){
   const wrap = el('fcNecessidadeCaixaResumo'); if(!wrap) return;
   const hoje = todayISO();
   const pagamentosHoje = Math.abs(sumInRange(isPagamento, hoje, hoje));
-  const salvo = JSON.parse(localStorage.getItem('jambuzada_fc_saldo_atual_hoje')||'null');
+  const salvo = fcSaldoAtualHojeCompartilhado || JSON.parse(localStorage.getItem('jambuzada_fc_saldo_atual_hoje')||'null');
 
   if(!salvo || salvo.data !== hoje){
     wrap.innerHTML = `Pagamentos previstos pra hoje: <b>${fmtBRL(pagamentosHoje)}</b> · informe o saldo atual da conta pra calcular a necessidade de caixa.`;
@@ -3008,6 +3088,7 @@ function voltarParaEmAberto(chave){
     const rowResolvida=tituloResolvidoRow_(original);
     fcExclusoes=fcExclusoes.filter(ex=>!fcExclusaoMatchesRow(ex,rowResolvida));
     localStorage.setItem('jambuzada_fc_exclusoes',JSON.stringify(fcExclusoes));
+  void persistSharedState_();
   }
   delete fcTitulosResolvidos[chave];
   localStorage.setItem('jambuzada_fc_titulos_resolvidos', JSON.stringify(fcTitulosResolvidos));
