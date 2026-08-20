@@ -200,6 +200,38 @@ html.light .fc-day-num{color:#1f2a3d;}
 
 @media(max-width:760px){.fc-detail-summary{grid-template-columns:1fr;}}
 
+
+@media print{
+  @page{size:A4 landscape;margin:10mm;}
+  body *{visibility:hidden!important;}
+  #fcClienteFichaModal,#fcClienteFichaModal *{visibility:visible!important;}
+  #fcClienteFichaModal{
+    position:absolute!important;inset:0!important;display:block!important;
+    background:#fff!important;color:#000!important;
+  }
+  #fcClienteFichaModal .modal-box{
+    width:100%!important;max-width:none!important;max-height:none!important;
+    overflow:visible!important;box-shadow:none!important;background:#fff!important;
+    color:#000!important;border:0!important;padding:8px!important;
+  }
+  #fcClienteFichaModal button{display:none!important;}
+  #fcClienteFichaModal .fc-cliente-panel,
+  #fcClienteFichaModal .fc-cliente-kpi,
+  #fcClienteFichaModal .fc-cliente-score{
+    background:#fff!important;color:#000!important;border-color:#bbb!important;
+    break-inside:avoid;
+  }
+  #fcClienteFichaModal .fc-detail-list{max-height:none!important;overflow:visible!important;}
+  #fcClienteFichaModal .fc-detail-table{color:#000!important;font-size:9px!important;}
+  #fcClienteFichaModal .fc-detail-table th,
+  #fcClienteFichaModal .fc-detail-table td{color:#000!important;border-color:#ddd!important;}
+  #fcClienteFichaModal .fc-month-bar{border:1px solid #bbb!important;background:#eee!important;}
+  #fcClienteFichaModal .fc-month-bar>span{background:#555!important;}
+  #fcClienteFichaModal .fc-score-note,
+  #fcClienteFichaModal .modal-sub,
+  #fcClienteFichaModal .fc-cliente-kpi-label{color:#555!important;}
+}
+
 </style>
 </head>
 <body>
@@ -288,7 +320,10 @@ html.light .fc-day-num{color:#1f2a3d;}
             <div class="modal-title" id="fcClienteFichaTitulo">👤 Ficha Técnica do Cliente</div>
             <div class="modal-sub" id="fcClienteFichaSub">Histórico financeiro e comportamento de inadimplência.</div>
           </div>
-          <button class="btn btn-ghost btn-sm" onclick="fecharClienteFicha()">Fechar</button>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-ghost btn-sm" onclick="imprimirClienteFicha()">🖨️ Imprimir ficha</button>
+            <button class="btn btn-ghost btn-sm" onclick="fecharClienteFicha()">Fechar</button>
+          </div>
         </div>
         <div id="fcClienteFichaBody"></div>
       </div>
@@ -1197,6 +1232,9 @@ function abrirClienteFicha(nome){
   el('fcClienteFichaModal').classList.add('show');
 }
 function fecharClienteFicha(){ el('fcClienteFichaModal').classList.remove('show'); }
+function imprimirClienteFicha(){
+  window.print();
+}
 
 function openTituloObsPopup_(chave){
   const r=rowsAtrasados.find(x=>x.chave===chave); if(!r) return;
