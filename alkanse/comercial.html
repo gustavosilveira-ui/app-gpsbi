@@ -160,11 +160,6 @@ const SUPABASE_URL = 'https://ikncdkgaefwzdveotvka.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_XtrW_VlYPu1bE7FNA1V2lA_Srq9c5T6';
 const LOGIN_URL = 'index.html';
 
-// Planilha do Hub (mesma do Fluxo de Caixa/Financeiro) — aba "Vendas",
-// alimentada pelo script de importação do VENDAS.XLS (mês vigente).
-const SHEET_ID = '1YbJeKx7X2MuDbOhY-SPSYPmM1RfyFzHeL4OyBhn9fpo';
-const ABA_VENDAS = 'Vendas';
-
 function el(id){ return document.getElementById(id); }
 function normalizeTxt(s){
   return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
@@ -198,14 +193,30 @@ async function doLogout(){
   window.location.replace(LOGIN_URL);
 }
 
-// Busca uma aba do Google Sheets via gviz PELO NOME da aba (não precisa do
-// gid, que muda quando a aba é criada pelo Apps Script).
-async function fetchGvizBySheetName(sheetId, sheetName){
-  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}&headers=1`;
-  const res = await fetch(url);
-  const text = await res.text();
-  const clean = text.replace(/^[^{]*/, '').replace(/\s*\)\s*;?\s*$/, '');
-  return JSON.parse(clean).table;
+// Busca a aba "Vendas" através da API protegida (WIF/Service Account),
+// igual o Fluxo de Caixa já faz pra "Financeiro" — a planilha está
+// Restrita, então não dá mais pra ler direto do navegador via gviz.
+async function fetchVendasTable(){
+  const { data: sessData } = await sb.auth.getSession();
+  const token = sessData && sessData.session ? sessData.session.access_token : null;
+  if(!token) throw new Error('Sessão expirada');
+
+  const res = await fetch('/api/alkanse-comercial', {
+    method:'GET',
+    headers:{ 'Authorization': `Bearer ${token}` },
+    cache:'no-store'
+  });
+
+  if(!res.ok){
+    let msg = `HTTP ${res.status}`;
+    try{
+      const e = await res.json();
+      if(e && e.error) msg = e.error;
+    }catch(_){}
+    throw new Error(msg);
+  }
+
+  return res.json();
 }
 function parseGvizRows(table){
   if(!table || !table.rows) return [];
@@ -241,7 +252,7 @@ function processarLinha(r){
 }
 
 async function loadData(){
-  const table = await fetchGvizBySheetName(SHEET_ID, ABA_VENDAS);
+  const table = await fetchVendasTable();
   const raw = parseGvizRows(table);
   vendasRows = raw.map(processarLinha).filter(r => r.cliente);
 
