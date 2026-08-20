@@ -173,6 +173,31 @@ html.light .fc-day-num{color:#1f2a3d;}
 #fcTitulosAbertoLista .fc-detail-table th:nth-child(5){width:120px;}
 #fcTitulosAbertoLista .fc-detail-table th:nth-child(6){width:105px;}
 
+.fc-cliente-link{cursor:pointer;color:var(--blue,#2D70B8);font-weight:800;text-decoration:underline dotted;text-underline-offset:3px;}
+.fc-cliente-link:hover{opacity:.72;}
+.fc-cliente-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px;}
+.fc-cliente-score{min-width:150px;border:1px solid var(--border2);border-radius:12px;padding:12px 14px;background:var(--navy3);text-align:center;}
+.fc-cliente-score-num{font-family:'DM Mono',monospace;font-size:30px;font-weight:900;line-height:1;}
+.fc-cliente-score-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;font-weight:800;margin-top:6px;}
+.fc-cliente-score-faixa{font-size:11px;font-weight:900;margin-top:5px;}
+.fc-cliente-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:12px 0 16px;}
+.fc-cliente-kpi{background:var(--navy3);border:1px solid var(--border);border-radius:10px;padding:12px 14px;min-width:0;}
+.fc-cliente-kpi-label{font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--text3);font-weight:800;}
+.fc-cliente-kpi-value{font-family:'DM Mono',monospace;font-size:15px;font-weight:900;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.fc-cliente-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:14px;margin-top:12px;}
+.fc-cliente-panel{border:1px solid var(--border2);border-radius:11px;padding:14px;background:var(--navy2);}
+.fc-cliente-panel-title{font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.035em;margin-bottom:12px;}
+.fc-month-row{display:grid;grid-template-columns:72px 1fr 100px;gap:9px;align-items:center;margin:8px 0;font-size:11px;}
+.fc-month-bar{height:9px;border-radius:999px;background:var(--navy3);overflow:hidden;}
+.fc-month-bar>span{display:block;height:100%;border-radius:999px;background:currentColor;color:var(--cyan);}
+.fc-aging-row{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--border);font-size:11.5px;}
+.fc-aging-row:last-child{border-bottom:0;}
+.fc-score-note{font-size:10.5px;color:var(--text3);line-height:1.5;margin-top:12px;padding-top:10px;border-top:1px dashed var(--border2);}
+.fc-cliente-history{margin-top:14px;}
+@media(max-width:850px){.fc-cliente-kpis{grid-template-columns:1fr 1fr}.fc-cliente-grid{grid-template-columns:1fr;}}
+@media(max-width:520px){.fc-cliente-kpis{grid-template-columns:1fr;}}
+
+
 @media(max-width:760px){.fc-detail-summary{grid-template-columns:1fr;}}
 
 </style>
@@ -252,6 +277,20 @@ html.light .fc-day-num{color:#1f2a3d;}
           <button class="btn btn-ghost btn-sm" onclick="fecharTitulosAbertoModal()">Fechar</button>
         </div>
         <div id="fcTitulosAbertoLista"></div>
+      </div>
+    </div>
+
+    <!-- Ficha técnica / histórico do cliente -->
+    <div class="modal-overlay" id="fcClienteFichaModal" style="z-index:340;">
+      <div class="modal-box" style="width:1120px;max-width:96vw;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+          <div>
+            <div class="modal-title" id="fcClienteFichaTitulo">👤 Ficha Técnica do Cliente</div>
+            <div class="modal-sub" id="fcClienteFichaSub">Histórico financeiro e comportamento de inadimplência.</div>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="fecharClienteFicha()">Fechar</button>
+        </div>
+        <div id="fcClienteFichaBody"></div>
       </div>
     </div>
 
@@ -1026,7 +1065,7 @@ function renderTitulosAbertoLista(termoBusca=''){
     const pct=total?Math.abs(r.valor)/Math.abs(total)*100:0;
     return `<tr>
       <td>${formatDateBR(r.date)}</td>
-      <td class="wrap">${escapeHtml(r.nome||'Sem nome')}</td>
+      <td class="wrap"><span class="fc-cliente-link" title="Abrir ficha técnica do cliente" onclick="abrirClienteFicha('${String(r.nome||'').replace(/'/g,"\\'")}')">${escapeHtml(r.nome||'Sem nome')}</span></td>
       <td><span class="fc-tag-aberto">⏳ Em aberto</span></td>
       <td class="num">${pct.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%</td>
       <td>${renderTituloObsHtml_(r)}</td>
@@ -1049,6 +1088,116 @@ function renderTitulosAbertoLista(termoBusca=''){
       <tbody>${linhas||'<tr><td colspan="6">Nenhum título encontrado.</td></tr>'}</tbody>
     </table></div>`;
 }
+
+function diasEntreHoje_(iso){
+  const a=new Date(iso+'T12:00:00'), b=new Date(todayISO()+'T12:00:00');
+  return Math.max(0,Math.floor((b-a)/86400000));
+}
+function mesLabel_(ym){
+  const [y,m]=ym.split('-').map(Number);
+  return new Date(y,m-1,1).toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}).replace('.','');
+}
+function scoreCliente_(recebidos,abertos){
+  const pago=recebidos.reduce((s,r)=>s+Math.max(0,r.valor),0);
+  const aberto=abertos.reduce((s,r)=>s+Math.max(0,r.valor),0);
+  const exposicao=pago+aberto;
+  const ratio=exposicao>0?aberto/exposicao:(aberto>0?1:0);
+  const idadeMedia=abertos.length?abertos.reduce((s,r)=>s+diasEntreHoje_(r.date),0)/abertos.length:0;
+  const idadeMax=abertos.length?Math.max(...abertos.map(r=>diasEntreHoje_(r.date))):0;
+  let score=100;
+  score-=Math.min(55,ratio*70);
+  score-=Math.min(25,idadeMedia/4);
+  score-=Math.min(12,Math.max(0,abertos.length-1)*2);
+  if(!abertos.length && recebidos.length>=3) score+=4;
+  score=Math.max(0,Math.min(100,Math.round(score)));
+  let faixa,cor;
+  if(score>=85){faixa='Excelente';cor='#4F8F3A';}
+  else if(score>=70){faixa='Bom';cor='var(--cyan)';}
+  else if(score>=50){faixa='Atenção';cor='var(--gold)';}
+  else {faixa='Risco elevado';cor='var(--red)';}
+  return {score,faixa,cor,pago,aberto,ratio,idadeMedia,idadeMax};
+}
+function abrirClienteFicha(nome){
+  if(!nome) return;
+  const n=normalizeTxt(nome);
+  const recebidos=rows.filter(r=>normalizeTxt(r.nome)===n && (r.grupo==='RECEBIMENTOS'||r.grupo==='DUPLICATAS_DESCONTADAS') && r.valor>0);
+  const abertos=rowsAtrasados.filter(r=>normalizeTxt(r.nome)===n && r.valor>0);
+  const stats=scoreCliente_(recebidos,abertos);
+  const todos=[...recebidos.map(r=>({...r,status:'Recebido'})),...abertos.map(r=>({...r,status:'Em aberto'}))].sort((a,b)=>b.date.localeCompare(a.date));
+  const primeiro=todos.length?todos.reduce((m,r)=>r.date<m?r.date:m,todos[0].date):'';
+  const ultimoReceb=recebidos.length?recebidos.reduce((m,r)=>r.date>m?r.date:m,recebidos[0].date):'';
+  const ticket=recebidos.length?stats.pago/recebidos.length:0;
+
+  // Últimos 6 meses de recebimentos
+  const byMonth={};
+  recebidos.forEach(r=>{const ym=r.date.slice(0,7);byMonth[ym]=(byMonth[ym]||0)+r.valor;});
+  const months=[];
+  const d=new Date();
+  for(let i=5;i>=0;i--){const x=new Date(d.getFullYear(),d.getMonth()-i,1);months.push(`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}`);}
+  const maxMonth=Math.max(1,...months.map(m=>byMonth[m]||0));
+  const chart=months.map(m=>`<div class="fc-month-row"><span>${mesLabel_(m)}</span><div class="fc-month-bar"><span style="width:${Math.round((byMonth[m]||0)/maxMonth*100)}%"></span></div><b style="text-align:right;font-family:'DM Mono',monospace;">${fmtBRL(byMonth[m]||0)}</b></div>`).join('');
+
+  const agingBuckets=[
+    ['Até 30 dias',0,30],['31–60 dias',31,60],['61–90 dias',61,90],['Acima de 90',91,99999]
+  ];
+  const aging=agingBuckets.map(([lbl,min,max])=>{
+    const arr=abertos.filter(r=>{const dias=diasEntreHoje_(r.date);return dias>=min&&dias<=max;});
+    const val=arr.reduce((s,r)=>s+r.valor,0);
+    return `<div class="fc-aging-row"><span>${lbl}</span><span><b>${arr.length}</b> título(s) · <b>${fmtBRL(val)}</b></span></div>`;
+  }).join('');
+
+  const historico=todos.slice(0,30).map(r=>`<tr>
+    <td>${formatDateBR(r.date)}</td>
+    <td>${r.status==='Em aberto'?'<span class="fc-tag-aberto">⏳ Em aberto</span>':'<span style="font-weight:800;color:#4F8F3A;">✓ Recebido</span>'}</td>
+    <td class="wrap">${escapeHtml(r.categoria||'')}</td>
+    <td class="small">${escapeHtml(r.documento||'')}</td>
+    <td class="valor-modal" style="color:${r.status==='Em aberto'?'var(--red)':'#4F8F3A'}">${fmtBRL(r.valor)}</td>
+  </tr>`).join('');
+
+  el('fcClienteFichaTitulo').textContent='👤 Ficha Técnica · '+nome;
+  el('fcClienteFichaSub').textContent='Histórico financeiro disponível na base da Tangram.';
+  el('fcClienteFichaBody').innerHTML=`
+    <div class="fc-cliente-head">
+      <div>
+        <div style="font-size:18px;font-weight:900;">${escapeHtml(nome)}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:5px;">${primeiro?'Histórico disponível desde '+formatDateBR(primeiro):'Sem histórico financeiro realizado encontrado na base atual.'}</div>
+      </div>
+      <div class="fc-cliente-score">
+        <div class="fc-cliente-score-num" style="color:${stats.cor}">${stats.score}</div>
+        <div class="fc-cliente-score-lbl">Score financeiro estimado</div>
+        <div class="fc-cliente-score-faixa" style="color:${stats.cor}">${stats.faixa}</div>
+      </div>
+    </div>
+    <div class="fc-cliente-kpis">
+      <div class="fc-cliente-kpi"><div class="fc-cliente-kpi-label">Total recebido</div><div class="fc-cliente-kpi-value" style="color:#4F8F3A">${fmtBRL(stats.pago)}</div></div>
+      <div class="fc-cliente-kpi"><div class="fc-cliente-kpi-label">Em aberto / atrasado</div><div class="fc-cliente-kpi-value" style="color:var(--red)">${fmtBRL(stats.aberto)}</div></div>
+      <div class="fc-cliente-kpi"><div class="fc-cliente-kpi-label">Ticket médio recebido</div><div class="fc-cliente-kpi-value">${fmtBRL(ticket)}</div></div>
+      <div class="fc-cliente-kpi"><div class="fc-cliente-kpi-label">Maior atraso atual</div><div class="fc-cliente-kpi-value">${stats.idadeMax} dias</div></div>
+    </div>
+    <div class="fc-cliente-grid">
+      <div class="fc-cliente-panel">
+        <div class="fc-cliente-panel-title">📈 Histórico de recebimentos · 6 meses</div>
+        ${chart}
+      </div>
+      <div class="fc-cliente-panel">
+        <div class="fc-cliente-panel-title">⚠️ Comportamento da inadimplência atual</div>
+        ${aging}
+        <div class="fc-aging-row"><span>Comprometimento em aberto</span><b>${(stats.ratio*100).toLocaleString('pt-BR',{maximumFractionDigits:1})}%</b></div>
+        <div class="fc-aging-row"><span>Idade média dos atrasados</span><b>${Math.round(stats.idadeMedia)} dias</b></div>
+        <div class="fc-score-note">A nota é uma estimativa interna baseada no histórico de valores recebidos disponível, volume atualmente em atraso, quantidade de títulos e idade dos atrasos. A base atual não vincula cada recebimento ao vencimento original; por isso, a ficha não afirma “pagou no dia” quando essa informação não pode ser comprovada.</div>
+      </div>
+    </div>
+    <div class="fc-cliente-history">
+      <div class="fc-cliente-panel-title">🧾 Histórico recente</div>
+      <div class="fc-detail-list"><table class="fc-detail-table">
+        <thead><tr><th>Data</th><th>Status</th><th>Categoria</th><th>Documento</th><th class="num">Valor</th></tr></thead>
+        <tbody>${historico||'<tr><td colspan="5">Nenhum movimento encontrado.</td></tr>'}</tbody>
+      </table></div>
+    </div>`;
+  el('fcClienteFichaModal').classList.add('show');
+}
+function fecharClienteFicha(){ el('fcClienteFichaModal').classList.remove('show'); }
+
 function openTituloObsPopup_(chave){
   const r=rowsAtrasados.find(x=>x.chave===chave); if(!r) return;
   fcTituloObsPopupChave=chave;
@@ -1881,6 +2030,24 @@ async function salvarEdicaoFcMsg(id, campo){
     fcEditando = null; await loadFcMsgs();
   }catch(err){ alert('Erro: '+(err.message || err)); }
 }
+
+
+// Fechamento padrão dos popups: ESC fecha o popup visível mais acima;
+// clicar no fundo escuro também fecha somente aquele popup.
+document.addEventListener('keydown',e=>{
+  if(e.key!=='Escape') return;
+  const visiveis=[...document.querySelectorAll('.modal-overlay.show')];
+  if(!visiveis.length) return;
+  visiveis.sort((a,b)=>{
+    const za=parseInt(getComputedStyle(a).zIndex)||0, zb=parseInt(getComputedStyle(b).zIndex)||0;
+    return zb-za;
+  });
+  visiveis[0].classList.remove('show');
+});
+document.addEventListener('click',e=>{
+  const overlay=e.target.closest('.modal-overlay');
+  if(overlay && e.target===overlay) overlay.classList.remove('show');
+});
 
 init();
 </script>
