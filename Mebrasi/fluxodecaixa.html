@@ -1241,6 +1241,23 @@ function rowsFromCR(table, empresa){
     // finalizarLinha via fp==='carteira', igual no lado Pagamento.
     const situacao = normalizeTxt(getColNormalized(r,'situacao'));
     if(situacao.includes('cancel')) return null;
+
+    // Transferências internas geradas no Contas a Receber podem criar uma
+    // contrapartida "espelho" em uma conta/banco que não faz parte das contas
+    // conciliadas da empresa. Ex.: Ryngavi 19/08/2026, título 30001494/1,
+    // Banco 80, R$ 15.000,00. No Pago/Recebido do ERP essa contrapartida não
+    // aparece como crédito; o movimento real é o 30001492/1 no Banco 2371.
+    //
+    // Mantemos recebimentos normais com banco 0/vazio (regra já existente) e
+    // filtramos SOMENTE esse tipo de transferência interna, identificado pela
+    // observação vinculando um "Titulo Contas a Pagar", quando o banco de
+    // crédito não pertence à lista de bancos conciliados da empresa.
+    const obsTransfer = normalizeTxt(getColNormalized(r,'obs'));
+    const ehTransferenciaInternaEspelho =
+      obsTransfer.includes('titulo contas a pagar') &&
+      !bancoValido(r, empresa);
+    if(ehTransferenciaInternaEspelho) return null;
+
     const dateRaw = getColNormalized(r, 'dt pagto');
     const date = parseDateCell(typeof dateRaw==='object' && dateRaw!==null ? (dateRaw.v||dateRaw) : dateRaw);
     if(!date) return null;
