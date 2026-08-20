@@ -153,6 +153,26 @@ html.light .fc-day-num{color:#1f2a3d;}
 .fc-detail-list .fc-detail-table th:nth-child(5),.fc-detail-list .fc-detail-table td:nth-child(5){width:75px;}
 .fc-detail-list .fc-detail-table th:nth-child(6),.fc-detail-list .fc-detail-table td:nth-child(6){width:95px;}
 .fc-detail-muted{font-size:11.5px;color:var(--text3);line-height:1.45;margin-top:8px;}
+
+.fc-titulos-aberto-cell{color:var(--text2);cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;}
+.fc-titulos-aberto-cell:hover{background:rgba(45,112,184,.08);}
+.fc-titulos-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:16px 0 8px;}
+.fc-titulos-search{width:290px;max-width:100%;padding:8px 11px;border:1px solid var(--border2);border-radius:9px;background:var(--navy3);color:var(--text);font-size:12.5px;}
+.fc-tag-aberto{display:inline-flex;align-items:center;padding:4px 9px;border-radius:999px;font-size:10.5px;font-weight:800;white-space:nowrap;background:rgba(245,185,66,.16);color:var(--gold);}
+.fc-titulo-note-btn{border:1px solid var(--border2);background:var(--navy3);color:var(--text2);border-radius:7px;padding:5px 8px;font-size:10.5px;font-weight:800;cursor:pointer;white-space:nowrap;}
+.fc-titulo-note-btn.has-note{color:var(--cyan);border-color:rgba(54,226,201,.35);}
+.fc-titulo-obs-info{background:var(--navy3);border-radius:10px;padding:11px 13px;font-size:12px;line-height:1.5;margin-bottom:8px;}
+.fc-titulo-obs-meta{font-size:10.5px;color:var(--text3);margin-bottom:8px;}
+.fc-titulo-obs-box textarea{width:100%;min-height:110px;resize:vertical;}
+#fcTitulosAbertoLista .fc-detail-list{max-height:430px;overflow-x:auto;}
+#fcTitulosAbertoLista .fc-detail-table{width:100%;min-width:860px;table-layout:fixed;}
+#fcTitulosAbertoLista .fc-detail-table th:nth-child(1){width:95px;}
+#fcTitulosAbertoLista .fc-detail-table th:nth-child(2){width:auto;}
+#fcTitulosAbertoLista .fc-detail-table th:nth-child(3){width:125px;}
+#fcTitulosAbertoLista .fc-detail-table th:nth-child(4){width:55px;}
+#fcTitulosAbertoLista .fc-detail-table th:nth-child(5){width:120px;}
+#fcTitulosAbertoLista .fc-detail-table th:nth-child(6){width:105px;}
+
 @media(max-width:760px){.fc-detail-summary{grid-template-columns:1fr;}}
 
 </style>
@@ -218,6 +238,41 @@ html.light .fc-day-num{color:#1f2a3d;}
           <button class="btn btn-ghost btn-sm" onclick="closeFluxoFicha()">Fechar</button>
         </div>
         <div id="fluxoFichaBody"></div>
+      </div>
+    </div>
+
+    <!-- Títulos em aberto (A Receber / A Pagar) -->
+    <div class="modal-overlay" id="fcTitulosAbertoModal">
+      <div class="modal-box" style="width:1180px;max-width:96vw;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+          <div>
+            <div class="modal-title" id="fcTitulosAbertoTitulo">📋 Títulos em Aberto</div>
+            <div class="modal-sub">Títulos com Situação "Atrasado". O valor presente aparece acumulado no dia atual e não altera o saldo do fluxo.</div>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="fecharTitulosAbertoModal()">Fechar</button>
+        </div>
+        <div id="fcTitulosAbertoLista"></div>
+      </div>
+    </div>
+
+    <!-- Observação compartilhada de um título -->
+    <div class="modal-overlay" id="tituloObsModal" style="z-index:330;">
+      <div class="modal-box fc-titulo-obs-box" style="width:500px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px;">
+          <div>
+            <div class="modal-title" id="fcTituloObsPopupTitulo">📝 Observação do título</div>
+            <div class="modal-sub" id="fcTituloObsPopupSub"></div>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="closeTituloObsPopup_()">Fechar</button>
+        </div>
+        <div class="fc-titulo-obs-info" id="fcTituloObsPopupInfo"></div>
+        <div class="fc-titulo-obs-meta" id="fcTituloObsPopupMeta"></div>
+        <textarea id="fcTituloObsPopupTexto" placeholder="Ex.: cliente contatado, aguardando retorno..."></textarea>
+        <div class="modal-actions">
+          <button class="btn btn-danger btn-sm" id="fcTituloObsPopupExcluir" onclick="excluirTituloObsPopup_()" style="display:none;margin-right:auto;">Excluir</button>
+          <button class="btn btn-ghost btn-sm" onclick="closeTituloObsPopup_()">Cancelar</button>
+          <button class="btn btn-primary btn-sm" id="fcTituloObsPopupSalvar" onclick="salvarTituloObsPopup_()">Salvar</button>
+        </div>
       </div>
     </div>
 
@@ -379,7 +434,7 @@ function el(id){ return document.getElementById(id); }
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ---- Categoria -> Grupo (revisado com o Gustavo) ----
-const CATEGORIA_GRUPO = {"Clientes - Revenda de Mercadoria": "RECEBIMENTOS", "Saque MP": "RECEBIMENTOS", "Empréstimos Bancários": "RECEBIMENTOS", "Adiantamento de Clientes": "RECEBIMENTOS", "Rendimentos de Aplicações": "RECEBIMENTOS", "Devoluções de Compra de Mercadoria de Revenda": "RECEBIMENTOS", "Vendas de Mercadoria - Online": "RECEBIMENTOS", "Eventos": "RECEBIMENTOS", "Recebimentos sem identificação": "RECEBIMENTOS", "Estorno desconto duplicata": "RECEBIMENTOS", "Aporte - Investimento": "RECEBIMENTOS", "Devoluções de Compra de Serviços": "RECEBIMENTOS", "Clientes - Serviços Prestados": "RECEBIMENTOS", "Clientes - Venda de Mercadoria Fabricadas": "RECEBIMENTOS", "amostra": "RECEBIMENTOS", "Reembolso de Despesas": "OUTROS", "REEMBOLSO EMPRESTIMO FUNCIONARIO": "RECEBIMENTOS", "Devoluções de Vendas de Mercadoria": "RECEBIMENTOS", "ICMS": "DEDUCOES", "COFINS": "DEDUCOES", "PIS": "DEDUCOES", "DARF": "DEDUCOES", "GNRE DIFAL": "DEDUCOES", "ISS": "DEDUCOES", "Simples Nacional (DAS)": "DEDUCOES", "COMISSÕES": "DEDUCOES", "IRPJ": "DEDUCOES", "CSLL": "DEDUCOES", "Taxas Prefeitura": "DEDUCOES", "Bonificações": "DEDUCOES", "ESTORNO DE CREDITO EM DUPLICIDADE": "DEDUCOES", "Compras de Mercadorias para Revenda": "FORNECEDORES", "Compras de Materia Prima": "FORNECEDORES", "Compra de Serviços": "FORNECEDORES", "Adiantamento ao Fornecedor": "FORNECEDORES", "XBZ": "FORNECEDORES", "Tarifas Bancárias": "FINANCEIRAS", "Juros sobre Empréstimos": "FINANCEIRAS", "IOF": "FINANCEIRAS", "Desconto duplicata": "FINANCEIRAS", "Cheque Devolvido": "FINANCEIRAS", "Pagamento de Empréstimos": "FINANCEIRAS", "PAGAMENTO DE EMPRÉSTIMOS": "FINANCEIRAS", "Cartão de crédito - Prieto": "FINANCEIRAS", "Cartão de crédito - Anju": "FINANCEIRAS", "Cartão coorporativo": "FINANCEIRAS", "CARTÃO DE CRÉDITO COMPRAS": "FINANCEIRAS", "SERASA": "FINANCEIRAS", "APLICAÇÃO CDB": "FINANCEIRAS", "Salários": "PESSOAL", "Rescisões": "PESSOAL", "Assistência Médica": "PESSOAL", "Vale Refeição": "PESSOAL", "RECRUTAMENTO E SELEÇÃO": "PESSOAL", "EXAME ADMISSIONAL": "PESSOAL", "TREINAMENTO": "PESSOAL", "Motorista extra": "PESSOAL", "FUNCIONÁRIOS EXTRAS": "PESSOAL", "Alimentação": "PESSOAL", "CONTABILIDADE": "ADMIN", "Advogados": "ADMIN", "CONSULTORIA (GPS)": "ADMIN", "CONSULTORIA (DOMINIO)": "ADMIN", "Consultoria": "ADMIN", "Mentoria": "ADMIN", "Material de Escritório": "ADMIN", "LIMPEZA": "ADMIN", "Água e Esgoto": "ADMIN", "Energia Elétrica": "ADMIN", "Aluguel": "ADMIN", "Aluguel Pluris": "ADMIN", "Sociedade da Pluris": "ADMIN", "Adiantamento Pluris": "ADMIN", "Seguros": "ADMIN", "Móveis e Utensílios": "ADMIN", "MÓVEIS E UTENCÍLIOS": "ADMIN", "Maquinas e Equipamentos": "ADMIN", "Manutenção de Imobilizado": "ADMIN", "Telefonia": "ADMIN", "INTERNET": "ADMIN", "Frete": "LOGISTICA", "Combustivel": "LOGISTICA", "Veículos": "LOGISTICA", "Sem Parar": "LOGISTICA", "Aluguel de equipamento (Impressora)": "LOGISTICA", "ALUGUEL DE EQUIPAMENTOS": "LOGISTICA", "IPVA,LICENCIAMENTO E MULTAS": "LOGISTICA", "MARKETING": "MARKETING_TI", "Feiras e Eventos": "MARKETING_TI", "Eventos - Repasse": "MARKETING_TI", "WORKSHOP": "MARKETING_TI", "CAMPANHAS COMEMORATIVAS": "MARKETING_TI", "CAMPANHAS COMEMORATIVAS - ENDOMARKETING": "MARKETING_TI", "SITE TANGRAM": "MARKETING_TI", "SISTEMA ERP": "MARKETING_TI", "Sistema ERP": "MARKETING_TI", "CONSULTORIA (T.I EDSON)": "MARKETING_TI", "Transferência entre contas": "TRANSFERENCIAS", "RETIRADA": "RETIRADA", "Adiantamento": "OUTROS", "Despesas Viagem China": "OUTROS", "REEMBOLSO DE DESPESAS": "OUTROS", "Amostra": "OUTROS"};
+const CATEGORIA_GRUPO = {"Clientes - Revenda de Mercadoria": "RECEBIMENTOS", "Saque MP": "RECEBIMENTOS", "Empréstimos Bancários": "RECEBIMENTOS", "Adiantamento de Clientes": "RECEBIMENTOS", "Rendimentos de Aplicações": "RECEBIMENTOS", "Devoluções de Compra de Mercadoria de Revenda": "RECEBIMENTOS", "Vendas de Mercadoria - Online": "RECEBIMENTOS", "Eventos": "RECEBIMENTOS", "Recebimentos sem identificação": "RECEBIMENTOS", "Estorno desconto duplicata": "RECEBIMENTOS", "Aporte - Investimento": "RECEBIMENTOS", "Devoluções de Compra de Serviços": "RECEBIMENTOS", "Clientes - Serviços Prestados": "RECEBIMENTOS", "Clientes - Venda de Mercadoria Fabricadas": "RECEBIMENTOS", "amostra": "RECEBIMENTOS", "Reembolso de Despesas": "OUTROS", "REEMBOLSO EMPRESTIMO FUNCIONARIO": "RECEBIMENTOS", "Devoluções de Vendas de Mercadoria": "FORNECEDORES", "ICMS": "DEDUCOES", "COFINS": "DEDUCOES", "PIS": "DEDUCOES", "DARF": "DEDUCOES", "GNRE DIFAL": "DEDUCOES", "ISS": "DEDUCOES", "Simples Nacional (DAS)": "DEDUCOES", "COMISSÕES": "DEDUCOES", "IRPJ": "DEDUCOES", "CSLL": "DEDUCOES", "Taxas Prefeitura": "DEDUCOES", "Bonificações": "DEDUCOES", "ESTORNO DE CREDITO EM DUPLICIDADE": "DEDUCOES", "Compras de Mercadorias para Revenda": "FORNECEDORES", "Compras de Materia Prima": "FORNECEDORES", "Compra de Serviços": "FORNECEDORES", "Adiantamento ao Fornecedor": "FORNECEDORES", "XBZ": "FORNECEDORES", "Tarifas Bancárias": "FINANCEIRAS", "Juros sobre Empréstimos": "FINANCEIRAS", "IOF": "FINANCEIRAS", "Desconto duplicata": "FINANCEIRAS", "Cheque Devolvido": "FINANCEIRAS", "Pagamento de Empréstimos": "FINANCEIRAS", "PAGAMENTO DE EMPRÉSTIMOS": "FINANCEIRAS", "Cartão de crédito - Prieto": "FINANCEIRAS", "Cartão de crédito - Anju": "FINANCEIRAS", "Cartão coorporativo": "FINANCEIRAS", "CARTÃO DE CRÉDITO COMPRAS": "FINANCEIRAS", "SERASA": "FINANCEIRAS", "APLICAÇÃO CDB": "FINANCEIRAS", "Salários": "PESSOAL", "Rescisões": "PESSOAL", "Assistência Médica": "PESSOAL", "Vale Refeição": "PESSOAL", "RECRUTAMENTO E SELEÇÃO": "PESSOAL", "EXAME ADMISSIONAL": "PESSOAL", "TREINAMENTO": "PESSOAL", "Motorista extra": "PESSOAL", "FUNCIONÁRIOS EXTRAS": "PESSOAL", "Alimentação": "PESSOAL", "CONTABILIDADE": "ADMIN", "Advogados": "ADMIN", "CONSULTORIA (GPS)": "ADMIN", "CONSULTORIA (DOMINIO)": "ADMIN", "Consultoria": "ADMIN", "Mentoria": "ADMIN", "Material de Escritório": "ADMIN", "LIMPEZA": "ADMIN", "Água e Esgoto": "ADMIN", "Energia Elétrica": "ADMIN", "Aluguel": "ADMIN", "Aluguel Pluris": "ADMIN", "Sociedade da Pluris": "ADMIN", "Adiantamento Pluris": "ADMIN", "Seguros": "ADMIN", "Móveis e Utensílios": "ADMIN", "MÓVEIS E UTENCÍLIOS": "ADMIN", "Maquinas e Equipamentos": "ADMIN", "Manutenção de Imobilizado": "ADMIN", "Telefonia": "ADMIN", "INTERNET": "ADMIN", "Frete": "LOGISTICA", "Combustivel": "LOGISTICA", "Veículos": "LOGISTICA", "Sem Parar": "LOGISTICA", "Aluguel de equipamento (Impressora)": "LOGISTICA", "ALUGUEL DE EQUIPAMENTOS": "LOGISTICA", "IPVA,LICENCIAMENTO E MULTAS": "LOGISTICA", "MARKETING": "MARKETING_TI", "Feiras e Eventos": "MARKETING_TI", "Eventos - Repasse": "MARKETING_TI", "WORKSHOP": "MARKETING_TI", "CAMPANHAS COMEMORATIVAS": "MARKETING_TI", "CAMPANHAS COMEMORATIVAS - ENDOMARKETING": "MARKETING_TI", "SITE TANGRAM": "MARKETING_TI", "SISTEMA ERP": "MARKETING_TI", "Sistema ERP": "MARKETING_TI", "CONSULTORIA (T.I EDSON)": "MARKETING_TI", "Transferência entre contas": "TRANSFERENCIAS", "RETIRADA": "RETIRADA", "Adiantamento": "OUTROS", "Despesas Viagem China": "OUTROS", "REEMBOLSO DE DESPESAS": "OUTROS", "Amostra": "OUTROS"};
 
 
 // Índice normalizado das categorias.
@@ -465,6 +520,7 @@ const GRUPOS_PAGAMENTO = [
 ];
 
 let rows = []; // { date, categoria, grupo, valor }
+let rowsAtrasados = []; // títulos em aberto; ficam fora do caixa realizado, mas aparecem nas linhas A Receber / A Pagar
 let currentUser = null;
 let gpsStaff = false;
 let limiteConta = 233300; // limite padrão do cliente; pode ser alterado no fluxo pelo time GPS
@@ -607,7 +663,29 @@ function rowsFromGvizTable(table, contaLabel){
     if(duplicataDescontada) grupo = 'DUPLICATAS_DESCONTADAS';
 
     const situacao = (getColNormalized(r, 'situacao')||'').toString().trim();
-    if(normalizeTxt(situacao)==='atrasado'){ debugAtrasadoExcluidos++; return null; } // recebimento ou pagamento em atraso, não é caixa realizado
+    if(normalizeTxt(situacao)==='atrasado'){
+      debugAtrasadoExcluidos++;
+      const nomeAtr = (
+        getColNormalized(r,'cliente ou fornecedor') ||
+        getColNormalized(r,'cliente') ||
+        getColNormalized(r,'fornecedor') ||
+        ''
+      ).toString().trim();
+      const documentoAtr = (
+        getColNormalized(r,'documento') ||
+        getColNormalized(r,'nosso numero') ||
+        getColNormalized(r,'numero documento') ||
+        getColNormalized(r,'titulo') ||
+        ''
+      ).toString().trim();
+      const contaAtr = (getColNormalized(r, 'conta corrente')||contaLabel||'Conta não informada').toString().trim();
+      rowsAtrasados.push({
+        chave: [documentoAtr, nomeAtr, valor.toFixed(2), date, categoriaFinal].join('||'),
+        date, categoria: categoriaFinal||'Sem categoria', grupo, valor,
+        nome: nomeAtr, documento: documentoAtr, conta: contaAtr
+      });
+      return null;
+    }
 
     const contaCorrente = (getColNormalized(r, 'conta corrente')||contaLabel||'Conta não informada').toString().trim();
     const documento = (
@@ -659,6 +737,7 @@ async function init(){
 async function loadData(){
   try{
     await loadBoletosDescontados();
+    rowsAtrasados = [];
 
     const tablePrincipal = await fetchGviz(GID_MOVIMENTACAO);
     rows = rowsFromGvizTable(tablePrincipal, 'Principal');
@@ -884,6 +963,139 @@ const noRowsFilter = r => false;
 
 /* ================== ÁRVORE DE LINHAS ================== */
 let rowTree = [];
+
+function titulosAbertoDoTipo_(tipo){
+  return rowsAtrasados.filter(r=>tipo==='receber' ? r.valor>=0 : r.valor<0);
+}
+function sumTitulosAbertoRange(start,end,tipo){
+  // Valor presente acumulado: aparece somente na coluna que contém o dia atual.
+  const hoje = todayISO();
+  if(hoje < start || hoje > end) return 0;
+  return titulosAbertoDoTipo_(tipo).reduce((s,r)=>s+r.valor,0);
+}
+
+const FC_TITULO_OBS_PREFIX='[[TANGRAM_TITULO_OBS]]';
+let fcTituloObsCache={};
+let fcTituloObsPopupChave=null;
+let fcTitulosAbertoRowsAtual=[];
+let fcTitulosAbertoTipoAtual='receber';
+
+function escapeHtml(s){
+  return String(s||'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]));
+}
+function parseTituloObs_(mensagem){
+  if(!(mensagem||'').startsWith(FC_TITULO_OBS_PREFIX)) return null;
+  try{return JSON.parse(mensagem.slice(FC_TITULO_OBS_PREFIX.length));}catch(e){return null;}
+}
+async function loadTituloObservacoes_(lista){
+  fcTituloObsCache={};
+  const {data,error}=await sb.from('fluxo_mensagens').select('*').like('mensagem',FC_TITULO_OBS_PREFIX+'%').order('criado_em',{ascending:false});
+  if(error){ console.warn('Não foi possível carregar observações dos títulos:',error.message); return; }
+  const chaves=new Set((lista||[]).map(r=>r.chave));
+  (data||[]).forEach(m=>{
+    const payload=parseTituloObs_(m.mensagem);
+    if(payload?.chave && chaves.has(payload.chave) && !fcTituloObsCache[payload.chave]){
+      fcTituloObsCache[payload.chave]={...m,payload};
+    }
+  });
+}
+function renderTituloObsHtml_(r){
+  const obs=fcTituloObsCache[r.chave];
+  const texto=obs?.payload?.texto||'';
+  const title=texto?escapeHtml(texto):'Adicionar observação';
+  return `<button class="fc-titulo-note-btn ${texto?'has-note':''}" title="${title}" onclick="openTituloObsPopup_('${String(r.chave).replace(/'/g,"\\'")}')">${texto?'📝 Ver / editar':'+ Adicionar'}</button>`;
+}
+async function abrirTitulosAbertoPopup(tipo){
+  fcTitulosAbertoTipoAtual=tipo;
+  fcTitulosAbertoRowsAtual=titulosAbertoDoTipo_(tipo);
+  el('fcTitulosAbertoTitulo').textContent=tipo==='receber'?'📋 Títulos em Aberto — A Receber':'📋 Títulos em Aberto — A Pagar';
+  el('fcTitulosAbertoModal').classList.add('show');
+  el('fcTitulosAbertoLista').innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);">Carregando títulos e observações...</div>';
+  await loadTituloObservacoes_(fcTitulosAbertoRowsAtual);
+  renderTitulosAbertoLista('');
+}
+function fecharTitulosAbertoModal(){ el('fcTitulosAbertoModal').classList.remove('show'); }
+function renderTitulosAbertoLista(termoBusca=''){
+  const wrap=el('fcTitulosAbertoLista'); if(!wrap) return;
+  const termo=normalizeTxt(termoBusca).trim();
+  const filtrados=fcTitulosAbertoRowsAtual.filter(r=>!termo||normalizeTxt([r.nome,r.categoria,r.documento].join(' ')).includes(termo));
+  const ordenados=filtrados.slice().sort((a,b)=>a.date.localeCompare(b.date)||Math.abs(b.valor)-Math.abs(a.valor));
+  const total=fcTitulosAbertoRowsAtual.reduce((s,r)=>s+r.valor,0);
+  const qtdNomes=new Set(fcTitulosAbertoRowsAtual.map(r=>normalizeTxt(r.nome||'')).filter(Boolean)).size;
+  const linhas=ordenados.map(r=>{
+    const pct=total?Math.abs(r.valor)/Math.abs(total)*100:0;
+    return `<tr>
+      <td>${formatDateBR(r.date)}</td>
+      <td class="wrap">${escapeHtml(r.nome||'Sem nome')}</td>
+      <td><span class="fc-tag-aberto">⏳ Em aberto</span></td>
+      <td class="num">${pct.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%</td>
+      <td>${renderTituloObsHtml_(r)}</td>
+      <td class="valor-modal" style="color:${r.valor>=0?'#4F8F3A':'var(--red)'}">${fmtBRL(r.valor)}</td>
+    </tr>`;
+  }).join('');
+  wrap.innerHTML=`
+    <div class="fc-detail-summary">
+      <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${fmtBRL(total)}</div><div class="fc-detail-kpi-lbl">Total em aberto</div></div>
+      <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${qtdNomes}</div><div class="fc-detail-kpi-lbl">${fcTitulosAbertoTipoAtual==='receber'?'Clientes com títulos':'Fornecedores com títulos'}</div></div>
+      <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${fcTitulosAbertoRowsAtual.length}</div><div class="fc-detail-kpi-lbl">Títulos</div></div>
+    </div>
+    <div class="fc-titulos-toolbar">
+      <b style="font-size:12.5px;text-transform:uppercase;">Lançamentos</b>
+      <div><input class="fc-titulos-search" value="${escapeHtml(termoBusca)}" placeholder="🔎 Buscar por nome..." oninput="renderTitulosAbertoLista(this.value)">
+      <span style="font-size:11px;color:var(--text3);">${termo?filtrados.length+' de '+fcTitulosAbertoRowsAtual.length:''}</span></div>
+    </div>
+    <div class="fc-detail-list"><table class="fc-detail-table">
+      <thead><tr><th>Vencimento</th><th>Nome</th><th>Status</th><th class="num">%</th><th>Observação</th><th class="num">Valor</th></tr></thead>
+      <tbody>${linhas||'<tr><td colspan="6">Nenhum título encontrado.</td></tr>'}</tbody>
+    </table></div>`;
+}
+function openTituloObsPopup_(chave){
+  const r=rowsAtrasados.find(x=>x.chave===chave); if(!r) return;
+  fcTituloObsPopupChave=chave;
+  const obs=fcTituloObsCache[chave], texto=obs?.payload?.texto||'';
+  const podeEditar=!obs||obs.autor_email===currentUser.email||gpsStaff;
+  el('fcTituloObsPopupTitulo').textContent=texto?'📝 Observação do título':'＋ Nova observação';
+  el('fcTituloObsPopupSub').textContent=r.documento||'Sem documento';
+  el('fcTituloObsPopupInfo').innerHTML=`<b>${escapeHtml(r.nome||'Sem nome')}</b><br>Vencimento: ${formatDateBR(r.date)} · Valor: ${fmtBRL(r.valor)}`;
+  const autor=obs?(obs.autor_nome||obs.autor_email||'Usuário'):'';
+  const dataObs=obs?.criado_em?new Date(obs.criado_em).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}):'';
+  el('fcTituloObsPopupMeta').textContent=texto?`Registrado por ${autor}${dataObs?' em '+dataObs:''}`:'Ainda não há observação para este título.';
+  el('fcTituloObsPopupTexto').value=texto;
+  el('fcTituloObsPopupTexto').disabled=!podeEditar;
+  el('fcTituloObsPopupSalvar').style.display=podeEditar?'inline-flex':'none';
+  el('fcTituloObsPopupExcluir').style.display=obs&&podeEditar?'inline-flex':'none';
+  el('tituloObsModal').classList.add('show');
+}
+function closeTituloObsPopup_(){ el('tituloObsModal').classList.remove('show'); fcTituloObsPopupChave=null; }
+async function salvarTituloObsPopup_(){
+  const chave=fcTituloObsPopupChave; if(!chave) return;
+  const texto=el('fcTituloObsPopupTexto').value.trim();
+  if(!texto){ alert('Digite a observação antes de salvar.'); return; }
+  const existente=fcTituloObsCache[chave];
+  const mensagem=FC_TITULO_OBS_PREFIX+JSON.stringify({chave,texto});
+  let error;
+  if(existente){
+    if(existente.autor_email!==currentUser.email&&!gpsStaff){ alert('Somente quem criou a observação ou o time GPS pode editá-la.'); return; }
+    ({error}=await sb.from('fluxo_mensagens').update({mensagem,autor_nome:nameFromEmail(currentUser.email),autor_email:currentUser.email}).eq('id',existente.id));
+  }else{
+    ({error}=await sb.from('fluxo_mensagens').insert({autor_email:currentUser.email,autor_nome:nameFromEmail(currentUser.email),tipo:'observacao',mensagem,status:'aberto'}));
+  }
+  if(error){ alert('Erro ao salvar observação: '+error.message); return; }
+  closeTituloObsPopup_();
+  await loadTituloObservacoes_(fcTitulosAbertoRowsAtual);
+  renderTitulosAbertoLista();
+}
+async function excluirTituloObsPopup_(){
+  const existente=fcTituloObsCache[fcTituloObsPopupChave]; if(!existente) return;
+  if(existente.autor_email!==currentUser.email&&!gpsStaff){ alert('Somente quem criou a observação ou o time GPS pode excluí-la.'); return; }
+  if(!confirm('Excluir esta observação?')) return;
+  const {error}=await sb.from('fluxo_mensagens').delete().eq('id',existente.id);
+  if(error){ alert('Erro ao excluir observação: '+error.message); return; }
+  closeTituloObsPopup_();
+  await loadTituloObservacoes_(fcTitulosAbertoRowsAtual);
+  renderTitulosAbertoLista();
+}
+
 function buildRowTree(){
   const catsByGrupo = {};
   rows.forEach(r=>{ if(!catsByGrupo[r.grupo]) catsByGrupo[r.grupo]=new Set(); catsByGrupo[r.grupo].add(r.categoria); });
@@ -905,6 +1117,7 @@ function buildRowTree(){
   const recebimentosNode = {
     type:'recebimentos', level:0, label:'RECEBIMENTOS', filter:onlyCurrentRecebimentos, expanded:false,
     children: [
+      { type:'titulosaberto_receber', level:2, label:'Títulos em Aberto — A Receber', special:'titulosaberto_receber', expanded:false, children:[] },
       ...(temDuplicatasDescontadas ? [{
         type:'duplicatas_descontadas', level:2, label:'Duplicatas descontadas', filter:isDuplicataDescontada,
         expanded:false, children:[]
@@ -940,7 +1153,12 @@ function buildRowTree(){
     };
   }).filter(sg=>sg.children.length); // esconde grupo sem nenhuma categoria
 
-  const pagamentosNode = { type:'pagamentos', level:0, label:'PAGAMENTOS', filter:isPagamento, expanded:true, children: pagamentoSubgrupos };
+  const pagamentosNode = { type:'pagamentos', level:0, label:'PAGAMENTOS', filter:isPagamento, expanded:true,
+    children: [
+      { type:'titulosaberto_pagar', level:2, label:'Títulos em Aberto — A Pagar', special:'titulosaberto_pagar', expanded:false, children:[] },
+      ...pagamentoSubgrupos
+    ]
+  };
 
   const nodes = [
     { type:'saldo', level:0, label:'SALDO ACUMULADO', special:'saldo', expanded:false, children:[] },
@@ -1044,6 +1262,14 @@ function renderTable(){
         val = runningBalance(c.end);
         const cellCls = (val>=0?'fc-saldo-pos':'fc-saldo-neg') + (c.isToday?' fc-today':'');
         tbody += `<td class="${cellCls}">${fmtBRL(val)}</td>`;
+      } else if(rNode.special==='titulosaberto_receber' || rNode.special==='titulosaberto_pagar'){
+        const tipo = rNode.special==='titulosaberto_receber' ? 'receber' : 'pagar';
+        val = sumTitulosAbertoRange(c.start,c.end,tipo);
+        const clickable = Math.abs(val) > 0.005;
+        const cellCls = (clickable?'fc-titulos-aberto-cell':'') + (c.isToday?' fc-today':'');
+        const onClick = clickable ? ` onclick="abrirTitulosAbertoPopup('${tipo}')"` : '';
+        const title = clickable ? ' title="Clique para ver os títulos em aberto e suas observações"' : '';
+        tbody += `<td class="${cellCls.trim()}"${onClick}${title}>${fmtBRL(val)}</td>`;
       } else {
         const histVal = histSumForNode(rNode, c.start, c.end);
         val = (histVal===null ? 0 : histVal) + sumInRange(rNode.filter, c.start, c.end);
@@ -1404,7 +1630,8 @@ async function loadFcMsgs(){
   if(error){ el('fcMsgList').innerHTML = '<div style="color:var(--gold);font-size:12px;">⚠️ Não consegui carregar. Verifique se a tabela fluxo_mensagens existe no Supabase.</div>'; return; }
   const { data: reacoes } = await sb.from('fluxo_mensagens_reacoes').select('*');
   const { data: leituras } = await sb.from('fluxo_mensagens_leituras').select('*');
-  const msgsComLinks=await Promise.all((data||[]).map(async mensagem=>{
+  const mensagensVisiveis=(data||[]).filter(m=>!(m.mensagem||'').startsWith(FC_TITULO_OBS_PREFIX));
+  const msgsComLinks=await Promise.all(mensagensVisiveis.map(async mensagem=>{
     if(!Array.isArray(mensagem.resposta_anexos)) return mensagem;
     const anexos=await Promise.all(mensagem.resposta_anexos.map(async anexo=>{
       if(!anexo.caminho) return anexo;
