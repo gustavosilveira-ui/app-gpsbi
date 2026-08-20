@@ -1608,7 +1608,12 @@ const HISTORICO_DELTA_POR_DATA = {
   '2026-08-12':-23.04,
   '2026-08-13':-23501.71,
   '2026-08-14':-22351.24,
-  '2026-08-15':1532255.3
+  '2026-08-15':1532255.3,
+  // 16 e 17/08 estendidos (20/08/2026, pedido do Gustavo: "fixo até dia
+  // 17, do 18 em diante cálculo normal") usando os mesmos valores da
+  // tabela oficial OPERACAO_ESTATICA_AGO já importada.
+  '2026-08-16':0,
+  '2026-08-17':0
 };
 
 // Um ou outro dia no fim do histórico importado veio com valor absurdo
@@ -3265,8 +3270,15 @@ function calcularDiferencaBanco_(periodoFim){
 }
 
 function calcularDiferencaBancoPeriodo_(inicio, fim){
-  const oficial = somaOperacaoOficial_(OPERACAO_ESTATICA_AGO.delta, inicio, fim);
-  if(oficial !== null) return -oficial;
+  // Diferença Banco é um valor PONTUAL do último dia do período (a
+  // planilha oficial usa ='Fluxo de Caixa'!UM180, uma célula só — não
+  // dá pra somar dia a dia como Recebido/Pago). Bug anterior: estava
+  // somando OPERACAO_ESTATICA_AGO.delta em todo o intervalo, o que só
+  // "acertava" por coincidência quando havia um único dia não-zero
+  // dentro do período. Corrigido (20/08/2026): sempre olha só o último
+  // dia — histórico oficial se disponível, senão cálculo ao vivo
+  // comparando o saldo teórico com o que foi lançado manualmente nesse
+  // dia exato.
   return calcularDiferencaBanco_(fim) || 0;
 }
 
@@ -3311,7 +3323,7 @@ function gerarTextoSnapshot_(s){
   const recebidoReal = somaRecebimentosPeriodo_(s.periodo_inicio, s.periodo_fim, 'cr');
   const v = valoresSnapshot_(s, s.periodo_fim);
   const diferencaBanco = calcularDiferencaBancoPeriodo_(s.periodo_inicio, s.periodo_fim);
-  const pagoReal = somaPagamentosPeriodo_(s.periodo_inicio, s.periodo_fim, 'pg') + Math.max(0, -diferencaBanco);
+  const pagoReal = somaPagamentosPeriodo_(s.periodo_inicio, s.periodo_fim, 'pg');
   const saldoFinalProjetado = v.saldoInicial + v.projRecebido - v.projPago;
   const saldoFinalRealizado = v.saldoInicial + recebidoReal - pagoReal - diferencaBanco;
   const deltaRecebido = recebidoReal - v.projRecebido;
@@ -3354,7 +3366,7 @@ function snapshotHtml_(s){
   const v = valoresSnapshot_(s, periodoFimEfetivo);
   const recebidoReal = somaRecebimentosPeriodo_(s.periodo_inicio, periodoFimEfetivo, 'cr');
   const diferencaBanco = calcularDiferencaBancoPeriodo_(s.periodo_inicio, periodoFimEfetivo);
-  const pagoReal = somaPagamentosPeriodo_(s.periodo_inicio, periodoFimEfetivo, 'pg') + Math.max(0, -diferencaBanco);
+  const pagoReal = somaPagamentosPeriodo_(s.periodo_inicio, periodoFimEfetivo, 'pg');
   const saldoFinalProjetado = v.saldoInicial + v.projRecebido - v.projPago;
   const saldoFinalRealizado = v.saldoInicial + recebidoReal - pagoReal - diferencaBanco;
   const deltaRecebido = recebidoReal - v.projRecebido;
@@ -3371,14 +3383,18 @@ function snapshotHtml_(s){
   const recbtoEmAbertoCalculado = rows
     .filter(r => r.origem==='venc' && r.grupo==='RECEBIMENTOS' && r.categoria!==CATEGORIA_BANCO_TERA && !r.ehBancoTera && entraNosCardsLocal(r) && r.date>=inicioMesSnapshot && r.date<=fimMesSnapshot)
     .reduce((sm,r)=>sm+Math.abs(r.valor),0);
-  const recbtoEmAberto = OPERACAO_ESTATICA_ABERTO_MES[mesSnapshot] ?? recbtoEmAbertoCalculado;
+  // Recbto em Aberto é o total de recebíveis pendentes AGORA — não pode
+  // usar valor fixo importado (esse número muda todo dia conforme títulos
+  // são recebidos). Bug anterior: preferia OPERACAO_ESTATICA_ABERTO_MES,
+  // um valor congelado no dia da importação. Corrigido (20/08/2026).
+  const recbtoEmAberto = recbtoEmAbertoCalculado;
 
   const mesLabel = new Date(periodoFimEfetivo+'T00:00:00').toLocaleDateString('pt-BR',{month:'short'}).replace('.','').toUpperCase();
   const idImg = `snapImg${s.id}`;
   return `
   <div class="card" style="background:var(--navy3);margin-bottom:14px;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-      <div class="card-title" style="margin-bottom:0;">Período: ${formatDateBR(s.periodo_inicio)} a ${formatDateBR(s.periodo_fim)}</div>
+      <div class="card-title" style="margin-bottom:0;">Período: ${formatDateBR(s.periodo_inicio)} a ${formatDateBR(periodoFimEfetivo)}</div>
       <div style="display:flex;gap:6px;">
         <button class="btn btn-primary btn-sm" onclick="copiarImagemSnapshot('${idImg}', this)">🖼️ Copiar Imagem</button>
         <button class="btn btn-ghost btn-sm" onclick="copiarTextoSnapshot(${s.id}, this)">📋 Copiar texto</button>
@@ -3438,7 +3454,11 @@ async function copiarImagemSnapshot(elId, btnEl){
   const orig = btnEl.textContent;
   btnEl.textContent = 'Gerando...';
   try{
-    const canvas = await html2canvas(node, { backgroundColor:'#ffffff', scale:2 });
+    const canvas = await html2canvas(node, {
+      backgroundColor:'#ffffff', scale:2,
+      width: node.scrollWidth, height: node.scrollHeight,
+      windowWidth: node.scrollWidth
+    });
     canvas.toBlob(async (blob)=>{
       try{
         await navigator.clipboard.write([ new ClipboardItem({ 'image/png': blob }) ]);
