@@ -2,7 +2,7 @@
 // Leitura privada via Vercel OIDC + Google Workload Identity Federation.
 // Requer: @vercel/oidc e google-auth-library
 //
-// Igual ao alkanse-financeiro.js, mas lê a aba "Vendas" em vez de
+// Igual ao alkanse-financeiro.js, mas lê a aba "VENDASHist" em vez de
 // "Financeiro". Diferença de acesso: o Comercial é aberto a QUALQUER
 // usuário autenticado do Hub (não é restrito a uma lista de e-mails,
 // diferente do Fluxo de Caixa) — só exige sessão válida.
@@ -57,7 +57,7 @@ function valuesToTable(values){
   const data=Array.isArray(values)?values:[];
   if(!data.length) return {cols:[],rows:[]};
 
-  // A primeira linha da aba Vendas contém os cabeçalhos (DATA, NOME,
+  // A primeira linha da aba VENDASHist contém os cabeçalhos (DATA, NOME,
   // NOTA FISCAL/FATURA, VALOR DA NOTA, REPRESENTANTE, PROD/SERV/FATURA
   // etc.) — o HTML do Comercial usa table.cols[].label pra achar cada
   // coluna, igual o Financeiro já faz.
@@ -96,7 +96,7 @@ export default async function handler(req,res){
 
     const sheetId=env('ALKANSE_SHEET_ID');
     const accessToken=await googleAccessToken();
-    const range=encodeURIComponent("'Vendas'");
+    const range=encodeURIComponent("'VENDASHist'");
     const url=`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}/values/${range}?majorDimension=ROWS&valueRenderOption=FORMATTED_VALUE`;
     const r=await fetch(url,{headers:{Authorization:`Bearer ${accessToken}`}});
     if(!r.ok){
