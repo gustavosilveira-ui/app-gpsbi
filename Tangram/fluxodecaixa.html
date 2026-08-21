@@ -167,10 +167,10 @@ html.light .fc-day-num{color:#1f2a3d;}
 .fc-titulo-obs-meta{font-size:10.5px;color:var(--text3);margin-bottom:8px;}
 .fc-titulo-obs-box textarea{width:100%;min-height:110px;resize:vertical;}
 #fcTitulosAbertoLista .fc-detail-list{max-height:430px;overflow-x:auto;}
-#fcTitulosAbertoLista .fc-detail-table{width:100%;min-width:1040px;table-layout:fixed;}
+#fcTitulosAbertoLista .fc-detail-table{width:100%;min-width:1040px;table-layout:auto;}
 #fcTitulosAbertoLista .fc-detail-table th:nth-child(1){width:95px;}
-#fcTitulosAbertoLista .fc-detail-table th:nth-child(2){width:auto;}
-#fcTitulosAbertoLista .fc-detail-table th:nth-child(3){width:150px;}
+#fcTitulosAbertoLista .fc-detail-table th:nth-child(2){width:38%;}
+#fcTitulosAbertoLista .fc-detail-table th:nth-child(3){width:auto;min-width:190px;}
 #fcTitulosAbertoLista .fc-detail-table th:nth-child(4){width:125px;}
 #fcTitulosAbertoLista .fc-detail-table th:nth-child(5){width:55px;}
 #fcTitulosAbertoLista .fc-detail-table th:nth-child(6){width:120px;}
@@ -1155,6 +1155,14 @@ function renderTitulosAbertoLista(termoBuscaNome=fcTituloBuscaNomeAtual, termoBu
   const ordenados=filtrados.slice().sort((a,b)=>a.date.localeCompare(b.date)||Math.abs(b.valor)-Math.abs(a.valor));
   const total=fcTitulosAbertoRowsAtual.reduce((s,r)=>s+r.valor,0);
   const qtdNomes=new Set(fcTitulosAbertoRowsAtual.map(r=>normalizeTxt(r.nome||'')).filter(Boolean)).size;
+  const temFiltro=!!(termoNome||termoVendedor);
+  const totalFiltrado=filtrados.reduce((s,r)=>s+r.valor,0);
+  const qtdNomesFiltrado=new Set(filtrados.map(r=>normalizeTxt(r.nome||'')).filter(Boolean)).size;
+  const qtdTitulosFiltrado=filtrados.length;
+  const pctValor=total?Math.abs(totalFiltrado)/Math.abs(total)*100:0;
+  const pctNomes=qtdNomes?qtdNomesFiltrado/qtdNomes*100:0;
+  const pctTitulos=fcTitulosAbertoRowsAtual.length?qtdTitulosFiltrado/fcTitulosAbertoRowsAtual.length*100:0;
+  const filtroResumo=(valor,pct)=>temFiltro?`<div style="margin-top:5px;font-size:10px;color:var(--text3);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><span style="color:var(--text2);">Filtro:</span> ${valor} <span style="opacity:.72;">•</span> ${pct.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}% do total</div>`:'';
   const linhas=ordenados.map(r=>{
     const pct=total?Math.abs(r.valor)/Math.abs(total)*100:0;
     return `<tr>
@@ -1167,12 +1175,11 @@ function renderTitulosAbertoLista(termoBuscaNome=fcTituloBuscaNomeAtual, termoBu
       <td class="valor-modal" style="color:${r.valor>=0?'#4F8F3A':'var(--red)'}">${fmtBRL(r.valor)}</td>
     </tr>`;
   }).join('');
-  const temFiltro=termoNome||termoVendedor;
   wrap.innerHTML=`
     <div class="fc-detail-summary">
-      <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${fmtBRL(total)}</div><div class="fc-detail-kpi-lbl">Total em aberto</div></div>
-      <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${qtdNomes}</div><div class="fc-detail-kpi-lbl">${fcTitulosAbertoTipoAtual==='receber'?'Clientes com títulos':'Fornecedores com títulos'}</div></div>
-      <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${fcTitulosAbertoRowsAtual.length}</div><div class="fc-detail-kpi-lbl">Títulos</div></div>
+      <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${fmtBRL(total)}</div><div class="fc-detail-kpi-lbl">Total em aberto</div>${filtroResumo(fmtBRL(totalFiltrado),pctValor)}</div>
+      <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${qtdNomes}</div><div class="fc-detail-kpi-lbl">${fcTitulosAbertoTipoAtual==='receber'?'Clientes com títulos':'Fornecedores com títulos'}</div>${filtroResumo(qtdNomesFiltrado+' '+(fcTitulosAbertoTipoAtual==='receber'?(qtdNomesFiltrado===1?'cliente':'clientes'):(qtdNomesFiltrado===1?'fornecedor':'fornecedores')),pctNomes)}</div>
+      <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${fcTitulosAbertoRowsAtual.length}</div><div class="fc-detail-kpi-lbl">Títulos</div>${filtroResumo(qtdTitulosFiltrado+' '+(qtdTitulosFiltrado===1?'título':'títulos'),pctTitulos)}</div>
     </div>
     <div class="fc-titulos-toolbar">
       <b style="font-size:12.5px;text-transform:uppercase;">Lançamentos</b>
