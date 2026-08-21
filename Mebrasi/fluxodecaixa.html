@@ -307,6 +307,71 @@ html.light .fc-day-num{color:#1f2a3d;}
 .fc-msg-edit-box{margin-bottom:8px;}
 .fc-msg-edit-box textarea{width:100%;}
 @media(max-width:900px){ .fc-sim-form,.fc-msg-form,.fc-saldo-form{grid-template-columns:1fr;} }
+
+/* ===== Mebrasi · Títulos em Aberto / Ficha Financeira do Cliente ===== */
+.fc-filter-grid{display:grid;grid-template-columns:minmax(220px,1fr) minmax(220px,1fr);gap:10px;width:min(620px,100%);}
+.fc-filter-grid input{padding:8px 10px!important;font-size:12.5px!important;}
+.fc-kpi-filtered{font-size:10.5px;color:var(--text3);margin-top:5px;min-height:14px;font-family:'Sora',sans-serif;font-weight:600;}
+.fc-client-link{border:0;background:none;padding:0;color:inherit;font:inherit;font-weight:700;cursor:pointer;text-align:left;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px;}
+.fc-client-link:hover{color:var(--cyan);}
+.fc-open-table{table-layout:fixed!important;width:100%!important;min-width:920px;}
+.fc-open-table th:nth-child(1),.fc-open-table td:nth-child(1){width:92px;}
+.fc-open-table th:nth-child(2),.fc-open-table td:nth-child(2){width:86px;}
+.fc-open-table th:nth-child(3),.fc-open-table td:nth-child(3){width:30%;}
+.fc-open-table th:nth-child(4),.fc-open-table td:nth-child(4){width:20%;}
+.fc-open-table th:nth-child(5),.fc-open-table td:nth-child(5){width:92px;}
+.fc-open-table th:nth-child(6),.fc-open-table td:nth-child(6){width:62px;}
+.fc-open-table th:nth-child(7),.fc-open-table td:nth-child(7){width:130px;}
+.fc-open-table th:nth-child(8),.fc-open-table td:nth-child(8){width:100px;}
+.fc-open-table td:nth-child(3),.fc-open-table td:nth-child(4){white-space:normal!important;overflow-wrap:anywhere;}
+.fc-client-modal-box{width:1180px!important;max-width:96vw!important;max-height:90vh!important;}
+.fc-client-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:14px;}
+.fc-client-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;}
+.fc-client-score-wrap{display:grid;grid-template-columns:190px 1fr;gap:14px;margin-bottom:14px;}
+.fc-client-score{background:var(--navy3);border:1px solid var(--border2);border-radius:12px;padding:16px;}
+.fc-client-score-num{font:800 38px/1 'DM Mono',monospace;}
+.fc-client-score-class{font-size:12px;font-weight:800;margin-top:6px;}
+.fc-client-score-note{font-size:10.5px;color:var(--text3);line-height:1.4;margin-top:8px;}
+.fc-client-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+.fc-client-kpi{background:var(--navy3);border:1px solid var(--border2);border-radius:10px;padding:12px;}
+.fc-client-kpi b{display:block;font:800 15px 'DM Mono',monospace;margin-bottom:4px;}
+.fc-client-kpi span{font-size:10.5px;color:var(--text3);}
+.fc-client-section{margin-top:16px;}
+.fc-client-section-title{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--text2);margin-bottom:8px;}
+.fc-client-bars{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;align-items:end;height:155px;padding:10px 4px 0;}
+.fc-client-bar-col{height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:5px;min-width:0;}
+.fc-client-bar-val{font-size:9.5px;color:var(--text3);white-space:nowrap;}
+.fc-client-bar{width:min(42px,70%);min-height:2px;background:linear-gradient(180deg,var(--cyan),var(--blue));border-radius:6px 6px 2px 2px;}
+.fc-client-bar-lbl{font-size:9.5px;color:var(--text3);white-space:nowrap;}
+.fc-aging-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+.fc-aging{background:var(--navy3);border-radius:9px;padding:10px;}
+.fc-aging b{display:block;font:800 13px 'DM Mono',monospace;}
+.fc-aging span{font-size:10px;color:var(--text3);}
+.fc-client-history{max-height:280px;overflow:auto;border:1px solid var(--border);border-radius:10px;}
+.fc-client-history table{width:100%;border-collapse:collapse;font-size:11px;}
+.fc-client-history th,.fc-client-history td{padding:7px 8px;border-bottom:1px solid var(--border);text-align:left;}
+.fc-client-history th{position:sticky;top:0;background:var(--navy2);color:var(--text3);font-size:9.5px;text-transform:uppercase;}
+.fc-client-history .num{text-align:right;font-family:'DM Mono',monospace;}
+@media(max-width:850px){
+  .fc-filter-grid{grid-template-columns:1fr;}
+  .fc-client-score-wrap{grid-template-columns:1fr;}
+  .fc-client-kpis,.fc-aging-grid{grid-template-columns:repeat(2,1fr);}
+  .fc-client-head{flex-direction:column;}
+}
+@media(max-width:520px){.fc-client-kpis,.fc-aging-grid{grid-template-columns:1fr;}}
+@media print{
+  body.fc-print-client *{visibility:hidden!important;}
+  body.fc-print-client #clienteFinanceiroModal,
+  body.fc-print-client #clienteFinanceiroModal *{visibility:visible!important;}
+  body.fc-print-client #clienteFinanceiroModal{display:block!important;position:absolute!important;inset:0!important;background:#fff!important;}
+  body.fc-print-client #clienteFinanceiroModal .modal-box{position:static!important;width:100%!important;max-width:none!important;max-height:none!important;overflow:visible!important;box-shadow:none!important;border:none!important;background:#fff!important;color:#111!important;}
+  body.fc-print-client .fc-client-actions{display:none!important;}
+  body.fc-print-client .fc-client-score,body.fc-print-client .fc-client-kpi,body.fc-print-client .fc-aging{background:#fff!important;border:1px solid #ddd!important;color:#111!important;}
+  body.fc-print-client .fc-client-history{max-height:none!important;overflow:visible!important;}
+  body.fc-print-client .fc-client-history th{position:static!important;background:#fff!important;color:#333!important;}
+  body.fc-print-client .fc-client-bar{background:#777!important;}
+}
+
 </style>
 </head>
 <body>
@@ -453,6 +518,24 @@ html.light .fc-day-num{color:#1f2a3d;}
           <button class="btn btn-ghost btn-sm" onclick="closeTituloObsPopup_()">Cancelar</button>
           <button class="btn btn-primary btn-sm" id="fcTituloObsPopupSalvar" onclick="salvarTituloObsPopup_()">Salvar</button>
         </div>
+      </div>
+    </div>
+
+
+    <!-- Modal: Ficha Técnica Financeira do Cliente -->
+    <div class="modal-overlay" id="clienteFinanceiroModal" style="z-index:320;">
+      <div class="modal-box fc-client-modal-box">
+        <div class="fc-client-head">
+          <div>
+            <div class="modal-title" id="fcClienteTitulo">Ficha Técnica Financeira do Cliente</div>
+            <div class="modal-sub" id="fcClienteSub">Score Financeiro Estimado interno, baseado no histórico disponível.</div>
+          </div>
+          <div class="fc-client-actions">
+            <button class="btn btn-ghost btn-sm" onclick="imprimirFichaCliente()">🖨️ Imprimir ficha</button>
+            <button class="btn btn-ghost btn-sm" onclick="closeFichaCliente()">Fechar</button>
+          </div>
+        </div>
+        <div id="fcClienteBody"></div>
       </div>
     </div>
 
@@ -1033,7 +1116,13 @@ async function carregarVendasParaCruzamento(){
       const condPagto = (getColNormalized(r,'cond pagto')||'').toString().trim();
       const dtEntrega = parseDateCell(getColNormalized(r,'dt entrega solicitada'));
       const chave = normalizeTxt(empresa)+'|'+pedido;
-      pedidoInfo[chave] = { condPagto, dtEntrega };
+      const vendedor = cleanVendedor_(
+        getColNormalized(r,'vendedor') ??
+        getColNormalized(r,'nome vendedor') ??
+        getColNormalized(r,'representante') ??
+        getColNormalized(r,'nome representante') ?? ''
+      );
+      pedidoInfo[chave] = { condPagto, dtEntrega, vendedor };
     });
   }catch(e){ console.error('Erro ao cruzar com a planilha comercial (Cond Pagto/Dt Entrega):', e); }
 }
@@ -1082,17 +1171,37 @@ function cleanCell(v){
   if(typeof v==='object' && v!==null) return (v.f ?? v.v ?? '').toString().trim();
   return v.toString().trim();
 }
-function rowMeta(r){
-  // "Nr Titulo"/"Nr Título" tem prioridade — é o número de documento de
-  // verdade que o cliente espera ver na Ficha. Os outros nomes de coluna
-  // ficam como fallback pra relatórios que não tenham essa coluna específica.
+function cleanVendedor_(v){
+  let s = cleanCell(v);
+  if(!s) return '';
+  // O relatório comercial pode trazer código/telefone junto do nome.
+  // Mantém apenas a parte textual principal, sem telefone, e remove códigos
+  // numéricos isolados no início/fim sem mutilar nomes.
+  s = s.replace(/\(?\+?55\)?\s*\(?\d{2}\)?\s*\d{4,5}[-.\s]?\d{4}/g,' ');
+  s = s.replace(/\b\d{2}\s*9?\d{4}[-.\s]?\d{4}\b/g,' ');
+  s = s.replace(/^\s*(?:cod(?:igo)?|id)\s*[:#-]?\s*\d+\s*[-|–—:]\s*/i,'');
+  s = s.replace(/\s*[-|–—:]\s*(?:cod(?:igo)?|id)\s*[:#-]?\s*\d+\s*$/i,'');
+  return s.replace(/\s{2,}/g,' ').replace(/^[\s|;,-]+|[\s|;,-]+$/g,'').trim();
+}
+function vendedorPorPedido_(empresa,pedido,direto){
+  const vd = cleanVendedor_(direto);
+  if(vd) return vd;
+  if(!pedido) return '';
+  return cleanVendedor_(pedidoInfo[normalizeTxt(empresa)+'|'+pedido]?.vendedor || '');
+}
+function rowMeta(r, empresa){
   const titulo = cleanCell(getColNormalized(r,'nr titulo')) || cleanCell(getColNormalized(r,'nr título')) || cleanCell(getColNormalized(r,'titulo')) || cleanCell(getColNormalized(r,'título')) || cleanCell(getColNormalized(r,'cod titulo'));
   const nome = cleanCell(getColNormalized(r,'nome')) || cleanCell(getColNormalized(r,'cliente')) || cleanCell(getColNormalized(r,'fornecedor')) || cleanCell(getColNormalized(r,'emitente'));
   const cnpj = cleanCell(getColNormalized(r,'cnpj'));
   const banco = cleanCell(getColNormalized(r,'banco'));
   const forma = cleanCell(getColNormalized(r,'forma pagto')) || cleanCell(getColNormalized(r,'forma pagamento'));
   const situacao = cleanCell(getColNormalized(r,'situacao'));
-  return { titulo, nome, cnpj, banco, forma, situacao };
+  const pedido = cleanCell(getColNormalized(r,'pedido')) || cleanCell(getColNormalized(r,'cod pedido'));
+  const vendedorDireto = getColNormalized(r,'vendedor') ?? getColNormalized(r,'nome vendedor') ?? getColNormalized(r,'representante') ?? getColNormalized(r,'nome representante');
+  const vendedor = vendedorPorPedido_(empresa,pedido,vendedorDireto);
+  const vencRaw = getColNormalized(r,'dt venc') ?? getColNormalized(r,'data vencto') ?? getColNormalized(r,'dt vencimento');
+  const vencimentoOriginal = parseDateCell(typeof vencRaw==='object' && vencRaw!==null ? (vencRaw.v||vencRaw) : vencRaw);
+  return { titulo, nome, cnpj, banco, forma, situacao, pedido, vendedor, vencimentoOriginal };
 }
 
 // fc_<empresa> = conciliação (receitas E despesas já realizadas, numa aba só) -> fonte real do fluxo.
@@ -1113,7 +1222,7 @@ function rowsFromFC(table, empresa){
     if(debito){ valor = -Math.abs(debito); }
     else if(credito){ valor = Math.abs(credito); }
     else { return null; } // linha sem débito nem crédito de verdade (ex: cabeçalho perdido) — ignora
-    return { date, categoria, grupo: resolveGrupoCategoria(categoria, valor), valor, empresa, origem:'fc', ...rowMeta(r) };
+    return { date, categoria, grupo: resolveGrupoCategoria(categoria, valor), valor, empresa, origem:'fc', ...rowMeta(r, empresa) };
   }).filter(Boolean);
 }
 function isTituloAbertoOuPrevisto(rowObj){
@@ -1152,7 +1261,7 @@ function rowsFromCAP(table, empresa){
     const formaPagto = getColNormalized(r,'forma pagto');
     const bancoCodigo = getColNormalized(r,'banco');
     const { categoria, grupo, contaNoSaldo } = finalizarLinha(categoriaOriginal, valor, formaPagto, 'cap', date, empresa, bancoCodigo);
-    return { date, categoria, grupo, valor, empresa, origem:'cap', contaNoSaldo, ehBancoTera: isBancoTera(bancoCodigo, empresa), ehDescontoComissaoPago: normalizeTxt(formaPagto)==='desconto de comissao', ehChequeTerceirosPago: normalizeTxt(formaPagto)==='cheque terceiros', ehCarteira: normalizeTxt(formaPagto)==='carteira', ...rowMeta(r) };
+    return { date, categoria, grupo, valor, empresa, origem:'cap', contaNoSaldo, ehBancoTera: isBancoTera(bancoCodigo, empresa), ehDescontoComissaoPago: normalizeTxt(formaPagto)==='desconto de comissao', ehChequeTerceirosPago: normalizeTxt(formaPagto)==='cheque terceiros', ehCarteira: normalizeTxt(formaPagto)==='carteira', ...rowMeta(r, empresa) };
   }).filter(Boolean);
 }
 // venc_<empresa> = contas a receber por vencimento (projetado/futuro)
@@ -1192,7 +1301,7 @@ function rowsFromVENC(table, empresa){
     const { categoria, grupo, contaNoSaldo } = descontoComissao
       ? { categoria: CATEGORIA_DESCONTO_COMISSAO, grupo: 'RECEBIMENTOS', contaNoSaldo:false }
       : finalizarLinha(categoriaOriginal, valor, formaPagto, 'venc', date, empresa, getColNormalized(r,'banco'));
-    return { date, categoria, grupo, valor, empresa, origem:'venc', contaNoSaldo, ehBancoTera: isBancoTera(getColNormalized(r,'banco'), empresa), ehCarteira: normalizeTxt(formaPagto)==='carteira', ...rowMeta(r) };
+    return { date, categoria, grupo, valor, empresa, origem:'venc', contaNoSaldo, ehBancoTera: isBancoTera(getColNormalized(r,'banco'), empresa), ehCarteira: normalizeTxt(formaPagto)==='carteira', ...rowMeta(r, empresa) };
   }).filter(Boolean);
 }
 
@@ -1221,7 +1330,7 @@ function rowsFromPG(table, empresa){
     const formaPagto = getColNormalized(r,'forma pagto');
     const bancoCodigo = getColNormalized(r,'banco');
     const { categoria, grupo, contaNoSaldo } = finalizarLinha(categoriaOriginal, valor, formaPagto, 'pg', date, empresa, bancoCodigo);
-    return { date, categoria, grupo, valor, empresa, origem:'pg', contaNoSaldo, ehBancoTera: isBancoTera(bancoCodigo, empresa), ehDescontoComissaoPago: normalizeTxt(formaPagto)==='desconto de comissao', ehChequeTerceirosPago: normalizeTxt(formaPagto)==='cheque terceiros', ehCarteira: normalizeTxt(formaPagto)==='carteira', ...rowMeta(r) };
+    return { date, categoria, grupo, valor, empresa, origem:'pg', contaNoSaldo, ehBancoTera: isBancoTera(bancoCodigo, empresa), ehDescontoComissaoPago: normalizeTxt(formaPagto)==='desconto de comissao', ehChequeTerceirosPago: normalizeTxt(formaPagto)==='cheque terceiros', ehCarteira: normalizeTxt(formaPagto)==='carteira', ...rowMeta(r, empresa) };
   }).filter(Boolean);
 }
 // cr_<empresa> = contas a receber JÁ RECEBIDAS — mesma estrutura do venc_,
@@ -1274,7 +1383,7 @@ function rowsFromCR(table, empresa){
     const { categoria, grupo, contaNoSaldo } = descontoComissao
       ? { categoria: CATEGORIA_DESCONTO_COMISSAO, grupo: 'RECEBIMENTOS', contaNoSaldo:false }
       : finalizarLinha(categoriaOriginal, valor, formaPagto, 'cr', date, empresa, getColNormalized(r,'banco'));
-    return { date, categoria, grupo, valor, empresa, origem:'cr', contaNoSaldo, ehBancoTera: isBancoTera(getColNormalized(r,'banco'), empresa), ehCarteira: normalizeTxt(formaPagto)==='carteira', ...rowMeta(r) };
+    return { date, categoria, grupo, valor, empresa, origem:'cr', contaNoSaldo, ehBancoTera: isBancoTera(getColNormalized(r,'banco'), empresa), ehCarteira: normalizeTxt(formaPagto)==='carteira', ...rowMeta(r, empresa) };
   }).filter(Boolean);
 }
 
@@ -2040,11 +2149,13 @@ async function openFluxoFicha(rowId, colId){
   fcFichaTituloAtual = rNode.label;
   fcFichaPeriodoAtual = rangeLabel(range.start, range.end);
 
+  const ehTitulosReceber = rNode.label === CATEGORIA_TITULOS_ABERTO && detailRows.some(r=>r.grupo==='RECEBIMENTOS');
+  const clientesGeral = new Set(detailRows.filter(r=>r.grupo==='RECEBIMENTOS' && r.nome).map(r=>normalizeTxt(r.nome))).size;
   el('fluxoFichaBody').innerHTML = `
     <div class="fc-detail-summary" id="fcFichaResumoKpis">
-      <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${fmtBRL(total)}</div><div class="fc-detail-kpi-lbl">Total no período</div></div>
-      <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${empresas.length}</div><div class="fc-detail-kpi-lbl">Empresas com movimento</div></div>
-      <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${qtd}</div><div class="fc-detail-kpi-lbl">Lançamentos</div></div>
+      <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${fmtBRL(total)}</div><div class="fc-detail-kpi-lbl">${ehTitulosReceber?'Total em aberto':'Total no período'}</div><div class="fc-kpi-filtered" id="fcKpiFiltroValor"></div></div>
+      <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${ehTitulosReceber?clientesGeral:empresas.length}</div><div class="fc-detail-kpi-lbl">${ehTitulosReceber?'Clientes com títulos':'Empresas com movimento'}</div><div class="fc-kpi-filtered" id="fcKpiFiltroClientes"></div></div>
+      <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${qtd}</div><div class="fc-detail-kpi-lbl">${ehTitulosReceber?'Títulos':'Lançamentos'}</div><div class="fc-kpi-filtered" id="fcKpiFiltroTitulos"></div></div>
     </div>
     <div id="fcFichaPorEmpresaWrap">
       <div style="font-size:12.5px;font-weight:800;margin:12px 0 6px;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;">Por empresa</div>
@@ -2055,20 +2166,25 @@ async function openFluxoFicha(rowId, colId){
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin:16px 0 6px;" id="fcFichaBuscaWrap">
       <div style="font-size:12.5px;font-weight:800;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;">Lançamentos</div>
-      <div style="display:flex;align-items:center;gap:8px;">
-        <input type="text" id="fcFichaBuscaInput" placeholder="🔎 Buscar por cliente/fornecedor..." oninput="renderFichaLancamentosFiltrado(this.value)" style="padding:7px 10px;border:1px solid var(--border2);border-radius:8px;background:var(--field-bg,#fff);font-size:12.5px;width:260px;">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
+        <div class="fc-filter-grid">
+          <input type="text" id="fcFichaBuscaInput" placeholder="🔎 Buscar por nome do cliente" oninput="renderFichaLancamentosFiltrado()">
+          <input type="text" id="fcFichaBuscaVendedor" placeholder="👤 Buscar por vendedor" oninput="renderFichaLancamentosFiltrado()" style="${ehTitulosReceber?'':'display:none;'}">
+        </div>
         <span id="fcFichaContagemFiltrada" style="font-size:11.5px;color:var(--text3);white-space:nowrap;"></span>
       </div>
     </div>
     <div class="fc-detail-list" id="fcFichaListaImprimir">
-      <table class="fc-detail-table" style="margin-top:0;">
-        <thead><tr><th>Data</th><th>Empresa</th><th>Nome</th><th>Documento</th><th>Status</th><th class="num">%</th><th>Observação</th><th class="num">Valor</th></tr></thead>
+      <table class="fc-detail-table ${ehTitulosReceber?'fc-open-table':''}" style="margin-top:0;">
+        <thead><tr>${ehTitulosReceber
+          ? '<th>Vencimento</th><th>Empresa</th><th>Nome do cliente</th><th>Vendedor</th><th>Status</th><th class="num">%</th><th>Observação</th><th class="num">Valor</th>'
+          : '<th>Data</th><th>Empresa</th><th>Nome</th><th>Documento</th><th>Status</th><th class="num">%</th><th>Observação</th><th class="num">Valor</th>'}</tr></thead>
         <tbody id="fcFichaLancamentosBody"></tbody>
       </table>
     </div>
     <div class="fc-detail-muted" id="fcFichaMostrandoAviso"></div>
   `;
-  renderFichaLancamentosFiltrado('');
+  renderFichaLancamentosFiltrado();
   el('fluxoFichaModal').classList.add('show');
 }
 // Monta uma linha da tabela de Lançamentos — extraído do openFluxoFicha
@@ -2077,40 +2193,36 @@ async function openFluxoFicha(rowId, colId){
 function renderLinhaFicha_(r, idx, total){
   const pct = total ? (Math.abs(r.valor) / Math.abs(total)) * 100 : 0;
   const doc = r.titulo || r.banco || r.forma || r.situacao || '';
-  // "Em aberto" cobre dois casos: já vencido (categoria vira Títulos em
-  // Aberto) E ainda não vencido, hoje em diante (continua na categoria
-  // "real" dele, tipo Sócios/Fornecedores, mas a origem cap_/venc_ mostra
-  // que ainda é só previsão — nunca foi de fato pago/recebido). Antes só
-  // cobria o primeiro caso, e um lançamento de hoje/futuro aparecia
-  // incorretamente como "✓ Realizado" (bug encontrado em 13/08/2026).
   const ehDescontoComissao = r.categoria === CATEGORIA_DESCONTO_COMISSAO;
   const ehAberto = !ehDescontoComissao && (r.categoria === CATEGORIA_TITULOS_ABERTO || r.origem === 'cap' || r.origem === 'venc');
-  // Do lado de recebimento, cheque de terceiros vem com a categoria genérica
-  // (CATEGORIA_CHEQUE_TERCEIROS). Do lado de pagamento, a categoria continua
-  // sendo a real (ex: "Materia Prima") — o único jeito de identificar os dois
-  // casos de forma consistente é pelo contaNoSaldo (que finalizarLinha já marca
-  // como false nos dois), já que ele nunca é false por causa de Título em Aberto
-  // sozinho sem também ser cheque (esse caso já foi tratado acima por ehAberto).
   const ehCheque = !ehAberto && !ehDescontoComissao && r.contaNoSaldo===false;
   const tagCategoria = ehAberto
     ? (r.ehBancoTera
-        ? `<span class="fc-tag-aberto" title="Vencido e Banco Tera — aparece aqui pra visibilidade, mas nunca conta em nenhum total (nem A Receber em Aberto, nem Saldo Acumulado)">⏳🏦 Tera</span>`
-        : `<span class="fc-tag-aberto" title="Ainda não foi pago/recebido — só está previsto">⏳ Em aberto</span>`)
+        ? `<span class="fc-tag-aberto" title="Vencido e Banco Tera — apenas visibilidade">⏳🏦 Tera</span>`
+        : `<span class="fc-tag-aberto">⏳ Em aberto</span>`)
     : ehDescontoComissao
-    ? `<span class="fc-tag-cheque" title="Apenas para visualização — não entra em nenhum total ou saldo">🚫 Desc. Comissão</span>`
+    ? `<span class="fc-tag-cheque">🚫 Desc. Comissão</span>`
     : ehCheque
-    ? `<span class="fc-tag-cheque" title="Não entra no Saldo Acumulado">🚫 Cheque Terc.</span>`
-    : `<span class="fc-tag-realizado" title="Já foi pago/recebido de verdade">✓ Realizado</span>`;
-  // Na Ficha, sempre mostra a data ORIGINAL de vencimento — a "hoje" que
-  // aparece na tabela principal é só um reposicionamento visual pra juntar
-  // tudo que está vencido numa coluna só (facilita ver de longe); aqui no
-  // detalhe, o que importa é saber a data real de cada título (corrigido
-  // 13/08/2026 — antes mostrava "hoje" pra todos, escondendo qual estava
-  // mais atrasado).
-  const dataExibida = r.date;
-  return `
-  <tr>
-    <td>${formatDateBR(dataExibida)}</td>
+    ? `<span class="fc-tag-cheque">🚫 Cheque Terc.</span>`
+    : `<span class="fc-tag-realizado">✓ Realizado</span>`;
+  const ehTitulosReceber = fcFichaTituloAtual === CATEGORIA_TITULOS_ABERTO && r.grupo==='RECEBIMENTOS';
+  const dataExibida = r.vencimentoOriginal || r.date;
+  if(ehTitulosReceber){
+    const nomeSeguro = escapeHtml(r.nome || 'Sem nome');
+    const nomeJs = JSON.stringify(r.nome || '').replace(/</g,'\\u003c');
+    return `<tr>
+      <td>${formatDateBR(dataExibida)}</td>
+      <td>${escapeHtml(EMPRESA_LABEL[r.empresa] || r.empresa || 'Geral')}</td>
+      <td title="${nomeSeguro}"><button class="fc-client-link" onclick='openFichaCliente(${nomeJs})'>${nomeSeguro}</button></td>
+      <td title="${escapeHtml(r.vendedor||'')}">${escapeHtml(r.vendedor || '—')}</td>
+      <td>${tagCategoria}</td>
+      <td class="num">${pct.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%</td>
+      <td>${renderTituloObsHtml_(r,idx)}</td>
+      <td class="valor-modal" style="color:#4F8F3A">${fmtNumeroFicha(r.valor)}</td>
+    </tr>`;
+  }
+  return `<tr>
+    <td>${formatDateBR(r.date)}</td>
     <td>${escapeHtml(EMPRESA_LABEL[r.empresa] || r.empresa || 'Geral')}</td>
     <td class="wrap" title="${escapeHtml(r.nome || 'Sem nome')}">${escapeHtml(r.nome || 'Sem nome')}</td>
     <td class="small" title="${escapeHtml(doc)}">${escapeHtml(doc)}</td>
@@ -2120,29 +2232,157 @@ function renderLinhaFicha_(r, idx, total){
     <td class="valor-modal" style="color:${r.valor>=0?'#4F8F3A':'var(--red)'}">${fmtNumeroFicha(r.valor)}</td>
   </tr>`;
 }
-// Filtra os lançamentos da Ficha aberta por nome do cliente/fornecedor —
-// sem fechar/reabrir o modal, e sem perder o resto (por empresa, totais).
-function renderFichaLancamentosFiltrado(termoBusca){
-  const termo = normalizeTxt(termoBusca||'').trim();
-  const filtrados = termo
-    ? fcFichaDetailRowsAtual.filter(r => normalizeTxt(r.nome||'').includes(termo))
-    : fcFichaDetailRowsAtual;
-  const ordenadas = filtrados
-    .slice()
-    .sort((a,b)=>{
-      const diff = Math.abs(b.valor || 0) - Math.abs(a.valor || 0);
-      if(diff !== 0) return diff;
-      return a.date<b.date?-1:a.date>b.date?1:0;
-    })
-    .slice(0,120);
+function renderFichaLancamentosFiltrado(){
+  const termo = normalizeTxt(el('fcFichaBuscaInput')?.value||'').trim();
+  const termoVend = normalizeTxt(el('fcFichaBuscaVendedor')?.value||'').trim();
+  const filtrados = fcFichaDetailRowsAtual.filter(r =>
+    (!termo || normalizeTxt(r.nome||'').includes(termo)) &&
+    (!termoVend || normalizeTxt(r.vendedor||'').includes(termoVend))
+  );
+  const ordenadas = filtrados.slice().sort((a,b)=>{
+    const diff = Math.abs(b.valor || 0) - Math.abs(a.valor || 0);
+    if(diff !== 0) return diff;
+    return a.date<b.date?-1:a.date>b.date?1:0;
+  }).slice(0,120);
   fcTituloObsRowsAtual = ordenadas;
   const html = ordenadas.map((r,idx)=>renderLinhaFicha_(r, idx, fcFichaTotalAtual)).join('');
   const corpo = el('fcFichaLancamentosBody');
-  if(corpo) corpo.innerHTML = html || `<tr><td colspan="8" style="color:var(--text3);">Nenhum lançamento encontrado${termo?' pra essa busca':''}.</td></tr>`;
+  if(corpo) corpo.innerHTML = html || `<tr><td colspan="8" style="color:var(--text3);">Nenhum lançamento encontrado pra essa busca.</td></tr>`;
+  const filtroAtivo = !!(termo || termoVend);
   const contagem = el('fcFichaContagemFiltrada');
-  if(contagem) contagem.textContent = termo ? `${filtrados.length} de ${fcFichaDetailRowsAtual.length} lançamentos` : '';
+  if(contagem) contagem.textContent = filtroAtivo ? `${filtrados.length} de ${fcFichaDetailRowsAtual.length} lançamentos` : '';
   const aviso = el('fcFichaMostrandoAviso');
-  if(aviso) aviso.textContent = filtrados.length>120 ? `Mostrando os primeiros 120 lançamentos${termo?' dessa busca':''}.` : '';
+  if(aviso) aviso.textContent = filtrados.length>120 ? `Mostrando os primeiros 120 lançamentos dessa busca.` : '';
+
+  // Nos cards, o número grande permanece SEMPRE o geral.
+  const ehTitulosReceber = fcFichaTituloAtual === CATEGORIA_TITULOS_ABERTO && fcFichaDetailRowsAtual.some(r=>r.grupo==='RECEBIMENTOS');
+  if(ehTitulosReceber){
+    const geral = fcFichaDetailRowsAtual.filter(r=>r.grupo==='RECEBIMENTOS');
+    const filt = filtrados.filter(r=>r.grupo==='RECEBIMENTOS');
+    const valorGeral = geral.reduce((s,r)=>s+Math.abs(r.valor||0),0);
+    const valorFilt = filt.reduce((s,r)=>s+Math.abs(r.valor||0),0);
+    const cliGeral = new Set(geral.filter(r=>r.nome).map(r=>normalizeTxt(r.nome))).size;
+    const cliFilt = new Set(filt.filter(r=>r.nome).map(r=>normalizeTxt(r.nome))).size;
+    const pct = (a,b)=> b ? (a/b*100).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%' : '0,0%';
+    const kv=el('fcKpiFiltroValor'), kc=el('fcKpiFiltroClientes'), kt=el('fcKpiFiltroTitulos');
+    if(kv) kv.textContent = filtroAtivo ? `${fmtBRL(valorFilt)} · ${pct(valorFilt,valorGeral)} do total` : '';
+    if(kc) kc.textContent = filtroAtivo ? `${cliFilt} · ${pct(cliFilt,cliGeral)} do total` : '';
+    if(kt) kt.textContent = filtroAtivo ? `${filt.length} · ${pct(filt.length,geral.length)} do total` : '';
+  }
+}
+
+function mesesUltimos6_(){
+  const base = new Date(HOJE_ISO+'T00:00:00'), out=[];
+  for(let i=5;i>=0;i--){
+    const d=new Date(base.getFullYear(),base.getMonth()-i,1);
+    out.push({key:`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`, label:d.toLocaleDateString('pt-BR',{month:'short'}).replace('.','')});
+  }
+  return out;
+}
+function diasEntreISO_(a,b){
+  if(!a||!b) return null;
+  return Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/86400000);
+}
+function classificacaoScore_(s){
+  if(s>=85) return 'Excelente';
+  if(s>=70) return 'Bom';
+  if(s>=55) return 'Atenção';
+  if(s>=40) return 'Risco elevado';
+  return 'Crítico';
+}
+function calcularScoreCliente_(recebidos, abertos){
+  // Score interno estimado: usa SOMENTE sinais efetivamente disponíveis.
+  // Base 100; penaliza exposição atual, quantidade/idade dos atrasos e,
+  // quando CR possui vencimento original, atraso histórico de pagamentos.
+  const totalRec = recebidos.reduce((s,r)=>s+Math.abs(r.valor||0),0);
+  const totalAberto = abertos.reduce((s,r)=>s+Math.abs(r.valor||0),0);
+  const atrasados = abertos.filter(r=>(r.vencimentoOriginal||r.date)<HOJE_ISO);
+  const valorAtrasado = atrasados.reduce((s,r)=>s+Math.abs(r.valor||0),0);
+  let score=100;
+  const exposicao = (totalRec+totalAberto)>0 ? totalAberto/(totalRec+totalAberto) : 0;
+  score -= Math.min(28, exposicao*42);
+  score -= Math.min(22, atrasados.length*3.5);
+  const maiorAtraso = atrasados.reduce((m,r)=>Math.max(m,diasEntreISO_(r.vencimentoOriginal||r.date,HOJE_ISO)||0),0);
+  score -= Math.min(22, maiorAtraso/4);
+  if(totalAberto>0) score -= Math.min(13,(valorAtrasado/totalAberto)*13);
+  const comVenc = recebidos.filter(r=>r.vencimentoOriginal && r.date);
+  if(comVenc.length){
+    const pagosAtrasados = comVenc.filter(r=>diasEntreISO_(r.vencimentoOriginal,r.date)>0).length;
+    score -= Math.min(15,(pagosAtrasados/comVenc.length)*15);
+  }
+  return {score:Math.max(0,Math.min(100,Math.round(score))), maiorAtraso, temPontualidade:comVenc.length>0};
+}
+function openFichaCliente(nome){
+  const key=normalizeTxt(nome);
+  const recebidos=[], abertos=[];
+  EMPRESAS.forEach(emp=>{
+    (rowsByEmpresa[emp]||[]).forEach(r=>{
+      if(normalizeTxt(r.nome)!==key) return;
+      if(r.origem==='cr' && r.grupo==='RECEBIMENTOS' && contaNoTotal_(r)) recebidos.push(r);
+      if(r.origem==='venc' && r.grupo==='RECEBIMENTOS' && r.categoria===CATEGORIA_TITULOS_ABERTO) abertos.push(r);
+    });
+  });
+  const todos=recebidos.concat(abertos);
+  const primeira=todos.map(r=>r.vencimentoOriginal||r.date).filter(Boolean).sort()[0]||'';
+  const totalRec=recebidos.reduce((s,r)=>s+Math.abs(r.valor||0),0);
+  const totalAberto=abertos.reduce((s,r)=>s+Math.abs(r.valor||0),0);
+  const ticket=recebidos.length?totalRec/recebidos.length:0;
+  const atrasados=abertos.filter(r=>(r.vencimentoOriginal||r.date)<HOJE_ISO);
+  const idades=atrasados.map(r=>diasEntreISO_(r.vencimentoOriginal||r.date,HOJE_ISO)||0);
+  const idadeMedia=idades.length?idades.reduce((a,b)=>a+b,0)/idades.length:0;
+  const calc=calcularScoreCliente_(recebidos,abertos);
+  const compromet=(totalRec+totalAberto)>0?totalAberto/(totalRec+totalAberto)*100:0;
+  const meses=mesesUltimos6_();
+  const vals=meses.map(m=>recebidos.filter(r=>r.date?.slice(0,7)===m.key).reduce((s,r)=>s+Math.abs(r.valor||0),0));
+  const maxVal=Math.max(1,...vals);
+  const bars=meses.map((m,i)=>`<div class="fc-client-bar-col"><div class="fc-client-bar-val">${vals[i]?fmtBRL(vals[i]):'—'}</div><div class="fc-client-bar" style="height:${Math.max(2,Math.round(vals[i]/maxVal*100))}px"></div><div class="fc-client-bar-lbl">${escapeHtml(m.label)}</div></div>`).join('');
+  const faixas=[
+    ['Até 30 dias',0,30],['31–60 dias',31,60],['61–90 dias',61,90],['Acima de 90 dias',91,999999]
+  ].map(([lbl,min,max])=>{
+    const rs=atrasados.filter(r=>{const d=diasEntreISO_(r.vencimentoOriginal||r.date,HOJE_ISO)||0;return d>=min&&d<=max;});
+    return `<div class="fc-aging"><b>${fmtBRL(rs.reduce((s,r)=>s+Math.abs(r.valor||0),0))}</b><span>${lbl} · ${rs.length} título(s)</span></div>`;
+  }).join('');
+  const hist=todos.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(r=>{
+    const aberto=r.origem==='venc';
+    const venc=r.vencimentoOriginal||r.date;
+    const atraso=aberto?Math.max(0,diasEntreISO_(venc,HOJE_ISO)||0):(r.vencimentoOriginal?Math.max(0,diasEntreISO_(r.vencimentoOriginal,r.date)||0):null);
+    return `<tr><td>${formatDateBR(venc)}</td><td>${aberto?'Em aberto':'Recebido'}</td><td>${escapeHtml(EMPRESA_LABEL[r.empresa]||r.empresa)}</td><td>${escapeHtml(r.titulo||'—')}</td><td>${atraso===null?'—':atraso+' d'}</td><td class="num">${fmtNumeroFicha(Math.abs(r.valor||0))}</td></tr>`;
+  }).join('');
+  el('fcClienteTitulo').textContent='Ficha Técnica Financeira · '+nome;
+  el('fcClienteSub').textContent=`Histórico disponível${primeira?' desde '+formatDateBR(primeira):''} · Score Financeiro Estimado interno`;
+  el('fcClienteBody').innerHTML=`
+    <div class="fc-client-score-wrap">
+      <div class="fc-client-score">
+        <div class="fc-client-score-num">${calc.score}</div>
+        <div class="fc-client-score-class">${classificacaoScore_(calc.score)}</div>
+        <div class="fc-client-score-note">Score Financeiro Estimado interno (0–100), calculado apenas com o histórico disponível nesta base. ${calc.temPontualidade?'A pontualidade histórica foi considerada porque há vencimento e pagamento disponíveis.':'A pontualidade histórica não foi usada porque não há vencimento original confiável em todos os recebimentos.'}</div>
+      </div>
+      <div class="fc-client-kpis">
+        <div class="fc-client-kpi"><b>${fmtBRL(totalRec)}</b><span>Total recebido</span></div>
+        <div class="fc-client-kpi"><b>${fmtBRL(totalAberto)}</b><span>Valor em aberto/atrasado</span></div>
+        <div class="fc-client-kpi"><b>${fmtBRL(ticket)}</b><span>Ticket médio recebido</span></div>
+        <div class="fc-client-kpi"><b>${calc.maiorAtraso} dias</b><span>Maior atraso atual</span></div>
+        <div class="fc-client-kpi"><b>${compromet.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%</b><span>Comprometimento em aberto</span></div>
+        <div class="fc-client-kpi"><b>${idadeMedia.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})} dias</b><span>Idade média dos atrasados</span></div>
+        <div class="fc-client-kpi"><b>${recebidos.length}</b><span>Títulos recebidos</span></div>
+        <div class="fc-client-kpi"><b>${atrasados.length}</b><span>Títulos atualmente atrasados</span></div>
+      </div>
+    </div>
+    <div class="fc-client-section"><div class="fc-client-section-title">Recebimentos · últimos 6 meses</div><div class="fc-client-bars">${bars}</div></div>
+    <div class="fc-client-section"><div class="fc-client-section-title">Inadimplência atual por faixa</div><div class="fc-aging-grid">${faixas}</div></div>
+    <div class="fc-client-section"><div class="fc-client-section-title">Histórico / detalhamento dos títulos</div>
+      <div class="fc-client-history"><table><thead><tr><th>Vencimento</th><th>Situação</th><th>Empresa</th><th>Título</th><th>Atraso</th><th class="num">Valor</th></tr></thead><tbody>${hist||'<tr><td colspan="6">Sem histórico disponível.</td></tr>'}</tbody></table></div>
+    </div>`;
+  el('clienteFinanceiroModal').classList.add('show');
+}
+function closeFichaCliente(){
+  el('clienteFinanceiroModal')?.classList.remove('show');
+  document.body.classList.remove('fc-print-client');
+}
+function imprimirFichaCliente(){
+  document.body.classList.add('fc-print-client');
+  window.print();
+  setTimeout(()=>document.body.classList.remove('fc-print-client'),300);
 }
 function closeFluxoFicha(){
   el('fluxoFichaModal').classList.remove('show');
@@ -2155,9 +2395,11 @@ function imprimirFichaFluxo(){
 function exportarFichaExcel(){
   if(typeof XLSX==='undefined'){ alert('Não consegui carregar a biblioteca de Excel — tenta recarregar a página.'); return; }
   const termo = normalizeTxt(el('fcFichaBuscaInput')?.value||'').trim();
-  const linhas = termo
-    ? fcFichaDetailRowsAtual.filter(r => normalizeTxt(r.nome||'').includes(termo))
-    : fcFichaDetailRowsAtual;
+  const termoVend = normalizeTxt(el('fcFichaBuscaVendedor')?.value||'').trim();
+  const linhas = fcFichaDetailRowsAtual.filter(r =>
+    (!termo || normalizeTxt(r.nome||'').includes(termo)) &&
+    (!termoVend || normalizeTxt(r.vendedor||'').includes(termoVend))
+  );
   if(!linhas.length){ alert('Não tem lançamento pra exportar.'); return; }
   const dados = linhas.map(r=>{
     const ehAberto = r.categoria === CATEGORIA_TITULOS_ABERTO || r.origem === 'cap' || r.origem === 'venc';
@@ -2182,7 +2424,19 @@ function exportarFichaExcel(){
 
 el('tituloObsModal')?.addEventListener('click',function(e){ if(e.target===this) closeTituloObsPopup_(); });
 el('fcAplicacaoPopup')?.addEventListener('click',function(e){ if(e.target===this) fecharAplicacaoPopup(); });
-document.addEventListener('keydown',function(e){ if(e.key==='Escape' && el('tituloObsModal')?.classList.contains('show')) closeTituloObsPopup_(); });
+el('fluxoFichaModal')?.addEventListener('click',function(e){ if(e.target===this) closeFluxoFicha(); });
+el('clienteFinanceiroModal')?.addEventListener('click',function(e){ if(e.target===this) closeFichaCliente(); });
+el('saldoInicialModal')?.addEventListener('click',function(e){ if(e.target===this) closeSaldoInicialModal(); });
+el('ajustesManuaisModal')?.addEventListener('click',function(e){ if(e.target===this) closeAjustesManuaisModal(); });
+document.addEventListener('keydown',function(e){
+  if(e.key!=='Escape') return;
+  if(el('clienteFinanceiroModal')?.classList.contains('show')) return closeFichaCliente();
+  if(el('tituloObsModal')?.classList.contains('show')) return closeTituloObsPopup_();
+  if(el('fcAplicacaoPopup')?.classList.contains('show')) return fecharAplicacaoPopup();
+  if(el('fluxoFichaModal')?.classList.contains('show')) return closeFluxoFicha();
+  if(el('saldoInicialModal')?.classList.contains('show')) return closeSaldoInicialModal();
+  if(el('ajustesManuaisModal')?.classList.contains('show')) return closeAjustesManuaisModal();
+});
 
 function scrollToToday(){
   const todayTh = document.querySelector('.fc-table th.fc-today');
