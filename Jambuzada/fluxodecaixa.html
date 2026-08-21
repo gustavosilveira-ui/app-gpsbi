@@ -221,6 +221,49 @@ html.light .fc-plan-table th:first-child,html.light .fc-plan-table td:first-chil
 .fc-titulos-search{width:100%;max-width:100%;padding:8px 11px;border:1px solid var(--border2);border-radius:9px;background:var(--navy3);color:var(--text);font-size:12.5px;}
 .fc-kpi-filter-note{margin-top:5px;font-size:10.5px;line-height:1.25;color:var(--text3);font-weight:600;}
 .fc-kpi-filter-note strong{color:var(--text2);font-weight:800;}
+
+.fc-cliente-link{cursor:pointer;color:inherit;text-decoration:underline dotted;text-underline-offset:3px;text-decoration-color:rgba(45,112,184,.55);font-weight:700;}
+.fc-cliente-link:hover{color:var(--cyan);}
+.fc-cliente-modal .modal-box{width:1180px;max-width:96vw;max-height:90vh;}
+.fc-cliente-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:14px;}
+.fc-cliente-head-actions{display:flex;gap:8px;flex:none;}
+.fc-cliente-score-row{display:grid;grid-template-columns:220px 1fr;gap:12px;margin-bottom:14px;}
+.fc-cliente-score-card{border:1px solid var(--border2);background:var(--navy3);border-radius:12px;padding:16px;}
+.fc-cliente-score-num{font-family:'DM Mono',monospace;font-size:34px;font-weight:900;line-height:1;}
+.fc-cliente-score-class{font-size:12px;font-weight:800;margin-top:8px;}
+.fc-cliente-score-note{font-size:10.5px;color:var(--text3);line-height:1.45;margin-top:8px;}
+.fc-cliente-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;}
+.fc-cliente-kpi{border:1px solid var(--border);background:var(--navy3);border-radius:10px;padding:12px 14px;min-width:0;}
+.fc-cliente-kpi-label{font-size:9.5px;text-transform:uppercase;letter-spacing:.045em;color:var(--text3);font-weight:800;}
+.fc-cliente-kpi-value{font-family:'DM Mono',monospace;font-size:15px;font-weight:900;color:var(--text2);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.fc-cliente-section{margin-top:16px;}
+.fc-cliente-section-title{font-size:12.5px;font-weight:900;color:var(--text2);text-transform:uppercase;letter-spacing:.035em;margin-bottom:8px;}
+.fc-cliente-chart{display:grid;gap:8px;border:1px solid var(--border);border-radius:11px;padding:12px 14px;background:var(--navy3);}
+.fc-cliente-bar-row{display:grid;grid-template-columns:76px 1fr 105px;gap:10px;align-items:center;font-size:11px;}
+.fc-cliente-bar-track{height:10px;border-radius:999px;background:rgba(127,138,154,.16);overflow:hidden;}
+.fc-cliente-bar-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--blue),var(--cyan));min-width:0;}
+.fc-cliente-bar-val{font-family:'DM Mono',monospace;text-align:right;font-size:10.5px;color:var(--text2);}
+.fc-cliente-aging{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;}
+.fc-cliente-aging-card{border:1px solid var(--border);border-radius:10px;padding:11px 12px;background:var(--navy3);}
+.fc-cliente-aging-label{font-size:10px;color:var(--text3);font-weight:800;}
+.fc-cliente-aging-value{font-family:'DM Mono',monospace;font-weight:900;font-size:14px;margin-top:6px;}
+.fc-cliente-aging-count{font-size:10px;color:var(--text3);margin-top:3px;}
+.fc-cliente-detail-wrap{border:1px solid var(--border);border-radius:10px;overflow:auto;max-height:330px;}
+.fc-cliente-detail-table{width:100%;border-collapse:collapse;font-size:11px;min-width:900px;}
+.fc-cliente-detail-table th{position:sticky;top:0;background:var(--navy3);z-index:1;font-size:9.5px;text-transform:uppercase;color:var(--text3);padding:8px;text-align:left;border-bottom:1px solid var(--border2);}
+.fc-cliente-detail-table td{padding:8px;border-bottom:1px solid var(--border);white-space:nowrap;}
+.fc-cliente-detail-table td.num,.fc-cliente-detail-table th.num{text-align:right;font-family:'DM Mono',monospace;}
+.fc-cliente-method{font-size:10.5px;color:var(--text3);line-height:1.5;margin-top:9px;}
+@media(max-width:860px){
+  .fc-cliente-score-row{grid-template-columns:1fr;}
+  .fc-cliente-kpis{grid-template-columns:1fr 1fr;}
+  .fc-cliente-aging{grid-template-columns:1fr 1fr;}
+}
+@media(max-width:560px){
+  .fc-cliente-kpis{grid-template-columns:1fr;}
+  .fc-cliente-aging{grid-template-columns:1fr;}
+  .fc-cliente-bar-row{grid-template-columns:62px 1fr 88px;}
+}
 @media(max-width:760px){.fc-titulos-filtros{grid-template-columns:1fr;width:100%;}.fc-titulos-toolbar{align-items:stretch;}}
 .fc-tag-aberto,.fc-tag-fluxo,.fc-tag-removido{display:inline-flex;align-items:center;padding:4px 9px;border-radius:999px;font-size:10.5px;font-weight:800;white-space:nowrap;}
 .fc-tag-aberto{background:rgba(245,185,66,.16);color:var(--gold);}.fc-tag-fluxo{background:rgba(47,214,184,.14);color:var(--green);}.fc-tag-removido{background:rgba(239,106,106,.13);color:var(--red);}
@@ -394,6 +437,24 @@ html.light #fcTitulosAbertoLista .fc-detail-table th:last-child,html.light #fcTi
           </div>
         </div>
         <div id="fcTitulosAbertoLista"></div>
+      </div>
+    </div>
+
+
+    <!-- Ficha técnica do cliente — aberta ao clicar no nome em Títulos em Aberto -->
+    <div class="modal-overlay fc-cliente-modal" id="fcClienteFichaModal" style="z-index:325;">
+      <div class="modal-box">
+        <div class="fc-cliente-head">
+          <div>
+            <div class="modal-title" id="fcClienteFichaTitulo">Ficha Técnica do Cliente</div>
+            <div class="modal-sub" id="fcClienteFichaSub">Análise financeira com base no histórico disponível da Jambuzada.</div>
+          </div>
+          <div class="fc-cliente-head-actions">
+            <button class="btn btn-ghost btn-sm" onclick="imprimirFichaClienteJambuzada_()">🖨️ Imprimir ficha</button>
+            <button class="btn btn-ghost btn-sm" onclick="fecharFichaClienteJambuzada_()">Fechar</button>
+          </div>
+        </div>
+        <div id="fcClienteFichaBody"></div>
       </div>
     </div>
 
@@ -3218,10 +3279,186 @@ function aplicarFiltrosTitulosAberto_(){
       : status==='fluxo'
         ? `<div class="fc-titulo-acao" style="display:flex;gap:5px;"><button class="btn btn-primary btn-sm" onclick="abrirGerenciarTituloNoFluxo('${r.chave.replace(/'/g,"\\'")}')">Gerenciar</button><button class="btn btn-ghost btn-sm" onclick="voltarParaEmAberto('${r.chave.replace(/'/g,"\\'")}')">Voltar</button></div>`
         : `<button class="btn btn-ghost btn-sm fc-titulo-acao" onclick="voltarParaEmAberto('${r.chave.replace(/'/g,"\\'")}')">Voltar pra Em Aberto</button>`;
-    return `<tr><td>${formatDateBR(r.date)}</td>${ehReceber?'':`<td>${escapeHtml(r.categoria||'Sem categoria')}</td>`}<td class="wrap" title="${escapeHtml(r.nome||'Sem nome')}">${escapeHtml(r.nome||'Sem nome')}</td>${ehReceber?`<td title="${escapeHtml(r.vendedor||'Não informado')}">${escapeHtml(r.vendedor||'Não informado')}</td>`:''}<td>${statusHtml}</td><td class="num">${pct.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%</td><td>${renderTituloObsHtml_(r)}</td><td class="valor-modal" style="color:${r.valor>=0?'#4F8F3A':'var(--red)'}">${fmtNumeroFicha(r.valor)}</td><td>${acao}</td></tr>`;
+    return `<tr><td>${formatDateBR(r.date)}</td>${ehReceber?'':`<td>${escapeHtml(r.categoria||'Sem categoria')}</td>`}<td class="wrap" title="${escapeHtml(r.nome||'Sem nome')}">${ehReceber?`<span class="fc-cliente-link" onclick="abrirFichaClienteJambuzada_('${encodeURIComponent(r.nome||'')}')" title="Abrir ficha técnica do cliente">${escapeHtml(r.nome||'Sem nome')}</span>`:escapeHtml(r.nome||'Sem nome')}</td>${ehReceber?`<td title="${escapeHtml(r.vendedor||'Não informado')}">${escapeHtml(r.vendedor||'Não informado')}</td>`:''}<td>${statusHtml}</td><td class="num">${pct.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%</td><td>${renderTituloObsHtml_(r)}</td><td class="valor-modal" style="color:${r.valor>=0?'#4F8F3A':'var(--red)'}">${fmtNumeroFicha(r.valor)}</td><td>${acao}</td></tr>`;
   }).join('');
   const body=el('fcTitulosAbertoBody'); if(body) body.innerHTML=linhasHtml||`<tr><td colspan="${ehReceber?8:8}">Nenhum título encontrado.</td></tr>`;
 }
+
+let fcClienteFichaAtual_ = null;
+
+function clienteMatch_(nomeBase,nomeLinha){
+  const a=normalizeTxt(nomeBase||'');
+  const b=normalizeTxt(nomeLinha||'');
+  return !!a && a===b;
+}
+function diasDesde_(iso){
+  if(!iso) return 0;
+  const hoje=new Date(todayISO()+'T00:00:00');
+  const d=new Date(iso+'T00:00:00');
+  return Math.max(0,Math.floor((hoje-d)/86400000));
+}
+function mesKey_(iso){ return (iso||'').slice(0,7); }
+function labelMes_(key){
+  if(!key||key.length<7)return key||'';
+  const [y,m]=key.split('-').map(Number);
+  return new Date(y,m-1,1).toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}).replace('.','');
+}
+function ultimosMeses_(qtd){
+  const hoje=new Date(todayISO()+'T00:00:00');
+  const arr=[];
+  for(let i=qtd-1;i>=0;i--){
+    const d=new Date(hoje.getFullYear(),hoje.getMonth()-i,1);
+    arr.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
+  }
+  return arr;
+}
+function classificarScoreCliente_(score){
+  if(score>=85)return 'Excelente';
+  if(score>=70)return 'Bom';
+  if(score>=55)return 'Atenção';
+  if(score>=40)return 'Risco elevado';
+  return 'Crítico';
+}
+function calcScoreClienteJambuzada_(totalRecebido,totalAberto,qtdReceb,qtdAberto,idadeMedia,maiorAtraso){
+  const relacao=Math.max(0,totalRecebido)+Math.max(0,totalAberto);
+  const comprometimento=relacao?Math.max(0,totalAberto)/relacao:1;
+  const qtdRel=Math.max(1,qtdReceb+qtdAberto);
+  const incidTitulos=Math.max(0,qtdAberto)/qtdRel;
+  const pComp=Math.min(40,comprometimento*50);     // até 40 pts
+  const pMedia=Math.min(25,(Math.max(0,idadeMedia)/120)*25);
+  const pMax=Math.min(20,(Math.max(0,maiorAtraso)/180)*20);
+  const pQtd=Math.min(15,incidTitulos*30);
+  const score=Math.max(0,Math.min(100,Math.round(100-pComp-pMedia-pMax-pQtd)));
+  return {score,comprometimento,pComp,pMedia,pMax,pQtd,classificacao:classificarScoreCliente_(score)};
+}
+function statusTituloFicha_(r){
+  const st=tituloStatus_(r);
+  if(st==='aberto')return 'Em aberto';
+  if(st==='fluxo')return 'No fluxo · '+formatDateBR(fcTitulosResolvidos[r.chave]);
+  return 'Removido do fluxo';
+}
+function dadosFichaClienteJambuzada_(nome){
+  const nomeNorm=normalizeTxt(nome||'');
+  // Histórico REAL da própria base antes das simulações. Lançamentos manuais sem nome
+  // não entram no histórico do cliente.
+  const movs=(rowsBase||[]).filter(r=>clienteMatch_(nomeNorm,r.nome));
+  const recebidos=movs.filter(r=>r.valor>0 && r.grupo==='RECEBIMENTOS');
+  const titulosTodos=rowsAtrasados.filter(r=>r.valor>=0 && clienteMatch_(nomeNorm,r.nome));
+  const titulosAbertos=titulosTodos.filter(r=>tituloStatus_(r)==='aberto');
+
+  const totalRecebido=recebidos.reduce((s,r)=>s+Math.max(0,Number(r.valor)||0),0);
+  const totalAberto=titulosAbertos.reduce((s,r)=>s+Math.max(0,Number(r.valor)||0),0);
+  const qtdReceb=recebidos.length;
+  const qtdAberto=titulosAbertos.length;
+  const ticketMedio=qtdReceb?totalRecebido/qtdReceb:0;
+  const idades=titulosAbertos.map(r=>diasDesde_(r.date));
+  const maiorAtraso=idades.length?Math.max(...idades):0;
+  const idadeMedia=idades.length?idades.reduce((a,b)=>a+b,0)/idades.length:0;
+  const score=calcScoreClienteJambuzada_(totalRecebido,totalAberto,qtdReceb,qtdAberto,idadeMedia,maiorAtraso);
+
+  const todasDatas=[...movs.map(r=>r.date),...titulosTodos.map(r=>r.date)].filter(Boolean).sort();
+  const primeira=todasDatas[0]||'';
+
+  const meses=ultimosMeses_(6);
+  const mensal=meses.map(m=>({
+    mes:m,
+    valor:recebidos.filter(r=>mesKey_(r.date)===m).reduce((s,r)=>s+Math.max(0,Number(r.valor)||0),0)
+  }));
+
+  const faixas=[
+    {label:'Até 30 dias',min:0,max:30,rows:[]},
+    {label:'31 a 60 dias',min:31,max:60,rows:[]},
+    {label:'61 a 90 dias',min:61,max:90,rows:[]},
+    {label:'Acima de 90 dias',min:91,max:Infinity,rows:[]}
+  ];
+  titulosAbertos.forEach(r=>{
+    const d=diasDesde_(r.date);
+    const f=faixas.find(x=>d>=x.min&&d<=x.max); if(f)f.rows.push(r);
+  });
+  faixas.forEach(f=>{f.valor=f.rows.reduce((s,r)=>s+Math.max(0,Number(r.valor)||0),0);});
+
+  return {nome,movs,recebidos,titulosTodos,titulosAbertos,totalRecebido,totalAberto,qtdReceb,qtdAberto,ticketMedio,maiorAtraso,idadeMedia,score,primeira,mensal,faixas};
+}
+function htmlFichaClienteJambuzada_(d,paraImpressao=false){
+  const maxMensal=Math.max(1,...d.mensal.map(x=>x.valor));
+  const barras=d.mensal.map(x=>{
+    const pct=Math.max(0,Math.min(100,x.valor/maxMensal*100));
+    return `<div class="fc-cliente-bar-row"><div>${escapeHtml(labelMes_(x.mes))}</div><div class="fc-cliente-bar-track"><div class="fc-cliente-bar-fill" style="width:${pct.toFixed(1)}%"></div></div><div class="fc-cliente-bar-val">${fmtBRL(x.valor)}</div></div>`;
+  }).join('');
+  const aging=d.faixas.map(f=>`<div class="fc-cliente-aging-card"><div class="fc-cliente-aging-label">${f.label}</div><div class="fc-cliente-aging-value">${fmtBRL(f.valor)}</div><div class="fc-cliente-aging-count">${f.rows.length} título(s)</div></div>`).join('');
+  const detalhes=d.titulosTodos.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(r=>{
+    const dias=diasDesde_(r.date);
+    return `<tr><td>${formatDateBR(r.date)}</td><td>${escapeHtml(r.documento||'')}</td><td>${escapeHtml(r.vendedor||'Não informado')}</td><td>${escapeHtml(statusTituloFicha_(r))}</td><td class="num">${dias}</td><td class="num">${fmtBRL(Math.max(0,Number(r.valor)||0))}</td></tr>`;
+  }).join('');
+  const compromet=d.score.comprometimento*100;
+  return `
+    <div class="fc-cliente-score-row">
+      <div class="fc-cliente-score-card">
+        <div class="fc-cliente-kpi-label">Score financeiro estimado</div>
+        <div class="fc-cliente-score-num">${d.score.score}</div>
+        <div class="fc-cliente-score-class">${escapeHtml(d.score.classificacao)}</div>
+        <div class="fc-cliente-score-note">Estimativa construída apenas com o histórico financeiro disponível na base da Jambuzada.</div>
+      </div>
+      <div class="fc-cliente-kpis">
+        <div class="fc-cliente-kpi"><div class="fc-cliente-kpi-label">Histórico desde</div><div class="fc-cliente-kpi-value">${d.primeira?formatDateBR(d.primeira):'Sem histórico'}</div></div>
+        <div class="fc-cliente-kpi"><div class="fc-cliente-kpi-label">Total recebido</div><div class="fc-cliente-kpi-value">${fmtBRL(d.totalRecebido)}</div></div>
+        <div class="fc-cliente-kpi"><div class="fc-cliente-kpi-label">Em aberto / atrasado</div><div class="fc-cliente-kpi-value">${fmtBRL(d.totalAberto)}</div></div>
+        <div class="fc-cliente-kpi"><div class="fc-cliente-kpi-label">Ticket médio recebido</div><div class="fc-cliente-kpi-value">${fmtBRL(d.ticketMedio)}</div></div>
+        <div class="fc-cliente-kpi"><div class="fc-cliente-kpi-label">Maior atraso atual</div><div class="fc-cliente-kpi-value">${d.maiorAtraso.toLocaleString('pt-BR')} dia(s)</div></div>
+        <div class="fc-cliente-kpi"><div class="fc-cliente-kpi-label">Comprometimento em aberto</div><div class="fc-cliente-kpi-value">${compromet.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%</div></div>
+        <div class="fc-cliente-kpi"><div class="fc-cliente-kpi-label">Idade média dos atrasados</div><div class="fc-cliente-kpi-value">${Math.round(d.idadeMedia).toLocaleString('pt-BR')} dia(s)</div></div>
+        <div class="fc-cliente-kpi"><div class="fc-cliente-kpi-label">Recebimentos encontrados</div><div class="fc-cliente-kpi-value">${d.qtdReceb.toLocaleString('pt-BR')}</div></div>
+        <div class="fc-cliente-kpi"><div class="fc-cliente-kpi-label">Títulos atualmente em aberto</div><div class="fc-cliente-kpi-value">${d.qtdAberto.toLocaleString('pt-BR')}</div></div>
+      </div>
+    </div>
+    <div class="fc-cliente-section">
+      <div class="fc-cliente-section-title">Recebimentos · últimos 6 meses</div>
+      <div class="fc-cliente-chart">${barras}</div>
+    </div>
+    <div class="fc-cliente-section">
+      <div class="fc-cliente-section-title">Inadimplência atual por faixa</div>
+      <div class="fc-cliente-aging">${aging}</div>
+    </div>
+    <div class="fc-cliente-section">
+      <div class="fc-cliente-section-title">Histórico / detalhamento dos títulos</div>
+      <div class="fc-cliente-detail-wrap"><table class="fc-cliente-detail-table"><thead><tr><th>Vencimento</th><th>Documento</th><th>Vendedor</th><th>Status</th><th class="num">Dias</th><th class="num">Valor</th></tr></thead><tbody>${detalhes||'<tr><td colspan="6">Nenhum título encontrado para este cliente.</td></tr>'}</tbody></table></div>
+      <div class="fc-cliente-method">Score: parte de 100 e aplica penalidades proporcionais ao comprometimento em aberto, idade média dos títulos, maior atraso atual e incidência de títulos em aberto sobre o histórico encontrado. O cálculo não usa regras nem números da Tangram.</div>
+    </div>`;
+}
+function abrirFichaClienteJambuzada_(nomeEncoded){
+  const nome=decodeURIComponent(nomeEncoded||'').trim(); if(!nome)return;
+  const d=dadosFichaClienteJambuzada_(nome);
+  fcClienteFichaAtual_=d;
+  el('fcClienteFichaTitulo').textContent='Ficha Técnica · '+nome;
+  const vendedor=rowsAtrasados.find(r=>clienteMatch_(nome,r.nome)&&r.vendedor)?.vendedor||'';
+  el('fcClienteFichaSub').textContent=`Histórico financeiro disponível na Jambuzada${vendedor?' · Vendedor: '+vendedor:''}`;
+  el('fcClienteFichaBody').innerHTML=htmlFichaClienteJambuzada_(d,false);
+  el('fcClienteFichaModal').classList.add('show');
+}
+function fecharFichaClienteJambuzada_(){
+  el('fcClienteFichaModal').classList.remove('show');
+  fcClienteFichaAtual_=null;
+}
+function imprimirFichaClienteJambuzada_(){
+  const d=fcClienteFichaAtual_; if(!d)return;
+  const w=window.open('','_blank','width=1180,height=820');
+  if(!w){alert('O navegador bloqueou a janela de impressão. Libere pop-ups e tente novamente.');return;}
+  const corpo=htmlFichaClienteJambuzada_(d,true);
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Ficha Técnica · ${escapeHtml(d.nome)}</title><style>
+    body{font-family:Arial,sans-serif;color:#1b2430;margin:24px}h1{font-size:20px;margin:0 0 4px}.sub{font-size:11px;color:#667085;margin-bottom:14px}
+    .fc-cliente-score-row{display:grid;grid-template-columns:190px 1fr;gap:10px}.fc-cliente-score-card,.fc-cliente-kpi,.fc-cliente-chart,.fc-cliente-aging-card{border:1px solid #d8dee8;border-radius:8px;padding:10px}
+    .fc-cliente-score-num{font-size:30px;font-weight:800}.fc-cliente-score-class{font-size:11px;font-weight:700;margin-top:5px}.fc-cliente-score-note,.fc-cliente-method{font-size:9px;color:#667085;margin-top:6px;line-height:1.4}
+    .fc-cliente-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.fc-cliente-kpi-label{font-size:8px;text-transform:uppercase;color:#667085;font-weight:700}.fc-cliente-kpi-value{font-size:11px;font-weight:800;margin-top:3px}
+    .fc-cliente-section{margin-top:12px}.fc-cliente-section-title{font-size:10px;text-transform:uppercase;font-weight:800;margin-bottom:6px}
+    .fc-cliente-chart{display:grid;gap:5px}.fc-cliente-bar-row{display:grid;grid-template-columns:60px 1fr 90px;gap:8px;align-items:center;font-size:9px}.fc-cliente-bar-track{height:7px;background:#eceff3;border-radius:10px;overflow:hidden}.fc-cliente-bar-fill{height:100%;background:#62748a}.fc-cliente-bar-val{text-align:right}
+    .fc-cliente-aging{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}.fc-cliente-aging-label{font-size:8px;color:#667085}.fc-cliente-aging-value{font-size:10px;font-weight:800;margin-top:4px}.fc-cliente-aging-count{font-size:8px;color:#667085;margin-top:2px}
+    table{width:100%;border-collapse:collapse;font-size:8.5px}th,td{padding:5px;border-bottom:1px solid #e6e9ef;text-align:left}th{background:#f5f7fa;text-transform:uppercase;font-size:8px}.num{text-align:right}
+    @page{size:landscape;margin:9mm}
+  </style></head><body><h1>Ficha Técnica · ${escapeHtml(d.nome)}</h1><div class="sub">Análise financeira estimada com base no histórico disponível da Jambuzada.</div>${corpo}<script>window.onload=()=>{window.print();window.onafterprint=()=>window.close();}<\/script></body></html>`);
+  w.document.close();
+}
+el('fcClienteFichaModal')?.addEventListener('click',e=>{if(e.target.id==='fcClienteFichaModal')fecharFichaClienteJambuzada_();});
+
 function voltarParaEmAberto(chave){
   if(!confirm('Voltar esse título pra "Em Aberto"? Ele sai do fluxo e volta a não contar em nenhum total, até você colocar de novo.')) return;
   const original=rowsAtrasados.find(r=>r.chave===chave);
@@ -3310,7 +3547,7 @@ document.addEventListener('keydown',e=>{
   const ordem=[
     ['tituloObsModal',closeTituloObsPopup_],['fcColocarNoFluxoPopup',fecharColocarNoFluxoPopup],
     ['fcAplicacaoPopup',fecharAplicacaoPopup],['fcTirarPopup',fecharTirarPopup],
-    ['fcTitulosAbertoModal',fecharTitulosAbertoModal],['fluxoFichaModal',closeFluxoFicha],
+    ['fcClienteFichaModal',fecharFichaClienteJambuzada_],['fcTitulosAbertoModal',fecharTitulosAbertoModal],['fluxoFichaModal',closeFluxoFicha],
     ['ajustesManuaisModal',closeAjustesManuaisModal],['saldoInicialModal',closeSaldoInicialModal]
   ];
   for(const [id,fn] of ordem){const m=el(id);if(m?.classList.contains('show')){fn();break;}}
