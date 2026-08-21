@@ -28,28 +28,32 @@ html.light{
 html,body{transition:background .2s,color .2s;}
 body{background:var(--navy);color:var(--text);font-family:'Sora',sans-serif;padding-bottom:40px;font-size:12.5px;}
 .logo-gpsbi{height:26px;width:auto;display:block;flex:none;}
-.topbar{display:flex;align-items:center;gap:16px;padding:11px 22px;background:var(--navy2);border-bottom:1px solid var(--border2);position:sticky;top:0;z-index:100;flex-wrap:nowrap;overflow-x:auto;}
-.topbar .brand{display:flex;align-items:center;gap:9px;font-weight:800;font-size:13px;flex:none;white-space:nowrap;}
-.primary-nav{display:flex;align-items:center;gap:4px;flex:1;min-width:max-content;}
-.primary-nav a{padding:7px 12px;border-radius:999px;font-size:11.5px;font-weight:700;color:var(--text3);white-space:nowrap;text-decoration:none;cursor:pointer;}
-.primary-nav a:hover{background:var(--navy3);color:var(--text);}
-.primary-nav a.active{background:linear-gradient(90deg,var(--blue),var(--cyan));color:#fff;}
-.topbar .right{display:flex;align-items:center;gap:9px;flex:none;}
-.theme-toggle{display:flex;align-items:center;gap:4px;padding:4px;border-radius:999px;background:var(--navy3);border:1px solid var(--border2);}
-.theme-toggle button{width:24px;height:24px;border-radius:50%;border:none;background:none;color:var(--text3);display:flex;align-items:center;justify-content:center;cursor:pointer;}
-.theme-toggle button.active{background:linear-gradient(135deg,var(--cyan),var(--blue));color:#fff;}
-.theme-toggle svg{width:12px;height:12px;}
+.app-topbar{display:flex;align-items:center;gap:18px;padding:12px 24px;background:var(--navy2);border-bottom:1px solid var(--border2);position:sticky;top:0;z-index:100;flex-wrap:nowrap;overflow-x:auto;}
+.app-brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:14px;flex:none;white-space:nowrap;}
+.app-brand .dot{width:8px;height:8px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),var(--blue));}
+.app-nav{display:flex;align-items:center;gap:4px;flex:none;flex-wrap:nowrap;}
+.app-nav a{padding:8px 14px;border-radius:999px;font-size:12.5px;font-weight:600;color:var(--text3);transition:all .15s;white-space:nowrap;flex:none;text-decoration:none;cursor:pointer;}
+.app-nav a:hover{background:var(--navy3);color:var(--text);}
+.app-nav a.active{background:linear-gradient(90deg,var(--blue),var(--cyan));color:#fff;}
+.app-right{display:flex;align-items:center;gap:10px;flex:none;margin-left:auto;}
+.app-theme-toggle{display:flex;align-items:center;gap:4px;padding:4px;border-radius:999px;background:var(--navy3);border:1px solid var(--border2);}
+.app-theme-toggle button{width:26px;height:26px;border-radius:50%;border:none;background:none;color:var(--text3);display:flex;align-items:center;justify-content:center;cursor:pointer;}
+.app-theme-toggle button.active{background:linear-gradient(135deg,var(--cyan),var(--blue));color:#fff;}
+.app-theme-toggle svg{width:13px;height:13px;}
+.app-user-chip{display:flex;align-items:center;gap:7px;padding:5px 10px 5px 5px;border-radius:999px;background:var(--navy3);border:1px solid var(--border2);font-size:11.5px;font-weight:600;white-space:nowrap;flex:none;}
+.app-logout{width:32px;height:32px;border-radius:50%;background:var(--navy3);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text2);flex:none;}
+.app-logout svg{width:14px;height:14px;}
 .content{width:calc(100% - 32px);max-width:1440px;margin:0 auto;padding:24px 0;}
-.card{background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow);margin-bottom:14px;}
-.card-title{font-size:13.5px;font-weight:800;margin-bottom:3px;}
-.card-sub{font-size:10.5px;color:var(--text3);margin-bottom:12px;}
+.card{background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);margin-bottom:18px;}
+.card-title{font-size:14px;font-weight:800;margin-bottom:3px;}
+.card-sub{font-size:11px;color:var(--text3);margin-bottom:12px;}
 .badge-mes{display:inline-flex;align-items:center;gap:6px;background:rgba(66,129,191,.12);color:var(--blue);border:1px solid rgba(66,129,191,.25);padding:4px 10px;border-radius:999px;font-size:10px;font-weight:700;margin-bottom:10px;}
-.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
-.kpi-card{background:var(--navy2);border:1px solid var(--border2);border-radius:14px;padding:13px 14px;box-shadow:var(--shadow);display:flex;align-items:center;gap:10px;position:relative;overflow:hidden;}
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;}
+.kpi-card{background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);display:flex;align-items:center;gap:12px;position:relative;overflow:hidden;}
 .kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--kpi-color,var(--cyan));}
-.kpi-icon{width:33px;height:33px;border-radius:50%;background:var(--kpi-color,var(--cyan));display:flex;align-items:center;justify-content:center;font-size:14px;flex:none;color:#fff;}
+.kpi-icon{width:36px;height:36px;border-radius:50%;background:var(--kpi-color,var(--cyan));display:flex;align-items:center;justify-content:center;font-size:15px;flex:none;color:#fff;}
 .kpi-body{min-width:0;}
-.kpi-value{font-size:16px;font-weight:800;font-family:'DM Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.kpi-value{font-size:19px;font-weight:800;font-family:'DM Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .kpi-label{font-size:9.5px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.03em;}
 
 .suggestions-header{cursor:pointer;user-select:none;display:flex;align-items:center;gap:8px;}
@@ -63,11 +67,11 @@ body{background:var(--navy);color:var(--text);font-family:'Sora',sans-serif;padd
 .suggestion-val span{display:block;font-family:'Sora',sans-serif;font-weight:400;font-size:9px;color:var(--text3);}
 
 .charts-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
-.chart-box{background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);margin-bottom:14px;}
-.chart-title{font-size:12.5px;font-weight:800;margin-bottom:2px;}
-.chart-sub{font-size:10px;color:var(--text3);margin-bottom:9px;}
-.chart-canvas-wrap{position:relative;height:190px;}
-.chart-canvas-wrap.lg{height:220px;}
+.chart-box{background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);margin-bottom:18px;}
+.chart-title{font-size:13.5px;font-weight:800;margin-bottom:2px;}
+.chart-sub{font-size:11px;color:var(--text3);margin-bottom:12px;}
+.chart-canvas-wrap{position:relative;height:215px;}
+.chart-canvas-wrap.lg{height:240px;}
 
 table{width:100%;border-collapse:collapse;}
 .table-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap;}
@@ -116,9 +120,9 @@ table{width:100%;border-collapse:collapse;}
 </head>
 <body>
 
-<div class="topbar">
-  <div class="brand"><span>🏢</span><span>Hub · Alkanse</span></div>
-  <nav class="primary-nav">
+<div class="app-topbar">
+  <div class="app-brand"><span class="dot"></span> Hub Alkanse</div>
+  <nav class="app-nav">
     <a href="index.html#dashboard">🛠️ Serviços</a>
     <a href="fluxodecaixa.html" id="navFluxo" style="display:none;">💰 Fluxo de Caixa</a>
     <a href="comercial.html" class="active">📈 Comercial</a>
@@ -126,13 +130,13 @@ table{width:100%;border-collapse:collapse;}
     <a href="index.html#mural" id="navMural">📣 Mural Corporativo</a>
     <a href="index.html#aprovacoes">✅ Aprovações</a>
   </nav>
-  <div class="right">
-    <div class="theme-toggle" id="appThemeToggle">
+  <div class="app-right">
+    <div class="app-theme-toggle" id="appThemeToggle">
       <button id="appBtnDark" title="Escuro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg></button>
       <button id="appBtnLight" title="Claro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg></button>
     </div>
-    <div id="userChip" style="font-size:11px;color:var(--text3);"></div>
-    <button id="appLogoutBtn" title="Sair" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;">Sair</button>
+    <div class="app-user-chip" id="userChip"></div>
+    <div class="app-logout" id="appLogoutBtn" title="Sair"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg></div>
   </div>
 </div>
 
@@ -272,15 +276,28 @@ function cleanCell(v){
 }
 function escapeHtml(s){ return (s||'').toString().replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function nameFromEmail(email){ return email.split('@')[0].split('.').map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' '); }
-function fmtBRL(v){
-  const n = v||0;
-  if(Math.abs(n) >= 1000000) return (n/1000000).toLocaleString('pt-BR',{maximumFractionDigits:1})+'M';
-  if(Math.abs(n) >= 1000) return (n/1000).toLocaleString('pt-BR',{maximumFractionDigits:0})+'k';
-  return n.toLocaleString('pt-BR',{maximumFractionDigits:0});
+function fmtBRL(n){
+  // Igual ao Mebrasi: valor cheio, sem abreviar em k/M (antes abreviava
+  // e ficava diferente do padrão que o Gustavo pediu pra seguir).
+  if(n===null||n===undefined||isNaN(n)) return 'R$ 0';
+  const sign = n<0 ? '-' : '';
+  return sign + 'R$ ' + Math.round(Math.abs(n)).toLocaleString('pt-BR');
 }
 function fmtBRLFull(v){ return (v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0}); }
 function fmtBRLInt(v){ return 'R$ ' + Math.round(v||0).toLocaleString('pt-BR'); }
 function fmtNum(v){ return (v||0).toLocaleString('pt-BR'); }
+function parseNumeroBR(v){
+  // CORREÇÃO CRÍTICA (21/08/2026): VALOR DA NOTA vem formatado em BR
+  // ("19.841,06") pela API (FORMATTED_VALUE). parseFloat cru lê só até a
+  // vírgula e trunca o valor errado (19.841 em vez de 19841,06) — todo
+  // KPI/gráfico saía errado, cada valor de um jeito diferente. Precisa
+  // tirar os pontos de milhar e trocar a vírgula por ponto antes.
+  if(v===null||v===undefined||v==='') return 0;
+  if(typeof v==='number') return v;
+  const limpo = v.toString().trim().replace(/\./g,'').replace(',','.');
+  const n = parseFloat(limpo);
+  return isNaN(n) ? 0 : n;
+}
 function mesLabelCurto(m){
   const nomes = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
   const [y,mm] = m.split('-');
@@ -337,7 +354,7 @@ let matrizAbertos = new Set();
 
 function processarLinha(r){
   const cliente = cleanCell(getColNormalized(r,'nome'));
-  const valor = parseFloat(getColNormalized(r,'valor da nota')) || 0;
+  const valor = parseNumeroBR(getColNormalized(r,'valor da nota'));
   const notaFiscal = cleanCell(getColNormalized(r,'nota fiscal/fatura'));
   const representante = cleanCell(getColNormalized(r,'representante')) || 'Sem representante';
   const tipo = cleanCell(getColNormalized(r,'prod/serv/fatura')) || 'Não informado';
@@ -391,12 +408,12 @@ function renderChartEvolucao(){
       valores.forEach((val,i)=>{
         if(!meta.data[i]) return;
         const p = meta.data[i].getProps(['x','y'], true);
-        ctx.font = '700 10px "DM Mono", monospace'; ctx.fillStyle = textColor;
-        ctx.fillText(fmtBRLInt(val), p.x, p.y - 20);
+        ctx.font = '700 11px "DM Mono", monospace'; ctx.fillStyle = textColor;
+        ctx.fillText(fmtBRL(val), p.x, p.y - 8);
         const v = pctVsAnterior[i]; if(v===null || v===undefined) return;
-        ctx.font = '700 9.5px Sora, sans-serif'; ctx.fillStyle = v>=0 ? green : red;
+        ctx.font = '700 11px Sora, sans-serif'; ctx.fillStyle = v>=0 ? green : red;
         const arrow = v>=0 ? '↗' : '↘';
-        ctx.fillText(`${v>=0?'+':''}${v.toFixed(1).replace('.',',')}% ${arrow}`, p.x, p.y - 7);
+        ctx.fillText(`${v>=0?'+':''}${v.toFixed(1).replace('.',',')}% ${arrow}`, p.x, p.y - 21);
       });
       ctx.restore();
     }
@@ -437,15 +454,20 @@ function renderChartEvolucao(){
 
 // ---------- KPIs + Faturamento por Dia/Semana + Receita por Tipo ----------
 function renderKpisEGraficos(linhas){
-  const receitaTotal = linhas.reduce((s,r)=>s+r.valor,0);
-  const clientesUnicos = new Set(linhas.map(r=>r.cliente)).size;
-  const itensVendidos = linhas.length;
+  const mesAtual = mesVigenteDe(linhas);
+  const doMes = mesAtual ? linhas.filter(r=>r.mes===mesAtual) : [];
+
+  // KPIs e donut refletem só o mês vigente (igual o Mebrasi filtra tudo
+  // pelo Ano/Mês selecionado) — antes somava a base inteira, o que
+  // mostrava um total de todos os meses no card principal.
+  const receitaTotal = doMes.reduce((s,r)=>s+r.valor,0);
+  const clientesUnicos = new Set(doMes.map(r=>r.cliente)).size;
+  const itensVendidos = doMes.length;
   el('kpiReceita').textContent = fmtBRLFull(receitaTotal);
   el('kpiClientes').textContent = fmtNum(clientesUnicos);
   el('kpiItens').textContent = fmtNum(itensVendidos);
   el('kpiTicket').textContent = fmtBRLFull(itensVendidos ? receitaTotal/itensVendidos : 0);
 
-  const mesAtual = mesVigenteDe(linhas);
   if(mesAtual){
     const [ano,mes] = mesAtual.split('-');
     const nomesMes = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
@@ -453,7 +475,7 @@ function renderKpisEGraficos(linhas){
   }
 
   const porTipo = {};
-  linhas.forEach(r=>{ porTipo[r.tipo] = (porTipo[r.tipo]||0) + r.valor; });
+  doMes.forEach(r=>{ porTipo[r.tipo] = (porTipo[r.tipo]||0) + r.valor; });
   const tiposOrdenados = Object.entries(porTipo).sort((a,b)=>b[1]-a[1]);
   if(chartTipo) chartTipo.destroy();
   const cores = ['--blue','--cyan','--pos','--gold','--neg','--navy4'].map(cssVar);
@@ -464,11 +486,11 @@ function renderKpisEGraficos(linhas){
   });
 
   if(!mesAtual){ if(chartDiario){chartDiario.destroy();chartDiario=null;} if(chartSemanal){chartSemanal.destroy();chartSemanal=null;} return; }
-  const doMes = linhas.filter(r=>r.mes===mesAtual && r.dataISO);
+  const doMesComData = doMes.filter(r=>r.dataISO);
 
   // Faturamento por Dia
   const porDia = {};
-  doMes.forEach(r=>{ porDia[r.dataISO] = (porDia[r.dataISO]||0) + r.valor; });
+  doMesComData.forEach(r=>{ porDia[r.dataISO] = (porDia[r.dataISO]||0) + r.valor; });
   const diasOrdenados = Object.keys(porDia).sort();
   if(chartDiario) chartDiario.destroy();
   chartDiario = new Chart(el('chartDiario'), {
@@ -483,7 +505,7 @@ function renderKpisEGraficos(linhas){
 
   // Faturamento por Semana (buckets de 7 dias dentro do mês)
   const porSemana = {};
-  doMes.forEach(r=>{ const dia = parseInt(r.dataISO.slice(8,10),10); const semana = Math.ceil(dia/7); porSemana[semana] = (porSemana[semana]||0)+r.valor; });
+  doMesComData.forEach(r=>{ const dia = parseInt(r.dataISO.slice(8,10),10); const semana = Math.ceil(dia/7); porSemana[semana] = (porSemana[semana]||0)+r.valor; });
   const semanasOrdenadas = Object.keys(porSemana).map(Number).sort((a,b)=>a-b);
   if(chartSemanal) chartSemanal.destroy();
   chartSemanal = new Chart(el('chartSemanal'), {
