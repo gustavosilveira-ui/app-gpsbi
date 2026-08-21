@@ -13,6 +13,12 @@ const ALLOWED = new Set([
   'pedro.kim@grupofb.com.br'
 ]);
 
+// Cache apenas na memória da função serverless. Não vai para o navegador/CDN.
+// Reduz drasticamente chamadas repetidas ao Google Sheets em instâncias quentes.
+const TABLE_TTL_MS = Number(process.env.ALKANSE_FINANCEIRO_CACHE_MS || 60000);
+let tableCache = { expiresAt:0, table:null };
+let tokenCache = { expiresAt:0, token:null };
+
 function json(res,status,body){
   res.status(status).setHeader('Content-Type','application/json; charset=utf-8');
   res.setHeader('Cache-Control','no-store');
@@ -35,6 +41,8 @@ function env(name){
 }
 
 async function googleAccessToken(){
+  const agora=Date.now();
+  if(tokenCache.token && tokenCache.expiresAt>agora) return tokenCache.token;
   const projectNumber=env('GCP_PROJECT_NUMBER');
   const serviceAccount=env('GCP_SERVICE_ACCOUNT_EMAIL');
   const poolId=env('GCP_WORKLOAD_IDENTITY_POOL_ID');
@@ -53,6 +61,8 @@ async function googleAccessToken(){
   const t=await client.getAccessToken();
   const token=typeof t==='string'?t:t?.token;
   if(!token) throw new Error('Google não retornou access token');
+  // Tokens Google costumam durar ~1h. Mantemos só 45 min por segurança.
+  tokenCache={token,expiresAt:Date.now()+45*60*1000};
   return token;
 }
 
@@ -95,6 +105,12 @@ export default async function handler(req,res){
     const gps=email.endsWith('@gpsbi.com.br');
     if(!email||(!gps&&!ALLOWED.has(email))) return json(res,403,{error:'Sem acesso ao fluxo Alkanse'});
 
+    const agora=Date.now();
+    if(tableCache.table && tableCache.expiresAt>agora){
+      res.setHeader('X-Alkanse-Cache','HIT');
+      return json(res,200,tableCache.table);
+    }
+
     const sheetId=env('ALKANSE_SHEET_ID');
     const accessToken=await googleAccessToken();
     const range=encodeURIComponent("'Financeiro'");
@@ -107,6 +123,8 @@ export default async function handler(req,res){
     }
     const payload=await r.json();
     const table=valuesToTable(payload.values||[]);
+    tableCache={table,expiresAt:Date.now()+TABLE_TTL_MS};
+    res.setHeader('X-Alkanse-Cache','MISS');
     return json(res,200,table);
   }catch(err){
     console.error(err);
