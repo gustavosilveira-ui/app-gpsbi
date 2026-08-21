@@ -1,5 +1,5 @@
 // Vercel Serverless Function: /api/alkanse-comercial
-// Fonte comercial Alkanse: prioriza VENDASHist e descobre o nome real da aba.
+// Fonte comercial Alkanse: usa a aba Vendas e descobre o nome real da aba.
 // Se o comercial estiver em outra planilha, configure ALKANSE_COMERCIAL_SHEET_ID.
 
 import { getVercelOidcToken } from '@vercel/oidc';
@@ -98,16 +98,16 @@ export default async function handler(req,res){
     const meta=await googleJson(metaUrl,accessToken);
     const tabs=(meta.sheets||[]).map(s=>String(s?.properties?.title||'')).filter(Boolean);
 
-    // VENDASHist é a fonte oficial. Aceitamos variações de escrita apenas para localizar a aba real.
-    const aliases=['VENDASHist','VENDAS Hist','VENDAS_Hist','VendasHist','Vendas Historico','Vendas Histórico'];
+    // Vendas é a fonte oficial. Aceitamos apenas variações simples de caixa/espaço.
+    const aliases=['Vendas'];
     let tab=tabs.find(t=>aliases.some(a=>norm(t)===norm(a)));
 
     if(!tab){
       return json(res,422,{
-        error:'A aba VENDASHist não foi encontrada na planilha configurada',
+        error:'A aba Vendas não foi encontrada na planilha configurada',
         spreadsheet:meta?.properties?.title||'',
         availableTabs:tabs,
-        hint:'Se VENDASHist estiver em outro arquivo, configure ALKANSE_COMERCIAL_SHEET_ID na Vercel com o ID dessa planilha.'
+        hint:'Confirme se a aba Vendas existe na planilha configurada para a Alkanse.'
       });
     }
 
