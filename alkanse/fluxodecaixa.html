@@ -320,20 +320,24 @@ html.light .fc-day-num{color:#1f2a3d;}
 
 /* ===== Títulos em Aberto + Ficha Técnica do Cliente · padrão financeiro ===== */
 .fc-titulos-modal .modal-box{width:1220px;max-width:96vw;max-height:88vh;overflow:auto;}
-.fc-titulos-toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:15px 0 8px;flex-wrap:wrap;}
-.fc-titulos-searches{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;}
-.fc-titulos-search{width:245px!important;min-width:180px;padding:8px 10px!important;font-size:12px!important;}
+.fc-titulos-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:16px 0 8px;}
+.fc-titulos-searches{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;}
+.fc-titulos-search{width:230px;max-width:100%;padding:8px 11px;border:1px solid var(--border2);border-radius:9px;background:var(--navy3);color:var(--text);font-size:12.5px;}
 .fc-titulos-kpi-note{font-size:10.5px;color:var(--text3);margin-top:5px;line-height:1.35;min-height:14px;}
-.fc-cliente-link{color:var(--blue);font-weight:800;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px;}
-.fc-cliente-link:hover{color:var(--cyan);}
-.fc-titulos-table{table-layout:fixed!important;width:100%!important;min-width:980px;}
-.fc-titulos-table th:nth-child(1),.fc-titulos-table td:nth-child(1){width:100px;}
-.fc-titulos-table th:nth-child(2),.fc-titulos-table td:nth-child(2){width:27%;}
-.fc-titulos-table th:nth-child(3),.fc-titulos-table td:nth-child(3){width:20%;}
-.fc-titulos-table th:nth-child(4),.fc-titulos-table td:nth-child(4){width:112px;}
-.fc-titulos-table th:nth-child(5),.fc-titulos-table td:nth-child(5){width:65px;}
-.fc-titulos-table th:nth-child(6),.fc-titulos-table td:nth-child(6){width:118px;}
-.fc-titulos-table th:nth-child(7),.fc-titulos-table td:nth-child(7){width:115px;}
+@media(max-width:760px){.fc-titulos-toolbar{align-items:flex-start;flex-direction:column}.fc-titulos-searches{width:100%;justify-content:flex-start}.fc-titulos-search{width:100%;}}
+.fc-cliente-link{cursor:pointer;color:var(--blue,#2D70B8);font-weight:800;text-decoration:underline dotted;text-underline-offset:3px;}
+.fc-cliente-link:hover{opacity:.72;}
+#fcTitulosAbertoModal .modal-box{width:1180px;max-width:96vw;max-height:88vh;overflow:auto;}
+#fcTitulosAbertoLista .fc-detail-list{max-height:430px;overflow-x:auto;}
+#fcTitulosAbertoLista .fc-detail-table{width:100%;min-width:1040px;table-layout:auto;}
+#fcTitulosAbertoLista .fc-detail-table th:nth-child(1){width:95px;}
+#fcTitulosAbertoLista .fc-detail-table th:nth-child(2){width:38%;}
+#fcTitulosAbertoLista .fc-detail-table th:nth-child(3){width:auto;min-width:190px;}
+#fcTitulosAbertoLista .fc-detail-table th:nth-child(4){width:125px;}
+#fcTitulosAbertoLista .fc-detail-table th:nth-child(5){width:55px;}
+#fcTitulosAbertoLista .fc-detail-table th:nth-child(6){width:120px;}
+#fcTitulosAbertoLista .fc-detail-table th:nth-child(7){width:105px;}
+.fc-titulos-table{table-layout:auto!important;width:100%!important;min-width:1040px;}
 .fc-titulos-table td:nth-child(2),.fc-titulos-table td:nth-child(3){white-space:normal;overflow-wrap:anywhere;line-height:1.3;}
 .fc-cliente-modal .modal-box{width:1120px;max-width:96vw;max-height:90vh;overflow:auto;}
 .fc-cliente-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:15px;}
@@ -1042,36 +1046,50 @@ function parseMoneyBR(v){
   return parseFloat(String(v).replace(/\./g,'').replace(',','.')) || 0;
 }
 
-async function fetchGvizSheet(sheetName){
-  if(sheetName !== 'Financeiro'){
-    throw new Error('Fonte não autorizada no frontend');
-  }
-
+const ALKANSE_FIN_CACHE_KEY = 'alkanse_financeiro_session_v1';
+function lerCacheFinanceiroAlkanse_(){
+  try{
+    const raw=sessionStorage.getItem(ALKANSE_FIN_CACHE_KEY);
+    if(!raw) return null;
+    const obj=JSON.parse(raw);
+    return obj && obj.table ? obj : null;
+  }catch(_){ return null; }
+}
+function salvarCacheFinanceiroAlkanse_(table){
+  try{ sessionStorage.setItem(ALKANSE_FIN_CACHE_KEY, JSON.stringify({ts:Date.now(),table})); }catch(_){}
+}
+async function buscarFinanceiroRedeAlkanse_(){
   const { data: sessData } = await sb.auth.getSession();
   const token = sessData && sessData.session ? sessData.session.access_token : null;
   if(!token) throw new Error('Sessão expirada');
-
   const res = await fetch('/api/alkanse-financeiro', {
-    method:'GET',
-    headers:{ 'Authorization': `Bearer ${token}` },
-    cache:'no-store'
+    method:'GET', headers:{ 'Authorization': `Bearer ${token}` }, cache:'no-store'
   });
-
   if(!res.ok){
-    let msg = `HTTP ${res.status}`;
-    try{
-      const e = await res.json();
-      if(e && e.error) msg = e.error;
-    }catch(_){}
+    let msg=`HTTP ${res.status}`;
+    try{ const e=await res.json(); if(e&&e.error) msg=e.error; }catch(_){}
     throw new Error(msg);
   }
-
-  const payload = await res.json();
-  if(!payload || !Array.isArray(payload.cols) || !Array.isArray(payload.rows)){
-    throw new Error('Resposta inválida da fonte protegida');
-  }
-  return payload;
+  const table=await res.json();
+  salvarCacheFinanceiroAlkanse_(table);
+  return table;
 }
+function aquecerFinanceiroEmSegundoPlano_(){
+  buscarFinanceiroRedeAlkanse_().catch(e=>console.warn('Atualização financeira em segundo plano falhou:',e.message));
+}
+
+async function fetchGvizSheet(sheetName){
+  if(sheetName !== 'Financeiro') throw new Error('Fonte não autorizada no frontend');
+  const cache=lerCacheFinanceiroAlkanse_();
+  if(cache){
+    // Mostra o último snapshot válido da própria sessão imediatamente.
+    // Enquanto o usuário já navega, aquece a próxima abertura com dados novos.
+    aquecerFinanceiroEmSegundoPlano_();
+    return cache.table;
+  }
+  return await buscarFinanceiroRedeAlkanse_();
+}
+
 async function fetchGvizByGid(sheetId, gid){
   const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&gid=${gid}&headers=1`;
   const res = await fetch(url);
@@ -1814,9 +1832,13 @@ async function loadData(){
     }
     rebuildRowsNoEscopo();
 
-    await loadSaldoInicial();
-    await loadAplicacoes();
-    await loadAplicacaoSaques(); // injeta os saques de aplicação como recebimento real
+    // Estas três leituras são independentes. Antes eram 3 esperas em sequência;
+    // agora rodam juntas, reduzindo o tempo até a primeira grade pronta.
+    await Promise.all([
+      loadSaldoInicial(),
+      loadAplicacoes(),
+      loadAplicacaoSaques(), // injeta os saques de aplicação como recebimento real
+    ]);
     loadLimiteConta();
     buildAndRenderTable();
     renderFcKpiStrip();
@@ -2570,12 +2592,13 @@ function notaFiltroCardAlkanse_(texto,parte,total,sufixo=''){
   const pct=total?Math.abs(parte)/Math.abs(total)*100:0;
   return `<div class="fc-titulos-kpi-note">${escapeHtml(texto)}: <b>${sufixo==='R$'?fmtBRL(parte):Number(parte).toLocaleString('pt-BR')}</b> · ${pct.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}% do total</div>`;
 }
+// ===== PADRÃO TANGRAM: módulo próprio de Títulos em Aberto (Alkanse mantém sua própria origem financeira) =====
 async function abrirTitulosAbertoAlkanse_(rNode,range){
   fcTitulosAbertoRowsAlkanse_=rowsForFicha(rNode,range.start,range.end).slice();
   fcTitulosAbertoTipoAlkanse_=fcTitulosAbertoRowsAlkanse_.some(r=>r.valor>0)?'receber':'pagar';
   fcTituloBuscaNomeAlkanse_='';fcTituloBuscaVendedorAlkanse_='';
   el('fcTitulosAbertoTitulo').textContent=fcTitulosAbertoTipoAlkanse_==='receber'?'📋 Títulos em Aberto — A Receber':'📋 Títulos em Aberto — A Pagar';
-  el('fcTitulosAbertoSub').textContent='Vencidos e ainda não realizados · vencimento original preservado · período visual: '+rangeLabel(range.start,range.end)+'.';
+  el('fcTitulosAbertoSub').textContent='Títulos vencidos ainda em aberto. O valor presente aparece acumulado no dia atual e não altera o saldo do fluxo. Vencimento original preservado.';
   el('fcTitulosAbertoModal').classList.add('show');
   el('fcTitulosAbertoLista').innerHTML='<div style="padding:30px;text-align:center;color:var(--text3);">Carregando títulos e observações...</div>';
   await loadTituloObservacoes_(fcTitulosAbertoRowsAlkanse_);
