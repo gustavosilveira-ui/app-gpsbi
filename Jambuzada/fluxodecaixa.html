@@ -1485,7 +1485,7 @@ function renderFichaLancamentosFiltrado(termoBusca=''){
   const html=filtradas.slice(0,120).map((r,i)=>{
     const pct=fcFichaTotalAtual?Math.abs(r.valor)/Math.abs(fcFichaTotalAtual)*100:0;
     const nome=r.nome||r.historico||r.categoria||'Sem nome';const doc=r.documento||r.fonte||'';
-    const editavel=r.fonte!=='Pronampe'&&r.fonte!=='Aplicacao'&&!r._historico;const ehRateio=r.fonte==='Programação Fornecedor';
+    const editavel=r.fonte!=='Pronampe'&&!r._historico&&(r.fonte!=='Aplicacao'||!!r.saqueAplicacaoId);const ehRateio=r.fonte==='Programação Fornecedor';
     const valorCls='valor-modal'+(editavel?' fc-valor-clicavel':'');
     const valorAttrs=editavel?(ehRateio?` onclick="removerRateioDaFicha(${i})" title="Clique pra remover esse rateio inteiro do fluxo"`:` onclick="abrirTirarPopup(${i})" title="Clique pra tirar ou mudar a data desse lançamento"`):'';
     return `<tr><td>${formatDateBR(r.date)}</td><td>${escapeFichaHtml(r.conta||r.fonte||'Não informada')}</td><td class="wrap" title="${escapeFichaHtml(nome)}">${escapeFichaHtml(nome)}</td><td class="small" title="${escapeFichaHtml(doc)}">${escapeFichaHtml(doc)}</td><td class="num">${pct.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%</td><td class="${valorCls}" style="color:${r.valor>=0?'#4F8F3A':'var(--red)'}"${valorAttrs}>${fmtNumeroFicha(r.valor)}</td></tr>`;
@@ -2304,7 +2304,7 @@ function injetarProgramacoesFornecedor(){
   // — o registro do valor aplicado em si (fcAplicacoes) nunca entra aqui,
   // só os saques de fato.
   fcAplicacaoSaques.forEach(s=>{
-    rows.push({date:s.data,categoria:'Saque de Aplicação',grupo:'RECEBIMENTOS',valor:Math.abs(s.valor),conta:'Aplicações',fonte:'Aplicacao',nome:'Saque de Aplicação'});
+    rows.push({date:s.data,categoria:'Saque de Aplicação',grupo:'RECEBIMENTOS',valor:Math.abs(s.valor),conta:'Aplicações',fonte:'Aplicacao',nome:'Saque de Aplicação',saqueAplicacaoId:s.id});
   });
 
   rows.sort((a,b)=>a.date.localeCompare(b.date));
@@ -2673,12 +2673,15 @@ function abrirTirarPopup(i){
     documento: r.documento || '',
     fonteOriginal: r.fonte || '',
     ajusteManualId: r.ajusteManualId || null,
-    sinalOriginal: (Number(r.valor)||0) < 0 ? -1 : 1
+    sinalOriginal: (Number(r.valor)||0) < 0 ? -1 : 1,
+    saqueAplicacaoId: r.saqueAplicacaoId || null
   };
-  el('fcTirarPopupInfo').innerHTML = `${escapeFichaHtml(fcTirarPopupContext.nome)} · ${formatDateBR(fcTirarPopupContext.data)} · ${fmtBRL(-fcTirarPopupContext.valor)}`;
+  el('fcTirarPopupInfo').innerHTML = `${escapeFichaHtml(fcTirarPopupContext.nome)} · ${formatDateBR(fcTirarPopupContext.data)} · ${fmtBRL(fcTirarPopupContext.sinalOriginal*fcTirarPopupContext.valor)}`;
   el('fcTirarPopupNovaData').value = '';
   fcRateioPopupParcelas = null;
   renderRateioPopup();
+  const rateioWrap=el('fcTirarPopupRateioWrap');
+  if(rateioWrap) rateioWrap.style.display=fcTirarPopupContext.saqueAplicacaoId?'none':'';
   el('fcTirarPopup').classList.add('show');
 }
 function fecharTirarPopup(){
@@ -2694,12 +2697,23 @@ function confirmarTirarDaFicha(remover){
   const novaData = remover ? '' : el('fcTirarPopupNovaData').value;
   if(!remover && !novaData){ alert('Informe a nova data, ou clique em "Remover do fluxo" pra só tirar.'); return; }
   if(!remover && novaData===fcTirarPopupContext.data){ alert('A nova data precisa ser diferente da data original.'); return; }
-  const { nome, data, valor } = fcTirarPopupContext;
-  adicionarFcExclusao({
-    nome, data, valor:-Math.abs(valor), criadoEm:Date.now(),
-    novaData: remover ? null : novaData,
-    motivo: remover ? 'Removido pela Ficha' : 'Data alterada pela Ficha'
-  });
+  const { nome, data, valor, saqueAplicacaoId } = fcTirarPopupContext;
+  // Saque de aplicação é criado pelo próprio painel e fica em fcAplicacaoSaques.
+  // Por isso ele precisa ser removido/alterado na origem, em vez de entrar na
+  // lista genérica de exclusões dos lançamentos vindos da base.
+  if(saqueAplicacaoId){
+    const idx=fcAplicacaoSaques.findIndex(s=>s.id===saqueAplicacaoId);
+    if(idx<0){ alert('Não encontrei esse saque para alterar. Recarregue a página e tente novamente.'); return; }
+    if(remover) fcAplicacaoSaques.splice(idx,1);
+    else fcAplicacaoSaques[idx]={...fcAplicacaoSaques[idx],data:novaData};
+    localStorage.setItem('jambuzada_fc_aplicacao_saques',JSON.stringify(fcAplicacaoSaques));
+  }else{
+    adicionarFcExclusao({
+      nome, data, valor:-Math.abs(valor), criadoEm:Date.now(),
+      novaData: remover ? null : novaData,
+      motivo: remover ? 'Removido pela Ficha' : 'Data alterada pela Ficha'
+    });
+  }
   fecharTirarPopup();
   closeFluxoFicha();
   buildAndRenderTable();
