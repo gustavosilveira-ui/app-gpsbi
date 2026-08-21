@@ -267,6 +267,7 @@ html.light .topbar{background:rgba(255,255,255,.92);backdrop-filter:blur(16px)}
 .client-modal-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px}
 .client-modal-head h2{font-size:19px;font-weight:800}
 .client-modal-head p{font-size:11.5px;color:var(--text3);margin-top:3px}
+.client-head-actions{display:flex;align-items:center;gap:8px}
 .client-close-btn{width:34px;height:34px;border-radius:50%;background:var(--navy3);border:none;color:var(--text2);cursor:pointer;font-size:16px}
 .client-kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
 .client-kpi{background:var(--navy3);border-radius:10px;padding:12px 14px}
@@ -316,6 +317,20 @@ html.light .matrix-table th.shaded{background:rgba(201,135,31,.10)}
 .matrix-pos{color:var(--green)}.matrix-neg{color:var(--red)}
 @media(max-width:1300px){.kpi-grid{grid-template-columns:repeat(3,1fr)}.charts-grid.hero-charts,.history-map-grid,.micro-grid{grid-template-columns:1fr}.project-body{grid-template-columns:1fr}.project-donut{height:220px}.topbar{position:relative}.brand-premium{flex-wrap:wrap}.update-chip{display:none}}
 @media(max-width:760px){.kpi-grid{grid-template-columns:1fr}.content{padding:14px}.topbar{padding:12px}.client-logo{height:28px}.gpsbi-logo b{font-size:22px}}
+
+
+@media print{
+  @page{size:A4 landscape;margin:10mm;}
+  body *{visibility:hidden!important;}
+  #clientModal.print-target,#clientModal.print-target *{visibility:visible!important;}
+  #clientModal.print-target{position:absolute!important;inset:0!important;display:block!important;background:#fff!important;color:#000!important;}
+  #clientModal.print-target .client-modal-box{width:100%!important;max-width:none!important;max-height:none!important;overflow:visible!important;box-shadow:none!important;background:#fff!important;color:#000!important;border:0!important;padding:8px!important;}
+  #clientModal.print-target button,#clientModal.print-target input,#clientModal.print-target textarea{display:none!important;}
+  #clientModal.print-target .client-kpi,#clientModal.print-target .client-product-row,#clientModal.print-target .client-note-item,#clientModal.print-target .followup-item{background:#fff!important;color:#000!important;border:1px solid #ddd!important;break-inside:avoid;}
+  #clientModal.print-target .client-kpi-lbl,#clientModal.print-target .client-modal-head p,#clientModal.print-target .client-section-title,#clientModal.print-target .note-date{color:#555!important;}
+  #clientModal.print-target .client-chart-box{height:190px!important;break-inside:avoid;}
+  #clientModal.print-target canvas{max-width:100%!important;}
+}
 
 
 /* GPSBI V3 premium polish */
@@ -683,7 +698,7 @@ html.light .kpi-card{background:#fff}
         <h2 id="clientModalName">--</h2>
         <p>Ficha do cliente</p>
       </div>
-      <button class="client-close-btn" onclick="closeClientModal()">✕</button>
+      <div class="client-head-actions"><button class="btn btn-ghost btn-sm" onclick="printClientModal()">🖨️ Imprimir ficha</button><button class="client-close-btn" onclick="closeClientModal()">✕</button></div>
     </div>
 
     <div class="client-kpi-grid">
@@ -2230,6 +2245,14 @@ function openClientModal(cliente){
   el('clientModal').classList.add('show');
 }
 function closeClientModal(){ el('clientModal').classList.remove('show'); }
+function printClientModal(){
+  const modal=el('clientModal'); if(!modal) return;
+  modal.classList.add('print-target');
+  const limpar=()=>{ modal.classList.remove('print-target'); window.removeEventListener('afterprint',limpar); };
+  window.addEventListener('afterprint',limpar);
+  window.print();
+  setTimeout(()=>modal.classList.remove('print-target'),1500);
+}
 el('clientModal').addEventListener('click', e=>{ if(e.target.id==='clientModal') closeClientModal(); });
 function cssVarClient(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
 

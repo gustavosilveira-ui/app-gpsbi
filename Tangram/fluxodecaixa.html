@@ -157,7 +157,9 @@ html.light .fc-day-num{color:#1f2a3d;}
 .fc-titulos-aberto-cell{color:var(--text2);cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;}
 .fc-titulos-aberto-cell:hover{background:rgba(45,112,184,.08);}
 .fc-titulos-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:16px 0 8px;}
-.fc-titulos-search{width:290px;max-width:100%;padding:8px 11px;border:1px solid var(--border2);border-radius:9px;background:var(--navy3);color:var(--text);font-size:12.5px;}
+.fc-titulos-searches{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;}
+.fc-titulos-search{width:230px;max-width:100%;padding:8px 11px;border:1px solid var(--border2);border-radius:9px;background:var(--navy3);color:var(--text);font-size:12.5px;}
+@media(max-width:760px){.fc-titulos-toolbar{align-items:flex-start;flex-direction:column}.fc-titulos-searches{width:100%;justify-content:flex-start}.fc-titulos-search{width:100%;}}
 .fc-tag-aberto{display:inline-flex;align-items:center;padding:4px 9px;border-radius:999px;font-size:10.5px;font-weight:800;white-space:nowrap;background:rgba(245,185,66,.16);color:var(--gold);}
 .fc-titulo-note-btn{border:1px solid var(--border2);background:var(--navy3);color:var(--text2);border-radius:7px;padding:5px 8px;font-size:10.5px;font-weight:800;cursor:pointer;white-space:nowrap;}
 .fc-titulo-note-btn.has-note{color:var(--cyan);border-color:rgba(54,226,201,.35);}
@@ -165,13 +167,14 @@ html.light .fc-day-num{color:#1f2a3d;}
 .fc-titulo-obs-meta{font-size:10.5px;color:var(--text3);margin-bottom:8px;}
 .fc-titulo-obs-box textarea{width:100%;min-height:110px;resize:vertical;}
 #fcTitulosAbertoLista .fc-detail-list{max-height:430px;overflow-x:auto;}
-#fcTitulosAbertoLista .fc-detail-table{width:100%;min-width:860px;table-layout:fixed;}
+#fcTitulosAbertoLista .fc-detail-table{width:100%;min-width:1040px;table-layout:fixed;}
 #fcTitulosAbertoLista .fc-detail-table th:nth-child(1){width:95px;}
 #fcTitulosAbertoLista .fc-detail-table th:nth-child(2){width:auto;}
-#fcTitulosAbertoLista .fc-detail-table th:nth-child(3){width:125px;}
-#fcTitulosAbertoLista .fc-detail-table th:nth-child(4){width:55px;}
-#fcTitulosAbertoLista .fc-detail-table th:nth-child(5){width:120px;}
-#fcTitulosAbertoLista .fc-detail-table th:nth-child(6){width:105px;}
+#fcTitulosAbertoLista .fc-detail-table th:nth-child(3){width:150px;}
+#fcTitulosAbertoLista .fc-detail-table th:nth-child(4){width:125px;}
+#fcTitulosAbertoLista .fc-detail-table th:nth-child(5){width:55px;}
+#fcTitulosAbertoLista .fc-detail-table th:nth-child(6){width:120px;}
+#fcTitulosAbertoLista .fc-detail-table th:nth-child(7){width:105px;}
 
 .fc-cliente-link{cursor:pointer;color:var(--blue,#2D70B8);font-weight:800;text-decoration:underline dotted;text-underline-offset:3px;}
 .fc-cliente-link:hover{opacity:.72;}
@@ -204,33 +207,39 @@ html.light .fc-day-num{color:#1f2a3d;}
 @media print{
   @page{size:A4 landscape;margin:10mm;}
   body *{visibility:hidden!important;}
-  #fcClienteFichaModal,#fcClienteFichaModal *{visibility:visible!important;}
-  #fcClienteFichaModal{
+  .modal-overlay.print-target,.modal-overlay.print-target *{visibility:visible!important;}
+  .modal-overlay.print-target{
     position:absolute!important;inset:0!important;display:block!important;
     background:#fff!important;color:#000!important;
   }
-  #fcClienteFichaModal .modal-box{
+  .modal-overlay.print-target .modal-box{
     width:100%!important;max-width:none!important;max-height:none!important;
     overflow:visible!important;box-shadow:none!important;background:#fff!important;
     color:#000!important;border:0!important;padding:8px!important;
   }
-  #fcClienteFichaModal button{display:none!important;}
-  #fcClienteFichaModal .fc-cliente-panel,
-  #fcClienteFichaModal .fc-cliente-kpi,
-  #fcClienteFichaModal .fc-cliente-score{
+  .modal-overlay.print-target button,
+  .modal-overlay.print-target input{display:none!important;}
+  .modal-overlay.print-target .fc-titulos-toolbar{margin-top:4px!important;}
+  .modal-overlay.print-target .fc-titulos-searches{display:none!important;}
+  .modal-overlay.print-target .fc-cliente-panel,
+  .modal-overlay.print-target .fc-cliente-kpi,
+  .modal-overlay.print-target .fc-cliente-score,
+  .modal-overlay.print-target .fc-detail-kpi{
     background:#fff!important;color:#000!important;border-color:#bbb!important;
     break-inside:avoid;
   }
-  #fcClienteFichaModal .fc-detail-list{max-height:none!important;overflow:visible!important;}
-  #fcClienteFichaModal .fc-detail-table{color:#000!important;font-size:9px!important;}
-  #fcClienteFichaModal .fc-detail-table th,
-  #fcClienteFichaModal .fc-detail-table td{color:#000!important;border-color:#ddd!important;}
-  #fcClienteFichaModal .fc-month-bar{border:1px solid #bbb!important;background:#eee!important;}
-  #fcClienteFichaModal .fc-month-bar>span{background:#555!important;}
-  #fcClienteFichaModal .fc-score-note,
-  #fcClienteFichaModal .modal-sub,
-  #fcClienteFichaModal .fc-cliente-kpi-label{color:#555!important;}
+  .modal-overlay.print-target .fc-detail-list{max-height:none!important;overflow:visible!important;}
+  .modal-overlay.print-target .fc-detail-table{color:#000!important;font-size:9px!important;min-width:0!important;}
+  .modal-overlay.print-target .fc-detail-table th,
+  .modal-overlay.print-target .fc-detail-table td{color:#000!important;border-color:#ddd!important;}
+  .modal-overlay.print-target .fc-month-bar{border:1px solid #bbb!important;background:#eee!important;}
+  .modal-overlay.print-target .fc-month-bar>span{background:#555!important;}
+  .modal-overlay.print-target .fc-score-note,
+  .modal-overlay.print-target .modal-sub,
+  .modal-overlay.print-target .fc-cliente-kpi-label,
+  .modal-overlay.print-target .fc-detail-kpi-lbl{color:#555!important;}
 }
+
 
 </style>
 </head>
@@ -292,7 +301,7 @@ html.light .fc-day-num{color:#1f2a3d;}
             <div class="modal-title" id="fluxoFichaTitulo">Ficha do Fluxo</div>
             <div class="modal-sub" id="fluxoFichaSub">Detalhamento dos lançamentos.</div>
           </div>
-          <button class="btn btn-ghost btn-sm" onclick="closeFluxoFicha()">Fechar</button>
+          <div style="display:flex;gap:8px;"><button class="btn btn-ghost btn-sm" onclick="imprimirModalFicha('fluxoFichaModal')">🖨️ Imprimir</button><button class="btn btn-ghost btn-sm" onclick="closeFluxoFicha()">Fechar</button></div>
         </div>
         <div id="fluxoFichaBody"></div>
       </div>
@@ -306,7 +315,7 @@ html.light .fc-day-num{color:#1f2a3d;}
             <div class="modal-title" id="fcTitulosAbertoTitulo">📋 Títulos em Aberto</div>
             <div class="modal-sub">Títulos com Situação "Atrasado". O valor presente aparece acumulado no dia atual e não altera o saldo do fluxo.</div>
           </div>
-          <button class="btn btn-ghost btn-sm" onclick="fecharTitulosAbertoModal()">Fechar</button>
+          <div style="display:flex;gap:8px;"><button class="btn btn-ghost btn-sm" onclick="imprimirModalFicha('fcTitulosAbertoModal')">🖨️ Imprimir</button><button class="btn btn-ghost btn-sm" onclick="fecharTitulosAbertoModal()">Fechar</button></div>
         </div>
         <div id="fcTitulosAbertoLista"></div>
       </div>
@@ -465,6 +474,8 @@ const GID_MOVIMENTACAO = '1937017421';
 const GID_MOVIMENTACAO_AGENCIA = '1100809045';
 // Aba "Desconto duplicada" — lista de boletos já descontados/antecipados.
 const GID_DESCONTO_DUPLICADA = '1846024064';
+// Aba comercial (Receita Captada) — usada somente para relacionar cliente x vendedor nas fichas financeiras.
+const GID_COMERCIAL_CAPTADA = '0';
 const LOGIN_URL = 'index.html';
 
 // Histórico validado do fluxo antigo: até 30/06/2026.
@@ -706,6 +717,28 @@ function isDuplicataDescontadaRow(r, grupo, valor, date){
 // - ignora a categoria "Transferência entre contas" (não é entrada/saída real da empresa)
 // - ignora qualquer linha (Recebimento ou Pagamento) com Situação "Atrasado" (ainda não realizado, não é caixa de verdade)
 let debugAtrasadoExcluidos = 0;
+async function loadVendedoresClientes_(){
+  vendedorPorCliente={};
+  try{
+    const table=await fetchGviz(GID_COMERCIAL_CAPTADA);
+    const raw=parseGvizRows(table);
+    const candidatos={};
+    raw.forEach(r=>{
+      const cliente=(getColNormalized(r,'cliente (razao social)')||getColNormalized(r,'cliente')||'').toString().trim();
+      const vendedor=(getColNormalized(r,'vendedor')||'').toString().trim();
+      if(!cliente||!vendedor) return;
+      const dataRaw=getColNormalized(r,'data de emissao (completa)')||getColNormalized(r,'data de emissao')||getColNormalized(r,'data');
+      const data=parseDateCell(typeof dataRaw==='object'&&dataRaw!==null?(dataRaw.v||dataRaw):dataRaw)||'';
+      const chave=normalizeTxt(cliente);
+      if(!candidatos[chave]||data>=candidatos[chave].data) candidatos[chave]={vendedor,data};
+    });
+    Object.entries(candidatos).forEach(([k,v])=>vendedorPorCliente[k]=v.vendedor);
+  }catch(e){ console.warn('Não foi possível carregar cliente x vendedor da aba comercial:',e); }
+}
+function vendedorDaLinha_(r,nome){
+  const direto=(getColNormalized(r,'vendedor')||getColNormalized(r,'responsavel')||getColNormalized(r,'consultor')||getColNormalized(r,'comercial')||'').toString().trim();
+  return direto || vendedorPorCliente[normalizeTxt(nome)] || 'Não informado';
+}
 function rowsFromGvizTable(table, contaLabel){
   const raw = parseGvizRows(table);
   return raw.map(r=>{
@@ -753,10 +786,11 @@ function rowsFromGvizTable(table, contaLabel){
         ''
       ).toString().trim();
       const contaAtr = (getColNormalized(r, 'conta corrente')||contaLabel||'Conta não informada').toString().trim();
+      const vendedorAtr = vendedorDaLinha_(r,nomeAtr);
       rowsAtrasados.push({
         chave: [documentoAtr, nomeAtr, valor.toFixed(2), date, categoriaFinal].join('||'),
         date, categoria: categoriaFinal||'Sem categoria', grupo, valor,
-        nome: nomeAtr, documento: documentoAtr, conta: contaAtr
+        nome: nomeAtr, vendedor: vendedorAtr, documento: documentoAtr, conta: contaAtr
       });
       return null;
     }
@@ -781,7 +815,8 @@ function rowsFromGvizTable(table, contaLabel){
       getColNormalized(r,'observacao') ||
       ''
     ).toString().trim();
-    return { date, categoria: categoriaFinal||'Sem categoria', grupo, valor, conta: contaCorrente||contaLabel, fonte: contaLabel, duplicataDescontada, nome, documento, historico };
+    const vendedor=vendedorDaLinha_(r,nome);
+    return { date, categoria: categoriaFinal||'Sem categoria', grupo, valor, conta: contaCorrente||contaLabel, fonte: contaLabel, duplicataDescontada, nome, vendedor, documento, historico };
   }).filter(Boolean);
 }
 
@@ -811,6 +846,7 @@ async function init(){
 async function loadData(){
   try{
     await loadBoletosDescontados();
+    await loadVendedoresClientes_();
     rowsAtrasados = [];
 
     const tablePrincipal = await fetchGviz(GID_MOVIMENTACAO);
@@ -1053,6 +1089,9 @@ let fcTituloObsCache={};
 let fcTituloObsPopupChave=null;
 let fcTitulosAbertoRowsAtual=[];
 let fcTitulosAbertoTipoAtual='receber';
+let fcTituloBuscaNomeAtual='';
+let fcTituloBuscaVendedorAtual='';
+let vendedorPorCliente={};
 
 function escapeHtml(s){
   return String(s||'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]));
@@ -1081,6 +1120,8 @@ function renderTituloObsHtml_(r){
 }
 async function abrirTitulosAbertoPopup(tipo){
   fcTitulosAbertoTipoAtual=tipo;
+  fcTituloBuscaNomeAtual='';
+  fcTituloBuscaVendedorAtual='';
   fcTitulosAbertoRowsAtual=titulosAbertoDoTipo_(tipo);
   el('fcTitulosAbertoTitulo').textContent=tipo==='receber'?'📋 Títulos em Aberto — A Receber':'📋 Títulos em Aberto — A Pagar';
   el('fcTitulosAbertoModal').classList.add('show');
@@ -1089,10 +1130,17 @@ async function abrirTitulosAbertoPopup(tipo){
   renderTitulosAbertoLista('');
 }
 function fecharTitulosAbertoModal(){ el('fcTitulosAbertoModal').classList.remove('show'); }
-function renderTitulosAbertoLista(termoBusca=''){
+function renderTitulosAbertoLista(termoBuscaNome=fcTituloBuscaNomeAtual, termoBuscaVendedor=fcTituloBuscaVendedorAtual){
   const wrap=el('fcTitulosAbertoLista'); if(!wrap) return;
-  const termo=normalizeTxt(termoBusca).trim();
-  const filtrados=fcTitulosAbertoRowsAtual.filter(r=>!termo||normalizeTxt([r.nome,r.categoria,r.documento].join(' ')).includes(termo));
+  fcTituloBuscaNomeAtual=termoBuscaNome||'';
+  fcTituloBuscaVendedorAtual=termoBuscaVendedor||'';
+  const termoNome=normalizeTxt(fcTituloBuscaNomeAtual).trim();
+  const termoVendedor=normalizeTxt(fcTituloBuscaVendedorAtual).trim();
+  const filtrados=fcTitulosAbertoRowsAtual.filter(r=>{
+    const okNome=!termoNome||normalizeTxt([r.nome,r.categoria,r.documento].join(' ')).includes(termoNome);
+    const okVendedor=!termoVendedor||normalizeTxt(r.vendedor||'').includes(termoVendedor);
+    return okNome&&okVendedor;
+  });
   const ordenados=filtrados.slice().sort((a,b)=>a.date.localeCompare(b.date)||Math.abs(b.valor)-Math.abs(a.valor));
   const total=fcTitulosAbertoRowsAtual.reduce((s,r)=>s+r.valor,0);
   const qtdNomes=new Set(fcTitulosAbertoRowsAtual.map(r=>normalizeTxt(r.nome||'')).filter(Boolean)).size;
@@ -1100,13 +1148,15 @@ function renderTitulosAbertoLista(termoBusca=''){
     const pct=total?Math.abs(r.valor)/Math.abs(total)*100:0;
     return `<tr>
       <td>${formatDateBR(r.date)}</td>
-      <td class="wrap"><span class="fc-cliente-link" title="Abrir ficha técnica do cliente" onclick="abrirClienteFicha('${String(r.nome||'').replace(/'/g,"\\'")}')">${escapeHtml(r.nome||'Sem nome')}</span></td>
+      <td class="wrap"><span class="fc-cliente-link" title="Abrir ficha técnica do cliente" onclick="abrirClienteFicha('${String(r.nome||'').replace(/'/g,"\'")}')">${escapeHtml(r.nome||'Sem nome')}</span></td>
+      <td class="small" title="${escapeHtml(r.vendedor||'Não informado')}">${escapeHtml(r.vendedor||'Não informado')}</td>
       <td><span class="fc-tag-aberto">⏳ Em aberto</span></td>
       <td class="num">${pct.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})}%</td>
       <td>${renderTituloObsHtml_(r)}</td>
       <td class="valor-modal" style="color:${r.valor>=0?'#4F8F3A':'var(--red)'}">${fmtBRL(r.valor)}</td>
     </tr>`;
   }).join('');
+  const temFiltro=termoNome||termoVendedor;
   wrap.innerHTML=`
     <div class="fc-detail-summary">
       <div class="fc-detail-kpi"><div class="fc-detail-kpi-val">${fmtBRL(total)}</div><div class="fc-detail-kpi-lbl">Total em aberto</div></div>
@@ -1115,12 +1165,15 @@ function renderTitulosAbertoLista(termoBusca=''){
     </div>
     <div class="fc-titulos-toolbar">
       <b style="font-size:12.5px;text-transform:uppercase;">Lançamentos</b>
-      <div><input class="fc-titulos-search" value="${escapeHtml(termoBusca)}" placeholder="🔎 Buscar por nome..." oninput="renderTitulosAbertoLista(this.value)">
-      <span style="font-size:11px;color:var(--text3);">${termo?filtrados.length+' de '+fcTitulosAbertoRowsAtual.length:''}</span></div>
+      <div class="fc-titulos-searches">
+        <input class="fc-titulos-search" value="${escapeHtml(fcTituloBuscaNomeAtual)}" placeholder="🔎 Buscar por nome..." oninput="renderTitulosAbertoLista(this.value,fcTituloBuscaVendedorAtual)">
+        <input class="fc-titulos-search" value="${escapeHtml(fcTituloBuscaVendedorAtual)}" placeholder="👤 Buscar por vendedor..." oninput="renderTitulosAbertoLista(fcTituloBuscaNomeAtual,this.value)">
+        <span style="font-size:11px;color:var(--text3);">${temFiltro?filtrados.length+' de '+fcTitulosAbertoRowsAtual.length:''}</span>
+      </div>
     </div>
     <div class="fc-detail-list"><table class="fc-detail-table">
-      <thead><tr><th>Vencimento</th><th>Nome</th><th>Status</th><th class="num">%</th><th>Observação</th><th class="num">Valor</th></tr></thead>
-      <tbody>${linhas||'<tr><td colspan="6">Nenhum título encontrado.</td></tr>'}</tbody>
+      <thead><tr><th>Vencimento</th><th>Nome</th><th>Vendedor</th><th>Status</th><th class="num">%</th><th>Observação</th><th class="num">Valor</th></tr></thead>
+      <tbody>${linhas||'<tr><td colspan="7">Nenhum título encontrado.</td></tr>'}</tbody>
     </table></div>`;
 }
 
@@ -1232,9 +1285,15 @@ function abrirClienteFicha(nome){
   el('fcClienteFichaModal').classList.add('show');
 }
 function fecharClienteFicha(){ el('fcClienteFichaModal').classList.remove('show'); }
-function imprimirClienteFicha(){
+function imprimirModalFicha(id){
+  const modal=el(id); if(!modal) return;
+  modal.classList.add('print-target');
+  const limpar=()=>{ modal.classList.remove('print-target'); window.removeEventListener('afterprint',limpar); };
+  window.addEventListener('afterprint',limpar);
   window.print();
+  setTimeout(()=>modal.classList.remove('print-target'),1500);
 }
+function imprimirClienteFicha(){ imprimirModalFicha('fcClienteFichaModal'); }
 
 function openTituloObsPopup_(chave){
   const r=rowsAtrasados.find(x=>x.chave===chave); if(!r) return;
