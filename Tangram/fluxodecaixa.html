@@ -737,7 +737,18 @@ async function loadVendedoresClientes_(){
 }
 function vendedorDaLinha_(r,nome){
   const direto=(getColNormalized(r,'vendedor')||getColNormalized(r,'responsavel')||getColNormalized(r,'consultor')||getColNormalized(r,'comercial')||'').toString().trim();
-  return direto || vendedorPorCliente[normalizeTxt(nome)] || 'Não informado';
+  if(direto) return direto;
+  const chave=normalizeTxt(nome||'').trim();
+  if(chave && vendedorPorCliente[chave]) return vendedorPorCliente[chave];
+
+  // Fallback para pequenas diferenças de cadastro entre Financeiro e Comercial
+  // Ex.: "FM GRAVAÇÕES" x "FM GRAVAÇÕES LTDA".
+  if(chave.length>=5){
+    const candidatos=Object.entries(vendedorPorCliente).filter(([k])=>k.includes(chave)||chave.includes(k));
+    const vendedores=[...new Set(candidatos.map(([,v])=>v).filter(Boolean))];
+    if(vendedores.length===1) return vendedores[0];
+  }
+  return 'Não informado';
 }
 function rowsFromGvizTable(table, contaLabel){
   const raw = parseGvizRows(table);
@@ -1166,8 +1177,8 @@ function renderTitulosAbertoLista(termoBuscaNome=fcTituloBuscaNomeAtual, termoBu
     <div class="fc-titulos-toolbar">
       <b style="font-size:12.5px;text-transform:uppercase;">Lançamentos</b>
       <div class="fc-titulos-searches">
-        <input class="fc-titulos-search" value="${escapeHtml(fcTituloBuscaNomeAtual)}" placeholder="🔎 Buscar por nome..." oninput="renderTitulosAbertoLista(this.value,fcTituloBuscaVendedorAtual)">
-        <input class="fc-titulos-search" value="${escapeHtml(fcTituloBuscaVendedorAtual)}" placeholder="👤 Buscar por vendedor..." oninput="renderTitulosAbertoLista(fcTituloBuscaNomeAtual,this.value)">
+        <input id="fcBuscaTituloNome" class="fc-titulos-search" value="${escapeHtml(fcTituloBuscaNomeAtual)}" placeholder="🔎 Buscar por nome..." oninput="filtrarTitulosAberto_('nome',this.value)">
+        <input id="fcBuscaTituloVendedor" class="fc-titulos-search" value="${escapeHtml(fcTituloBuscaVendedorAtual)}" placeholder="👤 Buscar por vendedor..." oninput="filtrarTitulosAberto_('vendedor',this.value)">
         <span style="font-size:11px;color:var(--text3);">${temFiltro?filtrados.length+' de '+fcTitulosAbertoRowsAtual.length:''}</span>
       </div>
     </div>
@@ -1175,6 +1186,19 @@ function renderTitulosAbertoLista(termoBuscaNome=fcTituloBuscaNomeAtual, termoBu
       <thead><tr><th>Vencimento</th><th>Nome</th><th>Vendedor</th><th>Status</th><th class="num">%</th><th>Observação</th><th class="num">Valor</th></tr></thead>
       <tbody>${linhas||'<tr><td colspan="7">Nenhum título encontrado.</td></tr>'}</tbody>
     </table></div>`;
+}
+
+function filtrarTitulosAberto_(campo,valor){
+  if(campo==='nome') fcTituloBuscaNomeAtual=valor||'';
+  else fcTituloBuscaVendedorAtual=valor||'';
+  renderTitulosAbertoLista(fcTituloBuscaNomeAtual,fcTituloBuscaVendedorAtual);
+  const id=campo==='nome'?'fcBuscaTituloNome':'fcBuscaTituloVendedor';
+  const inp=document.getElementById(id);
+  if(inp){
+    inp.focus();
+    const pos=inp.value.length;
+    try{ inp.setSelectionRange(pos,pos); }catch(e){}
+  }
 }
 
 function diasEntreHoje_(iso){
