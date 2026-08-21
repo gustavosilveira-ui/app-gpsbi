@@ -357,6 +357,12 @@ table.tabela-simples tr.linha-total td{font-weight:800;border-top:2px solid var(
 .crm-unavailable{font-size:11.5px;color:#f5b942;background:rgba(245,185,66,.12);padding:8px 10px;border-radius:8px;margin-top:6px}
 
 /* ---- Complementos específicos do Comercial Alkanse (não existem no Mebrasi) ---- */
+.dashboard-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap;}
+.dashboard-head-copy{min-width:260px;flex:1;}
+.filtros-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;}
+.filtro-label{font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.6px;}
+.filtros-bar select{background:var(--field-bg);color:var(--text);border:1px solid var(--border2);border-radius:9px;padding:7px 10px;font-family:'Sora',sans-serif;font-size:11.5px;outline:none;}
+.filtros-bar select option{background:var(--navy2);color:var(--text);}
 .badge-mes{display:inline-flex;align-items:center;gap:6px;background:rgba(66,129,191,.12);color:var(--blue);border:1px solid rgba(66,129,191,.25);padding:4px 10px;border-radius:999px;font-size:10.5px;font-weight:700;margin-bottom:10px;}
 #tabelaMatrizWrap{max-height:210px;}
 </style>
@@ -372,12 +378,12 @@ table.tabela-simples tr.linha-total td{font-weight:800;border-top:2px solid var(
   <div class="app-topbar">
     <div class="app-brand"><span class="dot"></span> Hub Alkanse</div>
     <nav class="app-nav">
-      <a href="index.html#dashboard">🛠️ Serviços</a>
-      <a href="fluxodecaixa.html" id="navFluxo" style="display:none;">💰 Fluxo de Caixa</a>
+      <a href="painel.html#dashboard">🛠️ Serviços</a>
+      <a href="fluxodecaixa.html" id="navFluxo">💰 Fluxo de Caixa</a>
       <a href="comercial.html" class="active">📈 Comercial</a>
-      <a href="index.html#agenda">🗓️ Agenda</a>
-      <a href="index.html#mural" id="navMural">📣 Mural Corporativo</a>
-      <a href="index.html#aprovacoes">✅ Aprovações</a>
+      <a href="painel.html#agenda">🗓️ Agenda</a>
+      <a href="painel.html#mural" id="navMural">📣 Mural Corporativo</a>
+      <a href="painel.html#aprovacoes">✅ Aprovações</a>
     </nav>
     <div class="app-right">
       <div class="app-theme-toggle" id="appThemeToggle">
@@ -392,9 +398,19 @@ table.tabela-simples tr.linha-total td{font-weight:800;border-top:2px solid var(
   <div class="content wide">
 
     <div class="card">
-      <div class="badge-mes" id="badgeMes">📆 Mês vigente</div>
-      <div class="card-title">📈 Comercial</div>
-      <div class="card-sub">Faturamento consolidado a partir da aba "Vendas".</div>
+      <div class="dashboard-head">
+        <div class="dashboard-head-copy">
+          <div class="card-title">📈 Bi Comercial · Alkanse</div>
+          <div class="card-sub">Faturamento consolidado a partir da aba "VENDASHist".</div>
+        </div>
+        <div class="filtros-bar">
+          <span class="filtro-label">Ano</span>
+          <select id="anoSelect"></select>
+          <span class="filtro-label">Mês</span>
+          <select id="mesSelect"><option value="">Todos</option></select>
+          <button class="btn btn-ghost btn-sm" id="btnLimparFiltros">Limpar filtros</button>
+        </div>
+      </div>
       <div id="kpiGrid" class="kpi-grid"></div>
     </div>
 
@@ -587,6 +603,8 @@ function parseGvizRows(table){
 }
 
 let vendasRows = [];
+let selectedAno = '';
+let selectedMes = '';
 let chartTipo, chartEvolucao, chartDiario, chartSemanal, clientHistChartInst;
 const matrizAbertos = new Set();
 
@@ -603,14 +621,32 @@ function processarLinha(r){
 async function loadData(){
   const table = await fetchVendasTable();
   const raw = parseGvizRows(table);
-  vendasRows = raw.map(processarLinha).filter(r => r.cliente);
+  vendasRows = raw.map(processarLinha).filter(r => r.cliente && r.dataISO);
+  preencherFiltros();
   renderTudo();
 }
 function rowsInScope(){
   const busca = normalizeTxt(el('buscaMatriz').value);
-  if(!busca) return vendasRows;
-  return vendasRows.filter(r => normalizeTxt(r.cliente).includes(busca) || normalizeTxt(r.representante).includes(busca));
+  return vendasRows.filter(r => {
+    if(selectedAno && (!r.mes || r.mes.slice(0,4)!==selectedAno)) return false;
+    if(selectedMes && (!r.mes || r.mes.slice(5,7)!==selectedMes)) return false;
+    if(busca && !(normalizeTxt(r.cliente).includes(busca) || normalizeTxt(r.representante).includes(busca))) return false;
+    return true;
+  });
 }
+function preencherFiltros(){
+  const mesesValidos = Array.from(new Set(vendasRows.map(r=>r.mes).filter(Boolean))).sort();
+  const anos = Array.from(new Set(mesesValidos.map(m=>m.slice(0,4)))).sort();
+  const anoSel=el('anoSelect'), mesSel=el('mesSelect');
+  anoSel.innerHTML = '<option value="">Todos</option>' + anos.map(a=>`<option value="${a}">${a}</option>`).join('');
+  const nomes=['01-Jan','02-Fev','03-Mar','04-Abr','05-Mai','06-Jun','07-Jul','08-Ago','09-Set','10-Out','11-Nov','12-Dez'];
+  mesSel.innerHTML = '<option value="">Todos</option>' + nomes.map((n,i)=>`<option value="${String(i+1).padStart(2,'0')}">${n}</option>`).join('');
+  const hoje = new Date();
+  const atual = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}`;
+  const padrao = mesesValidos.includes(atual) ? atual : mesesValidos[mesesValidos.length-1];
+  if(padrao){ selectedAno=padrao.slice(0,4); selectedMes=padrao.slice(5,7); anoSel.value=selectedAno; mesSel.value=selectedMes; }
+}
+function limparFiltros(){ selectedAno=''; selectedMes=''; el('anoSelect').value=''; el('mesSelect').value=''; renderTudo(); }
 function mesVigenteDe(linhas){
   const meses = Array.from(new Set(linhas.map(r=>r.mes).filter(Boolean))).sort();
   return meses[meses.length-1];
@@ -621,8 +657,7 @@ function anoAnteriorDe(mes){ const [y,m]=mes.split('-'); return `${Number(y)-1}-
 // ---------- KPIs (igual estrutura/classes do Mebrasi) ----------
 function renderKpis(){
   const linhas = rowsInScope();
-  const mesAtual = mesVigenteDe(linhas);
-  const doMes = mesAtual ? linhas.filter(r=>r.mes===mesAtual) : [];
+  const doMes = linhas;
 
   const faturamento = doMes.reduce((s,r)=>s+r.valor,0);
   const clientesUnicos = new Set(doMes.map(r=>r.cliente)).size;
@@ -645,16 +680,12 @@ function renderKpis(){
       </div>
     </div>`).join('');
 
-  if(mesAtual){
-    const [ano,mes] = mesAtual.split('-');
-    const nomesMes = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-    el('badgeMes').textContent = `📆 ${nomesMes[parseInt(mes,10)-1]}/${ano}`;
-  }
 }
 
 // ---------- Evolução do Faturamento (plugin idêntico ao Mebrasi) ----------
 function renderChartEvolucao(){
-  const linhas = rowsInScope();
+  const busca = normalizeTxt(el('buscaMatriz').value);
+  const linhas = vendasRows.filter(r => !busca || normalizeTxt(r.cliente).includes(busca) || normalizeTxt(r.representante).includes(busca));
   const porMes = {};
   linhas.forEach(r=>{ if(r.mes) porMes[r.mes] = (porMes[r.mes]||0) + r.valor; });
   const meses = Object.keys(porMes).sort();
@@ -668,7 +699,7 @@ function renderChartEvolucao(){
   const textColor = corTexto(), gridColor = corGrid();
   const green = '#2fd6b8', red = '#ef6a6a';
   const blue = '#123C68', cyan = '#36E2C9';
-  const mesAtualKey = meses[meses.length-1];
+  const mesAtualKey = selectedAno && selectedMes ? `${selectedAno}-${selectedMes}` : meses[meses.length-1];
   const barColors = meses.map(m => m===mesAtualKey ? cyan : blue);
 
   const pctLabelPlugin = {
@@ -713,6 +744,7 @@ function renderChartEvolucao(){
     options:{
       responsive:true, maintainAspectRatio:false, animation:{duration:300},
       layout:{ padding:{top:40} },
+      onClick:(evt,els)=>{ if(!els.length) return; const key=meses[els[0].index]; const [a,m]=key.split('-'); selectedAno=a; selectedMes=m; el('anoSelect').value=a; el('mesSelect').value=m; renderTudo(); },
       plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:c=>fmtBRLFull(c.parsed.y) } } },
       scales:{
         x:{ grid:{display:false}, ticks:{color:textColor, font:{size:11}} },
@@ -1045,6 +1077,9 @@ async function init(){
     el('appBtnDark').addEventListener('click', ()=>appApplyTheme('dark'));
     el('appBtnLight').addEventListener('click', ()=>appApplyTheme('light'));
     el('buscaMatriz').addEventListener('input', renderTudo);
+    el('anoSelect').addEventListener('change', e=>{ selectedAno=e.target.value; renderTudo(); });
+    el('mesSelect').addEventListener('change', e=>{ selectedMes=e.target.value; renderTudo(); });
+    el('btnLimparFiltros').addEventListener('click', limparFiltros);
     el('analiseWhatsBtn').addEventListener('click', async ()=>{
       try{
         await navigator.clipboard.writeText(el('analiseWhatsTexto').textContent);
@@ -1056,6 +1091,7 @@ async function init(){
     el('clientModal').addEventListener('click', e=>{ if(e.target.id==='clientModal') closeClientModal(); });
     document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeClientModal(); });
 
+    document.documentElement.style.visibility='visible';
     appApplyTheme(localStorage.getItem('alkanse_theme') || 'light');
 
     await loadData();
@@ -1063,6 +1099,7 @@ async function init(){
     el('loadingScreen').style.display = 'none';
     el('mainContent').style.display = 'block';
   }catch(e){
+    document.documentElement.style.visibility='visible';
     console.error('Erro ao carregar Comercial:', e);
     el('loadingMsg').textContent = 'Não consegui carregar os dados comerciais agora. Recarregue a página.';
   }
