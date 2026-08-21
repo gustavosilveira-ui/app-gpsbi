@@ -96,17 +96,22 @@ export default async function handler(req,res){
 
     const sheetId=env('ALKANSE_SHEET_ID');
     const accessToken=await googleAccessToken();
-    const range=encodeURIComponent("'VENDASHist'");
-    const url=`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}/values/${range}?majorDimension=ROWS&valueRenderOption=FORMATTED_VALUE`;
-    const r=await fetch(url,{headers:{Authorization:`Bearer ${accessToken}`}});
-    if(!r.ok){
-      const detail=await r.text().catch(()=>'');
-      console.error('Google Sheets API',r.status,detail.slice(0,1000));
-      throw new Error(`Fonte comercial HTTP ${r.status}`);
+    async function readRange(tab){
+      const range=encodeURIComponent(`'${tab}'`);
+      const url=`https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}/values/${range}?majorDimension=ROWS&valueRenderOption=FORMATTED_VALUE`;
+      const r=await fetch(url,{headers:{Authorization:`Bearer ${accessToken}`}});
+      const text=await r.text();
+      if(!r.ok) return {ok:false,status:r.status,detail:text};
+      try{return {ok:true,payload:JSON.parse(text)}}catch(e){return {ok:false,status:502,detail:'Resposta Google inválida'}}
     }
-    const payload=await r.json();
-    const table=valuesToTable(payload.values||[]);
-    return json(res,200,table);
+    // Fonte oficial do BI Comercial: VENDASHist. Não usamos a aba Vendas para o cálculo normal.
+    const out=await readRange('VENDASHist');
+    if(!out.ok){
+      console.error('Google Sheets API VENDASHist',out.status,String(out.detail).slice(0,1000));
+      return json(res,502,{error:'Falha ao ler VENDASHist',source:'VENDASHist',status:out.status,detail:String(out.detail).slice(0,500)});
+    }
+    const table=valuesToTable(out.payload.values||[]);
+    return json(res,200,{...table,source:'VENDASHist',rowCount:table.rows.length});
   }catch(err){
     console.error(err);
     return json(res,500,{error:'Falha ao carregar a fonte comercial'});
