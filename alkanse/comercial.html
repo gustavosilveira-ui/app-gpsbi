@@ -18,7 +18,7 @@
 }
 html.light{
   --navy:#F6F9FC; --navy2:#FFFFFF; --navy3:#F1F6FB; --navy4:#E8FAF8;
-  --cyan:#008D90; --blue:#2D70B8;
+  --cyan:#008D90; --blue:#123C68;
   --pos:#1f9e88; --neg:#d64545; --gold:#b5810f;
   --text:#071B33; --text2:#344054; --text3:#667085;
   --border:rgba(7,27,51,.06); --border2:#E6EAF0;
@@ -26,7 +26,7 @@ html.light{
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 html,body{transition:background .2s,color .2s;}
-body{background:var(--navy);color:var(--text);font-family:'Sora',sans-serif;padding-bottom:40px;font-size:13px;}
+body{background:var(--navy);color:var(--text);font-family:'Sora',sans-serif;padding-bottom:40px;font-size:12.5px;}
 .logo-gpsbi{height:26px;width:auto;display:block;flex:none;}
 .topbar{display:flex;align-items:center;gap:16px;padding:11px 22px;background:var(--navy2);border-bottom:1px solid var(--border2);position:sticky;top:0;z-index:100;flex-wrap:nowrap;overflow-x:auto;}
 .topbar .brand{display:flex;align-items:center;gap:9px;font-weight:800;font-size:13px;flex:none;white-space:nowrap;}
@@ -40,49 +40,78 @@ body{background:var(--navy);color:var(--text);font-family:'Sora',sans-serif;padd
 .theme-toggle button.active{background:linear-gradient(135deg,var(--cyan),var(--blue));color:#fff;}
 .theme-toggle svg{width:12px;height:12px;}
 .content{width:calc(100% - 32px);max-width:1440px;margin:0 auto;padding:24px 0;}
-.card{background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);margin-bottom:16px;}
-.card-title{font-size:14.5px;font-weight:800;margin-bottom:3px;}
-.card-sub{font-size:11px;color:var(--text3);margin-bottom:14px;}
-.badge-mes{display:inline-flex;align-items:center;gap:6px;background:rgba(66,129,191,.12);color:var(--blue);border:1px solid rgba(66,129,191,.25);padding:4px 10px;border-radius:999px;font-size:10.5px;font-weight:700;margin-bottom:12px;}
-.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:11px;margin-bottom:16px;}
-.kpi-card{background:var(--navy2);border:1px solid var(--border2);border-radius:14px;padding:14px 15px;box-shadow:var(--shadow);display:flex;align-items:center;gap:11px;position:relative;overflow:hidden;}
+.card{background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow);margin-bottom:14px;}
+.card-title{font-size:13.5px;font-weight:800;margin-bottom:3px;}
+.card-sub{font-size:10.5px;color:var(--text3);margin-bottom:12px;}
+.badge-mes{display:inline-flex;align-items:center;gap:6px;background:rgba(66,129,191,.12);color:var(--blue);border:1px solid rgba(66,129,191,.25);padding:4px 10px;border-radius:999px;font-size:10px;font-weight:700;margin-bottom:10px;}
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+.kpi-card{background:var(--navy2);border:1px solid var(--border2);border-radius:14px;padding:13px 14px;box-shadow:var(--shadow);display:flex;align-items:center;gap:10px;position:relative;overflow:hidden;}
 .kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--kpi-color,var(--cyan));}
-.kpi-icon{width:36px;height:36px;border-radius:50%;background:var(--kpi-color,var(--cyan));display:flex;align-items:center;justify-content:center;font-size:15px;flex:none;color:#fff;}
+.kpi-icon{width:33px;height:33px;border-radius:50%;background:var(--kpi-color,var(--cyan));display:flex;align-items:center;justify-content:center;font-size:14px;flex:none;color:#fff;}
 .kpi-body{min-width:0;}
-.kpi-value{font-size:17px;font-weight:800;font-family:'DM Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.kpi-label{font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.03em;}
-.charts-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:14px;}
-.chart-box{background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);margin-bottom:16px;}
-.chart-title{font-size:13px;font-weight:800;margin-bottom:2px;}
-.chart-sub{font-size:10.5px;color:var(--text3);margin-bottom:10px;}
-.chart-canvas-wrap{position:relative;height:210px;}
-.chart-canvas-wrap.lg{height:230px;}
-table{width:100%;border-collapse:collapse;font-size:11.5px;}
-.table-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:11px;flex-wrap:wrap;}
-.table-toolbar input,.table-toolbar select{max-width:220px;background:var(--navy3);border:1px solid var(--border2);border-radius:8px;padding:7px 10px;color:var(--text);font:11.5px 'Sora',sans-serif;outline:none;}
-.hierarchy-wrap{overflow:auto;border:1px solid var(--border2);border-radius:11px;max-height:480px;}
-.hierarchy-table{width:100%;min-width:820px;border-collapse:separate;border-spacing:0;font-size:11px;}
-.hierarchy-table th{position:sticky;top:0;z-index:4;background:var(--navy3);color:var(--text3);font-size:9px;text-transform:uppercase;letter-spacing:.03em;padding:8px 9px;border-bottom:1px solid var(--border2);text-align:right;white-space:nowrap;}
-.hierarchy-table th:first-child{position:sticky;left:0;z-index:6;text-align:left;min-width:230px;}
-.hierarchy-table td{padding:7px 9px;border-bottom:1px solid var(--border);text-align:right;font-family:'DM Mono',monospace;white-space:nowrap;font-size:11px;}
-.hierarchy-table td:first-child{position:sticky;left:0;z-index:2;background:var(--navy2);text-align:left;font-family:'Sora',sans-serif;white-space:normal;min-width:230px;}
+.kpi-value{font-size:16px;font-weight:800;font-family:'DM Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.kpi-label{font-size:9.5px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.03em;}
+
+.suggestions-header{cursor:pointer;user-select:none;display:flex;align-items:center;gap:8px;}
+.suggestions-badge{background:var(--neg);color:#fff;border-radius:999px;font-size:10px;font-weight:800;padding:1px 7px;}
+.suggestions-chevron{margin-left:auto;font-size:11px;color:var(--text3);transition:transform .2s;}
+.suggestion-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 10px;border-radius:9px;background:var(--navy3);margin-bottom:6px;cursor:pointer;}
+.suggestion-row:hover{filter:brightness(1.05);}
+.suggestion-name{font-weight:700;font-size:12px;}
+.suggestion-meta{font-size:10px;color:var(--text3);margin-top:2px;}
+.suggestion-val{font-family:'DM Mono',monospace;font-weight:700;font-size:12.5px;text-align:right;flex:none;}
+.suggestion-val span{display:block;font-family:'Sora',sans-serif;font-weight:400;font-size:9px;color:var(--text3);}
+
+.charts-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+.chart-box{background:var(--navy2);border:1px solid var(--border2);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow);margin-bottom:14px;}
+.chart-title{font-size:12.5px;font-weight:800;margin-bottom:2px;}
+.chart-sub{font-size:10px;color:var(--text3);margin-bottom:9px;}
+.chart-canvas-wrap{position:relative;height:190px;}
+.chart-canvas-wrap.lg{height:220px;}
+
+table{width:100%;border-collapse:collapse;}
+.table-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap;}
+.table-toolbar input{max-width:220px;background:var(--navy3);border:1px solid var(--border2);border-radius:8px;padding:6px 9px;color:var(--text);font:11px 'Sora',sans-serif;outline:none;}
+.btn-ghost-sm{background:var(--navy3);border:1px solid var(--border2);border-radius:8px;padding:6px 11px;cursor:pointer;font-size:10.5px;font-weight:700;color:var(--text2);}
+.hierarchy-wrap{overflow:auto;border:1px solid var(--border2);border-radius:11px;max-height:200px;}
+.hierarchy-table{width:100%;min-width:760px;border-collapse:separate;border-spacing:0;font-size:10.5px;}
+.hierarchy-table th{position:sticky;top:0;z-index:4;background:var(--navy3);color:var(--text3);font-size:8.5px;text-transform:uppercase;letter-spacing:.03em;padding:6px 8px;border-bottom:1px solid var(--border2);text-align:right;white-space:nowrap;}
+.hierarchy-table th:first-child{position:sticky;left:0;z-index:6;text-align:left;min-width:210px;}
+.hierarchy-table td{padding:5px 8px;border-bottom:1px solid var(--border);text-align:right;font-family:'DM Mono',monospace;white-space:nowrap;font-size:10.5px;}
+.hierarchy-table td:first-child{position:sticky;left:0;z-index:2;background:var(--navy2);text-align:left;font-family:'Sora',sans-serif;white-space:normal;min-width:210px;}
 .hierarchy-table tr.hier-group td{font-weight:800;background:var(--navy3);}
 .hierarchy-table tr.hier-group td:first-child{background:var(--navy3);}
 .hierarchy-table tr.hier-client td{color:var(--text2);}
-.hierarchy-table tr.hier-client td:first-child{padding-left:24px;}
+.hierarchy-table tr.hier-client td:first-child{padding-left:22px;cursor:pointer;}
+.hierarchy-table tr.hier-client:hover td{background:rgba(54,226,201,.06);}
 .hierarchy-row-toggle{cursor:pointer;user-select:none;}
 .hierarchy-row-toggle:hover td{filter:brightness(1.06);}
-.hier-chevron{display:inline-block;width:14px;font-weight:800;color:var(--text3);}
+.hier-chevron{display:inline-block;width:12px;font-weight:800;color:var(--text3);}
 .trend-up{color:var(--pos);font-weight:700;}
 .trend-down{color:var(--neg);font-weight:700;}
 .trend-flat{color:var(--text3);}
-.texto-analitico{font-size:12.5px;line-height:1.7;color:var(--text2);white-space:pre-wrap;}
-.empty-state{text-align:center;color:var(--text3);padding:22px 12px;font-size:11.5px;}
-#loadingScreen{display:flex;align-items:center;justify-content:center;height:70vh;flex-direction:column;gap:14px;color:var(--text3);font-size:12.5px;}
-.spinner{width:32px;height:32px;border-radius:50%;border:3px solid var(--border2);border-top-color:var(--blue);animation:spin .8s linear infinite;}
-@keyframes spin{to{transform:rotate(360deg);}}
+.empty-state{text-align:center;color:var(--text3);padding:18px 12px;font-size:11px;}
+
+.whats-box{background:var(--navy3);border-radius:10px;padding:12px 14px;font-size:12px;line-height:1.65;white-space:pre-wrap;font-family:'Sora',sans-serif;max-height:200px;overflow-y:auto;margin-bottom:10px;}
+.btn-primary-sm{display:inline-flex;align-items:center;gap:6px;background:linear-gradient(90deg,var(--blue),var(--cyan));color:#fff;border:none;border-radius:9px;padding:8px 15px;font-size:11.5px;font-weight:700;cursor:pointer;}
+
+.modal-overlay-detalhe{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:20px;z-index:500;}
+.modal-overlay-detalhe.show{display:flex;}
+.client-modal-box{background:var(--navy2);border-radius:16px;padding:22px 24px;max-width:640px;width:100%;max-height:88vh;overflow-y:auto;box-shadow:var(--shadow);}
+.client-modal-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;}
+.client-modal-head h2{font-size:17px;font-weight:800;}
+.client-modal-head p{font-size:11px;color:var(--text3);margin-top:2px;}
+.client-close-btn{background:var(--navy3);border:1px solid var(--border2);border-radius:50%;width:30px;height:30px;color:var(--text);cursor:pointer;font-size:13px;flex:none;}
+.client-kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px;}
+.client-kpi{background:var(--navy3);border-radius:10px;padding:10px;text-align:center;}
+.client-kpi-val{font-family:'DM Mono',monospace;font-weight:800;font-size:13px;}
+.client-kpi-lbl{font-size:9px;color:var(--text3);text-transform:uppercase;margin-top:2px;}
+.client-section-title{font-size:11.5px;font-weight:800;margin:14px 0 8px;}
+.client-chart-box{position:relative;height:160px;}
+.client-products-list{display:flex;flex-direction:column;gap:6px;}
+.client-product-row{display:flex;justify-content:space-between;font-size:11px;padding:7px 10px;border-radius:8px;background:var(--navy3);}
 @media(min-width:1700px){.content{max-width:1560px}}
-@media(max-width:900px){.content{width:100%;padding:16px}.kpi-grid{grid-template-columns:repeat(2,1fr);}.charts-grid{grid-template-columns:1fr;}}
+@media(max-width:900px){.content{width:100%;padding:16px}.kpi-grid{grid-template-columns:repeat(2,1fr);}.charts-grid{grid-template-columns:1fr;}.client-kpi-grid{grid-template-columns:repeat(2,1fr);}}
 </style>
 </head>
 <body>
@@ -102,15 +131,16 @@ table{width:100%;border-collapse:collapse;font-size:11.5px;}
       <button id="appBtnDark" title="Escuro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg></button>
       <button id="appBtnLight" title="Claro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg></button>
     </div>
-    <div id="userChip" style="font-size:11.5px;color:var(--text3);"></div>
-    <button id="appLogoutBtn" title="Sair" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11.5px;">Sair</button>
+    <div id="userChip" style="font-size:11px;color:var(--text3);"></div>
+    <button id="appLogoutBtn" title="Sair" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:11px;">Sair</button>
   </div>
 </div>
 
-<div id="loadingScreen">
-  <div class="spinner"></div>
+<div id="loadingScreen" style="display:flex;align-items:center;justify-content:center;height:70vh;flex-direction:column;gap:14px;color:var(--text3);font-size:12px;">
+  <div style="width:32px;height:32px;border-radius:50%;border:3px solid var(--border2);border-top-color:var(--blue);animation:spin .8s linear infinite;"></div>
   <div>Carregando dados comerciais…</div>
 </div>
+<style>@keyframes spin{to{transform:rotate(360deg);}}</style>
 
 <div class="content" id="mainContent" style="display:none;">
 
@@ -127,34 +157,51 @@ table{width:100%;border-collapse:collapse;font-size:11.5px;}
     <div class="kpi-card" style="--kpi-color:var(--pos);"><div class="kpi-icon">🎫</div><div class="kpi-body"><div class="kpi-value" id="kpiTicket">—</div><div class="kpi-label">Ticket Médio</div></div></div>
   </div>
 
+  <div class="card" id="suggestionsCard" style="display:none;">
+    <div class="card-title suggestions-header" onclick="toggleSuggestions()">
+      🎯 Sugestões de contato pra bater a meta
+      <span id="suggestionsCount" class="suggestions-badge"></span>
+      <span id="suggestionsChevron" class="suggestions-chevron">▸</span>
+    </div>
+    <div class="card-sub">Clientes com histórico de recompra que já passaram do ciclo médio deles — ordenado pelo maior ticket médio</div>
+    <div id="suggestionsBody" style="display:none;">
+      <div id="suggestionsList"></div>
+    </div>
+  </div>
+
   <div class="chart-box">
     <div class="chart-title">Evolução do Faturamento</div>
-    <div class="chart-sub">Variação referente ao mês anterior</div>
+    <div class="chart-sub">Variação referente ao mês anterior.</div>
     <div class="chart-canvas-wrap lg"><canvas id="chartEvolucao"></canvas></div>
-    <div class="empty-state" id="avisoHistorico" style="display:none;margin-top:8px;">
-      A base ainda tem só o(s) mês(es) importado(s) até agora — o histórico completo desde jan/2025 aparece aqui conforme os meses forem sendo acumulados (ou assim que recebermos um backfill histórico).
+    <div class="empty-state" id="avisoHistorico" style="display:none;">
+      A base ainda tem só o(s) mês(es) importado(s) até agora.
     </div>
   </div>
 
   <div class="charts-grid">
     <div class="chart-box">
-      <div class="chart-title">Receita por Cliente</div>
-      <div class="chart-sub">Top 10 clientes do mês</div>
-      <div class="chart-canvas-wrap"><canvas id="chartClientes"></canvas></div>
+      <div class="chart-title">Faturamento por Dia</div>
+      <div class="chart-sub">Evolução diária no mês vigente.</div>
+      <div class="chart-canvas-wrap"><canvas id="chartDiario"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <div class="chart-title">Faturamento por Semana</div>
+      <div class="chart-sub">Semanas do mês em ordem cronológica.</div>
+      <div class="chart-canvas-wrap"><canvas id="chartSemanal"></canvas></div>
     </div>
     <div class="chart-box">
       <div class="chart-title">Receita por Tipo</div>
-      <div class="chart-sub">Produto / Serviço / Fatura</div>
+      <div class="chart-sub">Produto / Serviço / Fatura.</div>
       <div class="chart-canvas-wrap"><canvas id="chartTipo"></canvas></div>
     </div>
   </div>
 
   <div class="card">
     <div class="table-toolbar">
-      <div><div class="card-title">Representante × Cliente</div><div class="card-sub" style="margin-bottom:0;">Clique no "+" pra abrir os clientes de cada representante.</div></div>
+      <div><div class="card-title">Representante × Cliente</div><div class="card-sub" style="margin-bottom:0;">"+" abre os clientes; clique num cliente pra ver a ficha dele.</div></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <input type="text" id="buscaMatriz" placeholder="🔎 Buscar cliente...">
-        <button class="theme-toggle" style="padding:6px 12px;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;color:var(--text2);" onclick="expandirTudo()">Expandir tudo</button>
+        <button class="btn-ghost-sm" onclick="expandirTudo()">Expandir tudo</button>
       </div>
     </div>
     <div class="hierarchy-wrap">
@@ -171,11 +218,34 @@ table{width:100%;border-collapse:collapse;font-size:11.5px;}
   </div>
 
   <div class="card">
-    <div class="card-title">🧠 Texto Analítico</div>
-    <div class="card-sub">Leitura automática do mês.</div>
-    <div class="texto-analitico" id="textoAnalitico">—</div>
+    <div class="card-title">📋 Análise pronta pra WhatsApp</div>
+    <div class="card-sub">Texto pronto pra colar direto no grupo do cliente.</div>
+    <pre class="whats-box" id="analiseWhatsTexto"></pre>
+    <button class="btn-primary-sm" id="btnCopiarWhats">📋 Copiar texto</button>
   </div>
 
+</div>
+
+<div id="clientModal" class="modal-overlay-detalhe" aria-hidden="true">
+  <div class="client-modal-box">
+    <div class="client-modal-head">
+      <div><h2 id="clientModalName">--</h2><p>Ficha do cliente</p></div>
+      <button class="client-close-btn" onclick="closeClientModal()">✕</button>
+    </div>
+    <div class="client-kpi-grid">
+      <div class="client-kpi"><div class="client-kpi-val" id="cliKpiFaturado">--</div><div class="client-kpi-lbl">Faturamento</div></div>
+      <div class="client-kpi"><div class="client-kpi-val" id="cliKpiPedidos">--</div><div class="client-kpi-lbl">Pedidos</div></div>
+      <div class="client-kpi"><div class="client-kpi-val" id="cliKpiTicket">--</div><div class="client-kpi-lbl">Ticket Médio</div></div>
+      <div class="client-kpi"><div class="client-kpi-val" id="cliKpiUltima">--</div><div class="client-kpi-lbl">Última compra</div></div>
+    </div>
+    <div class="client-kpi-grid" style="grid-template-columns:1fr;">
+      <div class="client-kpi"><div class="client-kpi-val" id="cliKpiCiclo">--</div><div class="client-kpi-lbl">Ciclo médio entre compras</div></div>
+    </div>
+    <div class="client-section-title">Evolução de Compras (mensal)</div>
+    <div class="client-chart-box"><canvas id="clientHistChart"></canvas></div>
+    <div class="client-section-title">Top Tipos/Serviços Comprados</div>
+    <div class="client-products-list" id="clientProductsList"></div>
+  </div>
 </div>
 
 <script>
@@ -183,14 +253,16 @@ const SUPABASE_URL = 'https://ikncdkgaefwzdveotvka.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_XtrW_VlYPu1bE7FNA1V2lA_Srq9c5T6';
 const LOGIN_URL = 'index.html';
 
+// Meta mensal do Comercial Alkanse (usada na Análise pronta pra WhatsApp).
+// Confirmar com o Gustavo se muda mês a mês; por ora é um valor fixo aqui
+// no código (mesmo padrão que o Mebrasi usa pra META_MENSAL).
+const META_MENSAL = 7500000;
+const LINK_ANALISE = 'https://bit.ly/alkanse';
+
 function el(id){ return document.getElementById(id); }
-function normalizeTxt(s){
-  return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
-}
+function normalizeTxt(s){ return (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim(); }
 function getColNormalized(rowObj, wantedKeyNormalized){
-  for(const k in rowObj){
-    if(normalizeTxt(k)===wantedKeyNormalized) return rowObj[k];
-  }
+  for(const k in rowObj){ if(normalizeTxt(k)===wantedKeyNormalized) return rowObj[k]; }
   return undefined;
 }
 function cleanCell(v){
@@ -198,6 +270,7 @@ function cleanCell(v){
   if(typeof v==='object' && v!==null) return (v.f ?? v.v ?? '').toString().trim();
   return v.toString().trim();
 }
+function escapeHtml(s){ return (s||'').toString().replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function nameFromEmail(email){ return email.split('@')[0].split('.').map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' '); }
 function fmtBRL(v){
   const n = v||0;
@@ -206,10 +279,15 @@ function fmtBRL(v){
   return n.toLocaleString('pt-BR',{maximumFractionDigits:0});
 }
 function fmtBRLFull(v){ return (v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0}); }
+function fmtBRLInt(v){ return 'R$ ' + Math.round(v||0).toLocaleString('pt-BR'); }
 function fmtNum(v){ return (v||0).toLocaleString('pt-BR'); }
+function mesLabelCurto(m){
+  const nomes = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  const [y,mm] = m.split('-');
+  return nomes[parseInt(mm,10)-1] + '/' + y.slice(2);
+}
 
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
 function corTexto(){ return getComputedStyle(document.documentElement).getPropertyValue('--text').trim(); }
 function corGrid(){ return getComputedStyle(document.documentElement).getPropertyValue('--border2').trim(); }
 function cssVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
@@ -221,24 +299,13 @@ function appApplyTheme(t){
   el('appBtnLight').classList.toggle('active', t==='light');
   if(vendasRows.length) renderTudo();
 }
-async function doLogout(){
-  await sb.auth.signOut();
-  window.location.replace(LOGIN_URL);
-}
+async function doLogout(){ await sb.auth.signOut(); window.location.replace(LOGIN_URL); }
 
-// Busca a aba "Vendas" através da API protegida (WIF/Service Account) —
-// a planilha está Restrita, não dá pra ler direto do navegador (gviz).
 async function fetchVendasTable(){
   const { data: sessData } = await sb.auth.getSession();
   const token = sessData && sessData.session ? sessData.session.access_token : null;
   if(!token) throw new Error('Sessão expirada');
-
-  const res = await fetch('/api/alkanse-comercial', {
-    method:'GET',
-    headers:{ 'Authorization': `Bearer ${token}` },
-    cache:'no-store'
-  });
-
+  const res = await fetch('/api/alkanse-comercial', { method:'GET', headers:{ 'Authorization': `Bearer ${token}` }, cache:'no-store' });
   if(!res.ok){
     let msg = `HTTP ${res.status}`;
     try{ const e = await res.json(); if(e && e.error) msg = e.error; }catch(_){}
@@ -265,7 +332,7 @@ function parseDateCell(v){
 }
 
 let vendasRows = [];
-let chartClientes, chartTipo, chartEvolucao;
+let chartTipo, chartEvolucao, chartDiario, chartSemanal, clientHistChartInst;
 let matrizAbertos = new Set();
 
 function processarLinha(r){
@@ -285,65 +352,51 @@ async function loadData(){
   vendasRows = raw.map(processarLinha).filter(r => r.cliente);
   renderTudo();
 }
-
 function linhasFiltradas(){
   const busca = normalizeTxt(el('buscaMatriz').value);
   if(!busca) return vendasRows;
   return vendasRows.filter(r => normalizeTxt(r.cliente).includes(busca) || normalizeTxt(r.representante).includes(busca));
 }
+function mesVigenteDe(linhas){
+  const meses = Array.from(new Set(linhas.map(r=>r.mes).filter(Boolean))).sort();
+  return meses[meses.length-1];
+}
+function mesAnteriorDe(mes){ const [y,m]=mes.split('-').map(Number); const d=new Date(y,m-2,1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
+function anoAnteriorDe(mes){ const [y,m]=mes.split('-'); return `${Number(y)-1}-${m}`; }
 
-// ---------- Evolução mensal (Jan/2025 em diante, conforme acumulado) ----------
+// ---------- Evolução mensal ----------
 function renderChartEvolucao(){
   const porMes = {};
   vendasRows.forEach(r=>{ if(r.mes) porMes[r.mes] = (porMes[r.mes]||0) + r.valor; });
   const meses = Object.keys(porMes).sort();
   el('avisoHistorico').style.display = meses.length <= 2 ? 'block' : 'none';
-  if(meses.length === 0){
-    if(chartEvolucao){ chartEvolucao.destroy(); chartEvolucao = null; }
-    return;
-  }
+  if(meses.length === 0){ if(chartEvolucao){ chartEvolucao.destroy(); chartEvolucao=null; } return; }
 
   const valores = meses.map(m=>porMes[m]);
-  const pctVsAnterior = meses.map((m,i)=>{
-    if(i===0) return null;
-    const prev = valores[i-1];
-    if(!prev) return null;
-    return (valores[i]-prev)/prev*100;
-  });
-  const mesNomesAbrev = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
-  const labels = meses.map(m=>{ const [y,mm]=m.split('-'); return mesNomesAbrev[parseInt(mm,10)-1] + (mm==='01' ? '\n'+y : ''); });
+  const pctVsAnterior = meses.map((m,i)=>{ if(i===0) return null; const prev=valores[i-1]; if(!prev) return null; return (valores[i]-prev)/prev*100; });
+  const labels = meses.map(m=>{ const [y,mm]=m.split('-'); return mesLabelCurto(m).split('/')[0] + (mm==='01' ? '\n'+y : ''); });
 
-  const textColor = corTexto();
-  const gridColor = corGrid();
+  const textColor = corTexto(), gridColor = corGrid();
   const green = cssVar('--pos'), red = cssVar('--neg');
   const blue = cssVar('--blue'), cyan = cssVar('--cyan');
   const mesAtualKey = meses[meses.length-1];
   const barColors = meses.map(m => m===mesAtualKey ? cyan : blue);
-
-  // Marca discreta onde 2026 começa (linha vertical pontilhada + rótulo).
   const idxTransicao = meses.findIndex((m,i)=> i>0 && m.startsWith('2026') && !meses[i-1].startsWith('2026'));
 
   const pctLabelPlugin = {
     id:'pctLabelPluginComercial',
     afterDatasetsDraw(chart){
-      const {ctx} = chart;
-      const meta = chart.getDatasetMeta(0);
-      if(!meta || meta.hidden) return;
-      ctx.save();
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'bottom';
+      const {ctx} = chart; const meta = chart.getDatasetMeta(0); if(!meta || meta.hidden) return;
+      ctx.save(); ctx.textAlign='center'; ctx.textBaseline='bottom';
       valores.forEach((val,i)=>{
         if(!meta.data[i]) return;
         const p = meta.data[i].getProps(['x','y'], true);
-        ctx.font = '700 9.5px "DM Mono", monospace';
-        ctx.fillStyle = textColor;
-        ctx.fillText(fmtBRL(val), p.x, p.y - 7);
-        const v = pctVsAnterior[i];
-        if(v===null || v===undefined) return;
-        ctx.font = '700 9px Sora, sans-serif';
-        ctx.fillStyle = v>=0 ? green : red;
-        const arrow = v>=0 ? '↑' : '↓';
-        ctx.fillText(`${v>=0?'+':''}${v.toFixed(1).replace('.',',')}% ${arrow}`, p.x, p.y - 18);
+        ctx.font = '700 10px "DM Mono", monospace'; ctx.fillStyle = textColor;
+        ctx.fillText(fmtBRLInt(val), p.x, p.y - 20);
+        const v = pctVsAnterior[i]; if(v===null || v===undefined) return;
+        ctx.font = '700 9.5px Sora, sans-serif'; ctx.fillStyle = v>=0 ? green : red;
+        const arrow = v>=0 ? '↗' : '↘';
+        ctx.fillText(`${v>=0?'+':''}${v.toFixed(1).replace('.',',')}% ${arrow}`, p.x, p.y - 7);
       });
       ctx.restore();
     }
@@ -352,24 +405,13 @@ function renderChartEvolucao(){
     id:'anoTransicaoPluginComercial',
     afterDatasetsDraw(chart){
       if(idxTransicao < 0) return;
-      const {ctx, chartArea, scales} = chart;
-      const meta = chart.getDatasetMeta(0);
-      const barAtual = meta.data[idxTransicao];
-      const barAnterior = meta.data[idxTransicao-1];
+      const {ctx, chartArea} = chart; const meta = chart.getDatasetMeta(0);
+      const barAtual = meta.data[idxTransicao], barAnterior = meta.data[idxTransicao-1];
       if(!barAtual || !barAnterior) return;
       const xMeio = (barAnterior.x + barAtual.x) / 2;
-      ctx.save();
-      ctx.strokeStyle = gridColor;
-      ctx.setLineDash([3,3]);
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(xMeio, chartArea.top+4);
-      ctx.lineTo(xMeio, chartArea.bottom);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.fillStyle = textColor;
-      ctx.font = '700 9px Sora, sans-serif';
-      ctx.textAlign = 'center';
+      ctx.save(); ctx.strokeStyle = gridColor; ctx.setLineDash([3,3]); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(xMeio, chartArea.top+4); ctx.lineTo(xMeio, chartArea.bottom); ctx.stroke();
+      ctx.setLineDash([]); ctx.fillStyle = textColor; ctx.font = '700 9px Sora, sans-serif'; ctx.textAlign = 'center';
       ctx.fillText('2026', xMeio, chartArea.top);
       ctx.restore();
     }
@@ -377,10 +419,10 @@ function renderChartEvolucao(){
 
   const cfg = {
     type:'bar',
-    data:{ labels, datasets:[{ data: valores, backgroundColor:barColors, borderRadius:4, maxBarThickness:38, categoryPercentage:0.85, barPercentage:0.95 }] },
+    data:{ labels, datasets:[{ data: valores, backgroundColor:barColors, borderRadius:4, maxBarThickness:34, categoryPercentage:0.85, barPercentage:0.95 }] },
     options:{
       responsive:true, maintainAspectRatio:false, animation:{duration:250},
-      layout:{ padding:{top:34} },
+      layout:{ padding:{top:36} },
       plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:c=>fmtBRLFull(c.parsed.y) } } },
       scales:{
         x:{ grid:{display:false}, ticks:{color:textColor, font:{size:9.5}} },
@@ -393,7 +435,7 @@ function renderChartEvolucao(){
   else { chartEvolucao = new Chart(el('chartEvolucao'), cfg); }
 }
 
-// ---------- KPIs, Top Clientes, Tipo ----------
+// ---------- KPIs + Faturamento por Dia/Semana + Receita por Tipo ----------
 function renderKpisEGraficos(linhas){
   const receitaTotal = linhas.reduce((s,r)=>s+r.valor,0);
   const clientesUnicos = new Set(linhas.map(r=>r.cliente)).size;
@@ -403,32 +445,12 @@ function renderKpisEGraficos(linhas){
   el('kpiItens').textContent = fmtNum(itensVendidos);
   el('kpiTicket').textContent = fmtBRLFull(itensVendidos ? receitaTotal/itensVendidos : 0);
 
-  const primeiraData = linhas.map(r=>r.dataISO).find(Boolean);
-  if(primeiraData){
-    const [ano,mes] = primeiraData.split('-');
+  const mesAtual = mesVigenteDe(linhas);
+  if(mesAtual){
+    const [ano,mes] = mesAtual.split('-');
     const nomesMes = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
     el('badgeMes').textContent = `📆 ${nomesMes[parseInt(mes,10)-1]}/${ano}`;
   }
-
-  const porCliente = {};
-  linhas.forEach(r=>{ porCliente[r.cliente] = (porCliente[r.cliente]||0) + r.valor; });
-  const top10 = Object.entries(porCliente).sort((a,b)=>b[1]-a[1]).slice(0,10);
-  if(chartClientes) chartClientes.destroy();
-  chartClientes = new Chart(el('chartClientes'), {
-    type:'bar',
-    data:{
-      labels: top10.map(c=>c[0].length>20 ? c[0].slice(0,20)+'…' : c[0]),
-      datasets:[{ data: top10.map(c=>c[1]), backgroundColor: cssVar('--blue'), borderRadius:4 }]
-    },
-    options:{
-      indexAxis:'y', responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label:c=>fmtBRLFull(c.parsed.x) } } },
-      scales:{
-        x:{ ticks:{ callback:v=>fmtBRL(v), color:corTexto(), font:{size:9.5} }, grid:{color:corGrid()} },
-        y:{ ticks:{ color:corTexto(), font:{size:9.5} }, grid:{display:false} }
-      }
-    }
-  });
 
   const porTipo = {};
   linhas.forEach(r=>{ porTipo[r.tipo] = (porTipo[r.tipo]||0) + r.valor; });
@@ -438,123 +460,145 @@ function renderKpisEGraficos(linhas){
   chartTipo = new Chart(el('chartTipo'), {
     type:'doughnut',
     data:{ labels: tiposOrdenados.map(t=>t[0]), datasets:[{ data: tiposOrdenados.map(t=>t[1]), backgroundColor: cores }] },
-    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ boxWidth:8, font:{ size:9.5 }, color:corTexto() } } } }
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ boxWidth:8, font:{ size:9 }, color:corTexto() } } } }
+  });
+
+  if(!mesAtual){ if(chartDiario){chartDiario.destroy();chartDiario=null;} if(chartSemanal){chartSemanal.destroy();chartSemanal=null;} return; }
+  const doMes = linhas.filter(r=>r.mes===mesAtual && r.dataISO);
+
+  // Faturamento por Dia
+  const porDia = {};
+  doMes.forEach(r=>{ porDia[r.dataISO] = (porDia[r.dataISO]||0) + r.valor; });
+  const diasOrdenados = Object.keys(porDia).sort();
+  if(chartDiario) chartDiario.destroy();
+  chartDiario = new Chart(el('chartDiario'), {
+    type:'line',
+    data:{
+      labels: diasOrdenados.map(d=>d.slice(8,10)+'/'+d.slice(5,7)),
+      datasets:[{ data: diasOrdenados.map(d=>porDia[d]), borderColor:cssVar('--blue'), backgroundColor:'rgba(45,112,184,.12)', fill:true, tension:.3, pointRadius:0 }]
+    },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmtBRLFull(c.parsed.y)}}},
+      scales:{ x:{ grid:{display:false}, ticks:{color:corTexto(),font:{size:8.5},maxTicksLimit:8} }, y:{ grid:{color:corGrid()}, ticks:{color:corTexto(),font:{size:8.5},callback:v=>fmtBRL(v)} } } }
+  });
+
+  // Faturamento por Semana (buckets de 7 dias dentro do mês)
+  const porSemana = {};
+  doMes.forEach(r=>{ const dia = parseInt(r.dataISO.slice(8,10),10); const semana = Math.ceil(dia/7); porSemana[semana] = (porSemana[semana]||0)+r.valor; });
+  const semanasOrdenadas = Object.keys(porSemana).map(Number).sort((a,b)=>a-b);
+  if(chartSemanal) chartSemanal.destroy();
+  chartSemanal = new Chart(el('chartSemanal'), {
+    type:'bar',
+    data:{ labels: semanasOrdenadas.map(s=>'Sem. '+s), datasets:[{ data: semanasOrdenadas.map(s=>porSemana[s]), backgroundColor: cssVar('--blue'), borderRadius:4, maxBarThickness:40 }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmtBRLFull(c.parsed.y)}}},
+      scales:{ x:{ grid:{display:false}, ticks:{color:corTexto(),font:{size:9}} }, y:{ grid:{color:corGrid()}, ticks:{color:corTexto(),font:{size:9},callback:v=>fmtBRL(v)} } } }
   });
 }
 
-// ---------- Tabela matriz Representante x Cliente (com M.A / A.A) ----------
-function agruparPorMes(linhas, keyFn){
-  const mapa = {};
+// ---------- Sugestões de contato pra bater a meta ----------
+function renderSugestoes(linhas){
+  const porCliente = {};
   linhas.forEach(r=>{
-    const k = keyFn(r);
-    if(!mapa[k]) mapa[k] = {};
-    if(r.mes) mapa[k][r.mes] = (mapa[k][r.mes]||0) + r.valor;
+    if(!r.dataISO) return;
+    if(!porCliente[r.cliente]) porCliente[r.cliente] = { datas:new Set(), valor:0, itens:0 };
+    porCliente[r.cliente].datas.add(r.dataISO);
+    porCliente[r.cliente].valor += r.valor;
+    porCliente[r.cliente].itens += 1;
   });
-  return mapa;
+  const hoje = new Date();
+  const sugestoes = [];
+  Object.entries(porCliente).forEach(([cliente,d])=>{
+    const datas = Array.from(d.datas).sort();
+    if(datas.length < 3) return;
+    const gaps = []; for(let i=1;i<datas.length;i++) gaps.push((new Date(datas[i])-new Date(datas[i-1]))/86400000);
+    const cicloMedio = gaps.reduce((s,g)=>s+g,0)/gaps.length;
+    const ultima = datas[datas.length-1];
+    const diasDesde = (hoje - new Date(ultima+'T00:00:00'))/86400000;
+    if(diasDesde > cicloMedio){
+      const ticketMedio = d.itens ? d.valor/d.itens : 0;
+      sugestoes.push({ cliente, ultima, diasDesde: Math.round(diasDesde), cicloMedio: Math.round(cicloMedio), ticketMedio });
+    }
+  });
+  sugestoes.sort((a,b)=>b.ticketMedio-a.ticketMedio);
+
+  el('suggestionsCard').style.display = sugestoes.length ? 'block' : 'none';
+  el('suggestionsCount').textContent = sugestoes.length;
+  el('suggestionsList').innerHTML = sugestoes.slice(0,15).map(s=>`
+    <div class="suggestion-row" onclick="openClientModal('${escapeHtml(s.cliente).replace(/'/g,"\\'")}')">
+      <div>
+        <div class="suggestion-name">${escapeHtml(s.cliente)}</div>
+        <div class="suggestion-meta">Última compra há ${s.diasDesde}d · ciclo médio de ${s.cicloMedio}d</div>
+      </div>
+      <div class="suggestion-val">${fmtBRLFull(s.ticketMedio)}<span>ticket médio</span></div>
+    </div>
+  `).join('');
 }
-function mesAnteriorDe(mes){
-  const [y,m] = mes.split('-').map(Number);
-  const d = new Date(y, m-2, 1);
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+function toggleSuggestions(){
+  const body = el('suggestionsBody'); const chevron = el('suggestionsChevron');
+  const aberto = body.style.display === 'block';
+  body.style.display = aberto ? 'none' : 'block';
+  chevron.style.transform = aberto ? 'rotate(0deg)' : 'rotate(90deg)';
 }
-function anoAnteriorDe(mes){
-  const [y,m] = mes.split('-');
-  return `${Number(y)-1}-${m}`;
-}
+
+// ---------- Tabela matriz Representante x Cliente ----------
 function celulaVariacao(atual, comparado){
-  if(!comparado){
-    return { html: '<td>—</td><td>—</td><td>—</td>' };
-  }
+  if(!comparado) return '<td>—</td><td>—</td><td>—</td>';
   const delta = atual - comparado;
   const pct = comparado ? (delta/comparado*100) : null;
   const cls = delta>0 ? 'trend-up' : (delta<0 ? 'trend-down' : 'trend-flat');
   const arrow = delta>0 ? '↑' : (delta<0 ? '↓' : '');
   const pctTxt = pct===null ? '—' : `${pct>=0?'+':''}${pct.toFixed(1).replace('.',',')}%`;
-  return { html: `<td>${fmtBRLFull(comparado)}</td><td class="${cls}">${delta>=0?'+':''}${fmtBRL(delta)}</td><td class="${cls}">${pctTxt} ${arrow}</td>` };
+  return `<td>${fmtBRLFull(comparado)}</td><td class="${cls}">${delta>=0?'+':''}${fmtBRL(delta)}</td><td class="${cls}">${pctTxt} ${arrow}</td>`;
 }
-function linhaMatriz(nome, dadosMes, receitaTotalGeral, mesAtual, mesAnt, anoAnt, indent){
+function linhaMatriz(dadosMes, receitaTotalGeral, mesAnt, anoAnt){
   const receita = dadosMes.receita, nfs = dadosMes.nfs, itens = dadosMes.itens;
   const share = receitaTotalGeral ? (receita/receitaTotalGeral*100) : 0;
   const ticket = itens ? receita/itens : 0;
-  const varMA = celulaVariacao(receita, dadosMes.porMes[mesAnt]);
-  const varAA = celulaVariacao(receita, dadosMes.porMes[anoAnt]);
-  return `<td>${fmtBRLFull(receita)}</td><td>${share.toFixed(0)}%</td><td>${fmtNum(nfs)}</td><td>${fmtBRLFull(ticket)}</td>${varMA.html}${varAA.html}`;
+  return `<td>${fmtBRLFull(receita)}</td><td>${share.toFixed(0)}%</td><td>${fmtNum(nfs)}</td><td>${fmtBRLFull(ticket)}</td>${celulaVariacao(receita, dadosMes.porMes[mesAnt])}${celulaVariacao(receita, dadosMes.porMes[anoAnt])}`;
 }
 function renderTabelaMatriz(linhas){
-  const meses = Array.from(new Set(linhas.map(r=>r.mes).filter(Boolean))).sort();
-  const mesAtual = meses[meses.length-1];
+  const mesAtual = mesVigenteDe(linhas);
   if(!mesAtual){ el('tabelaMatrizBody').innerHTML = '<tr><td colspan="11"><div class="empty-state">Nenhum registro encontrado.</div></td></tr>'; return; }
-  const mesAnt = mesAnteriorDe(mesAtual);
-  const anoAnt = anoAnteriorDe(mesAtual);
-
+  const mesAnt = mesAnteriorDe(mesAtual), anoAnt = anoAnteriorDe(mesAtual);
   const doMes = linhas.filter(r=>r.mes===mesAtual);
   const receitaTotalGeral = doMes.reduce((s,r)=>s+r.valor,0);
 
-  // Agrega por representante (com histórico mensal completo pra M.A/A.A).
   const porRep = {};
   linhas.forEach(r=>{
     if(!porRep[r.representante]) porRep[r.representante] = { porMes:{}, nfsPorMes:{}, itensPorMes:{}, clientes:{} };
     const grp = porRep[r.representante];
     if(r.mes){
       grp.porMes[r.mes] = (grp.porMes[r.mes]||0) + r.valor;
-      grp.nfsPorMes[r.mes] = grp.nfsPorMes[r.mes] || new Set();
-      if(r.notaFiscal) grp.nfsPorMes[r.mes].add(r.notaFiscal);
+      grp.nfsPorMes[r.mes] = grp.nfsPorMes[r.mes] || new Set(); if(r.notaFiscal) grp.nfsPorMes[r.mes].add(r.notaFiscal);
       grp.itensPorMes[r.mes] = (grp.itensPorMes[r.mes]||0) + 1;
     }
     if(!grp.clientes[r.cliente]) grp.clientes[r.cliente] = { porMes:{}, nfsPorMes:{}, itensPorMes:{} };
     const cli = grp.clientes[r.cliente];
     if(r.mes){
       cli.porMes[r.mes] = (cli.porMes[r.mes]||0) + r.valor;
-      cli.nfsPorMes[r.mes] = cli.nfsPorMes[r.mes] || new Set();
-      if(r.notaFiscal) cli.nfsPorMes[r.mes].add(r.notaFiscal);
+      cli.nfsPorMes[r.mes] = cli.nfsPorMes[r.mes] || new Set(); if(r.notaFiscal) cli.nfsPorMes[r.mes].add(r.notaFiscal);
       cli.itensPorMes[r.mes] = (cli.itensPorMes[r.mes]||0) + 1;
     }
   });
 
-  const repsOrdenados = Object.entries(porRep)
-    .map(([nome,grp])=>({ nome, grp, receita: grp.porMes[mesAtual]||0 }))
-    .filter(r=>r.receita>0)
-    .sort((a,b)=>b.receita-a.receita);
+  const repsOrdenados = Object.entries(porRep).map(([nome,grp])=>({ nome, grp, receita: grp.porMes[mesAtual]||0 })).filter(r=>r.receita>0).sort((a,b)=>b.receita-a.receita);
 
   let html = '';
   repsOrdenados.forEach((rep,i)=>{
-    const gid = 'rep'+i;
-    const aberto = matrizAbertos.has(gid);
-    const dadosMes = {
-      receita: rep.grp.porMes[mesAtual]||0,
-      nfs: (rep.grp.nfsPorMes[mesAtual]||new Set()).size,
-      itens: rep.grp.itensPorMes[mesAtual]||0,
-      porMes: rep.grp.porMes
-    };
-    html += `<tr class="hier-group hierarchy-row-toggle" data-gid="${gid}"><td><span class="hier-chevron">${aberto?'−':'+'}</span>${rep.nome}</td>${linhaMatriz(rep.nome, dadosMes, receitaTotalGeral, mesAtual, mesAnt, anoAnt)}</tr>`;
-
+    const gid = 'rep'+i; const aberto = matrizAbertos.has(gid);
+    const dadosMes = { receita: rep.grp.porMes[mesAtual]||0, nfs: (rep.grp.nfsPorMes[mesAtual]||new Set()).size, itens: rep.grp.itensPorMes[mesAtual]||0, porMes: rep.grp.porMes };
+    html += `<tr class="hier-group hierarchy-row-toggle" data-gid="${gid}"><td><span class="hier-chevron">${aberto?'−':'+'}</span>${escapeHtml(rep.nome)}</td>${linhaMatriz(dadosMes, receitaTotalGeral, mesAnt, anoAnt)}</tr>`;
     if(aberto){
-      const clientesOrdenados = Object.entries(rep.grp.clientes)
-        .map(([nome,cli])=>({ nome, cli, receita: cli.porMes[mesAtual]||0 }))
-        .filter(c=>c.receita>0)
-        .sort((a,b)=>b.receita-a.receita);
+      const clientesOrdenados = Object.entries(rep.grp.clientes).map(([nome,cli])=>({ nome, cli, receita: cli.porMes[mesAtual]||0 })).filter(c=>c.receita>0).sort((a,b)=>b.receita-a.receita);
       clientesOrdenados.forEach(c=>{
-        const dadosCli = {
-          receita: c.cli.porMes[mesAtual]||0,
-          nfs: (c.cli.nfsPorMes[mesAtual]||new Set()).size,
-          itens: c.cli.itensPorMes[mesAtual]||0,
-          porMes: c.cli.porMes
-        };
-        html += `<tr class="hier-client"><td>${c.nome}</td>${linhaMatriz(c.nome, dadosCli, receitaTotalGeral, mesAtual, mesAnt, anoAnt)}</tr>`;
+        const dadosCli = { receita: c.cli.porMes[mesAtual]||0, nfs: (c.cli.nfsPorMes[mesAtual]||new Set()).size, itens: c.cli.itensPorMes[mesAtual]||0, porMes: c.cli.porMes };
+        html += `<tr class="hier-client" onclick="openClientModal('${escapeHtml(c.nome).replace(/'/g,"\\'")}')"><td>${escapeHtml(c.nome)}</td>${linhaMatriz(dadosCli, receitaTotalGeral, mesAnt, anoAnt)}</tr>`;
       });
     }
   });
 
-  // Linha de total.
-  const dadosTotal = {
-    receita: receitaTotalGeral,
-    nfs: new Set(doMes.map(r=>r.notaFiscal).filter(Boolean)).size,
-    itens: doMes.length,
-    porMes: agruparPorMes(linhas, ()=> 'total')['total'] || (()=>{
-      const m = {}; linhas.forEach(r=>{ if(r.mes) m[r.mes] = (m[r.mes]||0)+r.valor; }); return m;
-    })()
-  };
-  html += `<tr class="hier-group"><td>Total</td>${linhaMatriz('Total', dadosTotal, receitaTotalGeral, mesAtual, mesAnt, anoAnt)}</tr>`;
+  const dadosTotal = { receita: receitaTotalGeral, nfs: new Set(doMes.map(r=>r.notaFiscal).filter(Boolean)).size, itens: doMes.length,
+    porMes: (()=>{ const m={}; linhas.forEach(r=>{ if(r.mes) m[r.mes]=(m[r.mes]||0)+r.valor; }); return m; })() };
+  html += `<tr class="hier-group"><td>Total</td>${linhaMatriz(dadosTotal, receitaTotalGeral, mesAnt, anoAnt)}</tr>`;
 
   el('tabelaMatrizBody').innerHTML = html;
   el('tabelaMatrizBody').querySelectorAll('.hierarchy-row-toggle').forEach(tr=>{
@@ -567,59 +611,127 @@ function renderTabelaMatriz(linhas){
 }
 function expandirTudo(){
   const linhas = linhasFiltradas();
-  const meses = Array.from(new Set(linhas.map(r=>r.mes).filter(Boolean))).sort();
-  const mesAtual = meses[meses.length-1];
-  if(!mesAtual) return;
+  const mesAtual = mesVigenteDe(linhas); if(!mesAtual) return;
   const doMes = linhas.filter(r=>r.mes===mesAtual);
-  const porRep = {};
-  doMes.forEach(r=>{ porRep[r.representante] = (porRep[r.representante]||0) + r.valor; });
+  const porRep = {}; doMes.forEach(r=>{ porRep[r.representante] = (porRep[r.representante]||0) + r.valor; });
   const n = Object.keys(porRep).length;
   for(let i=0;i<n;i++) matrizAbertos.add('rep'+i);
   renderTabelaMatriz(linhas);
 }
 
-// ---------- Texto Analítico ----------
-function renderTextoAnalitico(linhas){
-  const meses = Array.from(new Set(linhas.map(r=>r.mes).filter(Boolean))).sort();
-  const mesAtual = meses[meses.length-1];
-  if(!mesAtual){ el('textoAnalitico').textContent = 'Sem dados suficientes pra gerar a leitura do mês.'; return; }
-  const mesAnt = mesAnteriorDe(mesAtual);
+// ---------- Ficha do cliente ----------
+function openClientModal(cliente){
+  const itens = vendasRows.filter(r=>r.cliente===cliente);
+  const totalFat = itens.reduce((s,r)=>s+r.valor,0);
+  const datas = Array.from(new Set(itens.map(r=>r.dataISO).filter(Boolean))).sort();
+  const pedidos = new Set(itens.map(r=>r.notaFiscal).filter(Boolean)).size || datas.length;
+  const ticket = pedidos>0 ? totalFat/pedidos : 0;
+
+  el('clientModalName').textContent = cliente;
+  el('cliKpiFaturado').textContent = fmtBRLFull(totalFat);
+  el('cliKpiPedidos').textContent = fmtNum(pedidos);
+  el('cliKpiTicket').textContent = fmtBRLFull(ticket);
+
+  if(datas.length){
+    const lastDate = datas[datas.length-1];
+    const daysSince = Math.round((new Date() - new Date(lastDate+'T00:00:00'))/86400000);
+    el('cliKpiUltima').textContent = new Date(lastDate+'T00:00:00').toLocaleDateString('pt-BR') + ` (há ${daysSince}d)`;
+    if(datas.length>=3){
+      const gaps=[]; for(let i=1;i<datas.length;i++) gaps.push((new Date(datas[i])-new Date(datas[i-1]))/86400000);
+      el('cliKpiCiclo').textContent = Math.round(gaps.reduce((s,g)=>s+g,0)/gaps.length) + ' dias';
+    } else el('cliKpiCiclo').textContent = '— (histórico curto)';
+  } else { el('cliKpiUltima').textContent = '—'; el('cliKpiCiclo').textContent = '—'; }
+
+  const byMonth = {}; itens.forEach(r=>{ if(r.mes) byMonth[r.mes] = (byMonth[r.mes]||0)+r.valor; });
+  const months = Object.keys(byMonth).sort();
+  const chartData = { labels: months.map(mesLabelCurto), datasets:[{ data: months.map(m=>byMonth[m]), backgroundColor: cssVar('--blue'), borderRadius:4, maxBarThickness:26 }] };
+  const chartOpts = { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmtBRLFull(c.parsed.y)}}},
+    scales:{ x:{grid:{display:false},ticks:{color:corTexto(),font:{size:9}}}, y:{grid:{color:corGrid()},ticks:{color:corTexto(),font:{size:9},callback:v=>fmtBRL(v)}} } };
+  if(clientHistChartInst){ clientHistChartInst.data=chartData; clientHistChartInst.options=chartOpts; clientHistChartInst.update(); }
+  else clientHistChartInst = new Chart(el('clientHistChart'), { type:'bar', data:chartData, options:chartOpts });
+
+  const tipoMap={}; itens.forEach(r=>{ tipoMap[r.tipo]=(tipoMap[r.tipo]||0)+r.valor; });
+  const topTipos = Object.entries(tipoMap).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  el('clientProductsList').innerHTML = topTipos.length ? topTipos.map(([p,v])=>`<div class="client-product-row"><span>${escapeHtml(p)}</span><span>${fmtBRLFull(v)}</span></div>`).join('') : '<div style="color:var(--text3);font-size:11px;">Sem dados no período.</div>';
+
+  el('clientModal').classList.add('show');
+  el('clientModal').setAttribute('aria-hidden','false');
+}
+function closeClientModal(){ el('clientModal').classList.remove('show'); el('clientModal').setAttribute('aria-hidden','true'); }
+
+// ---------- Análise pronta pra WhatsApp ----------
+function contarDiasUteis(ano, mes){
+  const ultimoDia = new Date(ano, mes, 0).getDate();
+  let dias = 0;
+  for(let d=1; d<=ultimoDia; d++){ const wd = new Date(ano, mes-1, d).getDay(); if(wd!==0 && wd!==6) dias++; }
+  return dias;
+}
+function renderAnaliseWhats(linhas){
+  const mesAtual = mesVigenteDe(linhas);
+  if(!mesAtual){ el('analiseWhatsTexto').textContent = 'Sem dados suficientes.'; return; }
+  const [ano, mes] = mesAtual.split('-').map(Number);
   const doMes = linhas.filter(r=>r.mes===mesAtual);
-  const doMesAnt = linhas.filter(r=>r.mes===mesAnt);
   const receita = doMes.reduce((s,r)=>s+r.valor,0);
-  const receitaAnt = doMesAnt.reduce((s,r)=>s+r.valor,0);
+  const itens = doMes.length;
+  const ticketMedio = itens ? receita/itens : 0;
 
-  const porCliente = {};
-  doMes.forEach(r=>{ porCliente[r.cliente] = (porCliente[r.cliente]||0)+r.valor; });
-  const topCliente = Object.entries(porCliente).sort((a,b)=>b[1]-a[1])[0];
+  const diasComDados = new Set(doMes.map(r=>r.dataISO).filter(Boolean)).size;
+  const diasUteisMes = contarDiasUteis(ano, mes);
+  const mediaDia = diasComDados ? receita/diasComDados : 0;
+  const projecao = mediaDia * diasUteisMes;
+  const faltaMeta = META_MENSAL - receita;
+  const pctAtingido = META_MENSAL ? (receita/META_MENSAL*100) : 0;
+  const pctProjecao = META_MENSAL ? (projecao/META_MENSAL*100) : 0;
+  const diffProjecaoMeta = projecao - META_MENSAL;
 
-  const porRep = {};
-  doMes.forEach(r=>{ porRep[r.representante] = (porRep[r.representante]||0)+r.valor; });
-  const topRep = Object.entries(porRep).sort((a,b)=>b[1]-a[1])[0];
+  // Crescimento vs mês anterior / ano anterior: mesmo corte de dia do mês.
+  const ultimoDiaComDado = Math.max(...Array.from(new Set(doMes.map(r=>r.dataISO).filter(Boolean))).map(d=>parseInt(d.slice(8,10),10)));
+  function receitaAteODia(mesRef, diaLimite){
+    return linhas.filter(r=>r.mes===mesRef && r.dataISO && parseInt(r.dataISO.slice(8,10),10)<=diaLimite).reduce((s,r)=>s+r.valor,0);
+  }
+  const mesAnt = mesAnteriorDe(mesAtual);
+  const anoAnt = anoAnteriorDe(mesAtual);
+  const receitaMesAnt = receitaAteODia(mesAnt, ultimoDiaComDado);
+  const receitaAnoAnt = receitaAteODia(anoAnt, ultimoDiaComDado);
+  const cresMes = receitaMesAnt ? (receita-receitaMesAnt)/receitaMesAnt*100 : null;
+  const cresAno = receitaAnoAnt ? (receita-receitaAnoAnt)/receitaAnoAnt*100 : null;
 
   const nomesMes = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
-  const [ano,mm] = mesAtual.split('-');
-  const nomeMes = `${nomesMes[parseInt(mm,10)-1]}/${ano}`;
+  const dataIni = `01/${String(mes).padStart(2,'0')}/${ano}`;
+  const ultimaData = Array.from(new Set(doMes.map(r=>r.dataISO).filter(Boolean))).sort().slice(-1)[0];
+  const dataFim = ultimaData ? ultimaData.split('-').reverse().join('/') : dataIni;
 
-  let texto = `Em ${nomeMes}, a receita faturada foi de ${fmtBRLFull(receita)}, distribuída entre ${new Set(doMes.map(r=>r.cliente)).size} clientes.`;
-  if(receitaAnt){
-    const pct = (receita-receitaAnt)/receitaAnt*100;
-    texto += ` Isso representa uma variação de ${pct>=0?'+':''}${pct.toFixed(1).replace('.',',')}% em relação ao mês anterior (${fmtBRLFull(receitaAnt)}).`;
+  let texto = `📊 *Análise de Resultados de Vendas –* ${nomesMes[mes-1]} de ${ano}\n`;
+  texto += `🌟  *Alkanse*\n`;
+  texto += `🗓 *Período:* ${dataIni} - ${dataFim}\n`;
+  texto += `💰 *Receita Captada:* ${fmtBRLFull(receita)}\n`;
+  texto += `🎯 *Meta do mês:* ${fmtBRLFull(META_MENSAL)}\n`;
+  texto += `🏁 *Falta para a meta:* ${fmtBRLFull(faltaMeta)}\n`;
+  texto += `✅ *% atingido:* ${pctAtingido.toFixed(1).replace('.',',')}%\n`;
+  texto += `🧮 *Dias com faturamento:* ${diasComDados}\n`;
+  texto += `📆 *Dias úteis do mês:* ${diasUteisMes}\n`;
+  texto += `📊 *Média/dia (faturamento):* ${fmtBRLFull(mediaDia)}\n`;
+  texto += `🚀 *Projeção do mês (dias úteis):* ${fmtBRLFull(projecao)}\n`;
+  if(diffProjecaoMeta < 0){
+    texto += `📌 *Projeção vs Meta:* Ficaria abaixo da meta em ${fmtBRLFull(-diffProjecaoMeta)} (${pctProjecao.toFixed(1).replace('.',',')}%)\n`;
   } else {
-    texto += ` Ainda não há dado do mês anterior acumulado na base pra comparação.`;
+    texto += `📌 *Projeção vs Meta:* Superaria a meta em ${fmtBRLFull(diffProjecaoMeta)} (${pctProjecao.toFixed(1).replace('.',',')}%)\n`;
   }
-  if(topCliente) texto += `\n\nO cliente com maior faturamento no mês foi ${topCliente[0]}, com ${fmtBRLFull(topCliente[1])} (${((topCliente[1]/receita)*100).toFixed(0)}% da receita total).`;
-  if(topRep) texto += ` O representante com melhor performance foi ${topRep[0]}, respondendo por ${fmtBRLFull(topRep[1])}.`;
+  if(cresMes!==null) texto += `📈 *Crescimento vs Mês:* ${cresMes>=0?'':'-'}${Math.abs(cresMes).toFixed(0)}% (${fmtBRLFull(Math.abs(receita-receitaMesAnt))})\n`;
+  if(cresAno!==null) texto += `📈 *Crescimento vs Ano:* ${cresAno>=0?'':'-'}${Math.abs(cresAno).toFixed(0)}% (${fmtBRLFull(Math.abs(receita-receitaAnoAnt))})\n`;
+  texto += `🛒 *Ticket Médio:* ${fmtBRLFull(ticketMedio)}\n`;
+  texto += LINK_ANALISE;
 
-  el('textoAnalitico').textContent = texto;
+  el('analiseWhatsTexto').textContent = texto;
 }
 
 function renderTudo(){
   const linhas = linhasFiltradas();
   renderKpisEGraficos(linhas);
   renderChartEvolucao();
+  renderSugestoes(linhas);
   renderTabelaMatriz(linhas);
-  renderTextoAnalitico(linhas);
+  renderAnaliseWhats(linhas);
 }
 
 async function init(){
@@ -633,6 +745,18 @@ async function init(){
     el('appBtnDark').addEventListener('click', ()=>appApplyTheme('dark'));
     el('appBtnLight').addEventListener('click', ()=>appApplyTheme('light'));
     el('buscaMatriz').addEventListener('input', renderTudo);
+    el('btnCopiarWhats').addEventListener('click', async ()=>{
+      try{
+        await navigator.clipboard.writeText(el('analiseWhatsTexto').textContent);
+        const btn = el('btnCopiarWhats'); const orig = btn.textContent;
+        btn.textContent = '✅ Copiado!'; setTimeout(()=>{ btn.textContent = orig; }, 1800);
+      }catch(e){ alert('Não consegui copiar automaticamente. Selecione o texto e copie manualmente.'); }
+    });
+
+    // Modal fecha ao clicar fora ou apertar Esc.
+    el('clientModal').addEventListener('click', e=>{ if(e.target.id==='clientModal') closeClientModal(); });
+    document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeClientModal(); });
+
     appApplyTheme(localStorage.getItem('alkanse_theme') || 'light');
 
     await loadData();
