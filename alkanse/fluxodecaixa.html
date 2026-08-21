@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- v2026-08-18-saldos-finais: BaseDadosAlkanse > Financeiro + SALDO FINAL SAN / DELTA / BANCO no fim do fluxo -->
+<!-- v2026-08-21-performance-linhas-cache: abertura de linhas sem refazer somas pesadas | v2026-08-18-saldos-finais: BaseDadosAlkanse > Financeiro + SALDO FINAL SAN / DELTA / BANCO no fim do fluxo -->
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -1913,6 +1913,18 @@ function flattenColumns(nodes){
 
 /* ================== CÁLCULO DE VALORES ================== */
 let fcRowsByDate_ = new Map();
+// Cache de cálculo da grade. Antes, cada clique numa setinha reconstruía a
+// tabela e repetia milhares de filtros/somas iguais. Mantemos os resultados
+// enquanto a base/empresa não muda; abrir/fechar linhas passa a reaproveitar
+// tudo que já foi calculado.
+let fcCalcCache_=new Map();
+let fcFilterIds_=new WeakMap();
+let fcNextFilterId_=1;
+function fcFilterId_(fn){
+  if(!fcFilterIds_.has(fn)) fcFilterIds_.set(fn,fcNextFilterId_++);
+  return fcFilterIds_.get(fn);
+}
+function limparCacheCalculosFc_(){ fcCalcCache_.clear(); }
 function construirIndiceDatasFc_(){
   const m=new Map();
   for(const r of rows){
@@ -1928,6 +1940,8 @@ function rowsRangeFc_(start,end){
   return rows;
 }
 function sumInRange(catFilterFn, start, end){
+  const key=`sum|${selectedEmpresa||'*'}|${fcFilterId_(catFilterFn)}|${start}|${end}`;
+  if(fcCalcCache_.has(key)) return fcCalcCache_.get(key);
   let s = 0;
   const fonte=rowsRangeFc_(start,end);
   if(start===end){
@@ -1935,7 +1949,40 @@ function sumInRange(catFilterFn, start, end){
   }else{
     for(const r of fonte){ if(r.date>=start && r.date<=end && catFilterFn(r)) s += r.valor; }
   }
+  fcCalcCache_.set(key,s);
   return s;
+}
+function sumTitulosAbertosRange_(rNode,start,end){
+  const key=`tit|${selectedEmpresa||'*'}|${fcFilterId_(rNode.filter)}|${start}|${end}`;
+  if(fcCalcCache_.has(key)) return fcCalcCache_.get(key);
+  const fonte=(start===end)?rowsRangeFc_(start,end):rows;
+  let s=0;
+  for(const r of fonte){
+    if(!rNode.filter(r)) continue;
+    const dataVisual=dataVisualTituloAberto_(r);
+    if(dataVisual>=start && dataVisual<=end) s+=r.valor;
+  }
+  fcCalcCache_.set(key,s);
+  return s;
+}
+function fcNodeCacheKey_(rNode){
+  return [rNode.type||'',rNode.level||0,rNode.label||'',rNode.histKey||''].join('|');
+}
+function sumNodeRawRange_(rNode,start,end){
+  const key=`raw|${selectedEmpresa||'*'}|${fcNodeCacheKey_(rNode)}|${start}|${end}`;
+  if(fcCalcCache_.has(key)) return fcCalcCache_.get(key);
+  const fonte=rowsRangeFc_(start,end); let s=0;
+  if(start===end){ for(const r of fonte){ if(rNode.filter(r)) s+=r.valor; } }
+  else { for(const r of fonte){ if(r.date>=start&&r.date<=end&&rNode.filter(r)) s+=r.valor; } }
+  fcCalcCache_.set(key,s); return s;
+}
+function sumNodeTotalRange_(rNode,start,end){
+  const key=`tot|${selectedEmpresa||'*'}|${fcNodeCacheKey_(rNode)}|${start}|${end}`;
+  if(fcCalcCache_.has(key)) return fcCalcCache_.get(key);
+  const fonte=rowsRangeFc_(start,end); let s=0;
+  if(start===end){ for(const r of fonte){ if(rNode.filter(r)&&contaNoTotal_(r)) s+=r.valor; } }
+  else { for(const r of fonte){ if(r.date>=start&&r.date<=end&&rNode.filter(r)&&contaNoTotal_(r)) s+=r.valor; } }
+  fcCalcCache_.set(key,s); return s;
 }
 // Se houver um saldo inicial definido (ver seção "Saldo Bancário" mais abaixo),
 // datas a partir dele passam a somar em cima desse valor em vez do zero absoluto;
@@ -2294,11 +2341,52 @@ function renderFcKpiStrip(){
     </div>`).join('');
 }
 
+function todosRowNodesFc_(nodes,out=[]){
+  for(const n of (nodes||[])){
+    out.push(n);
+    if(n.children&&n.children.length) todosRowNodesFc_(n.children,out);
+  }
+  return out;
+}
+let fcPrewarmToken_=0;
+function preaquecerGradeFc_(){
+  const token=++fcPrewarmToken_;
+  const cols=flattenColumns(columnTree);
+  const nodes=todosRowNodesFc_(rowTree).filter(n=>!n.special);
+  const jobs=[];
+  for(const n of nodes) for(const c of cols) jobs.push([n,c]);
+  let i=0;
+  const passo=(deadline)=>{
+    if(token!==fcPrewarmToken_) return;
+    let feitas=0;
+    while(i<jobs.length && feitas<40 && (!deadline || deadline.timeRemaining()>2)){
+      const [n,c]=jobs[i++];
+      const dynStart=c.start<=HISTORICO_OFICIAL_ATE?HISTORICO_DINAMICO_DESDE:c.start;
+      if(c.end>=HISTORICO_DINAMICO_DESDE){
+        if(n.label===CATEGORIA_TITULOS_ABERTO) sumTitulosAbertosRange_(n,dynStart,c.end);
+        else if(n.label===CATEGORIA_CHEQUE_TERCEIROS || n.label===CATEGORIA_BANCO_TERA) sumNodeRawRange_(n,dynStart,c.end);
+        else sumNodeTotalRange_(n,dynStart,c.end);
+      }
+      feitas++;
+    }
+    if(i<jobs.length){
+      if(window.requestIdleCallback) requestIdleCallback(passo,{timeout:120});
+      else setTimeout(()=>passo(null),16);
+    }
+  };
+  if(window.requestIdleCallback) requestIdleCallback(passo,{timeout:120});
+  else setTimeout(()=>passo(null),40);
+}
+
 function buildAndRenderTable(){
+  limparCacheCalculosFc_();
   construirIndiceDatasFc_();
   columnTree = buildColumnTree();
   rowTree = buildRowTree();
   renderTable();
+  // Pré-calcula em segundo plano os valores das linhas ainda fechadas. Assim,
+  // quando o usuário clica numa setinha, os números já estão no cache.
+  preaquecerGradeFc_();
   renderDebugStats();
   // Rola uma única vez para hoje. Evita três reposicionamentos seguidos, que
   // causavam pequenos engasgos em máquinas mais lentas.
@@ -2404,16 +2492,11 @@ function renderTable(){
 
         if(temParteDinamica){
           if(rNode.label === CATEGORIA_TITULOS_ABERTO){
-            const fonteTit = (dynStart===c.end) ? rowsRangeFc_(dynStart,c.end) : rows;
-            dynPart = fonteTit.reduce((s,r)=>{
-              if(!rNode.filter(r)) return s;
-              const dataVisual = dataVisualTituloAberto_(r);
-              return (dataVisual>=dynStart && dataVisual<=c.end) ? s+r.valor : s;
-            },0);
+            dynPart = sumTitulosAbertosRange_(rNode,dynStart,c.end);
           } else if(rNode.label === CATEGORIA_CHEQUE_TERCEIROS || rNode.label === CATEGORIA_BANCO_TERA){
-            dynPart = sumInRange(rNode.filter, dynStart, c.end);
+            dynPart = sumNodeRawRange_(rNode,dynStart,c.end);
           } else {
-            dynPart = sumInRange(r => rNode.filter(r) && contaNoTotal_(r), dynStart, c.end);
+            dynPart = sumNodeTotalRange_(rNode,dynStart,c.end);
           }
         }
 
@@ -2422,16 +2505,11 @@ function renderTable(){
         }else{
           // Linha que não existia no documento antigo: mantém o cálculo normal.
           if(rNode.label === CATEGORIA_TITULOS_ABERTO){
-            const fonteTit = (c.start===c.end) ? rowsRangeFc_(c.start,c.end) : rows;
-            val = fonteTit.reduce((s,r)=>{
-              if(!rNode.filter(r)) return s;
-              const dataVisual = dataVisualTituloAberto_(r);
-              return (dataVisual>=c.start && dataVisual<=c.end) ? s+r.valor : s;
-            },0);
+            val = sumTitulosAbertosRange_(rNode,c.start,c.end);
           } else if(rNode.label === CATEGORIA_CHEQUE_TERCEIROS || rNode.label === CATEGORIA_BANCO_TERA){
-            val = sumInRange(rNode.filter, c.start, c.end);
+            val = sumNodeRawRange_(rNode,c.start,c.end);
           } else {
-            val = sumInRange(r => rNode.filter(r) && contaNoTotal_(r), c.start, c.end);
+            val = sumNodeTotalRange_(rNode,c.start,c.end);
           }
         }
         const clickable = Math.round(val) !== 0 && c.end >= HISTORICO_DINAMICO_DESDE;
@@ -2998,14 +3076,13 @@ function renderTableSuave_(){
   fcRenderAgendado_=true;
   const wrap=document.querySelector('.fc-wrap');
   if(wrap) wrap.classList.add('fc-rendering');
-  // deixa o navegador pintar o clique/estado antes do cálculo pesado
-  requestAnimationFrame(()=>setTimeout(()=>{
+  requestAnimationFrame(()=>{
     try{ renderTable(); }
     finally{
       fcRenderAgendado_=false;
       if(wrap) wrap.classList.remove('fc-rendering');
     }
-  },0));
+  });
 }
 function toggleColumn(key){
   const node = findColumnNode(columnTree, key);
