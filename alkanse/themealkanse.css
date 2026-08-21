@@ -9,3 +9,34 @@ html.light{--navy:#F6F9FC;--navy2:#FFFFFF;--navy3:#F1F6FB;--navy4:#E8FAF8;--cyan
 .app-nav a:hover,.topbar nav a:hover{background:var(--navy3)!important;color:var(--text)!important}
 .app-nav a.active,.topbar nav a.active{background:linear-gradient(90deg,var(--blue),var(--cyan))!important;color:#fff!important}
 .app-right,.topbar .right{display:flex!important;align-items:center!important;gap:10px!important;flex:none!important;margin-left:auto!important}
+
+/* ===== Topbar único Alkanse — réplica do padrão Mebrasi ===== */
+.app-topbar,
+.topbar.app-topbar{
+  display:flex!important;align-items:center!important;gap:18px!important;
+  padding:12px 24px!important;background:var(--navy2)!important;
+  border-bottom:1px solid var(--border2)!important;position:sticky!important;
+  top:0!important;z-index:100!important;flex-wrap:nowrap!important;overflow-x:auto!important;
+  min-height:50px;
+}
+.app-brand,.brand.app-brand{
+  display:flex!important;align-items:center!important;gap:10px!important;
+  font-weight:800!important;font-size:14px!important;flex:none!important;white-space:nowrap!important;
+}
+.app-brand .dot,.brand.app-brand .dot{
+  width:8px;height:8px;border-radius:50%;background:linear-gradient(135deg,var(--cyan),var(--blue));flex:none;
+}
+.app-nav,.primary-nav.app-nav{
+  display:flex!important;align-items:center!important;gap:4px!important;
+  flex:none!important;flex-wrap:nowrap!important;min-width:max-content!important;
+}
+.app-nav a,.primary-nav.app-nav a{
+  padding:8px 14px!important;border-radius:999px!important;font-size:12.5px!important;
+  font-weight:600!important;color:var(--text3)!important;transition:all .15s!important;
+  white-space:nowrap!important;flex:none!important;text-decoration:none!important;position:relative!important;
+}
+.app-nav a:hover,.primary-nav.app-nav a:hover{background:var(--navy3)!important;color:var(--text)!important;}
+.app-nav a.active,.primary-nav.app-nav a.active{background:linear-gradient(90deg,var(--blue),var(--cyan))!important;color:#fff!important;}
+.app-right,.right.app-right{display:flex!important;align-items:center!important;gap:10px!important;flex:none!important;margin-left:auto!important;}
+.logo-gpsbi{display:none!important;}
+@media(max-width:760px){.app-topbar,.topbar.app-topbar{padding:10px 14px!important;}}
