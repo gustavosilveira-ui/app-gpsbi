@@ -732,21 +732,31 @@ async function loadVendedoresClientes_(){
       const chave=normalizeTxt(cliente);
       if(!candidatos[chave]||data>=candidatos[chave].data) candidatos[chave]={vendedor,data};
     });
-    Object.entries(candidatos).forEach(([k,v])=>vendedorPorCliente[k]=v.vendedor);
+    Object.entries(candidatos).forEach(([k,v])=>vendedorPorCliente[k]=limparNomeVendedor_(v.vendedor));
   }catch(e){ console.warn('Não foi possível carregar cliente x vendedor da aba comercial:',e); }
 }
+function limparNomeVendedor_(valor){
+  let s=(valor||'').toString().trim();
+  if(!s) return '';
+  // A base comercial pode trazer o vendedor concatenado com telefone/código.
+  // Ex.: "ANGELO DE LUCCA _98716-2696" -> "ANGELO DE LUCCA".
+  s=s.replace(/\s+[_|/\-]+\s*\(?\d[\d\s().-]{5,}.*$/,'').trim();
+  s=s.replace(/\s+\(?\d{2}\)?\s*9?\d{4}[-\s]?\d{4}.*$/,'').trim();
+  s=s.replace(/\s+_+\s*\d.*$/,'').trim();
+  return s.replace(/\s{2,}/g,' ');
+}
 function vendedorDaLinha_(r,nome){
-  const direto=(getColNormalized(r,'vendedor')||getColNormalized(r,'responsavel')||getColNormalized(r,'consultor')||getColNormalized(r,'comercial')||'').toString().trim();
+  const direto=limparNomeVendedor_(getColNormalized(r,'vendedor')||getColNormalized(r,'responsavel')||getColNormalized(r,'consultor')||getColNormalized(r,'comercial')||'');
   if(direto) return direto;
   const chave=normalizeTxt(nome||'').trim();
-  if(chave && vendedorPorCliente[chave]) return vendedorPorCliente[chave];
+  if(chave && vendedorPorCliente[chave]) return limparNomeVendedor_(vendedorPorCliente[chave]);
 
   // Fallback para pequenas diferenças de cadastro entre Financeiro e Comercial
   // Ex.: "FM GRAVAÇÕES" x "FM GRAVAÇÕES LTDA".
   if(chave.length>=5){
     const candidatos=Object.entries(vendedorPorCliente).filter(([k])=>k.includes(chave)||chave.includes(k));
     const vendedores=[...new Set(candidatos.map(([,v])=>v).filter(Boolean))];
-    if(vendedores.length===1) return vendedores[0];
+    if(vendedores.length===1) return limparNomeVendedor_(vendedores[0]);
   }
   return 'Não informado';
 }
